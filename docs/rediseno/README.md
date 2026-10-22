@@ -25,7 +25,7 @@ yendo a `main` sobre la paleta actual.
 | Lote | Tarjeta | Alcance | Estado |
 |---|---|---|---|
 | 0 | RED-00 | Fundamentos: variables, estilos, componentes base y 2–3 direcciones del Inicio del estudiante | Dirección B elegida; faltan componentes en Figma |
-| 1 | RED-01 | Estudiante (18 pantallas) | En curso en el lienzo de Claude |
+| 1 | RED-01 | Estudiante (18 pantallas) | Completo en el lienzo de Claude; falta la revisión y pasarlo a Figma |
 | 2 | RED-02 | Docente (20) | Pendiente |
 | 3 | RED-03 | Jefe de carrera, ayudante y dashboards (11) | Pendiente |
 | 4 | RED-04 | Administración (15) | Pendiente |
@@ -95,7 +95,7 @@ Claude, por tandas:
 | 1 | Inicio, Mis cursos, Ficha del curso · Actividades, Actividad por entregar | Publicada |
 | 2 | Ficha del curso · Resumen de notas, Ficha del curso · Mensajería, Actividad calificada | Publicada |
 | 3 | Ficha del curso · Programa, Biblioteca, Calendario y Bitácora; Programa para imprimir | Publicada |
-| 4 | Perfil, Cambiar contraseña, modales (agenda, subir entrega, rúbrica), estados vacíos y de error | Pendiente |
+| 4 | Perfil, Cambiar contraseña, modales (agenda, subir entrega, rúbrica), estados vacíos y de error | Publicada |
 
 Criterios de la tanda 2:
 
@@ -128,6 +128,31 @@ Criterios de la tanda 3:
   tiempo. Cada tipo tiene su color y su etiqueta, y cada entrada lleva a la agenda de su actividad.
 - **Programa para imprimir:** una sola columna de lectura en una hoja con la franja del curso, para que se imprima limpio.
   En móvil, las tablas pasan a listas.
+
+Criterios de la tanda 4:
+
+- **Tokens nuevos:** `--error` y `--error-s` (#B42318 sobre #FEF3F2 en claro, #FDA29B sobre #3A1515 en oscuro) y
+  `--velo` para el fondo de las ventanas. El rojo sólo aparece en errores reales: campo inválido, contraseña actual
+  incorrecta, entrega fallida y error de carga.
+- **Perfil:** cabecera noche con el nombre; los datos de contacto (lo único editable, T10) van al centro, y al lado
+  «Cuenta» (cambiar contraseña, foto en la Intranet) y los datos de la Intranet en sólo lectura. La ventana que sólo
+  avisaba que la foto se cambia en la Intranet pasa a ser un enlace directo. Tiene los estados sin cambios, guardado y
+  con error.
+- **Cambiar contraseña:** mismos campos y política que `@/lib/password`. Mientras se escribe, lo que falta queda
+  neutro y lo cumplido en verde; el rojo queda para el error del servidor. Se suma el botón de mostrar contraseña, que
+  no necesita backend.
+- **Agenda:** ventana de 880 px con cabecera noche y franja del curso; en móvil, pantalla completa. Abre en el último
+  mensaje, como hoy. Muestra todos los tipos del hilo: mensajes propios y del docente, entrega vigente y reemplazada,
+  cierre de la actividad, evaluación con nota y «Ver rúbrica», y «Visto por». «Enviar» es la acción primaria.
+- **Subir entrega:** ventana por pasos (Archivo, Confirmar, Listo) con los mismos estados que `Entrega.svelte`: elegir,
+  elegido, confirmar, subiendo, registrada y error. La descripción obligatoria se marca con texto, no con un asterisco
+  rojo. En móvil es una hoja inferior con los botones a lo ancho.
+- **Rúbrica:** panel lateral de 760 px; en móvil, pantalla completa. Resumen (puntaje, corte del 4,0 al 60 %,
+  criterios), retroalimentación y cada criterio con sus niveles, puntos y descripción; el nivel asignado se marca en
+  amarillo con «Nivel asignado». La vista «antes de entregar» es la misma rúbrica sin resultado. No muestra la nota:
+  el detalle que recibe el panel no la trae.
+- **Estados:** catálogo con los textos actuales de la app: sin cursos, sin grupo, filtro sin resultados, bitácora
+  vacía, biblioteca sin programa aprobado, calendario sin fechas, mensajería cargando y bitácora con error de carga.
 
 ## Decisiones
 
