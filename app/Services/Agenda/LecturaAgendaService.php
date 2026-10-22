@@ -40,6 +40,31 @@ class LecturaAgendaService
     }
 
     /**
+     * De los mensajes indicados, los que el usuario recibió y todavía no ha
+     * visto. Los que él mismo envió no cuentan.
+     *
+     * @param  iterable<int>  $idsAgenda
+     * @return array<int, int>  Los id_agenda sin leer.
+     */
+    public function sinLeer(int $idUsuario, iterable $idsAgenda): array
+    {
+        $ids = collect($idsAgenda)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return DB::table('agenda.agenda as a')
+            ->whereIn('a.id_agenda', $ids)
+            ->where('a.id_usuario_emisor', '<>', $idUsuario)
+            ->whereNotExists(fn ($q) => $q->from('agenda.lectura_agenda as l')
+                ->whereColumn('l.id_agenda', 'a.id_agenda')
+                ->where('l.id_usuario_lector', $idUsuario))
+            ->pluck('a.id_agenda')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
      * Quiénes vieron cada mensaje, del primero al último, sin contar al
      * usuario que está mirando la pantalla (él ya sabe que lo vio).
      *

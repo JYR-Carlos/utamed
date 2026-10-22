@@ -36,6 +36,8 @@ export interface InteraccionItem {
   es_no_valido?: boolean;
   /** Sólo en el último mensaje del hilo: quiénes lo han visto (T07). */
   visto_por?: Array<{ nombre: string; fecha_lectura: string }>;
+  /** Vista del alumno: lo recibió y todavía no abre la agenda. */
+  nuevo?: boolean;
 }
 
 export interface RubricaDetalleEvent {

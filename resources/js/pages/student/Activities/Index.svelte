@@ -1,29 +1,45 @@
 <script lang="ts">
+  /**
+   * Página de una actividad para el alumno (guía dm): cabecera noche y, según
+   * el momento, por entregar (entrega, agenda, enunciado; al lado la nota que
+   * falta, el grupo y la rúbrica) o calificada (nota y retroalimentación,
+   * rúbrica evaluada, la entrega y la agenda; al lado los detalles y lo que
+   * sigue en el curso). En el móvil todo va en una columna, en el orden de
+   * lectura de cada momento.
+   */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
-  import type { BreadcrumbItem } from '@/types';
+  import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
-  import { AlertCircle, Users, X } from 'lucide-svelte';
+  import { ChevronRight, CircleAlert, Download, FileText, X } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
-  import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
-  import ActivitySubmissionCard from './cards/ActivitySubmissionCard.svelte';
-  import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
-  import { router, page } from '@inertiajs/svelte';
-  import { onMount } from 'svelte';
-  import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
   import Entrega from './Agenda/Entrega.svelte';
-  import ActivityMembersCard from './cards/ActivityMembersCard.svelte';
   import Enunciado from './Agenda/Enunciado.svelte';
+  import ActividadEncabezado from './components/ActividadEncabezado.svelte';
+  import ActividadEntrega from './components/ActividadEntrega.svelte';
+  import ActividadNota from './components/ActividadNota.svelte';
+  import ActividadRubricaEvaluada from './components/ActividadRubricaEvaluada.svelte';
+  import ActividadAgendaResumen from './components/ActividadAgendaResumen.svelte';
+  import { Link, router, page } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
+  import { etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
+  import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
+  import { fechaLimiteTexto, porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
+  import { criteriosDe, puntajeTotal } from '@/lib/rubricaAlumno';
+  import { claveDia, formatBytes, initials } from '@/utils/formatters';
+  import { titleCase } from '@/lib/utils';
 
   interface Props {
     id_curso: number;
     cod_curso: string;
+    cod_asignatura?: string | null;
     nombre_curso: string;
+    componente_tipo?: string | null;
+    actividades_curso?: ActividadAlumno[];
     cod_actividad: string;
     nombre_actividad: string;
-    descripcion: string;
     fecha_limite: string;
     es_sumativa: boolean;
     es_grupal: boolean;
@@ -38,6 +54,8 @@
       archivo?: {
         nombre_original: string | null;
         peso_bytes: number | null;
+        mime_type?: string | null;
+        visualizable?: boolean;
       } | null;
     } | null;
     estado?: string | null;
@@ -72,10 +90,12 @@
   let {
     id_curso,
     cod_curso,
+    cod_asignatura = null,
     nombre_curso,
+    componente_tipo = null,
+    actividades_curso = [],
     cod_actividad,
     nombre_actividad,
-    descripcion,
     fecha_limite,
     es_sumativa,
     es_grupal,
@@ -96,16 +116,23 @@
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Inicio', href: '/estudiante/dashboard' },
-    { title: 'Mis Cursos', href: '/estudiante/cursos' },
+    { title: 'Mis cursos', href: '/estudiante/cursos' },
     { title: nombre_curso, href: `/estudiante/cursos/${id_curso}` },
     { title: nombre_actividad, href: '' },
   ]);
+
+  // El mismo color que el curso tiene en el menú y en «Mis cursos».
+  const colorCurso = $derived(
+    estiloCurso(numeroColorCurso(id_curso, ($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? [])),
+  );
 
   let showRubricaModal = $state(false);
   let showAgendaModal = $state(false);
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
   let mensajesOptimistas = $state<InteraccionItem[]>([]);
+  // Abrió la agenda en esta visita: lo «Nuevo» ya lo vio.
+  let agendaVista = $state(false);
 
   // Avisos en línea y confirmación propia: antes eran alert() y confirm() del
   // navegador, que bloquean la página y no siguen el diseño del producto.
@@ -140,6 +167,7 @@
   // servidor cada vez que el modal pasa a abierto; el docente lo ve en su hilo.
   $effect(() => {
     if (!showAgendaModal || !id_actividad_asignada_grupo) return;
+    agendaVista = true;
     fetch(`/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda/leida`, {
       method: 'POST',
       headers: {
@@ -162,16 +190,11 @@
 
   // El backend ya calcula 'estado' (ACTIVA/CERRADA) considerando la holgura
   // de la actividad Y la holgura personal del grupo — ver
-  // ActividadAsignadaGrupo::calcularEstadoGrupo. Antes se recalculaba acá con
-  // sólo `dias_holgura` (sin la personal) y bloqueaba entregas a alumnos con
-  // holgura personal vigente.
-  const puedeApelar = false;
-
+  // ActividadAsignadaGrupo::calcularEstadoGrupo.
   const tieneEntregaRegistrada = $derived(ultima_entrega !== null);
 
-  // Última interacción de tipo evaluación: alimenta el pie de la
-  // card de nota ("Publicada {fecha} · {evaluador}") con datos reales, sin
-  // inventar una ponderación o fecha que el backend no envía.
+  // Última interacción de tipo evaluación, por si la evaluación llegó sólo
+  // por la agenda.
   const ultimaEvaluacion = $derived.by(() => {
     const interacciones = listado_interacciones ?? [];
     for (let i = interacciones.length - 1; i >= 0; i--) {
@@ -181,22 +204,93 @@
   });
 
   const yaEvaluada = $derived(
-    (ultima_nota !== null && ultima_nota !== undefined) ||
-    Boolean(ultima_evaluacion) ||
-    Boolean(ultimaEvaluacion)
+    (ultima_nota !== null && ultima_nota !== undefined) || Boolean(ultima_evaluacion) || Boolean(ultimaEvaluacion),
   );
 
-  const puedeSubirArchivo = $derived(
-    (estado === 'ACTIVA' || puedeApelar) &&
-    entrega_obligatoria &&
-    !yaEvaluada
+  const puedeSubirArchivo = $derived(estado === 'ACTIVA' && entrega_obligatoria && !yaEvaluada);
+
+  // El momento de la página: con nota (sumativa) o evaluación (formativa) la
+  // nota pasa arriba; si no, manda la entrega.
+  const calificada = $derived(es_sumativa ? ultima_nota != null : ultima_evaluacion !== null);
+
+  // La rúbrica que se usó al evaluar; si no hay evaluación, la vigente.
+  const rubricaVista = $derived(ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? rubrica?.rubrica ?? null);
+  const resultado = $derived(ultima_evaluacion?.resultado ?? ultimaEvaluacion?.resultado ?? null);
+  const criterios = $derived(criteriosDe(rubricaVista, resultado));
+  // Como antes: la rúbrica es cosa de las sumativas.
+  const conRubrica = $derived(es_sumativa && criterios.length > 0);
+  const rubricaEvaluada = $derived(
+    conRubrica && calificada && criterios.some((c) => c.obtenido !== null),
   );
+  const rubricaDeLaEvaluacion = $derived(ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? null);
 
   // Enunciado.svelte sólo distingue 'pdf' (previsualizable en iframe) del
   // resto (prompt de descarga); no tiene una rama específica para imágenes.
   const tipoEnunciado = $derived.by((): 'pdf' | 'otro' => {
     return archivo_enunciado?.mime_type === 'application/pdf' ? 'pdf' : 'otro';
   });
+  const urlEnunciado = $derived(`/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/enunciado/descargar`);
+  const detalleEnunciado = $derived.by(() => {
+    if (!archivo_enunciado) return '';
+    const ext = archivo_enunciado.nombre_original.split('.').pop()?.toUpperCase() ?? '';
+    return [ext ? `Archivo ${ext}` : '', archivo_enunciado.peso_bytes ? formatBytes(archivo_enunciado.peso_bytes) : '']
+      .filter(Boolean)
+      .join(' · ');
+  });
+
+  const modalidad = $derived(
+    es_grupal
+      ? sinGrupo
+        ? 'Grupal'
+        : `Grupal · ${resto_integrantes.length + 1} integrantes`
+      : 'Individual',
+  );
+  const chips = $derived(
+    [es_sumativa ? 'Sumativa' : 'Formativa', modalidad, componente_tipo, entrega_obligatoria ? null : 'Sin entrega'].filter(
+      (c): c is string => !!c,
+    ),
+  );
+
+  // El grupo completo, con el alumno primero.
+  const integrantes = $derived.by(() => {
+    const yo = $page.props.auth?.user;
+    const corto = (nombre1?: string | null, apellido1?: string | null) => titleCase([nombre1, apellido1].filter(Boolean).join(' '));
+    const propio = yo ? [{ id: 'yo', nombre: corto(yo.nombre1, yo.apellido1), tu: true }] : [];
+    return [
+      ...propio,
+      ...resto_integrantes.map((u) => ({ id: String(u.id_estudiante), nombre: corto(u.nombre1, u.apellido1), tu: false })),
+    ];
+  });
+
+  const hoy = claveDia();
+  const fechaLimiteDetalle = $derived(fecha_limite ? fechaLimiteTexto(fecha_limite, hoy) : 'Sin fecha límite');
+
+  // «Lo que sigue en el curso»: la próxima por entregar, si esta ya no lo está.
+  const estaPorEntregar = $derived(puedeSubirArchivo && !ultima_entrega);
+  const siguiente = $derived(
+    estaPorEntregar
+      ? null
+      : (actividades_curso.find((a) => porEntregar(a) && String(a.id_actividad) !== String(cod_actividad)) ?? null),
+  );
+
+  function plazoSiguiente(a: ActividadAlumno): { texto: string; tono: 'warn' | 'off' } {
+    const dia = a.fecha_limite?.slice(0, 10) ?? '';
+    if (!dia) return { texto: 'Sin fecha límite', tono: 'off' };
+    if (dia < hoy) return { texto: 'Atrasada · aún se recibe', tono: 'warn' };
+    const t = fechaLimiteTexto(dia, hoy);
+    const minuscula = `${t.charAt(0).toLowerCase()}${t.slice(1)}`;
+    return {
+      texto: /^(Hoy|Mañana)/.test(t) ? `Vence ${minuscula}` : `Vence el ${minuscula}`,
+      tono: dia === hoy ? 'warn' : 'off',
+    };
+  }
+
+  // Orden de lectura en el móvil, donde las dos columnas se vuelven una.
+  const orden = $derived(
+    calificada
+      ? { nota: 'max-lg:order-1', evaluada: 'max-lg:order-2', entrega: 'max-lg:order-3', agenda: 'max-lg:order-4', detalles: 'max-lg:order-5', integrantes: 'max-lg:order-6', rubrica: 'max-lg:order-7', siguiente: 'max-lg:order-8', enunciado: 'max-lg:order-9' }
+      : { entrega: 'max-lg:order-1', agenda: 'max-lg:order-2', nota: 'max-lg:order-3', integrantes: 'max-lg:order-4', enunciado: 'max-lg:order-5', rubrica: 'max-lg:order-6', detalles: 'max-lg:order-7', siguiente: 'max-lg:order-8', evaluada: 'max-lg:order-9' },
+  );
 
   function toggleRubricaModal() {
     showRubricaModal = !showRubricaModal;
@@ -290,100 +384,205 @@
 </svelte:head>
 
 <StudentLayout {breadcrumbs}>
-  <div class="min-h-screen bg-gray-50">
-    <div class="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-6 lg:px-8">
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
-        <main class="flex flex-col gap-5">
-          {#if avisoError}
-            <div
-              role="alert"
-              class="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-900"
-            >
-              <AlertCircle class="mt-0.5 h-4 w-4 shrink-0 text-red-700" aria-hidden="true" />
-              <p class="flex-1">{avisoError}</p>
-              <button
-                type="button"
-                class="shrink-0 text-red-700 hover:text-red-900"
-                aria-label="Cerrar aviso"
-                onclick={() => (avisoError = null)}
-              >
-                <X class="h-4 w-4" />
-              </button>
+  <div style={colorCurso} class="mx-auto flex w-full max-w-280 flex-col gap-5 pb-10 lg:gap-6 lg:px-10 lg:pt-8 lg:pb-12">
+    <ActividadEncabezado
+      idCurso={id_curso}
+      codigo={cod_asignatura ?? ''}
+      nombreCurso={nombre_curso}
+      nombre={nombre_actividad}
+      {chips}
+      onVerEnunciado={archivo_enunciado ? toggleEnunciadoModal : undefined}
+      onVerRubrica={conRubrica && !rubricaEvaluada ? toggleRubricaModal : undefined}
+    />
+
+    <div class="flex flex-col gap-4 px-4 lg:px-0">
+      {#if avisoError}
+        <div role="alert" class="flex items-start gap-2.5 rounded-xl border border-dm-error bg-dm-error-s py-1 pr-1 pl-4 text-dm-error">
+          <CircleAlert size={18} aria-hidden="true" class="mt-2.5 shrink-0" />
+          <p class="flex-1 py-2.5 text-sm leading-5 text-dm-ink">{avisoError}</p>
+          <button
+            type="button"
+            class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-dm-tarjeta"
+            aria-label="Cerrar aviso"
+            onclick={() => (avisoError = null)}
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+      {/if}
+
+      <div class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6">
+        <div class="flex min-w-0 flex-col gap-6 max-lg:contents">
+          {#if calificada}
+            <div class={orden.nota}>
+              <ActividadNota
+                esSumativa={es_sumativa}
+                esGrupal={es_grupal}
+                nota={es_sumativa ? (ultima_nota ?? null) : null}
+                evaluada
+                notaGrupo={nota_grupo}
+                ajusteDecimas={ajuste_decimas}
+                fecha={ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision ?? null}
+                evaluador={ultima_evaluacion?.emisor ?? ultimaEvaluacion?.emisor ?? null}
+                puntaje={ultima_evaluacion?.puntaje_obtenido ?? ultimaEvaluacion?.puntaje_obtenido ?? null}
+                puntajeTotal={puntajeTotal(rubricaDeLaEvaluacion)}
+                resultado={es_sumativa ? null : ultima_evaluacion?.evaluacion_obtenida ? String(ultima_evaluacion.evaluacion_obtenida) : null}
+                retroalimentacion={ultima_evaluacion?.retroalimentacion ?? ultimaEvaluacion?.mensaje ?? null}
+              />
             </div>
           {/if}
 
-          <ActivityHeaderCard
-            {nombre_actividad}
-            {nombre_curso}
-            {descripcion}
-            {es_sumativa}
-            {entrega_obligatoria}
-            {rubrica}
-            onVerRubricaClick={toggleRubricaModal}
-            {archivo_enunciado}
-            onVerEnunciadoClick={toggleEnunciadoModal}
-            urlDescargaEnunciado={archivo_enunciado
-              ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/enunciado/descargar`
-              : null}
-          />
+          {#if rubricaEvaluada}
+            <div class={orden.evaluada}>
+              <ActividadRubricaEvaluada {criterios} onVerCompleta={toggleRubricaModal} />
+            </div>
+          {/if}
 
-          {#if sinGrupo}
-            <section class="flex items-start gap-3 rounded-xl border border-slate-300 bg-slate-100/70 p-5 md:p-6">
-              <Users class="mt-0.5 h-5 w-5 shrink-0 text-slate-600" aria-hidden="true" />
-              <div class="flex flex-col gap-1">
-                <h2 class="text-base font-bold text-ink">
-                  {es_grupal ? 'Aún no tienes grupo en esta actividad' : 'Tu registro en esta actividad aún no está listo'}
-                </h2>
-                <p class="text-[13px] text-ink-2">
-                  {es_grupal
-                    ? 'Cuando tu docente te asigne a un grupo podrás entregar y escribir en la agenda. Si crees que es un error, avísale.'
-                    : 'Avisa a tu docente para que lo revise: sin él no puedes entregar ni escribir en la agenda.'}
-                </p>
-              </div>
-            </section>
-          {:else if fecha_limite || entrega_obligatoria}
-            <ActivitySubmissionCard
-              {fecha_limite}
-              {estado}
-              {entrega_obligatoria}
-              esGrupal={es_grupal}
-              {yaEvaluada}
-              {puedeSubirArchivo}
-              {ultima_entrega}
-              urlDescarga={ultima_entrega
-                ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
-                : null}
-              onSubirClick={toggleEntregaModal}
-              onReemplazarClick={toggleEntregaModal}
-              onBorrarClick={handleBorrarEntrega}
-            />
+          {#if entrega_obligatoria || sinGrupo}
+            <div class={orden.entrega}>
+              <ActividadEntrega
+                fechaLimite={fecha_limite}
+                {estado}
+                esGrupal={es_grupal}
+                {sinGrupo}
+                {yaEvaluada}
+                puedeSubir={puedeSubirArchivo}
+                entrega={ultima_entrega}
+                urlDescarga={ultima_entrega
+                  ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
+                  : null}
+                onSubir={toggleEntregaModal}
+                onBorrar={handleBorrarEntrega}
+              />
+            </div>
           {/if}
 
           {#if id_actividad_asignada_grupo}
-            <ActivityAgendaCard listado_interacciones={interaccionesCombinadas} onAgendaClick={toggleAgendaModal} />
+            <div class={orden.agenda}>
+              <ActividadAgendaResumen
+                interacciones={interaccionesCombinadas}
+                esGrupal={es_grupal}
+                {calificada}
+                vista={agendaVista}
+                onAbrir={toggleAgendaModal}
+              />
+            </div>
           {/if}
-        </main>
 
-        <aside class="flex flex-col gap-5" aria-label="Contexto de la actividad">
-          
-          {#if es_sumativa ? (ultima_nota !== null && ultima_nota !== undefined) : ultima_evaluacion !== null}
-            <ActivityGradeCard
-              {ultima_nota}
-              {ajuste_decimas}
-              {nota_grupo}
-              {es_sumativa}
-              {ultima_evaluacion}
-              fecha_evaluacion={ultima_evaluacion?.fecha_emision}
-              evaluador={ultima_evaluacion?.emisor}
-              onVerRubricaClick={rubrica ? toggleRubricaModal : undefined}
-            />
+          {#if !calificada}
+            <section aria-labelledby="t-enunciado" class="{tarjeta} flex flex-col gap-3 p-4 lg:px-6 lg:py-5 {orden.enunciado}">
+              <h2 id="t-enunciado" class="text-lg leading-6 font-semibold">Qué hay que entregar</h2>
+              {#if archivo_enunciado}
+                <a
+                  href={urlEnunciado}
+                  class="flex min-h-14 items-center gap-3 rounded-[10px] border border-dm-linea px-3 py-2 text-dm-ink no-underline hover:bg-dm-sutil hover:text-dm-ink lg:min-h-13"
+                >
+                  <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-sutil text-dm-ink-2">
+                    <FileText size={18} aria-hidden="true" />
+                  </span>
+                  <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="truncate text-sm font-semibold">{archivo_enunciado.nombre_original}</span>
+                    {#if detalleEnunciado}<span class="text-[13px] leading-[18px] text-dm-ink-3">{detalleEnunciado}</span>{/if}
+                  </span>
+                  <span class="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-dm-enlace">
+                    <Download size={16} aria-hidden="true" /><span class="max-sm:sr-only">Descargar</span>
+                  </span>
+                </a>
+              {:else}
+                <p class="text-sm leading-5 text-dm-ink-2">Tu docente todavía no adjunta el enunciado de esta actividad.</p>
+              {/if}
+            </section>
           {/if}
-          
-          <ActivityMembersCard usuarios={es_grupal ? resto_integrantes : []} />
+        </div>
+
+        <aside class="flex min-w-0 flex-col gap-4 max-lg:contents" aria-label="Sobre esta actividad">
+          {#if !calificada}
+            <div class={orden.nota}>
+              <ActividadNota esSumativa={es_sumativa} esGrupal={es_grupal} nota={null} evaluada={false} />
+            </div>
+          {/if}
+
+          {#if calificada || !entrega_obligatoria}
+            <section aria-labelledby="t-detalles" class="{tarjeta} overflow-hidden {orden.detalles}">
+              <h2 id="t-detalles" class="border-b border-dm-linea px-4 py-3.5 text-lg leading-6 font-semibold lg:px-5">Detalles</h2>
+              <dl class="px-4 py-1 lg:px-5">
+                {#each [['Fecha límite', fechaLimiteDetalle], ['Tipo', es_sumativa ? 'Sumativa' : 'Formativa'], ['Modalidad', es_grupal ? 'Grupal' : 'Individual'], ['Componente', componente_tipo]] as [rotulo, valor] (rotulo)}
+                  {#if valor}
+                    <div class="flex justify-between gap-3 border-b border-dm-linea py-3 last:border-b-0">
+                      <dt class="text-sm text-dm-ink-2">{rotulo}</dt>
+                      <dd class="text-right text-sm font-semibold">{valor}</dd>
+                    </div>
+                  {/if}
+                {/each}
+              </dl>
+            </section>
+          {/if}
+
+          {#if es_grupal && !sinGrupo}
+            <section aria-labelledby="t-grupo" class="{tarjeta} overflow-hidden {orden.integrantes}">
+              <h2 id="t-grupo" class="border-b border-dm-linea px-4 py-3.5 text-lg leading-6 font-semibold lg:px-5">Integrantes</h2>
+              <ul class="px-4 lg:px-5 lg:py-1">
+                {#each integrantes as g (g.id)}
+                  <li class="flex min-h-13 items-center gap-3 border-b border-dm-linea last:border-b-0 lg:min-h-12">
+                    <span
+                      aria-hidden="true"
+                      class="flex size-8 shrink-0 items-center justify-center rounded-full bg-dm-sutil text-[13px] font-bold text-dm-ink-2"
+                      >{initials(g.nombre)}</span
+                    >
+                    <span class="text-[15px] font-medium lg:text-sm">{g.nombre}</span>
+                    {#if g.tu}<span class="text-[13px] leading-[18px] text-dm-ink-3">(tú)</span>{/if}
+                  </li>
+                {/each}
+              </ul>
+            </section>
+          {/if}
+
+          {#if conRubrica && !rubricaEvaluada}
+            <section aria-labelledby="t-rubrica" class="{tarjeta} overflow-hidden {orden.rubrica}">
+              <div class="flex items-center justify-between gap-2 border-b border-dm-linea px-4 py-3.5 lg:px-5">
+                <h2 id="t-rubrica" class="text-lg leading-6 font-semibold">Rúbrica</h2>
+                <span class="text-[13px] leading-[18px] text-dm-ink-3">
+                  {criterios.length} {criterios.length === 1 ? 'criterio' : 'criterios'}
+                </span>
+              </div>
+              <ul class="px-4 lg:px-5 lg:py-1">
+                {#each criterios as c (c.id)}
+                  <li class="flex min-h-11 items-center justify-between gap-3 border-b border-dm-linea py-2 text-sm">
+                    <span>{c.nombre}</span><span class="shrink-0 font-bold tabular-nums">{c.peso}</span>
+                  </li>
+                {/each}
+              </ul>
+              <button
+                type="button"
+                class="flex min-h-12 w-full cursor-pointer items-center gap-1 px-4 text-[15px] font-semibold text-dm-enlace hover:text-dm-enlace-hover hover:underline lg:min-h-11 lg:px-5 lg:text-sm"
+                onclick={toggleRubricaModal}
+              >
+                Ver rúbrica completa<ChevronRight size={16} aria-hidden="true" />
+              </button>
+            </section>
+          {/if}
+
+          {#if siguiente}
+            {@const plazo = plazoSiguiente(siguiente)}
+            <section aria-labelledby="t-siguiente" class="{tarjeta} flex flex-col gap-2.5 p-4 lg:p-5 {orden.siguiente}">
+              <h2 id="t-siguiente" class="{etiqueta} text-dm-ink-3">Lo que sigue en el curso</h2>
+              <Link
+                href={`/estudiante/cursos/${id_curso}/actividad/${siguiente.id_actividad}`}
+                class="flex flex-col gap-1.5 text-dm-ink no-underline hover:text-dm-ink"
+              >
+                <span class="text-base leading-[22px] font-semibold hover:underline">{siguiente.nombre}</span>
+                <span class="{pildora} {tono[plazo.tono]} self-start">{plazo.texto}</span>
+              </Link>
+              <Link
+                href={`/estudiante/cursos/${id_curso}`}
+                class="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline lg:min-h-10"
+              >
+                Ver todas las actividades<ChevronRight size={16} aria-hidden="true" />
+              </Link>
+            </section>
+          {/if}
         </aside>
       </div>
-      
-
     </div>
   </div>
 </StudentLayout>
