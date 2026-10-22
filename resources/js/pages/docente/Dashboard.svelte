@@ -14,6 +14,7 @@
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
+  import type { ComponentProps } from 'svelte';
   import { Link } from '@inertiajs/svelte';
   import { BookOpen, ClipboardCheck, Archive, CalendarOff, ArrowRight } from 'lucide-svelte';
   import { titleCase } from '@/lib/utils';
@@ -70,7 +71,7 @@
     componentes: ComponenteCurso[];
     alertasSyllabus: AlertaSyllabus[];
     mensajeria: { no_leidos: number; cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }> };
-    agendaPendiente: Array<{ quien: string; actividad_nombre: string; id_curso: number | null; cod_curso: string | null; fecha_envio: string | null }>;
+    agendaPendiente: { items: ComponentProps<typeof AgendaPendienteCard>['items']; total: number };
     proximasFechasLimite: FechaLimite[];
     jefatura: { has_access: boolean; id_contexto?: number | null; carrera?: { id_carrera: number; nombre: string } | null; pendientes_revision?: number };
     entreSemestres?: { ultimo_semestre: number | null; ultimo_agno: number | null; ultima_fecha_fin: string | null } | null;
@@ -203,14 +204,15 @@
           <PropuestaCard
             icon={ClipboardCheck}
             title="Grupos por evaluar"
-            emptyTitle="Aún no hay una lista unificada"
-            emptyDescription="Reunirá los grupos sin nota de todos tus cursos, incluyendo los que evalúas por permiso delegado. Mientras tanto, evalúa desde Calificaciones."
+            description="La lista unificada de todos tus cursos aún no está disponible."
+            href="/docente/calificaciones"
+            linkLabel="Ir a Calificaciones"
           />
         </div>
 
         <div class="flex flex-col gap-4 lg:col-span-4">
           <MensajeriaCursoCard total={mensajeria.no_leidos} cursos={mensajeria.cursos} />
-          <AgendaPendienteCard items={agendaPendiente} />
+          <AgendaPendienteCard items={agendaPendiente.items} total={agendaPendiente.total} />
         </div>
       </div>
     {/if}
