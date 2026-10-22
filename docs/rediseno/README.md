@@ -25,7 +25,7 @@ yendo a `main` sobre la paleta actual.
 | Lote | Tarjeta | Alcance | Estado |
 |---|---|---|---|
 | 0 | RED-00 | Fundamentos: variables, estilos, componentes base y 2–3 direcciones del Inicio del estudiante | Dirección B elegida; faltan componentes en Figma |
-| 1 | RED-01 | Estudiante (18 pantallas) | Completo en el lienzo de Claude; falta la revisión y pasarlo a Figma |
+| 1 | RED-01 | Estudiante (18 pantallas) | Implementado en Svelte en esta rama (ver «Implementación del lote 1»); falta la revisión y pasarlo a Figma |
 | 2 | RED-02 | Docente (20) | Pendiente |
 | 3 | RED-03 | Jefe de carrera, ayudante y dashboards (11) | Pendiente |
 | 4 | RED-04 | Administración (15) | Pendiente |
@@ -153,6 +153,56 @@ Criterios de la tanda 4:
   el detalle que recibe el panel no la trae.
 - **Estados:** catálogo con los textos actuales de la app: sin cursos, sin grupo, filtro sin resultados, bitácora
   vacía, biblioteca sin programa aprobado, calendario sin fechas, mensajería cargando y bitácora con error de carga.
+
+## Implementación del lote 1
+
+Todo el lote del estudiante está en Svelte en esta rama, desde `0f3053c` hasta `47d334d`. El docente y el admin no
+cambian.
+
+**Cómo está armado**
+
+- Tailwind 4 con los tokens de la guía en `resources/css/guia-dm.css` (`@theme static`, prefijo `dm-`) y sus valores
+  oscuros bajo `.dark`.
+- El color del curso llega por las variables `--curso`, `--curso-s`, `--curso-t`… que arma `estiloCurso()`. Las
+  ventanas van en un portal, así que reciben ese estilo por prop.
+- Las cadenas de clases que se repiten están en `resources/js/lib/dm.ts`: `btnPrimario`, `campo`, `tarjeta`,
+  `etiqueta`, etc. No se suman a una de ellas utilidades de la misma propiedad (`px-*`, `text-*`), porque el orden en el
+  CSS no está garantizado. Si hace falta otra medida, se escribe la cadena completa.
+- Los componentes compartidos con el docente se ajustan con la variante `alumno:`, que sólo aplica dentro de
+  `.vista-alumno` (StudentLayout).
+- Las piezas propias de la guía están en `resources/js/components/student/dm/`: `Reticula`, `EstadoVacio` y
+  `ModalAlumno` (Dialog de bits-ui con las variantes grande, centro y lateral).
+- `RequisitosPassword` suma el tono `dm`; los tonos claro y oscuro de ingreso y ajustes no cambian.
+
+**Cambios de backend (mínimos)**
+
+- `ActivityController` manda `exigencia` para el corte del 4,0 en la rúbrica.
+- `MensajeriaService::sinLeer()` marca con `nuevo` los mensajes que el alumno aún no había leído al abrir la bandeja,
+  antes de marcarlos como leídos. Lo cubre `tests/Feature/MensajeriaComponenteTest.php`.
+
+**Diferencias con el lienzo, por los datos que existen**
+
+- **Mensajería:** se conserva el selector de destinatario en vez de la casilla «Dirigir al titular», porque el backend
+  siempre pide un receptor (por defecto el titular). No hay «Ver N mensajes anteriores» porque no hay paginación. El
+  asunto sólo se pide al abrir una conversación nueva.
+- **Actividad:** no existe la numeración «Actividad 03» ni una columna de descripción. La rúbrica sólo aparece en las
+  sumativas.
+- **Rúbrica:** no muestra la nota, porque el detalle que recibe el panel no la trae.
+- **Perfil:** la cabecera dice «N cursos inscritos» y no «este semestre», porque `total_cursos` cuenta todas las
+  inscripciones vigentes.
+- **Actividad sin grupo:** «Escribir al equipo docente» lleva a la pestaña Mensajería del curso.
+
+**Verificación**
+
+- svelte-check queda en 9 errores, todos anteriores a la rama, y sin warnings nuevos.
+- Cada pantalla se revisó con capturas de Playwright a 1280 y 390 px, en claro y en oscuro, con datos ficticios.
+  Perfil y Contraseña se montaron con `createInertiaApp` y respuestas Inertia simuladas, para ver los estados guardado
+  y con error.
+- Las props de las páginas se probaron contra la BD local; falta recorrerlo con la sesión de un alumno real. No hay un
+  alumno de prueba con clave, y crearlo es un cambio en la BD que se tiene que pedir.
+
+**Trampa de Svelte 5:** recorta el espacio al principio y al final del contenido de una etiqueta (`<span> sin
+leer</span>` se ve «sin leer» pegado a lo anterior). Donde el espacio importa se escribe `{' '}`.
 
 ## Decisiones
 
