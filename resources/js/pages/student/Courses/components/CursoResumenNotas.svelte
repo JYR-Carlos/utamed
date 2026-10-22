@@ -22,163 +22,178 @@
 
 <script lang="ts">
   /**
-   * Pestaña «Resumen de notas» de la ficha del curso. Antes era un panel
-   * lateral que se abría desde el botón «Rendimiento» (T30); ahora es una
-   * pestaña, como en la UTAMED anterior a la que los alumnos están habituados.
+   * Pestaña «Resumen de notas» de la ficha del curso (T30): tres cifras
+   * (mi promedio, el del curso y cuántas sumativas van calificadas) y, por
+   * componente, promedios, evaluadas, regla de aprobación y la asistencia
+   * contra el mínimo.
    *
    * El promedio del curso es el promedio de los promedios de los alumnos de
    * cada componente; nunca se muestra información de otro alumno.
    */
-  import { Loader2, CalendarCheck2 } from 'lucide-svelte';
+  import { CircleAlert, CircleCheck, Info, LineChart } from 'lucide-svelte';
+  import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
+  import { btnSecundario, etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
 
   interface Props {
     cargando?: boolean;
     error?: string | null;
     rendimiento?: Rendimiento | null;
+    onReintentar?: () => void;
   }
 
-  let { cargando = false, error = null, rendimiento = null }: Props = $props();
+  let { cargando = false, error = null, rendimiento = null, onReintentar }: Props = $props();
 
   const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toFixed(1).replace('.', ','));
-  const colorNota = (n: number | null | undefined) =>
-    n == null ? 'text-slate-600' : n >= 4 ? 'text-emerald-700' : 'text-uta-red';
+  // Nota roja bajo 4,0; sin nota, el guion en gris.
+  const colorNota = (n: number | null | undefined, base = 'text-dm-ink') =>
+    n == null ? 'text-dm-ink-3' : n < 4 ? 'text-dm-error' : base;
 
   // Sumativas con nota publicada, de todos los componentes del alumno.
   const totales = $derived({
     evaluadas: rendimiento?.componentes.reduce((n, c) => n + c.actividades_evaluadas, 0) ?? 0,
     sumativas: rendimiento?.componentes.reduce((n, c) => n + c.actividades_sumativas, 0) ?? 0,
   });
+
+  const CIFRA = 'font-dm-cond text-[56px] leading-[56px] font-black tabular-nums';
+  const NUMERO = 'm-0 font-dm-cond text-[32px] leading-9 font-black tabular-nums';
 </script>
 
 {#if cargando && !rendimiento}
-  <div class="flex items-center justify-center gap-2 py-16 text-sm text-slate-600">
-    <Loader2 class="h-4 w-4 animate-spin" />
-    Calculando tu rendimiento…
-  </div>
+  <EstadoVacio tipo="cargando" titulo="Calculando tu rendimiento…" />
 {:else if error}
-  <p class="rounded-xl border border-uta-red/20 bg-uta-red-light p-4 text-sm text-uta-red">{error}</p>
+  <EstadoVacio tipo="error" titulo="No se pudo cargar el resumen" texto={error}>
+    {#snippet accion()}
+      {#if onReintentar}<button type="button" class={btnSecundario} onclick={onReintentar}>Intentar de nuevo</button>{/if}
+    {/snippet}
+  </EstadoVacio>
 {:else if rendimiento}
-  <!-- Resumen: tres tarjetas con la cifra grande y, debajo, qué significa -->
-  <section class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-    <div class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-5">
-      <p class="m-0 text-sm font-semibold text-slate-600">Mi promedio</p>
-      <p class="m-0 text-[32px] font-extrabold leading-tight tabular-nums {colorNota(rendimiento.mi_promedio)}">
-        {fmt(rendimiento.mi_promedio)}
-      </p>
-      {#if rendimiento.mi_promedio == null}
-        <p class="m-0 text-sm text-slate-600">Aún no hay actividades calificadas.</p>
-      {/if}
-    </div>
-
-    <div class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-5">
-      <p class="m-0 text-sm font-semibold text-slate-600">Promedio del curso</p>
-      <p class="m-0 text-[32px] font-extrabold leading-tight tabular-nums text-slate-900">
-        {fmt(rendimiento.promedio_curso)}
-      </p>
-    </div>
-
-    <div class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-5">
-      <p class="m-0 text-sm font-semibold text-slate-600">Actividades calificadas</p>
-      <p class="m-0 text-[32px] font-extrabold leading-tight tabular-nums text-slate-900">
-        {totales.evaluadas} de {totales.sumativas}
-      </p>
-      <p class="m-0 text-sm text-slate-600">Las notas aparecen cuando se publica la calificación.</p>
-    </div>
-  </section>
-
-  <!-- Desglose por componente -->
-  <h3 class="mb-4 text-base font-semibold text-slate-900">Por componente</h3>
-  <section class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-    {#each rendimiento.componentes as c (c.id_componente)}
-      {@const asis = c.asistencia.porcentaje}
-      {@const minimo = rendimiento.asistencia_minima}
-      {@const bajoMinimo = asis != null && asis < minimo}
-      <article class="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5">
-        <div class="flex items-baseline justify-between gap-3">
-          <span class="text-base font-bold text-slate-900">{c.tipo}</span>
-          {#if c.syllabus.porcentaje != null}
-            <span class="text-sm font-bold text-uta-blue">{c.syllabus.porcentaje}% del curso</span>
+  <div class="flex flex-col gap-6">
+    <div class="grid gap-4 md:grid-cols-3">
+      <div class="{tarjeta} flex flex-col gap-1 border-t-6 border-t-(--curso) px-5 py-4 lg:px-6 lg:py-5">
+        <span class="{etiqueta} text-dm-ink-3">Mi promedio</span>
+        <span class="{CIFRA} {colorNota(rendimiento.mi_promedio)}">{fmt(rendimiento.mi_promedio)}</span>
+        <span class="text-[13px] leading-[18px] text-dm-ink-2">
+          {#if totales.evaluadas > 0}
+            Con {totales.evaluadas}
+            {totales.evaluadas === 1 ? 'actividad sumativa calificada' : 'actividades sumativas calificadas'}
+          {:else}
+            Aún no hay actividades calificadas
           {/if}
+        </span>
+      </div>
+      <div class="{tarjeta} flex flex-col gap-1 border-t-6 border-t-dm-linea px-5 py-4 lg:px-6 lg:py-5">
+        <span class="{etiqueta} text-dm-ink-3">Promedio del curso</span>
+        <span class="{CIFRA} {rendimiento.promedio_curso == null ? 'text-dm-ink-3' : 'text-dm-ink-2'}"
+          >{fmt(rendimiento.promedio_curso)}</span
+        >
+        <span class="text-[13px] leading-[18px] text-dm-ink-2">Promedio de todo el grupo</span>
+      </div>
+      <div class="{tarjeta} flex flex-col gap-1 border-t-6 border-t-dm-linea px-5 py-4 lg:px-6 lg:py-5">
+        <span class="{etiqueta} text-dm-ink-3">Actividades calificadas</span>
+        <span class="{CIFRA} text-dm-ink-2"
+          >{totales.evaluadas}<span class="text-[28px] font-extrabold text-dm-ink-3"> de {totales.sumativas}</span></span
+        >
+        <span class="text-[13px] leading-[18px] text-dm-ink-2">Sumativas del curso</span>
+      </div>
+    </div>
+
+    <section aria-labelledby="t-por-componente" class="flex flex-col gap-4">
+      <h3 id="t-por-componente" class="text-lg leading-6 font-bold">Por componente</h3>
+      {#if rendimiento.componentes.length === 0}
+        <EstadoVacio
+          icono={LineChart}
+          titulo="Sin componentes"
+          texto="No estás inscrito en componentes de este curso."
+        />
+      {:else}
+        <div class="grid gap-4 lg:grid-cols-2">
+          {#each rendimiento.componentes as c (c.id_componente)}
+            {@const asis = c.asistencia.porcentaje}
+            {@const minimo = rendimiento.asistencia_minima}
+            {@const bajo = asis != null && asis < minimo}
+            <article class="{tarjeta} flex min-w-0 flex-col overflow-hidden">
+              <div class="flex items-center justify-between gap-3 border-b border-dm-linea px-5 py-4 lg:px-6">
+                <h4 class="font-dm-cond text-2xl leading-7 font-extrabold uppercase">{c.tipo}</h4>
+                {#if c.syllabus.porcentaje != null}
+                  <span class="{pildora} {tono.accion} font-bold">{c.syllabus.porcentaje} % del curso</span>
+                {/if}
+              </div>
+              <dl class="m-0 grid grid-cols-2 gap-x-6 gap-y-4 px-5 py-5 lg:px-6">
+                <div class="flex flex-col gap-0.5">
+                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Mi promedio</dt>
+                  <dd class="{NUMERO} {colorNota(c.mi_promedio)}">{fmt(c.mi_promedio)}</dd>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Promedio del componente</dt>
+                  <dd class="{NUMERO} {c.promedio_curso == null ? 'text-dm-ink-3' : 'text-dm-ink-2'}">{fmt(c.promedio_curso)}</dd>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Evaluadas</dt>
+                  <dd class="m-0 text-[15px] leading-[22px] font-semibold">
+                    {c.actividades_evaluadas} de {c.actividades_sumativas} sumativas{c.ponderacion_evaluada != null
+                      ? ` · ${c.ponderacion_evaluada} % del peso`
+                      : ''}
+                  </dd>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Aprobación</dt>
+                  <dd class="m-0 text-[15px] leading-[22px] font-semibold">
+                    {c.syllabus.aprobacion_obligatoria ? 'Obligatoria por separado' : 'No obligatoria por separado'}{c.exigencia !=
+                    null
+                      ? ` · exigencia ${c.exigencia} %`
+                      : ''}
+                  </dd>
+                </div>
+              </dl>
+
+              <!-- Asistencia contra el mínimo: barra con el mínimo marcado y su rótulo. -->
+              <div class="mt-auto flex flex-col gap-2.5 border-t border-dm-linea bg-dm-sutil px-5 pt-4 pb-5 lg:px-6">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-sm font-bold">
+                    Asistencia <span class="tabular-nums">{asis != null ? `${asis} %` : '· sin registro'}</span>
+                  </span>
+                  {#if asis != null}
+                    <span class="{pildora} {bajo ? tono.warn : tono.ok}">
+                      {#if bajo}<CircleAlert size={14} aria-hidden="true" />Bajo el mínimo ({minimo} %){:else}<CircleCheck
+                          size={14}
+                          aria-hidden="true"
+                        />Sobre el mínimo ({minimo} %){/if}
+                    </span>
+                  {/if}
+                </div>
+                <div
+                  role="img"
+                  aria-label={asis != null ? `Asistencia ${asis} %, mínimo ${minimo} %` : `Sin registro de asistencia, mínimo ${minimo} %`}
+                  class="relative h-2.5 rounded-full border border-dm-linea bg-dm-tarjeta"
+                >
+                  <span
+                    class="absolute inset-y-0 left-0 rounded-full {bajo ? 'bg-dm-warn' : 'bg-(--curso)'}"
+                    style="width: {Math.min(asis ?? 0, 100)}%"
+                  ></span>
+                  <span class="absolute -top-1.5 -bottom-1.5 w-0.5 bg-dm-ink" style="left: {minimo}%"></span>
+                </div>
+                <div aria-hidden="true" class="relative h-4.5 text-xs leading-[18px] text-dm-ink-3 tabular-nums">
+                  <span class="absolute left-0">0 %</span>
+                  <span class="absolute -translate-x-1/2 font-bold text-dm-ink-2" style="left: {minimo}%">mínimo</span>
+                  <span class="absolute right-0">100 %</span>
+                </div>
+                <span class="text-[13px] leading-[18px] text-dm-ink-2">
+                  {c.asistencia.total > 0
+                    ? `${c.asistencia.presentes} de ${c.asistencia.total} sesiones`
+                    : 'Aún no hay registro de asistencia.'}
+                </span>
+              </div>
+            </article>
+          {/each}
         </div>
+      {/if}
+    </section>
 
-        <dl class="m-0 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div>
-            <dt class="text-xs font-medium text-slate-600">Mi promedio</dt>
-            <dd class="m-0 font-semibold tabular-nums {colorNota(c.mi_promedio)}">{fmt(c.mi_promedio)}</dd>
-          </div>
-          <div>
-            <dt class="text-xs font-medium text-slate-600">Promedio del componente</dt>
-            <dd class="m-0 font-semibold tabular-nums text-slate-900">{fmt(c.promedio_curso)}</dd>
-          </div>
-          <div>
-            <dt class="text-xs font-medium text-slate-600">Evaluadas</dt>
-            <dd class="m-0 text-slate-900">
-              {c.actividades_evaluadas} de {c.actividades_sumativas} sumativas{#if c.ponderacion_evaluada != null}
-                <span class="text-slate-600">{` · ${c.ponderacion_evaluada}% del peso`}</span>{/if}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-xs font-medium text-slate-600">Aprobación</dt>
-            <dd class="m-0 text-slate-900">
-              {c.syllabus.aprobacion_obligatoria ? 'Obligatoria por separado' : 'No obligatoria por separado'}{#if c.exigencia != null}
-                <span class="text-slate-600">{` · exigencia ${c.exigencia}%`}</span>{/if}
-            </dd>
-          </div>
-        </dl>
-
-        <!-- Asistencia vs mínimo: riel visible, marcador de 2 px con su rótulo y escala 0–100 -->
-        <div class="flex flex-col gap-2">
-          <div class="flex items-center justify-between gap-3 text-sm">
-            <span class="inline-flex items-center gap-1.5 font-semibold text-slate-600">
-              <CalendarCheck2 class="h-4 w-4" aria-hidden="true" />
-              Asistencia
-            </span>
-            <span class="font-bold {bajoMinimo ? 'text-uta-red' : 'text-slate-900'}">
-              {asis != null ? `${asis} %` : 'Sin registro'}
-            </span>
-          </div>
-
-          <div class="relative pt-5">
-            <span
-              class="absolute top-0 -translate-x-1/2 whitespace-nowrap text-xs font-bold text-uta-blue"
-              style="left: {minimo}%"
-            >
-              Mínimo {minimo} %
-            </span>
-            <div
-              class="relative h-3 rounded-full border border-slate-300 bg-slate-200"
-              role="progressbar"
-              aria-label="Asistencia"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={asis ?? 0}
-            >
-              <div
-                class="h-full rounded-full {bajoMinimo ? 'bg-uta-red' : 'bg-uta-blue'}"
-                style="width: {Math.min(asis ?? 0, 100)}%"
-              ></div>
-              <span
-                class="absolute -inset-y-1.5 w-0.5 bg-uta-blue"
-                style="left: {minimo}%"
-                aria-hidden="true"
-              ></span>
-            </div>
-          </div>
-          <div class="flex justify-between text-xs font-medium text-slate-600">
-            <span>0 %</span>
-            <span>100 %</span>
-          </div>
-          <p class="m-0 text-[13px] text-slate-600">
-            {#if c.asistencia.total > 0}
-              {c.asistencia.presentes} de {c.asistencia.total} sesiones
-            {:else}
-              Aún no hay registro de asistencia.
-            {/if}
-          </p>
-        </div>
-      </article>
-    {:else}
-      <p class="text-sm text-slate-600 lg:col-span-2">No estás inscrito en componentes de este curso.</p>
-    {/each}
-  </section>
+    <div class="flex gap-3 rounded-xl bg-dm-info-s px-5 py-3.5 text-dm-info">
+      <Info size={20} aria-hidden="true" class="mt-px shrink-0" />
+      <p class="text-sm leading-5 text-dm-ink">
+        El promedio del curso es el promedio de los promedios de cada estudiante. Nunca ves notas de otras personas.
+      </p>
+    </div>
+  </div>
 {/if}

@@ -2,12 +2,12 @@
  * Módulo Actividad — barrel principal.
  *
  * Actividades evaluables de un curso (sumativas/formativas, grupales o
- * individuales). El CRUD es del docente; el estudiante solo consume
- * ActividadCard en su vista de actividades.
+ * individuales). El CRUD es del docente; la vista del estudiante tiene sus
+ * propios componentes (pages/student).
  */
 
 // Componentes
-export { ActividadForm, ActividadCard } from './components';
+export { ActividadForm } from './components';
 
 // Services
 export {

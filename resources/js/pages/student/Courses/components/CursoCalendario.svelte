@@ -8,40 +8,31 @@
    * Calendario del curso (vista del alumno): las fechas límite de las
    * actividades, en un mes o como agenda.
    *
-   * Dos alcances: «Esta asignatura» (las actividades del curso, que ya trae la
-   * ficha) y «Ver todos» (las de todos los cursos inscritos del mismo
-   * período, que se piden al elegirlo). En esa vista cada marca y cada tarjeta
-   * llevan el nombre de su asignatura; en la celda del día se corta, y al pasar
-   * el cursor la marca muestra asignatura, actividad, estado y plazo completos.
+   * Dos alcances: «Este curso» (las actividades del curso, que ya trae la
+   * ficha) y «Todo el semestre» (las de todos los cursos inscritos del mismo
+   * período, que se piden al elegirlo). En esa vista cada fecha lleva el
+   * punto del color de su curso y su código o nombre.
    *
    * Es de solo lectura y sólo dibuja lo que el alumno puede actuar: la fecha
-   * límite de cada actividad visible, con su estado (vencida sin entrega, cierra
-   * pronto, entregada, pendiente). El estado nunca va sólo en el color: cada
-   * marca lleva ícono y texto, y el detalle del día repite el plazo en palabras.
+   * límite de cada actividad visible, con su estado (vencida, cierra pronto,
+   * entregada, sumativa, formativa, sin entrega). El estado nunca va sólo en
+   * el color: cada marca lleva ícono y el detalle lo dice en palabras.
    *
-   * - Mes: grilla de semanas que parten en lunes. Cada día es un botón; en
-   *   pantallas angostas muestra puntos de estado y en escritorio, las marcas.
-   *   Las flechas mueven el foco entre días.
-   * - Agenda: los días del mes que tienen fechas, en orden. Es la vista por
-   *   defecto en móvil, donde la grilla sólo sirve para ubicarse.
-   *
-   * Pulsar un día abre su detalle bajo la grilla, con las mismas tarjetas de la
-   * pestaña Actividades; desde ahí se entra a la actividad.
+   * - Escritorio: grilla del mes (o agenda) y, al lado, el detalle del día
+   *   elegido y la leyenda. Las flechas mueven el foco entre días.
+   * - Móvil: la grilla compacta con puntos, el detalle del día y, debajo, la
+   *   agenda del mes.
    */
-  import { Link, router } from '@inertiajs/svelte';
-  import { AlertCircle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock } from 'lucide-svelte';
-  import { onMount, tick } from 'svelte';
-  import ActividadCard from '@/modules/resources/actividad/components/actividadCard.svelte';
-  import {
-    DIAS_SEMANA,
-    MESES,
-    buildMonthMatrix,
-    formatLargo,
-    formatMedio,
-    sumarDias,
-    todayKey,
-  } from '@/modules/resources/calendario';
-  import { diasHasta } from '@/utils/formatters';
+  import { Link, page, router } from '@inertiajs/svelte';
+  import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock } from 'lucide-svelte';
+  import { tick } from 'svelte';
+  import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
+  import { fechaLimiteTexto } from '@/lib/actividadAlumno';
+  import { numeroColorCurso } from '@/lib/colorCurso';
+  import { btnSecundario, etiqueta, pildora, tarjeta } from '@/lib/dm';
+  import { DIAS_SEMANA, MESES, buildMonthMatrix, formatLargo, sumarDias, todayKey } from '@/modules/resources/calendario';
+  import type { SidebarCourse } from '@/types';
+  import { diasHasta, formatDiaCorto } from '@/utils/formatters';
 
   interface Actividad {
     id_actividad: number;
@@ -49,14 +40,14 @@
     es_sumativa: boolean;
     con_entrega: boolean;
     es_grupal: boolean;
-    max_integrantes: number;
     fecha_limite: string;
     visible: boolean;
+    estado?: string;
     ya_entregada?: boolean;
-    fecha_entrega?: string | null;
     ya_evaluada?: boolean;
     /** Sólo en la vista del semestre: el curso al que pertenece. */
     id_curso?: number;
+    /** Código del curso (DM301). */
     curso?: string;
     asignatura?: string | null;
   }
@@ -64,7 +55,7 @@
   interface Props {
     idCurso: number;
     actividades?: Actividad[];
-    /** Prop diferida: llega al elegir «Ver todos». */
+    /** Prop diferida: llega al elegir «Todo el semestre». */
     semestre?: Actividad[] | null;
     alcance?: AlcanceCalendario;
   }
@@ -93,33 +84,38 @@
   const esSemestre = $derived(alcance === 'semestre');
   const fuente = $derived(esSemestre ? (semestre ?? []) : actividades);
 
-  type Estado = 'vencida' | 'urgente' | 'entregada' | 'pendiente' | 'informativa';
+  // ─── Estados ────────────────────────────────────────────────────────────────
+  type Estado = 'vencida' | 'urgente' | 'entregada' | 'sumativa' | 'formativa' | 'informativa';
 
-  /** Estado de una fecha límite para el alumno. */
   function estadoDe(a: Actividad): Estado {
     if (a.ya_entregada || a.ya_evaluada) return 'entregada';
     if (!a.con_entrega) return 'informativa';
     const dias = diasHasta(a.fecha_limite);
     if (dias < 0) return 'vencida';
-    return dias <= 3 ? 'urgente' : 'pendiente';
+    if (dias <= 3) return 'urgente';
+    return a.es_sumativa ? 'sumativa' : 'formativa';
   }
 
-  /** Marca de un día: relleno suave, borde izquierdo y texto con contraste ≥ 4,5:1. */
-  function estiloMarca(a: Actividad): { clases: string; punto: string; etiqueta: string } {
-    switch (estadoDe(a)) {
-      case 'vencida':
-        return { clases: 'bg-red-50 text-red-800 border-red-600', punto: 'bg-red-600', etiqueta: 'Vencida' };
-      case 'urgente':
-        return { clases: 'bg-amber-50 text-amber-800 border-amber-500', punto: 'bg-amber-500', etiqueta: 'Cierra pronto' };
-      case 'entregada':
-        return { clases: 'bg-emerald-50 text-emerald-800 border-emerald-600', punto: 'bg-emerald-600', etiqueta: 'Entregada' };
-      case 'informativa':
-        return { clases: 'bg-gray-100 text-slate-700 border-slate-400', punto: 'bg-slate-400', etiqueta: 'Sin entrega' };
-      default:
-        return a.es_sumativa
-          ? { clases: 'bg-indigo-50 text-uta-blue border-uta-blue', punto: 'bg-uta-blue', etiqueta: 'Sumativa' }
-          : { clases: 'bg-sky-50 text-sky-900 border-sky-600', punto: 'bg-sky-600', etiqueta: 'Formativa' };
-    }
+  /** `marca`: relleno, texto y borde izquierdo de la marca del día. */
+  const ESTILOS: Record<Estado, { etiqueta: string; marca: string; punto: string; icono: typeof Clock }> = {
+    vencida: { etiqueta: 'Vencida', marca: 'bg-dm-warn text-dm-tarjeta border-dm-warn', punto: 'bg-dm-warn', icono: CircleAlert },
+    urgente: { etiqueta: 'Cierra pronto', marca: 'bg-dm-warn-s text-dm-warn border-dm-warn', punto: 'bg-dm-warn', icono: Clock },
+    entregada: { etiqueta: 'Entregada', marca: 'bg-dm-ok-s text-dm-ok border-dm-ok', punto: 'bg-dm-ok', icono: CircleCheck },
+    sumativa: {
+      etiqueta: 'Sumativa',
+      marca: 'bg-dm-accion-suave text-dm-accion-texto border-dm-accion',
+      punto: 'bg-dm-accion',
+      icono: Clock,
+    },
+    formativa: { etiqueta: 'Formativa', marca: 'bg-dm-info-s text-dm-info border-dm-info', punto: 'bg-dm-info', icono: Clock },
+    informativa: { etiqueta: 'Sin entrega', marca: 'bg-dm-off-s text-dm-off border-dm-off', punto: 'bg-dm-off', icono: Clock },
+  };
+  const LEYENDA: Estado[] = ['vencida', 'urgente', 'entregada', 'sumativa', 'formativa', 'informativa'];
+
+  /** «Vencida» si ya no se recibe; «Atrasada» si la holgura todavía la recibe. */
+  function etiquetaDe(a: Actividad): string {
+    const e = estadoDe(a);
+    return e === 'vencida' && a.estado && a.estado !== 'CERRADA' ? 'Atrasada' : ESTILOS[e].etiqueta;
   }
 
   // ─── Datos por día ──────────────────────────────────────────────────────────
@@ -131,8 +127,13 @@
     }
     return mapa;
   });
-
+  const diasConFechasTodos = $derived(Object.keys(porDia).sort());
   const totalFechas = $derived(Object.values(porDia).reduce((n, l) => n + l.length, 0));
+
+  // Color de cada curso del semestre, el mismo del menú.
+  const listaMenu = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
+  const colorDe = (a: Actividad) => `var(--color-dm-c${numeroColorCurso(a.id_curso ?? idCurso, listaMenu)})`;
+  const cursoDe = (a: Actividad) => a.asignatura || a.curso || '';
 
   // ─── Navegación ─────────────────────────────────────────────────────────────
   const hoy = todayKey();
@@ -143,29 +144,17 @@
   let seleccion = $state<string | null>(null);
   let grilla = $state<HTMLElement | null>(null);
 
-  // En móvil la agenda es la vista útil; sólo se aplica al montar.
-  onMount(() => {
-    if (window.matchMedia('(max-width: 767px)').matches) vista = 'agenda';
-  });
-
   const prefijoMes = $derived(`${year}-${String(month + 1).padStart(2, '0')}`);
   const semanas = $derived(buildMonthMatrix(year, month));
   const esMesActual = $derived(year === anioHoy && month === mesHoy - 1);
+  const diasConFechas = $derived(diasConFechasTodos.filter((iso) => iso.startsWith(prefijoMes)));
 
-  const diasConFechas = $derived(
-    Object.keys(porDia)
-      .filter((iso) => iso.startsWith(prefijoMes))
-      .sort(),
+  // Sin elegir, el detalle muestra hoy si es este mes; si no, el primer día con fechas.
+  const diaActivo = $derived(
+    seleccion ?? (esMesActual ? hoy : (diasConFechas.find((iso) => iso >= hoy) ?? diasConFechas[0] ?? `${prefijoMes}-01`)),
   );
-  const fechasDelMes = $derived(diasConFechas.reduce((n, iso) => n + porDia[iso].length, 0));
-
-  // Sin elegir, el detalle muestra el próximo día con fechas (o el primero del mes).
-  const diaPorDefecto = $derived(
-    diasConFechas.find((iso) => iso >= hoy) ?? diasConFechas[0] ?? null,
-  );
-  const diaActivo = $derived(seleccion ?? diaPorDefecto);
-  const iso1 = $derived(`${prefijoMes}-01`);
-  const diaConTab = $derived(diaActivo && diaActivo.startsWith(prefijoMes) ? diaActivo : iso1);
+  const diaConTab = $derived(diaActivo.startsWith(prefijoMes) ? diaActivo : `${prefijoMes}-01`);
+  const siguienteFecha = $derived(diasConFechasTodos.find((iso) => iso > diaActivo) ?? null);
 
   function irAMes(delta: number) {
     const fecha = new Date(year, month + delta, 1);
@@ -174,10 +163,11 @@
     seleccion = null;
   }
 
-  function irAHoy() {
-    year = anioHoy;
-    month = mesHoy - 1;
-    seleccion = hoy;
+  function irADia(iso: string) {
+    const [y, m] = iso.split('-').map(Number);
+    year = y;
+    month = m - 1;
+    seleccion = iso;
   }
 
   /** Flechas: ±1 día, ±1 semana; cruzar de mes cambia el mes mostrado. */
@@ -186,279 +176,301 @@
     if (delta === undefined) return;
     e.preventDefault();
     const destino = sumarDias(iso, delta);
-    const [y, m] = destino.split('-').map(Number);
-    year = y;
-    month = m - 1;
-    seleccion = destino;
+    irADia(destino);
     await tick();
     grilla?.querySelector<HTMLElement>(`[data-dia="${destino}"]`)?.focus();
   }
 
-  /** Nombre de la asignatura (vista «Ver todos»); el código sólo si falta el nombre. */
-  const asignaturaDe = (a: Actividad) => a.asignatura || a.curso || '';
-
-  /** Texto al pasar el cursor por una marca: lo que la celda no alcanza a mostrar. */
-  function descripcionMarca(a: Actividad): string {
-    return [asignaturaDe(a), a.nombre, estiloMarca(a).etiqueta, `Fecha límite: ${formatLargo(a.fecha_limite.slice(0, 10))}`]
-      .filter(Boolean)
-      .join('\n');
-  }
-
-  /** Sólo la primera letra en mayúscula: «Miércoles 2 de diciembre de 2026». */
-  const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
+  const sinAgno = (iso: string) => formatLargo(iso).replace(/ de \d{4}$/, '');
+  const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  const minuscula = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+  const cuenta = (n: number) => (n === 0 ? 'Sin fechas límite' : `${n} ${n === 1 ? 'fecha límite' : 'fechas límite'}`);
 
   function etiquetaDia(iso: string, n: number): string {
-    const base = formatLargo(iso);
-    return n === 0 ? base : `${base}: ${n} ${n === 1 ? 'fecha límite' : 'fechas límite'}`;
+    return `${sinAgno(iso)}${iso === hoy ? ', hoy' : ''}${n > 0 ? `, ${cuenta(n).toLowerCase()}` : ''}`;
   }
 
-  const LEYENDA = [
-    { punto: 'bg-red-600', texto: 'Vencida sin entrega' },
-    { punto: 'bg-amber-500', texto: 'Cierra en 3 días o menos' },
-    { punto: 'bg-emerald-600', texto: 'Entregada' },
-    { punto: 'bg-uta-blue', texto: 'Sumativa' },
-    { punto: 'bg-sky-600', texto: 'Formativa' },
-  ];
-
-  const BOTON =
-    'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-gray-50';
+  const SEGMENTO = 'flex gap-1 rounded-xl border border-dm-linea bg-dm-sutil p-1';
+  const opcion = (activa: boolean) =>
+    `inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-lg px-3.5 py-1.5 text-sm transition-colors md:min-h-9 md:flex-none ${
+      activa ? 'bg-dm-tarjeta font-semibold text-dm-ink shadow-sm' : 'font-medium text-dm-ink-2 hover:text-dm-ink'
+    }`;
   const BOTON_ICONO =
-    'inline-flex size-11 items-center justify-center rounded-lg border border-slate-300 bg-white text-uta-blue transition-colors hover:bg-gray-50';
+    'inline-flex size-11 cursor-pointer items-center justify-center rounded-[10px] text-dm-ink hover:bg-dm-sutil md:size-9 md:border md:border-dm-control md:bg-dm-tarjeta';
 </script>
 
-{#snippet detalleDelDia(iso: string)}
-  {@const lista = porDia[iso] ?? []}
-  <ul class="m-0 flex list-none flex-col gap-3 p-0">
-    {#each lista as act (act.id_actividad)}
-      <li>
-        {#if asignaturaDe(act)}
-          <p class="mb-1.5 text-xs font-bold text-uta-blue">{asignaturaDe(act)}</p>
-        {/if}
-        <Link
-          href={`/estudiante/cursos/${act.id_curso ?? idCurso}/actividad/${act.id_actividad}`}
-          class="block rounded-xl no-underline"
-        >
-          <ActividadCard actividad={act} />
-        </Link>
-      </li>
-    {/each}
-  </ul>
+<!-- Una fecha límite: curso (en el semestre), nombre, tipo · modalidad · plazo y su estado. -->
+{#snippet fila(a: Actividad)}
+  {@const e = ESTILOS[estadoDe(a)]}
+  {@const Icono = e.icono}
+  <Link
+    href={`/estudiante/cursos/${a.id_curso ?? idCurso}/actividad/${a.id_actividad}`}
+    class="flex flex-col gap-1.5 border-b border-dm-linea px-4 py-3.5 text-dm-ink no-underline last:border-b-0 hover:bg-dm-sutil xl:px-5"
+  >
+    {#if esSemestre && cursoDe(a)}
+      <span class="flex items-center gap-1.5 text-[13px] leading-[18px] text-dm-ink-2">
+        <span class="size-2 shrink-0 rounded-full" style="background: {colorDe(a)}"></span>{cursoDe(a)}
+      </span>
+    {/if}
+    <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
+    <span class="text-[13px] leading-[18px] text-dm-ink-2">
+      {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(fechaLimiteTexto(a.fecha_limite))}
+    </span>
+    <span class="{pildora} {e.marca} self-start"><Icono size={14} aria-hidden="true" />{etiquetaDe(a)}</span>
+  </Link>
 {/snippet}
 
-<!-- Alcance: este curso o todos los del semestre -->
-<div class="mb-4 flex w-fit gap-1 rounded-xl bg-gray-100 p-1" role="group" aria-label="Asignaturas del semestre que se muestran">
-  {#each [{ id: 'curso', etiqueta: 'Esta asignatura' }, { id: 'semestre', etiqueta: 'Ver todos' }] as a (a.id)}
-    <button
-      type="button"
-      aria-pressed={alcance === a.id}
-      onclick={() => (alcance = a.id as AlcanceCalendario)}
-      class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm transition-colors {alcance === a.id
-        ? 'bg-uta-blue font-semibold text-white'
-        : 'font-medium text-slate-700 hover:bg-white hover:text-uta-blue'}"
-    >
-      {a.etiqueta}
-    </button>
-  {/each}
-</div>
-
-{#if esSemestre && semestre === null}
-  <div class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600" role="status">
-    {#if errorSemestre}
-      No se pudieron cargar las fechas del semestre.
-      <button type="button" class="font-semibold text-uta-blue underline" onclick={cargarSemestre}>Intentar de nuevo</button>
-    {:else}
-      Cargando las fechas de todos tus cursos del semestre…
-    {/if}
-  </div>
-{:else if totalFechas === 0}
-  <div class="flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white px-6 py-8 text-center">
-    <div class="flex size-14 items-center justify-center rounded-full bg-gray-100">
-      <CalendarDays class="h-6 w-6 text-slate-600" aria-hidden="true" />
+<div class="flex flex-col gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap gap-3 max-md:w-full">
+      <div role="group" aria-label="Qué fechas mostrar" class="{SEGMENTO} max-md:w-full">
+        {#each [{ id: 'curso', etiqueta: 'Este curso' }, { id: 'semestre', etiqueta: 'Todo el semestre' }] as a (a.id)}
+          <button
+            type="button"
+            aria-pressed={alcance === a.id}
+            onclick={() => (alcance = a.id as AlcanceCalendario)}
+            class={opcion(alcance === a.id)}>{a.etiqueta}</button
+          >
+        {/each}
+      </div>
+      <div role="group" aria-label="Vista del calendario" class="{SEGMENTO} max-md:hidden">
+        {#each [{ id: 'mes', etiqueta: 'Mes' }, { id: 'agenda', etiqueta: 'Agenda' }] as v (v.id)}
+          <button
+            type="button"
+            aria-pressed={vista === v.id}
+            onclick={() => (vista = v.id as 'mes' | 'agenda')}
+            class={opcion(vista === v.id)}>{v.etiqueta}</button
+          >
+        {/each}
+      </div>
     </div>
-    <h3 class="text-lg font-bold text-slate-900">Todavía no hay fechas en el calendario</h3>
-    <p class="text-sm text-slate-600">
-      {esSemestre
-        ? 'Las fechas límite aparecen aquí cuando los docentes de tus cursos del semestre publican actividades con plazo.'
-        : 'Las fechas límite aparecen aquí cuando tu docente publica actividades con plazo.'}
-    </p>
-  </div>
-{:else}
-  <!-- Barra: mes, hoy y vista -->
-  <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-3">
-    <div class="flex items-center gap-1">
+
+    <div class="flex items-center gap-2 max-md:hidden">
       <button type="button" class={BOTON_ICONO} onclick={() => irAMes(-1)} aria-label="Mes anterior">
-        <ChevronLeft class="h-5 w-5" aria-hidden="true" />
+        <ChevronLeft size={18} aria-hidden="true" />
       </button>
-      <h3
-        class="m-0 min-w-[10.5rem] text-center text-lg font-bold text-slate-900"
-        aria-live="polite"
-      >
+      <h3 class="min-w-35 text-center font-dm-cond text-[22px] leading-7 font-extrabold uppercase" aria-live="polite">
         {MESES[month]} {year}
       </h3>
       <button type="button" class={BOTON_ICONO} onclick={() => irAMes(1)} aria-label="Mes siguiente">
-        <ChevronRight class="h-5 w-5" aria-hidden="true" />
+        <ChevronRight size={18} aria-hidden="true" />
       </button>
-    </div>
-
-    <button type="button" class={BOTON} onclick={irAHoy} disabled={esMesActual && seleccion === hoy}>
-      Hoy
-    </button>
-
-    <div class="flex gap-1 rounded-xl bg-gray-100 p-1 sm:ml-auto" role="group" aria-label="Vista del calendario">
-      {#each [{ id: 'mes', etiqueta: 'Mes' }, { id: 'agenda', etiqueta: 'Agenda' }] as v (v.id)}
-        <button
-          type="button"
-          aria-pressed={vista === v.id}
-          onclick={() => (vista = v.id as 'mes' | 'agenda')}
-          class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm transition-colors {vista === v.id
-            ? 'bg-uta-blue font-semibold text-white'
-            : 'font-medium text-slate-700 hover:bg-white hover:text-uta-blue'}"
-        >
-          {v.etiqueta}
-        </button>
-      {/each}
+      <button
+        type="button"
+        class="{btnSecundario} min-h-9 px-3.5"
+        onclick={() => irADia(hoy)}
+        disabled={esMesActual && diaActivo === hoy}>Hoy</button
+      >
     </div>
   </div>
 
-  <!-- Leyenda: color + texto -->
-  <ul class="m-0 mb-4 flex list-none flex-wrap gap-x-4 gap-y-1.5 p-0">
-    {#each LEYENDA as l (l.texto)}
-      <li class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
-        <span class="size-2.5 rounded-full {l.punto}" aria-hidden="true"></span>
-        {l.texto}
-      </li>
-    {/each}
-  </ul>
-
-  {#if vista === 'mes'}
-    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div role="grid" aria-label="Fechas límite de {MESES[month]} {year}" bind:this={grilla}>
-        <div role="row" class="grid grid-cols-7 border-b border-slate-200 bg-gray-50">
-          {#each DIAS_SEMANA as dia (dia)}
-            <div role="columnheader" class="px-1 py-2 text-center text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600">
-              {dia}
-            </div>
-          {/each}
-        </div>
-
-        {#each semanas as semana, i (i)}
-          <div role="row" class="grid grid-cols-7 {i < semanas.length - 1 ? 'border-b border-slate-200' : ''}">
-            {#each semana as dia (dia.iso)}
-              {@const lista = porDia[dia.iso] ?? []}
-              {@const elegido = diaActivo === dia.iso}
-              <div role="gridcell" class="min-w-0 border-r border-slate-200 last:border-r-0 {dia.inMonth ? '' : 'bg-gray-50'}">
-                <button
-                  type="button"
-                  data-dia={dia.iso}
-                  tabindex={dia.iso === diaConTab ? 0 : -1}
-                  aria-pressed={elegido}
-                  aria-label={etiquetaDia(dia.iso, lista.length)}
-                  aria-current={dia.isToday ? 'date' : undefined}
-                  onclick={() => (seleccion = dia.iso)}
-                  onkeydown={(e) => alPulsarTecla(e, dia.iso)}
-                  class="flex min-h-[52px] w-full flex-col items-center gap-1 p-1 text-left transition-colors md:min-h-[108px] md:items-stretch md:p-2 {elegido
-                    ? 'bg-indigo-50'
-                    : 'hover:bg-gray-50'}"
-                >
-                  <span
-                    class="inline-flex size-7 items-center justify-center rounded-full text-sm md:self-start {dia.isToday
-                      ? 'bg-uta-blue font-bold text-white'
-                      : dia.inMonth
-                        ? 'font-semibold text-slate-900'
-                        : 'font-medium text-slate-500'}"
-                  >
-                    {dia.dayOfMonth}
-                  </span>
-
-                  <!-- Móvil: puntos de estado (el texto está en el detalle del día) -->
-                  {#if lista.length > 0}
-                    <span class="flex items-center gap-0.5 md:hidden" aria-hidden="true">
-                      {#each lista.slice(0, 3) as a (a.id_actividad)}
-                        <span class="size-2 rounded-full {estiloMarca(a).punto}"></span>
-                      {/each}
-                    </span>
-                  {/if}
-
-                  <!-- Escritorio: una marca por actividad, con ícono y título -->
-                  <span class="hidden min-w-0 flex-col gap-1 md:flex" aria-hidden="true">
-                    {#each lista.slice(0, 2) as a (a.id_actividad)}
-                      {@const m = estiloMarca(a)}
-                      {@const estado = estadoDe(a)}
-                      <span
-                        class="flex min-w-0 items-start gap-1 rounded-[4px] border-l-[3px] px-1.5 py-1 text-[11px] font-semibold leading-tight {m.clases}"
-                        title={descripcionMarca(a)}
-                      >
-                        {#if estado === 'vencida'}
-                          <AlertCircle class="mt-px h-3 w-3 shrink-0" />
-                        {:else if estado === 'entregada'}
-                          <CheckCircle2 class="mt-px h-3 w-3 shrink-0" />
-                        {:else if estado === 'urgente'}
-                          <Clock class="mt-px h-3 w-3 shrink-0" />
-                        {/if}
-                        <span class="flex min-w-0 flex-col">
-                          {#if asignaturaDe(a)}
-                            <span class="truncate font-bold">{asignaturaDe(a)}</span>
-                          {/if}
-                          <span class="line-clamp-2 break-words">{a.nombre}</span>
-                        </span>
-                      </span>
-                    {/each}
-                    {#if lista.length > 2}
-                      <span class="px-1 text-[11px] font-bold text-uta-blue">+{lista.length - 2} más</span>
-                    {/if}
-                  </span>
-                </button>
-              </div>
-            {/each}
-          </div>
-        {/each}
-      </div>
-    </div>
-
-    <!-- Detalle del día -->
-    <section class="mt-4" aria-labelledby="detalle-dia" aria-live="polite">
-      {#if diaActivo}
-        <h4 id="detalle-dia" class="mb-3 text-base font-semibold text-slate-900">
-          {mayuscula(formatLargo(diaActivo))}
-        </h4>
-        {#if (porDia[diaActivo] ?? []).length > 0}
-          {@render detalleDelDia(diaActivo)}
-        {:else}
-          <p class="m-0 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            No hay fechas límite este día.
-          </p>
-        {/if}
-      {:else}
-        <h4 id="detalle-dia" class="sr-only">Detalle del día</h4>
-        <p class="m-0 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          No hay fechas límite en {MESES[month].toLowerCase()}. Usa las flechas para ver otro mes.
-        </p>
-      {/if}
-    </section>
-  {:else}
-    <!-- Agenda: sólo los días del mes con fechas -->
-    {#if diasConFechas.length === 0}
-      <p class="m-0 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-        No hay fechas límite en {MESES[month].toLowerCase()}. Usa las flechas para ver otro mes.
-      </p>
+  {#if esSemestre && semestre === null}
+    {#if errorSemestre}
+      <EstadoVacio tipo="error" titulo="No se pudieron cargar las fechas del semestre">
+        {#snippet accion()}
+          <button type="button" class={btnSecundario} onclick={cargarSemestre}>Intentar de nuevo</button>
+        {/snippet}
+      </EstadoVacio>
     {:else}
-      <div class="flex flex-col gap-6">
-        {#each diasConFechas as iso (iso)}
-          <section aria-labelledby="agenda-{iso}">
-            <h4 id="agenda-{iso}" class="mb-3 flex items-center gap-2 text-base font-semibold text-slate-900">
-              {mayuscula(formatMedio(iso))}
-              {#if iso === hoy}
-                <span class="rounded-full bg-uta-blue px-2.5 py-0.5 text-xs font-bold normal-case text-white">Hoy</span>
-              {/if}
-            </h4>
-            {@render detalleDelDia(iso)}
-          </section>
-        {/each}
-      </div>
+      <EstadoVacio tipo="cargando" titulo="Cargando las fechas de todos tus cursos del semestre…" />
     {/if}
-  {/if}
+  {:else if totalFechas === 0}
+    <EstadoVacio
+      icono={CalendarDays}
+      titulo="Todavía no hay fechas en el calendario"
+      texto={esSemestre
+        ? 'Las fechas límite aparecen aquí cuando los docentes de tus cursos del semestre publican actividades con plazo.'
+        : 'Las fechas límite aparecen aquí cuando tu docente publica actividades con plazo.'}
+    />
+  {:else}
+    <div class="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start xl:gap-6">
+      <!-- Bajo xl las dos columnas se disuelven (contents) y el orden lo ponen los order-*:
+           grilla, detalle del día, agenda del mes y leyenda. -->
+      <div class="flex min-w-0 flex-col gap-4 max-xl:contents">
+        {#if vista === 'mes'}
+          <section aria-label="{MESES[month]} {year}" class="order-1 overflow-hidden {tarjeta}">
+            <!-- En móvil el mes se cambia aquí; en escritorio, en la barra de arriba. -->
+            <div class="flex items-center justify-between gap-2 border-b border-dm-linea p-1.5 md:hidden">
+              <button type="button" class={BOTON_ICONO} onclick={() => irAMes(-1)} aria-label="Mes anterior">
+                <ChevronLeft size={20} aria-hidden="true" />
+              </button>
+              <span class="font-dm-cond text-xl leading-6 font-extrabold uppercase" aria-live="polite">{MESES[month]} {year}</span>
+              <button type="button" class={BOTON_ICONO} onclick={() => irAMes(1)} aria-label="Mes siguiente">
+                <ChevronRight size={20} aria-hidden="true" />
+              </button>
+            </div>
 
-  <p class="sr-only" aria-live="polite">
-    {fechasDelMes} {fechasDelMes === 1 ? 'fecha límite' : 'fechas límite'} en {MESES[month]} {year}.
-  </p>
-{/if}
+            <div role="grid" aria-label="Fechas límite de {MESES[month]} {year}" bind:this={grilla}>
+              <div role="row" class="grid grid-cols-7 px-1.5 pt-1.5 md:border-b md:border-dm-linea md:bg-dm-sutil md:p-0">
+                {#each DIAS_SEMANA as dia (dia)}
+                  <span role="columnheader" class="{etiqueta} py-1 text-center text-dm-ink-3 md:px-2 md:py-2.5">{dia}</span>
+                {/each}
+              </div>
+
+              {#each semanas as semana, i (i)}
+                <div
+                  role="row"
+                  class="grid grid-cols-7 gap-0.5 px-1.5 last:pb-2 md:gap-0 md:p-0 md:last:pb-0 md:[&:last-child>div]:border-b-0"
+                >
+                  {#each semana as dia (dia.iso)}
+                    {@const lista = porDia[dia.iso] ?? []}
+                    {@const elegido = diaActivo === dia.iso}
+                    <div
+                      role="gridcell"
+                      aria-selected={elegido}
+                      class="min-w-0 md:border-r md:border-b md:border-dm-linea md:last:border-r-0 {dia.inMonth
+                        ? ''
+                        : 'md:bg-dm-sutil'}"
+                    >
+                      <button
+                        type="button"
+                        data-dia={dia.iso}
+                        tabindex={dia.iso === diaConTab ? 0 : -1}
+                        aria-label={etiquetaDia(dia.iso, lista.length)}
+                        aria-current={dia.isToday ? 'date' : undefined}
+                        onclick={() => (seleccion = dia.iso)}
+                        onkeydown={(e) => alPulsarTecla(e, dia.iso)}
+                        class="flex min-h-12 w-full cursor-pointer flex-col items-center gap-1 rounded-[10px] px-0 py-1 md:min-h-27 md:items-stretch md:rounded-none md:p-1.5 {elegido
+                          ? 'outline-2 -outline-offset-2 outline-dm-accion'
+                          : 'hover:bg-dm-sutil'}"
+                      >
+                        <span
+                          class="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-sm tabular-nums md:self-start {dia.isToday
+                            ? 'bg-dm-amarillo font-bold text-dm-noche'
+                            : dia.inMonth
+                              ? 'font-semibold text-dm-ink'
+                              : 'font-medium text-dm-ink-3'}"
+                        >
+                          {dia.dayOfMonth}
+                        </span>
+
+                        <!-- Móvil: puntos de estado (el texto está en el detalle del día) -->
+                        <span class="flex h-1.5 items-center gap-0.5 md:hidden" aria-hidden="true">
+                          {#each lista.slice(0, 3) as a (a.id_actividad)}
+                            <span class="size-1.5 rounded-full {ESTILOS[estadoDe(a)].punto}"></span>
+                          {/each}
+                        </span>
+
+                        <!-- Escritorio: una marca por actividad, con ícono y nombre -->
+                        <span class="hidden min-w-0 flex-col gap-1 md:flex" aria-hidden="true">
+                          {#each lista.slice(0, 2) as a (a.id_actividad)}
+                            {@const e = ESTILOS[estadoDe(a)]}
+                            {@const Icono = e.icono}
+                            <span
+                              class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-xs leading-4 font-semibold {e.marca}"
+                              title="{cursoDe(a) ? `${cursoDe(a)} · ` : ''}{a.nombre} · {etiquetaDe(a)}"
+                            >
+                              <Icono size={12} class="shrink-0" />
+                              <span class="truncate">{esSemestre && a.curso ? `${a.curso} · ${a.nombre}` : a.nombre}</span>
+                            </span>
+                          {/each}
+                          {#if lista.length > 2}
+                            <span class="px-1 text-xs font-bold text-dm-enlace">+{lista.length - 2} más</span>
+                          {/if}
+                        </span>
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        <!-- Agenda: la vista elegida en escritorio; en móvil va siempre, bajo el detalle del día. -->
+        <section
+          aria-labelledby="t-agenda"
+          class="flex flex-col gap-3 {vista === 'agenda' ? 'order-1' : 'order-3 md:hidden'}"
+        >
+          <h3 id="t-agenda" class="text-lg leading-6 font-bold {vista === 'agenda' ? 'md:sr-only' : ''}">
+            Este mes
+          </h3>
+          {#if diasConFechas.length === 0}
+            <p class="{tarjeta} px-4 py-3.5 text-sm text-dm-ink-2">
+              No hay fechas límite en {MESES[month].toLowerCase()}. Usa las flechas para ver otro mes.
+            </p>
+          {:else}
+            {#each diasConFechas as iso (iso)}
+              {@const d = Number(iso.slice(8, 10))}
+              <section aria-label={mayuscula(sinAgno(iso))} class="{tarjeta} flex gap-3 px-3.5 py-3 md:gap-4 md:px-5 md:py-4">
+                <div class="flex w-11 shrink-0 flex-col items-center md:w-14">
+                  <span class="{etiqueta} text-dm-ink-3">{formatDiaCorto(iso).split(' ')[0]}</span>
+                  <span
+                    class="font-dm-cond text-[28px] leading-8 font-black md:text-[32px] md:leading-9 {iso === hoy
+                      ? 'text-dm-accion-texto'
+                      : 'text-dm-ink'}">{d}</span
+                  >
+                </div>
+                <ul class="flex min-w-0 flex-1 flex-col gap-2.5">
+                  {#each porDia[iso] as a (a.id_actividad)}
+                    {@const e = ESTILOS[estadoDe(a)]}
+                    <li>
+                      <Link
+                        href={`/estudiante/cursos/${a.id_curso ?? idCurso}/actividad/${a.id_actividad}`}
+                        class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-dm-ink no-underline hover:underline"
+                      >
+                        <span class="flex min-w-0 flex-col gap-0.5">
+                          {#if esSemestre && cursoDe(a)}
+                            <span class="flex items-center gap-1.5 text-[13px] leading-[18px] text-dm-ink-2">
+                              <span class="size-2 shrink-0 rounded-full" style="background: {colorDe(a)}"></span>
+                              <span class="md:hidden">{a.curso || cursoDe(a)}</span><span class="max-md:hidden">{cursoDe(a)}</span>
+                            </span>
+                          {/if}
+                          <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
+                          <span class="text-[13px] leading-[18px] text-dm-ink-2 max-md:hidden">
+                            {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
+                              fechaLimiteTexto(a.fecha_limite),
+                            )}
+                          </span>
+                        </span>
+                        <span class="{pildora} {e.marca}">{etiquetaDe(a)}</span>
+                      </Link>
+                    </li>
+                  {/each}
+                </ul>
+              </section>
+            {/each}
+          {/if}
+        </section>
+      </div>
+
+      <aside class="flex flex-col gap-4 max-xl:contents">
+        <section
+          aria-labelledby="t-dia"
+          aria-live="polite"
+          class="order-2 overflow-hidden border-t-6 border-t-dm-amarillo {tarjeta}"
+        >
+          <div class="flex flex-col gap-0.5 border-b border-dm-linea px-4 py-3.5 xl:px-5">
+            <h3 id="t-dia" class="text-lg leading-6 font-bold">
+              {mayuscula(sinAgno(diaActivo))}{diaActivo === hoy ? ' · hoy' : ''}
+            </h3>
+            <span class="text-[13px] leading-[18px] text-dm-ink-3">{cuenta((porDia[diaActivo] ?? []).length)}</span>
+          </div>
+          {#each porDia[diaActivo] ?? [] as a (a.id_actividad)}
+            {@render fila(a)}
+          {:else}
+            <p class="border-b border-dm-linea px-4 py-3.5 text-sm text-dm-ink-2 xl:px-5">No hay fechas límite este día.</p>
+          {/each}
+          {#if siguienteFecha}
+            <button
+              type="button"
+              onclick={() => irADia(siguienteFecha)}
+              class="flex min-h-11 w-full cursor-pointer items-center gap-1 px-4 text-sm font-semibold text-dm-enlace hover:underline xl:px-5"
+            >
+              Siguiente fecha: {formatDiaCorto(siguienteFecha)}<ChevronRight size={16} aria-hidden="true" />
+            </button>
+          {/if}
+        </section>
+
+        <section aria-labelledby="t-leyenda" class="{tarjeta} order-4 flex flex-col gap-2.5 px-4 py-4 xl:px-5">
+          <h3 id="t-leyenda" class="{etiqueta} text-dm-ink-3">Leyenda</h3>
+          <ul class="flex flex-wrap gap-2">
+            {#each LEYENDA as e (e)}
+              <li class="{pildora} {ESTILOS[e].marca}">{ESTILOS[e].etiqueta}</li>
+            {/each}
+          </ul>
+        </section>
+      </aside>
+    </div>
+  {/if}
+</div>
