@@ -57,7 +57,7 @@ class CursoController extends Controller
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Curso::class);
-        $cursos = Curso::query()
+        $query = Curso::query()
             ->with([
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
