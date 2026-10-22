@@ -14,6 +14,7 @@ use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Services\IntranetService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -340,5 +341,172 @@ describe('Guardarraíl G-02: StoreCursoRequest validación de componentes', func
         $plan = Plan::where('id_carrera', $carrera->id_carrera)->first();
         expect($plan)->not->toBeNull();
         expect((int) $plan->agno_plan)->toBe(2016);
+    });
+
+    test('autorrecupera y persiste intranet_cur_codigo en cada componente al crear curso con intranet disponible', function () {
+        $mockOracle = Mockery::mock();
+        $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+            new ComponenteCursoData(cur_codigo: 7001, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+            new ComponenteCursoData(cur_codigo: 7002, curso_tipo_asig: TipoAsignatura::Taller, curso_grupo_asig: 'A'),
+        ]));
+        app()->instance('OracleDataService', $mockOracle);
+
+        $payload = [
+            'id_asignatura'                => $this->asignatura->id_asignatura,
+            'id_plan'                      => $this->plan->id_plan,
+            'agno_real'                    => 2026,
+            'semestre_real'                => 1,
+            'indice_grupo'                 => 1,
+            'fecha_inicio'                 => '2026-03-01',
+            'id_docente_sugerido'          => $this->docente->id_docente,
+            'id_tipo_componente_principal' => $this->catedra->id_tipo_componente,
+            'tipos_componente_ids'         => [
+                $this->catedra->id_tipo_componente,
+                $this->taller->id_tipo_componente,
+            ],
+            'docentes_por_componente'      => [
+                $this->catedra->id_tipo_componente => [$this->docente->id_docente],
+                $this->taller->id_tipo_componente  => [$this->docente->id_docente],
+            ],
+        ];
+
+        $response = $this->post('/admin/cursos', $payload);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $curso = Curso::where('id_asignacion_plan', $this->asignacionPlan->id_asignacion_plan)
+            ->latest('id_curso')
+            ->first();
+
+        expect($curso)->not->toBeNull();
+        $compCatedra = $curso->componentes()->where('id_tipo_componente', $this->catedra->id_tipo_componente)->first();
+        $compTaller = $curso->componentes()->where('id_tipo_componente', $this->taller->id_tipo_componente)->first();
+
+        expect($compCatedra)->not->toBeNull()
+            ->and((int) $compCatedra->intranet_cur_codigo)->toBe(7001);
+
+        expect($compTaller)->not->toBeNull()
+            ->and((int) $compTaller->intranet_cur_codigo)->toBe(7002);
+
+        $successMsg = session('success');
+        expect($successMsg)->toContain('Acta #7001')->toContain('Acta #7002');
+    });
+
+    test('persiste cur_codigos_por_componente enviados explicitamente desde el wizard', function () {
+        $mockOracle = Mockery::mock();
+        $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect());
+        app()->instance('OracleDataService', $mockOracle);
+
+        $payload = [
+            'id_asignatura'                => $this->asignatura->id_asignatura,
+            'id_plan'                      => $this->plan->id_plan,
+            'agno_real'                    => 2026,
+            'semestre_real'                => 1,
+            'indice_grupo'                 => 1,
+            'fecha_inicio'                 => '2026-03-01',
+            'id_docente_sugerido'          => $this->docente->id_docente,
+            'id_tipo_componente_principal' => $this->catedra->id_tipo_componente,
+            'tipos_componente_ids'         => [
+                $this->catedra->id_tipo_componente,
+                $this->taller->id_tipo_componente,
+            ],
+            'cur_codigos_por_componente'   => [
+                $this->catedra->id_tipo_componente => 8001,
+                $this->taller->id_tipo_componente  => 8002,
+            ],
+            'docentes_por_componente'      => [
+                $this->catedra->id_tipo_componente => [$this->docente->id_docente],
+                $this->taller->id_tipo_componente  => [$this->docente->id_docente],
+            ],
+        ];
+
+        $response = $this->post('/admin/cursos', $payload);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $curso = Curso::where('id_asignacion_plan', $this->asignacionPlan->id_asignacion_plan)
+            ->latest('id_curso')
+            ->first();
+
+        $compCatedra = $curso->componentes()->where('id_tipo_componente', $this->catedra->id_tipo_componente)->first();
+        $compTaller = $curso->componentes()->where('id_tipo_componente', $this->taller->id_tipo_componente)->first();
+
+        expect((int) $compCatedra->intranet_cur_codigo)->toBe(8001);
+        expect((int) $compTaller->intranet_cur_codigo)->toBe(8002);
+    });
+
+    test('al crear curso con intranet caida informa advertencia y persiste componentes sin acta oficial', function () {
+        $mockOracle = Mockery::mock();
+        $mockOracle->shouldReceive('traer_cur_codigos')->andThrow(new RuntimeException('Oracle connection timeout'));
+        app()->instance('OracleDataService', $mockOracle);
+
+        $payload = [
+            'id_asignatura'                => $this->asignatura->id_asignatura,
+            'id_plan'                      => $this->plan->id_plan,
+            'agno_real'                    => 2026,
+            'semestre_real'                => 1,
+            'indice_grupo'                 => 1,
+            'fecha_inicio'                 => '2026-03-01',
+            'id_docente_sugerido'          => $this->docente->id_docente,
+            'id_tipo_componente_principal' => $this->catedra->id_tipo_componente,
+            'tipos_componente_ids'         => [
+                $this->catedra->id_tipo_componente,
+                $this->taller->id_tipo_componente,
+            ],
+            'docentes_por_componente'      => [
+                $this->catedra->id_tipo_componente => [$this->docente->id_docente],
+                $this->taller->id_tipo_componente  => [$this->docente->id_docente],
+            ],
+        ];
+
+        $response = $this->post('/admin/cursos', $payload);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $curso = Curso::where('id_asignacion_plan', $this->asignacionPlan->id_asignacion_plan)
+            ->latest('id_curso')
+            ->first();
+
+        foreach ($curso->componentes as $comp) {
+            expect($comp->intranet_cur_codigo)->toBeNull();
+        }
+
+        $warningMsg = session('warning');
+        expect($warningMsg)->toContain('No fue posible conectar con la Intranet');
+    });
+
+    test('IntranetService@sincronizarComponentes persiste intranet_cur_codigo en nuevas componentes', function () {
+        $curso = Curso::create([
+            'cod_curso'                    => 998855,
+            'nombre'                       => 'Curso Sync CurCodigo',
+            'indice_grupo'                 => 1,
+            'agno_real'                    => 2026,
+            'semestre_real'                => 1,
+            'id_asignacion_plan'           => $this->asignacionPlan->id_asignacion_plan,
+            'id_docente_titular'           => $this->docente->id_docente,
+            'id_tipo_componente_principal' => $this->catedra->id_tipo_componente,
+            'fecha_inicio'                 => '2026-03-01',
+            'fecha_fin'                    => '2026-08-01',
+        ]);
+
+        $mockOracle = Mockery::mock();
+        $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+            new ComponenteCursoData(cur_codigo: 9101, curso_tipo_asig: TipoAsignatura::Taller, curso_grupo_asig: 'A'),
+        ]));
+        app()->instance('OracleDataService', $mockOracle);
+
+        $resultado = app(IntranetService::class)->sincronizarComponentes(
+            $curso,
+            [$this->taller->id_tipo_componente]
+        );
+
+        expect($resultado->componentes_creadas)->toContain('Taller');
+
+        $compTaller = $curso->componentes()->where('id_tipo_componente', $this->taller->id_tipo_componente)->first();
+        expect($compTaller)->not->toBeNull()
+            ->and((int) $compTaller->intranet_cur_codigo)->toBe(9101);
     });
 });

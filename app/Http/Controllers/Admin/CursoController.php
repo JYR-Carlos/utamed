@@ -146,7 +146,26 @@ class CursoController extends Controller
             $curso = $this->cursoService->create($request->validated());
             Log::info('[CursoController@store] Curso creado exitosamente', ['id_curso' => $curso->id_curso]);
 
-            $mensajeSuccess = 'Curso creado exitosamente.';
+            $curso->loadMissing('componentes.tipoComponente');
+            $componentesConActa = $curso->componentes->whereNotNull('intranet_cur_codigo');
+
+            if ($componentesConActa->isNotEmpty()) {
+                $detallesActas = $componentesConActa
+                    ->map(fn($c) => "{$c->tipoComponente?->tipo} (Acta #{$c->intranet_cur_codigo})")
+                    ->join(', ');
+                $mensajeSuccess = "Curso creado exitosamente. Componentes vinculadas a actas oficiales de Intranet: {$detallesActas}.";
+            } else {
+                $mensajeSuccess = 'Curso creado exitosamente según Plan de Estudios.';
+            }
+
+            $avisoIntranet = null;
+            if (isset($curso->intranet_estado)) {
+                if ($curso->intranet_estado === 'error') {
+                    $avisoIntranet = 'Aviso: No fue posible conectar con la Intranet (' . ($curso->intranet_error ?? 'error de conexión') . '). Las componentes se configuraron según el Plan de Estudios sin actas oficiales.';
+                } elseif ($curso->intranet_estado === 'sin_oferta') {
+                    $avisoIntranet = 'Aviso: La Intranet no registra oferta oficial para este período y grupo. Se configuraron componentes según el Plan de Estudios.';
+                }
+            }
 
             if ($request->boolean('inscribir_automaticamente')) {
                 try {
@@ -158,7 +177,7 @@ class CursoController extends Controller
                     ]);
                     $redirect = redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', 'Curso creado exitosamente. ' . ($resultado->inscritos_exitosamente === 1
+                        ->with('success', $mensajeSuccess . ' ' . ($resultado->inscritos_exitosamente === 1
                             ? 'Se inscribió 1 alumno'
                             : "Se inscribieron {$resultado->inscritos_exitosamente} alumnos")
                             . ' automáticamente desde la Intranet.');
@@ -166,23 +185,30 @@ class CursoController extends Controller
                     // Sin esto, «0 alumnos inscritos» no decía si la Intranet no
                     // respondió, no tenía el grupo o falló algún alumno.
                     $avisos = array_merge(
+                        $avisoIntranet ? [$avisoIntranet] : [],
                         $resultado->advertencias,
                         array_map(fn ($e) => "RUT {$e['rut']}: {$e['motivo']}", $resultado->errores)
                     );
 
-                    return $avisos === [] ? $redirect : $redirect->with('error', implode(' ', $avisos));
+                    return $avisos === [] ? $redirect : $redirect->with('warning', implode(' ', $avisos));
                 } catch (\Throwable $e) {
                     Log::error('[CursoController@store] Error en inscripción automática tras creación: ' . $e->getMessage());
                     return redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', 'Curso creado exitosamente en UTAMED.')
+                        ->with('success', $mensajeSuccess)
                         ->with('error', 'No se pudieron inscribir los alumnos desde la Intranet: ' . $e->getMessage());
                 }
             }
 
-            return redirect()
+            $redirect = redirect()
                 ->route('admin.cursos.index')
                 ->with('success', $mensajeSuccess);
+
+            if ($avisoIntranet) {
+                $redirect->with('warning', $avisoIntranet);
+            }
+
+            return $redirect;
 
 
         } catch (\Illuminate\Validation\ValidationException $e) {

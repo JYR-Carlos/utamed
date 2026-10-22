@@ -173,6 +173,8 @@ class StoreCursoRequest extends FormRequest
             'docentes_por_componente.*.*'       => ['integer', Rule::exists('docente', 'id_docente')],
             'genera_acta_por_componente'         => 'nullable|array',
             'genera_acta_por_componente.*'       => 'boolean',
+            'cur_codigos_por_componente'         => 'nullable|array',
+            'cur_codigos_por_componente.*'       => 'nullable|integer|min:1',
             'porcentaje_aprobacion_por_componente'   => 'nullable|array',
             'porcentaje_aprobacion_por_componente.*' => 'numeric|min:0|max:100',
             'porcentaje_asistencia_por_componente'   => 'nullable|array',

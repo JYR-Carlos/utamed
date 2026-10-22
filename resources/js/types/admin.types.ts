@@ -553,6 +553,8 @@ export interface CursoFormData {
   porcentaje_asistencia_obligatoria?: number;
   /** Inscribir alumnos automáticamente desde la Intranet tras crear el curso */
   inscribir_automaticamente?: boolean;
+  /** Códigos de acta (CUR_CODIGO) por tipo de componente recuperados desde Intranet */
+  cur_codigos_por_componente?: Record<number, number | null>;
   [key: string]: FormDataConvertible;
 }
 

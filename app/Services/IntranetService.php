@@ -727,8 +727,18 @@ class IntranetService
                 continue;
             }
 
+            $curCodigo = null;
+            if (isset($preview) && !empty($preview->componentes)) {
+                $compDetectada = collect($preview->componentes)
+                    ->firstWhere('id_tipo_componente', $tipoComponente->id_tipo_componente);
+                $curCodigo = $compDetectada?->cur_codigo;
+            }
+
             $yaExiste = $curso->componentes->firstWhere('id_tipo_componente', $tipoComponente->id_tipo_componente);
             if ($yaExiste) {
+                if ($yaExiste->intranet_cur_codigo === null && $curCodigo !== null) {
+                    $yaExiste->update(['intranet_cur_codigo' => $curCodigo]);
+                }
                 $existentes[] = $tipoComponente->tipo;
                 continue;
             }
@@ -737,10 +747,11 @@ class IntranetService
             Componente::create([
                 'id_curso'                          => $curso->id_curso,
                 'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
-                'genera_acta'                        => true,
-                'aprobacion_obligatoria'             => false,
-                'porcentaje_aprobacion'              => 60.00,
-                'porcentaje_asistencia_obligatoria'  => 75.00,
+                'genera_acta'                       => true,
+                'aprobacion_obligatoria'            => false,
+                'porcentaje_aprobacion'             => 60.00,
+                'porcentaje_asistencia_obligatoria' => 75.00,
+                'intranet_cur_codigo'               => $curCodigo,
             ]);
 
             $creadas[] = $tipoComponente->tipo;
@@ -780,11 +791,25 @@ class IntranetService
      */
     protected function mapearComponenteIntranetAUtamed(ComponenteCursoData $compIntranet, Curso $curso): ?Componente
     {
+        // 1. Coincidencia directa por intranet_cur_codigo si ya fue grabado
+        if ($compIntranet->cur_codigo) {
+            $match = $curso->componentes->first(
+                fn($c) => $c->intranet_cur_codigo !== null && (int)$c->intranet_cur_codigo === (int)$compIntranet->cur_codigo
+            );
+            if ($match) {
+                return $match;
+            }
+        }
+
+        // 2. Coincidencia por tipología normalizada y backfill de intranet_cur_codigo
         $nombresBuscados = self::TIPO_INTRANET_A_NOMBRES[$compIntranet->curso_tipo_asig->value] ?? [];
 
         foreach ($curso->componentes as $comp) {
             $nombreTipo = $this->normalizarNombreTipo($comp->tipoComponente?->tipo ?? '');
             if (in_array($nombreTipo, $nombresBuscados, true)) {
+                if ($comp->intranet_cur_codigo === null && $compIntranet->cur_codigo !== null) {
+                    $comp->update(['intranet_cur_codigo' => $compIntranet->cur_codigo]);
+                }
                 return $comp;
             }
         }
@@ -796,7 +821,7 @@ class IntranetService
      * Busca en el catálogo UTAMED el TipoComponente que corresponde a un
      * código de tipo de Intranet (C/T/L).
      */
-    protected function resolverTipoComponentePorCodigoIntranet(string $codigoIntranet): ?TipoComponente
+    public function resolverTipoComponentePorCodigoIntranet(string $codigoIntranet): ?TipoComponente
     {
         $nombresAceptados = self::TIPO_INTRANET_A_NOMBRES[$codigoIntranet] ?? [];
         if ($nombresAceptados === []) {
