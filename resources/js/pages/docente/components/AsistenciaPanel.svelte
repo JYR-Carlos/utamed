@@ -74,6 +74,8 @@
   let fFin = $state('09:30');
   /** Mapa id_inscripcion_componente → presente. */
   let presentes = $state<Record<number, boolean>>({});
+  /** Móvil: la lista de sesiones muestra sólo la última hasta pedir el resto. */
+  let verTodas = $state(false);
 
   const hoy = new Date().toISOString().slice(0, 10);
 
@@ -258,6 +260,11 @@
 
   const CAMPO =
     'px-2.5 py-1.5 text-[13px] rounded-lg border border-line bg-white focus:outline-none focus:border-navy';
+  // Mismos botones que el detalle del curso (mockup).
+  const BTN_PRIMARIO =
+    'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:h-10';
+  const BTN_SECUNDARIO =
+    'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
 </script>
 
 <div class="flex flex-col gap-4">
@@ -275,49 +282,58 @@
       <Users size={26} class="text-ink-3" />
       <p class="text-sm text-ink-2 m-0">Sin estudiantes inscritos en este componente.</p>
     </div>
+  {:else if sesiones.length === 0 && modo === 'idle'}
+    <!-- Sin sesiones: un solo estado vacío, con la acción adentro. -->
+    <div
+      class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center"
+    >
+      <ClipboardCheck size={28} class="text-slate-500" aria-hidden="true" />
+      <div class="flex flex-col gap-1">
+        <p class="m-0 text-base font-semibold text-ink">Aún no hay sesiones de {tipoComponente}.</p>
+        <p class="m-0 text-sm text-slate-600">Registra la primera para pasar lista.</p>
+      </div>
+      <button type="button" onclick={nuevaSesion} class={BTN_PRIMARIO}>
+        <CalendarPlus size={16} aria-hidden="true" />
+        Nueva sesión
+      </button>
+    </div>
   {:else}
     <div class="flex flex-col lg:flex-row gap-[18px] items-start">
       <!-- ── Panel izquierdo: sesiones ── -->
       <div class="w-full lg:w-[360px] lg:flex-none flex flex-col gap-2.5">
-        <div class="flex items-baseline gap-2.5">
+        <div class="flex items-center gap-2.5">
           <h3 class="text-sm font-semibold text-ink m-0">Sesiones</h3>
-          <span class="text-[11.5px] text-ink-2">
+          <span class="text-xs text-ink-2">
             {sesiones.length}
             {sesiones.length === 1 ? 'registrada' : 'registradas'}
           </span>
-          <button
-            onclick={nuevaSesion}
-            class="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-navy transition-colors hover:bg-uta-blue-light"
-          >
-            <CalendarPlus size={14} />
+          <!-- Primario sólo mientras no hay una lista abierta: ahí manda «Guardar lista». -->
+          <button type="button" onclick={nuevaSesion} class="ml-auto {modo === 'idle' ? BTN_PRIMARIO : BTN_SECUNDARIO}">
+            <CalendarPlus size={16} aria-hidden="true" />
             Nueva sesión
           </button>
         </div>
 
         {#if sesiones.length === 0}
-          <div
-            class="flex flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-sand-line bg-sand py-10 text-center"
-          >
-            <ClipboardCheck size={24} class="text-ink-3" />
-            <p class="text-[13px] text-ink-2 m-0 px-4">
-              Aún no hay sesiones. Registra la primera con «Nueva sesión».
-            </p>
-          </div>
+          <p class="m-0 text-sm text-slate-600">Ésta será la primera sesión del componente.</p>
         {:else}
-          {#each sesionesPorDia as grupo (grupo.dia)}
+          {#each sesionesPorDia as grupo, g (grupo.dia)}
+            <!-- En móvil se ve sólo la última sesión; el resto, con «Ver las N sesiones». -->
             <span
-              class="font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-2 pt-1.5 first:pt-0.5"
+              class="font-mono text-xs uppercase tracking-[0.08em] text-ink-2 pt-1.5 first:pt-0.5 {g > 0 && !verTodas
+                ? 'max-lg:hidden'
+                : ''}"
             >
               {formatFechaLarga(grupo.dia)}
             </span>
-            {#each grupo.items as s (claveSesion(s))}
+            {#each grupo.items as s, j (claveSesion(s))}
               {@const activa = claveSesion(s) === claveActiva}
               <button
                 onclick={() => abrirSesion(s)}
                 aria-current={activa ? 'true' : undefined}
                 class="flex w-full items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition-colors duration-150 {activa
                   ? 'bg-slate-50 border-slate-300 border-l-[3px] border-l-navy'
-                  : 'bg-white border-gray-200 hover:bg-stone-50'}"
+                  : 'bg-white border-gray-200 hover:bg-stone-50'} {(g > 0 || j > 0) && !verTodas ? 'max-lg:hidden' : ''}"
               >
                 <span class="flex flex-col gap-0.5 min-w-0">
                   <span
@@ -331,16 +347,27 @@
                   <span class="font-mono text-sm font-semibold tabular-nums text-ink"
                     >{s.presentes}/{s.total}</span
                   >
-                  <span class="text-[11px] text-ink-2">presentes</span>
+                  <span class="text-xs text-ink-2">presentes</span>
                 </span>
               </button>
             {/each}
           {/each}
+          {#if sesiones.length > 1}
+            <button type="button" onclick={() => (verTodas = !verTodas)} class="{BTN_SECUNDARIO} lg:hidden">
+              {verTodas ? 'Ver sólo la última sesión' : `Ver las ${sesiones.length} sesiones`}
+            </button>
+          {/if}
         {/if}
       </div>
 
-      <!-- ── Panel derecho: pase de lista ── -->
-      <div class="w-full lg:flex-1 min-w-0 rounded-xl border border-gray-200 flex flex-col">
+      <!-- ── Panel derecho: pase de lista. En móvil, con una lista abierta, va
+           primero; sin lista abierta no se muestra (el aviso sólo sirve al lado
+           de las sesiones, en escritorio). ── -->
+      <div
+        class="w-full lg:flex-1 min-w-0 rounded-xl border border-gray-200 flex flex-col {modo === 'idle'
+          ? 'max-lg:hidden'
+          : 'max-lg:order-first'}"
+      >
         {#if modo === 'idle'}
           <div
             class="flex flex-col items-center justify-center gap-2 py-16 text-center text-ink-2"
@@ -389,17 +416,10 @@
                   <Trash2 size={15} />
                 </button>
               {/if}
-              <button
-                onclick={() => marcarTodos(!todosPresentes)}
-                class="rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand"
-              >
+              <button type="button" onclick={() => marcarTodos(!todosPresentes)} class={BTN_SECUNDARIO}>
                 {todosPresentes ? 'Desmarcar todos' : 'Marcar todos'}
               </button>
-              <button
-                onclick={guardar}
-                disabled={guardando}
-                class="inline-flex items-center gap-1.5 rounded-lg border border-navy bg-navy px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-navy-2 disabled:opacity-50"
-              >
+              <button type="button" onclick={guardar} disabled={guardando} class="{BTN_PRIMARIO} disabled:opacity-50">
                 {#if guardando}
                   <Loader2 size={14} class="animate-spin" />
                 {:else}
@@ -428,23 +448,21 @@
                 <span class="w-[22px] shrink-0 font-mono text-[12px] tabular-nums text-ink-2"
                   >{String(i + 1).padStart(2, '0')}</span
                 >
-                <span class="min-w-0 truncate text-[13.5px] font-medium text-ink"
-                  >{e.nombre}</span
-                >
+                <!-- Nombre completo: con truncate se cortaba justo el apellido que distingue. -->
+                <span class="min-w-0 flex-1 break-words text-[13.5px] font-medium text-ink">{e.nombre}</span>
                 <span class="ml-auto flex flex-none items-center gap-2.5">
-                  <span
-                    class="text-[11.5px] {pres
-                      ? 'font-semibold text-emerald-700'
-                      : 'text-ink-2'}">{pres ? 'Presente' : 'Ausente'}</span
+                  <span class="text-xs font-semibold {pres ? 'text-emerald-700' : 'text-slate-600'}"
+                    >{pres ? 'Presente' : 'Ausente'}</span
                   >
+                  <!-- El ::before agranda la zona táctil a 44 px sin mover el diseño. -->
                   <button
                     role="switch"
                     aria-checked={pres}
                     aria-label="{e.nombre}: marcar {pres ? 'ausente' : 'presente'}"
                     onclick={() => togglePresente(e.id_inscripcion_componente)}
-                    class="flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-150 {pres
+                    class="relative flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-150 before:absolute before:-inset-x-1.5 before:-inset-y-[11px] before:content-[''] {pres
                       ? 'justify-end bg-emerald-600'
-                      : 'justify-start bg-zinc-200'}"
+                      : 'justify-start bg-slate-500'}"
                   >
                     <span class="h-[18px] w-[18px] rounded-full bg-white shadow-sm"></span>
                   </button>
@@ -481,7 +499,7 @@
           {#if porcentajeObligatorio != null}
             <span class="text-[11.5px] text-ink-2">
               Mínimo obligatorio del componente:
-              <strong class="font-semibold text-ink">{porcentajeObligatorio}%</strong>
+              <strong class="font-semibold text-ink">{Number(porcentajeObligatorio)} %</strong>
             </span>
           {/if}
         </div>
@@ -490,15 +508,15 @@
             <thead class="bg-sand">
               <tr>
                 <th
-                  class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
+                  class="px-3 py-2.5 sm:px-4 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
                   >Estudiante</th
                 >
                 <th
-                  class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
+                  class="px-3 py-2.5 sm:px-4 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
                   >Asistió</th
                 >
                 <th
-                  class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
+                  class="px-3 py-2.5 sm:px-4 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
                   >%</th
                 >
               </tr>
@@ -506,23 +524,23 @@
             <tbody>
               {#each resumen as r, i (r.estudiante.id_inscripcion_componente)}
                 <tr class="border-t border-gray-200 {i % 2 === 1 ? 'bg-stone-50' : ''}">
-                  <td class="px-4 py-2.5">
-                    <div class="flex items-center gap-2">
+                  <td class="px-3 py-2.5 sm:px-4">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span class="text-[13.5px] text-ink">{r.estudiante.nombre}</span>
                       {#if bajoMinimo(r.porcentaje)}
                         <span
-                          class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10.5px] font-semibold text-amber-700"
+                          class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-700"
                         >
-                          <AlertTriangle size={10} /> Bajo mínimo
+                          <AlertTriangle size={12} aria-hidden="true" /> Bajo mínimo
                         </span>
                       {/if}
                     </div>
                   </td>
-                  <td class="px-4 py-2.5 text-right font-mono tabular-nums text-[13px] text-ink-2"
+                  <td class="px-3 py-2.5 sm:px-4 text-right font-mono tabular-nums text-[13px] text-ink-2"
                     >{r.presentes}/{r.total}</td
                   >
                   <td
-                    class="px-4 py-2.5 text-right font-mono text-[13px] font-semibold tabular-nums {pctColor(
+                    class="px-3 py-2.5 sm:px-4 text-right font-mono text-[13px] font-semibold tabular-nums {pctColor(
                       r.porcentaje,
                     )}">{r.porcentaje}%</td
                   >
