@@ -61,7 +61,8 @@ class MensajesController extends Controller
         // Cursos donde el docente es titular (actuales + históricos).
         $cursos = Curso::where('id_docente_titular', $docente->id_docente)
             ->whereNull('fecha_eliminacion')
-            ->select('id_curso', 'nombre', 'cod_curso', 'agno_real', 'semestre_real')
+            ->select('id_curso', 'nombre', 'cod_curso', 'letra_grupo', 'id_asignacion_plan', 'agno_real', 'semestre_real')
+            ->with('asignacionPlan.asignatura')
             ->get()
             ->keyBy('id_curso');
 
@@ -82,12 +83,13 @@ class MensajesController extends Controller
             fn ($q) => $q->whereIn('c.id_curso', $cursoIds),
         )->groupBy('id_actividad');
 
-        $pendientes = $this->pendientesPorActividad($cursoIds);
+        $conversaciones = $this->conversacionesPorActividad($cursoIds);
 
-        $filas = $actividades->map(function (Actividad $act) use ($cursos, $noLeidos, $pendientes) {
+        $filas = $actividades->map(function (Actividad $act) use ($cursos, $noLeidos, $conversaciones) {
             $curso = $cursos[$act->componente->id_curso];
             $grupos = $noLeidos[$act->id_actividad] ?? collect();
             $masReciente = $grupos->sortByDesc('ultima_fecha')->first();
+            $conversacion = $conversaciones[$act->id_actividad] ?? ['grupos' => 0, 'pendientes' => 0];
 
             return [
                 'id_actividad'  => $act->id_actividad,
@@ -98,10 +100,14 @@ class MensajesController extends Controller
                 'grupos_con_no_leidos' => $grupos->count(),
                 'grupo_a_abrir' => $masReciente?->grupo,
                 'ultima_fecha'  => $masReciente?->ultima_fecha,
-                'pendientes'    => (int) ($pendientes[$act->id_actividad] ?? 0),
+                'pendientes'    => $conversacion['pendientes'],
+                // Con conversación y sin pendientes = «Respondido».
+                'con_conversacion' => $conversacion['grupos'] > 0,
                 'curso' => [
                     'id_curso'      => $curso->id_curso,
                     'nombre'        => $curso->nombre,
+                    'letra_grupo'   => $curso->letra_grupo,
+                    'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                     'cod_curso'     => $curso->cod_curso,
                     'agno_real'     => $curso->agno_real,
                     'semestre_real' => $curso->semestre_real,

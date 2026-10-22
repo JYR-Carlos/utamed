@@ -102,6 +102,7 @@
 
   // ── State ──────────────────────────────────────────────────────────────────
   let query = $state('');
+  let soloConMensajes = $state(true);
   let vista = $state<'generales' | 'individuales'>('individuales');
   let cargando = $state(false);
 
@@ -120,10 +121,23 @@
       (curso.letra_grupo ? ` · Grupo ${curso.letra_grupo}` : ''),
   );
 
+  // Con todo el curso en la lista, las pocas conversaciones quedan enterradas
+  // entre alumnos «Sin mensajes». El filtro no rige al buscar (es como se le
+  // escribe a alguien por primera vez), ni para el canal abierto, ni cuando
+  // nadie ha escrito todavía.
+  const conMensajes = $derived((panel?.canales ?? []).filter((k) => k.ultimo_mensaje).length);
+  const filtraSinMensajes = $derived(soloConMensajes && !query.trim() && conMensajes > 0);
+
   const canalesFiltrados = $derived(
     (panel?.canales ?? []).filter((k) =>
-      !query.trim() ? true : k.alumno.toLowerCase().includes(query.toLowerCase()),
+      query.trim()
+        ? k.alumno.toLowerCase().includes(query.toLowerCase())
+        : !filtraSinMensajes || !!k.ultimo_mensaje || k.id_alumno === panel?.canal?.id_alumno,
     ),
+  );
+
+  const ocultosSinMensajes = $derived(
+    filtraSinMensajes ? (panel?.canales.length ?? 0) - canalesFiltrados.length : 0,
   );
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -245,11 +259,11 @@
         <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight truncate">
           {curso.nombre}
         </h1>
-        <p class="text-[11px] sm:text-xs text-slate-500 truncate">{curso.cod_curso} · {periodo}</p>
+        <p class="text-xs text-slate-600 truncate">{curso.cod_curso} · {periodo}</p>
       </div>
       {#if totalNoLeidos > 0}
         <span
-          class="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 shrink-0"
+          class="text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 shrink-0"
         >
           {totalNoLeidos}<span class="hidden sm:inline">{' '}sin leer</span>
         </span>
@@ -275,7 +289,7 @@
           {c.tipo}
           {#if c.no_leidos > 0}
             <span
-              class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold"
+              class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold"
             >
               {c.no_leidos}
             </span>
@@ -319,6 +333,23 @@
             Individuales
           </button>
         </div>
+
+        <!-- Sólo cuando hay de los dos tipos: si todos o ninguno tienen mensajes,
+             el interruptor no cambiaría nada. -->
+        {#if vista === 'individuales' && conMensajes > 0 && conMensajes < panel.canales.length}
+          <button
+            type="button"
+            aria-pressed={soloConMensajes}
+            onclick={() => (soloConMensajes = !soloConMensajes)}
+            class="px-3 py-1 text-xs font-bold rounded-lg border transition-colors {soloConMensajes
+              ? 'border-brand bg-brand-light text-brand'
+              : 'border-slate-200 bg-white text-slate-600 hover:text-slate-800'} {panel.canal
+              ? 'hidden md:inline-flex'
+              : 'inline-flex'}"
+          >
+            Solo con mensajes ({conMensajes})
+          </button>
+        {/if}
 
         <!-- En escritorio la lista de alumnos no desaparece al abrir un hilo, así
              que el buscador sigue siendo útil aunque haya canal abierto. -->
@@ -381,7 +412,7 @@
                       <p class="text-sm text-slate-700 mt-1 whitespace-pre-wrap break-words">
                         {d.mensaje}
                       </p>
-                      <p class="text-[11px] text-muted-foreground mt-2">
+                      <p class="text-xs text-slate-600 mt-2">
                         {d.es_mio ? 'Tú' : d.emisor} · {fmt(d.fecha_creacion)}
                       </p>
                     </div>
@@ -460,25 +491,36 @@
                         <span class="text-sm font-bold text-slate-800 truncate">{k.alumno}</span>
                         {#if k.no_leidos > 0}
                           <span
-                            class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0"
+                            class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 shrink-0"
                           >
                             {k.no_leidos}
                           </span>
                         {/if}
-                        <span class="ml-auto text-[10px] text-muted-foreground shrink-0">
+                        <span class="ml-auto text-xs text-slate-600 shrink-0">
                           {fmt(k.ultima_fecha)}
                         </span>
                       </div>
-                      <p class="text-xs text-slate-500 truncate mt-0.5">
+                      <p class="text-xs text-slate-600 truncate mt-0.5">
                         {#if k.ultimo_mensaje}
                           {k.es_mio ? 'Tú: ' : ''}{k.ultimo_mensaje}
                         {:else}
-                          <span class="italic text-muted-foreground">Sin mensajes</span>
+                          <span class="italic">Sin mensajes</span>
                         {/if}
                       </p>
                     </div>
                   </button>
                 {/each}
+              {/if}
+              {#if ocultosSinMensajes > 0}
+                <button
+                  type="button"
+                  onclick={() => (soloConMensajes = false)}
+                  class="w-full px-3 py-2.5 mt-1 rounded-xl text-left text-xs text-slate-600 hover:bg-white"
+                >
+                  {ocultosSinMensajes}
+                  {ocultosSinMensajes === 1 ? 'alumno sin mensajes oculto' : 'alumnos sin mensajes ocultos'} ·
+                  <span class="font-semibold text-uta-blue underline underline-offset-2">Mostrar</span>
+                </button>
               {/if}
             </div>
           </div>
@@ -521,8 +563,8 @@
                       >
                         <p class="text-sm whitespace-pre-wrap break-words">{m.mensaje}</p>
                         <p
-                          class="text-[10px] mt-1 {m.es_alumno
-                            ? 'text-muted-foreground'
+                          class="text-xs mt-1 {m.es_alumno
+                            ? 'text-slate-600'
                             : 'text-white/90'}"
                         >
                           {m.es_mio ? 'Tú' : m.emisor} · {fmt(m.fecha_creacion)}
