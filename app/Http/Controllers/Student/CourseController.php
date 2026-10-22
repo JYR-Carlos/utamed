@@ -11,6 +11,7 @@ use App\Services\Student\BitacoraCursoEstudiante;
 use App\Services\Student\MensajeriaCursoEstudiante;
 use App\Services\Student\RendimientoCursoEstudiante;
 use App\Services\Student\ResumenActividadesEstudiante;
+use App\Services\Student\ResumenCursosEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
 use App\Traits\ParsesSyllabus;
 use Illuminate\Http\RedirectResponse;
@@ -38,7 +39,7 @@ class CourseController extends Controller
      *
      * GET estudiante/cursos
      */
-    public function index(Request $request): RedirectResponse|Response
+    public function index(Request $request, ResumenCursosEstudiante $resumenCursos, ResumenActividadesEstudiante $resumen): RedirectResponse|Response
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -63,12 +64,16 @@ class CourseController extends Controller
                 'curso.asignacionPlan.plan.carrera',
                 'curso.programas' => fn ($query) => $query->where('es_actual', true)
                     ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO']),
+                ...ResumenCursosEstudiante::relacionesDocente($estudiante->id_estudiante),
             ])
             ->get();
 
-        $cursosEstudiante = $inscripciones->map(function ($inscripcion) {
+        $cursosEstudiante = $inscripciones->map(function ($inscripcion) use ($resumenCursos) {
             $curso = $inscripcion->curso;
-            return $this->formatCurso($curso, 'Estudiante');
+            return $this->formatCurso($curso, 'Estudiante') + [
+                'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
+                'profesor'       => $resumenCursos->docenteDeSeccion($curso),
+            ];
         });
 
         $semestreActual = now()->month <= 6 ? 1 : 2;
@@ -76,6 +81,9 @@ class CourseController extends Controller
 
         return Inertia::render('student/Courses/Index', [
             'cursos'   => $cursosEstudiante,
+            // Lo mismo que las tarjetas del Inicio: próxima entrega y mensajes sin leer.
+            'proximasAVencer' => $resumen->proximasAVencer($estudiante, $semestreActual, $agnoActual),
+            'mensajeria' => $resumenCursos->mensajesSinLeer((int) $user->id_usuario),
             'periodoActual' => [
                 'semestre' => $semestreActual,
                 'agno' => $agnoActual,
