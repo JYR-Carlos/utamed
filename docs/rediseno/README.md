@@ -6,6 +6,8 @@ yendo a `main` sobre la paleta actual.
 
 - Guía dm v0.1: https://claude.ai/artifact/2PwgXZ4pjJz8UscQYU8sAd
 - Archivo de Figma: https://www.figma.com/design/gMGFJcNq1gsIvc5WRZNIs3
+- Direcciones del Inicio del estudiante (lienzo de Claude, mientras Figma no tenga cuota):
+  https://claude.ai/artifact/JThPrTH1s4KeK39DZzy8kT. A sobria, B marca dm y C editorial, con botón de claro/oscuro
 - Tablero: `arreglos-reunion-23-09-2026`, tarjetas RED-00 a RED-05
 
 ## Flujo
@@ -78,7 +80,8 @@ que flota.
 - El punto de curso del Ítem de menú debe ligarse a `Curso · Oscuro/curso-N/base`, porque el menú es noche en ambos
   temas (#2441CA sobre #161949 no se distingue).
 - Composiciones: menú lateral del estudiante y barra superior.
-- 2–3 direcciones del Inicio del estudiante a 1440 px en la página Direcciones, y un espécimen oscuro.
+- Pasar a la página Direcciones de Figma la dirección que se elija (las tres ya están en el lienzo de Claude, con
+  claro y oscuro).
 - Revisión de contraste AA y tamaños mínimos.
 - El usuario elige la dirección. Sin esa elección no se empieza el lote 1.
 
