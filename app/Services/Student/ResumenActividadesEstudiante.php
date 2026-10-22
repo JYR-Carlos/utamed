@@ -16,8 +16,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Bloques de actividades del dashboard del estudiante: lo que está por vencer
- * y las notas/retroalimentaciones recientes.
+ * Actividades del estudiante en todos sus cursos: lo que está por vencer y las
+ * notas/retroalimentaciones recientes (dashboard), y las fechas límite del
+ * semestre (vista «Semestre» del calendario de la ficha del curso).
  *
  * Sólo mira cursos con inscripción `INSCRITO` y actividades visibles, igual
  * que `Student\CourseController::show` y `Student\ActivityController::show`.
@@ -115,6 +116,106 @@ class ResumenActividadesEstudiante
     }
 
     /**
+     * Fechas límite del semestre: las actividades visibles con plazo de todos
+     * los cursos inscritos del período, con el mismo formato que la ficha del
+     * curso (`paraAlumno`) más el curso al que pertenecen.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function calendarioDelPeriodo(Estudiante $estudiante, ?int $semestre, ?int $agno): array
+    {
+        $componentes = $this->componentesDelEstudiante($estudiante, $semestre, $agno);
+
+        if ($componentes->isEmpty()) {
+            return [];
+        }
+
+        $actividades = Actividad::whereIn('id_componente', $componentes->keys())
+            ->where('visible', true)
+            ->whereNotNull('fecha_limite')
+            ->with('componente.tipoComponente')
+            ->orderBy('fecha_limite')
+            ->get();
+
+        return $this->paraAlumno($estudiante, $actividades)
+            ->map(function (array $item, int $i) use ($actividades, $componentes) {
+                $curso = $componentes->get($actividades[$i]->id_componente);
+
+                return [
+                    ...$item,
+                    'id_curso'   => (int) $curso->id_curso,
+                    'curso'      => $curso->cod_asignatura ?: $curso->cod_curso,
+                    'asignatura' => $curso->asignatura,
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * Las actividades tal como las ve el alumno: tipo, plazo y el estado de su
+     * grupo (entregada, evaluada). Lo comparten la ficha del curso y el
+     * calendario del semestre.
+     *
+     * Entregas y evaluaciones se consultan en lote, no por actividad.
+     *
+     * @param  Collection<int, Actividad>  $actividades  con `componente.tipoComponente` cargado
+     * @return Collection<int, array<string, mixed>> en el mismo orden que `$actividades`
+     */
+    public function paraAlumno(Estudiante $estudiante, Collection $actividades): Collection
+    {
+        $grupos = $this->gruposDelEstudiante($estudiante, $actividades->pluck('id_actividad'));
+        $idsGrupos = $grupos->pluck('id_actividad_asignada_grupo');
+
+        // Último envío vigente de cada grupo.
+        $ultimoEnvio = $idsGrupos->isEmpty()
+            ? collect()
+            : Agenda::entregasVigentes()
+                ->whereIn('id_actividad_asignada_grupo', $idsGrupos)
+                ->select('id_actividad_asignada_grupo', DB::raw('MAX(fecha_envio) as max_fecha_envio'))
+                ->groupBy('id_actividad_asignada_grupo')
+                ->pluck('max_fecha_envio', 'id_actividad_asignada_grupo');
+
+        // Grupos evaluados por nota individual o por evaluación en la agenda;
+        // la nota grupal se mira en cada grupo (mismo criterio que yaFueEvaluado).
+        $evaluados = $idsGrupos->isEmpty()
+            ? collect()
+            : IntegranteGrupo::whereIn('id_actividad_asignada_grupo', $idsGrupos)
+                ->whereNotNull('nota_individual')
+                ->pluck('id_actividad_asignada_grupo')
+                ->merge(Agenda::whereIn('id_actividad_asignada_grupo', $idsGrupos)
+                    ->whereHas('evaluacion')
+                    ->pluck('id_actividad_asignada_grupo'))
+                ->unique()
+                ->flip();
+
+        return $actividades
+            ->map(function (Actividad $actividad) use ($grupos, $ultimoEnvio, $evaluados) {
+                $grupo = $grupos->get($actividad->id_actividad);
+                $fechaEnvio = $grupo ? $ultimoEnvio->get($grupo->id_actividad_asignada_grupo) : null;
+
+                return [
+                    'id_actividad'    => $actividad->id_actividad,
+                    'nombre'          => $actividad->nombre,
+                    'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                    // «Cómo se evalúa» cuenta las actividades de cada componente.
+                    'componente_tipo' => $actividad->componente?->tipoComponente?->tipo,
+                    'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
+                    'es_grupal'       => (bool) $actividad->es_grupal,
+                    'max_integrantes' => $actividad->max_integrantes ?? 1,
+                    'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
+                    'visible'         => (bool) $actividad->visible,
+                    'estado'          => $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase(),
+                    'ya_entregada'    => $fechaEnvio !== null,
+                    // Día del último envío vigente; la tarjeta dice «Entregada el …».
+                    'fecha_entrega'   => $fechaEnvio ? Carbon::parse($fechaEnvio)->format('Y-m-d') : null,
+                    'ya_evaluada'     => $grupo !== null
+                        && ($grupo->nota !== null || $evaluados->has($grupo->id_actividad_asignada_grupo)),
+                ];
+            })
+            ->values();
+    }
+
+    /**
      * Últimas notas y retroalimentaciones que el equipo docente dejó en las
      * actividades del alumno, una por actividad (la más reciente).
      *
@@ -194,7 +295,7 @@ class ResumenActividadesEstudiante
      * componente, se toman todos sus componentes (mismo criterio que
      * `Student\CourseController::show`).
      *
-     * @return Collection<int, object> id_componente => {id_curso, cod_curso, cod_asignatura}
+     * @return Collection<int, object> id_componente => {id_curso, cod_curso, cod_asignatura, asignatura}
      */
     private function componentesDelEstudiante(Estudiante $estudiante, ?int $semestre = null, ?int $agno = null): Collection
     {
@@ -212,7 +313,7 @@ class ResumenActividadesEstudiante
             $queryCursos->where('c.agno_real', $agno);
         }
 
-        $cursos = $queryCursos->get(['c.id_curso', 'c.cod_curso', 'a.cod_asignatura'])
+        $cursos = $queryCursos->get(['c.id_curso', 'c.cod_curso', 'a.cod_asignatura', 'a.nombre as asignatura'])
             ->keyBy('id_curso');
 
         if ($cursos->isEmpty()) {
@@ -242,6 +343,8 @@ class ResumenActividadesEstudiante
     }
 
     /**
+     * Grupos a los que pertenece el alumno en esas actividades.
+     *
      * @param  Collection<int, int>  $idsActividad
      * @return Collection<int, ActividadAsignadaGrupo> keyed por id_actividad
      */

@@ -2,21 +2,17 @@
 
 namespace App\Http\Controllers\Student;
 
-use App\Enums\DB\TipoActividad;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
-use App\Models\Agenda\ActividadAsignadaGrupo;
-use App\Models\Agenda\Agenda;
-use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
 use App\Services\Student\BitacoraCursoEstudiante;
 use App\Services\Student\MensajeriaCursoEstudiante;
 use App\Services\Student\RendimientoCursoEstudiante;
+use App\Services\Student\ResumenActividadesEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
 use App\Traits\ParsesSyllabus;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -166,66 +162,9 @@ class CourseController extends Controller
             ->orderBy('fecha_limite', 'asc')
             ->get();
 
-        $actividadIds = $actividades->pluck('id_actividad');
-
-        // Grupos asignados al estudiante para estas actividades
-        $gruposDelEstudiante = ActividadAsignadaGrupo::whereIn('id_actividad', $actividadIds)
-            ->whereHas('miembros', fn($q) => $q->where('id_estudiante', $estudiante->id_estudiante))
-            ->get()
-            ->keyBy('id_actividad');
-
-        $idsGrupos = $gruposDelEstudiante->pluck('id_actividad_asignada_grupo');
-
-        // Consultas en lote para evitar N+1 por cada actividad del curso:
-        // 1. Última entrega vigente por grupo
-        $entregasVigentesPorGrupo = $idsGrupos->isEmpty()
-            ? collect()
-            : Agenda::entregasVigentes()
-                ->whereIn('id_actividad_asignada_grupo', $idsGrupos)
-                ->select('id_actividad_asignada_grupo', DB::raw('MAX(fecha_envio) as max_fecha_envio'))
-                ->groupBy('id_actividad_asignada_grupo')
-                ->pluck('max_fecha_envio', 'id_actividad_asignada_grupo');
-
-        // 2. Grupos evaluados (por nota individual en integrante o por evaluación en agenda)
-        $gruposConEvaluacion = $idsGrupos->isEmpty()
-            ? collect()
-            : collect(
-                IntegranteGrupo::whereIn('id_actividad_asignada_grupo', $idsGrupos)
-                    ->whereNotNull('nota_individual')
-                    ->pluck('id_actividad_asignada_grupo')
-            )->merge(
-                Agenda::whereIn('id_actividad_asignada_grupo', $idsGrupos)
-                    ->whereHas('evaluacion')
-                    ->pluck('id_actividad_asignada_grupo')
-            )->unique()->flip();
-
-        $actividadesData = $actividades->map(function (Actividad $actividad) use ($gruposDelEstudiante, $entregasVigentesPorGrupo, $gruposConEvaluacion) {
-            /** @var mixed $grupo ActividadAsignadaGrupo|null */
-            $grupo = $gruposDelEstudiante->get($actividad->id_actividad);
-            $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
-
-            $fechaEnvio = $grupo ? $entregasVigentesPorGrupo->get($grupo->id_actividad_asignada_grupo) : null;
-            $entregada = $fechaEnvio !== null;
-            $yaEvaluada = $grupo !== null && ($grupo->nota !== null || $gruposConEvaluacion->has($grupo->id_actividad_asignada_grupo));
-
-            return [
-                'id_actividad'    => $actividad->id_actividad,
-                'nombre'          => $actividad->nombre,
-                'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
-                // «Cómo se evalúa» cuenta las actividades de cada componente.
-                'componente_tipo' => $actividad->componente?->tipoComponente?->tipo,
-                'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
-                'es_grupal'       => (bool) $actividad->es_grupal,
-                'max_integrantes' => $actividad->max_integrantes ?? 1,
-                'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
-                'visible'         => (bool) $actividad->visible,
-                'estado'          => $estado,
-                'ya_entregada'    => $entregada,
-                // Día del último envío vigente; la tarjeta dice «Entregada el …».
-                'fecha_entrega'   => $fechaEnvio ? Carbon::parse($fechaEnvio)->format('Y-m-d') : null,
-                'ya_evaluada'     => $yaEvaluada,
-            ];
-        })->values();
+        // Cada actividad con el estado del grupo del alumno (entregada, evaluada).
+        $resumen = app(ResumenActividadesEstudiante::class);
+        $actividadesData = $resumen->paraAlumno($estudiante, $actividades);
 
         $syllabus = StudentSyllabusPresenter::build($curso, $estudiante);
 
@@ -251,6 +190,10 @@ class CourseController extends Controller
                     ->bandeja($curso, (int) $user->id_usuario, request()->integer('componente_id') ?: null)),
                 'bitacora' => Inertia::lazy(fn () => app(BitacoraCursoEstudiante::class)
                     ->compilar($curso, $estudiante)),
+                // Vista «Ver todos» del calendario: las fechas de todos los cursos
+                // del período de éste. Se pide al elegir esa vista.
+                'calendario_semestre' => Inertia::lazy(fn () => $resumen
+                    ->calendarioDelPeriodo($estudiante, $curso->semestre_real, $curso->agno_real)),
                 'curso' => [
                     'id_curso'          => $curso->id_curso,
                     'nombre'            => $curso->nombre,

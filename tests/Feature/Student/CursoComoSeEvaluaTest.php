@@ -64,3 +64,36 @@ test('cada actividad visible del curso llega con el tipo de su componente', func
             expect(array_diff($recibidos, $tipos))->toBe([]);
         });
 });
+
+test('el calendario del semestre llega sólo al pedirlo, con las fechas de todos los cursos del período', function () {
+    $row = DB::selectOne("
+        SELECT ic.id_curso, e.id_usuario
+        FROM curso.inscripcion_curso ic
+        JOIN usuario.estudiante e ON e.id_estudiante = ic.id_estudiante
+        WHERE ic.estado_inscripcion = 'INSCRITO'
+        ORDER BY ic.id_curso
+        LIMIT 1
+    ");
+    if (!$row) {
+        $this->markTestSkipped('No hay un estudiante inscrito en un curso.');
+    }
+
+    $usuario = Usuario::findOrFail($row->id_usuario);
+    $usuario->fecha_cambio_passhash = now();
+    $usuario->save();
+
+    $this->actingAs($usuario)
+        ->get("/estudiante/cursos/{$row->id_curso}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->missing('calendario_semestre'));
+
+    // Una prop pedida que el servidor no define vuelve como null, y el
+    // calendario la volvería a pedir sin fin: tiene que llegar una lista.
+    $this->actingAs($usuario)
+        ->get("/estudiante/cursos/{$row->id_curso}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly('calendario_semestre', fn (Assert $reload) => $reload
+                ->whereType('calendario_semestre', 'array')
+                ->etc()));
+});
