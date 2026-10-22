@@ -94,7 +94,7 @@ Claude, por tandas:
 |---|---|---|
 | 1 | Inicio, Mis cursos, Ficha del curso · Actividades, Actividad por entregar | Publicada |
 | 2 | Ficha del curso · Resumen de notas, Ficha del curso · Mensajería, Actividad calificada | Publicada |
-| 3 | Ficha del curso · Programa, Biblioteca, Calendario y Bitácora; Syllabus | Pendiente |
+| 3 | Ficha del curso · Programa, Biblioteca, Calendario y Bitácora; Programa para imprimir | Publicada |
 | 4 | Perfil, Cambiar contraseña, modales (agenda, subir entrega, rúbrica), estados vacíos y de error | Pendiente |
 
 Criterios de la tanda 2:
@@ -102,12 +102,32 @@ Criterios de la tanda 2:
 - **Resumen de notas:** mismos datos que `rendimiento` (promedios, evaluadas, peso del componente, aprobación por
   separado, exigencia y asistencia). La asistencia bajo el mínimo usa la insignia de advertencia con texto; el rojo
   queda para errores.
-- **Mensajería:** propone renombrar «Generales» e «Individuales» a «Avisos del curso» y «Conversación con el equipo
-  docente», con el selector de componente arriba y el conteo de nuevos. Laboratorio muestra el estado vacío.
+- **Mensajería:** «Generales» e «Individuales» pasan a llamarse «Avisos del curso» y «Conversación con el equipo
+  docente» (aprobado el 2026-10-22). El selector de componente va arriba, con el conteo de nuevos. Laboratorio muestra
+  el estado vacío.
 - **Actividad calificada:** la rúbrica muestra el nivel de cada criterio (`ultima_evaluacion.resultado`) y el puntaje
   (`puntaje_obtenido`). No hay botón de apelación porque la apelación (T48) no está implementada
   (`puedeApelar = false` en `Activities/Index.svelte`); las dudas sobre la nota van a la agenda de la actividad.
   Los nombres de los niveles de la rúbrica son de ejemplo.
+
+Criterios de la tanda 3:
+
+- **Programa:**
+  - La ficha (categoría, docentes, SCT, horas) suma una franja «Cómo se evalúa» con los componentes de la sección IX.
+  - Las secciones van en tarjetas, con las Unidades primero (T24 y T28) y un índice lateral para saltar entre ellas.
+- **Biblioteca:** la sección VIII del programa agrupada por sus subtítulos.
+  - El ícono de cada ítem sale del texto: libro si no trae nada, archivo si trae `uuid_archivo` y enlace si trae URL.
+  - No hay buscador ni filtros nuevos.
+- **Calendario:** mantiene «Este curso» y «Todo el semestre», las vistas Mes y Agenda, el detalle del día, la leyenda y
+  el salto a la siguiente fecha.
+  - «Vencida» va en ámbar sólido y «Cierra pronto» en ámbar suave, siempre con ícono y texto. El rojo queda para
+    errores.
+  - En el semestre, cada marca lleva el código y el color del curso.
+  - En móvil, la grilla compacta (con puntos) más el detalle del día y la agenda del mes, sin selector de vista.
+- **Bitácora:** las mismas entradas y filtros que hoy (actividad y componente), agrupadas por día en una línea de
+  tiempo. Cada tipo tiene su color y su etiqueta, y cada entrada lleva a la agenda de su actividad.
+- **Programa para imprimir:** una sola columna de lectura en una hoja con la franja del curso, para que se imprima limpio.
+  En móvil, las tablas pasan a listas.
 
 ## Decisiones
 
