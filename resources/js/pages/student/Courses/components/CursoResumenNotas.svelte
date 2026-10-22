@@ -91,7 +91,7 @@
       <div class="{tarjeta} flex flex-col gap-1 border-t-6 border-t-dm-linea px-5 py-4 lg:px-6 lg:py-5">
         <span class="{etiqueta} text-dm-ink-3">Actividades calificadas</span>
         <span class="{CIFRA} text-dm-ink-2"
-          >{totales.evaluadas}<span class="text-[28px] font-extrabold text-dm-ink-3"> de {totales.sumativas}</span></span
+          >{totales.evaluadas}<span class="text-[28px] font-extrabold text-dm-ink-3">{' '}de {totales.sumativas}</span></span
         >
         <span class="text-[13px] leading-[18px] text-dm-ink-2">Sumativas del curso</span>
       </div>

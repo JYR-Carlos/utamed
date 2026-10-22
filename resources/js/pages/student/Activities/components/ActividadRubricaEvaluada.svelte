@@ -38,7 +38,7 @@
         <div class="flex items-baseline justify-between gap-3 lg:contents">
           <span class="text-[15px] leading-5 font-semibold">{c.nombre}</span>
           <span class="shrink-0 text-[13px] text-dm-ink-3 tabular-nums lg:text-sm lg:text-dm-ink-2">
-            <span class="sr-only">Peso </span>{c.peso}
+            <span class="sr-only">Peso{' '}</span>{c.peso}
           </span>
         </div>
 

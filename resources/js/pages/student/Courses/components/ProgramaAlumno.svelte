@@ -116,7 +116,7 @@
       {#each horas as h (h.largo)}
         <div class="{CELDA} order-3 flex-1 border-r last:border-r-0 lg:flex-[1_1_120px]">
           <dt class="{etiqueta} text-dm-ink-3"><span class="lg:hidden">{h.corto}</span><span class="max-lg:hidden">{h.largo}</span></dt>
-          <dd class={NUMERO}>{h.valor}<span class="lg:hidden"> h</span></dd>
+          <dd class={NUMERO}>{h.valor}<span class="lg:hidden">{' '}h</span></dd>
         </div>
       {/each}
     </dl>

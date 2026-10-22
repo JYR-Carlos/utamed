@@ -76,7 +76,7 @@
             <span class="flex flex-col lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-2">
               <span class="text-sm font-semibold">{titleCase(m.emisor)}</span>
               <span class="text-[13px] leading-[18px] text-dm-ink-3">
-                {rol(m)} · {cuando(m.fecha_emision)}{#if nuevo}<span class="font-bold text-dm-accion-texto lg:hidden"> · Nuevo</span>{/if}
+                {rol(m)} · {cuando(m.fecha_emision)}{#if nuevo}<span class="font-bold text-dm-accion-texto lg:hidden">{' '}· Nuevo</span>{/if}
               </span>
               {#if nuevo}<span class="text-[13px] leading-[18px] font-bold text-dm-accion-texto max-lg:hidden">Nuevo</span>{/if}
             </span>

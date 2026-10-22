@@ -150,11 +150,11 @@
       {#each seccion.componentes as c, i (c.componente + i)}
         <div class="{COLUMNAS_IX} flex flex-col gap-0.5 border-b border-dm-linea px-4 py-3 last:border-b-0">
           <span class="font-semibold">{c.componente}</span>
-          <span><span class="text-dm-ink-2 md:sr-only">Ponderación: </span>{porcentaje(c.porcentaje)}</span>
+          <span><span class="text-dm-ink-2 md:sr-only">Ponderación:{' '}</span>{porcentaje(c.porcentaje)}</span>
           <span
-            ><span class="text-dm-ink-2 md:sr-only">Aprobación por separado: </span>{c.aprobacion_obligatoria ? 'Sí' : 'No'}</span
+            ><span class="text-dm-ink-2 md:sr-only">Aprobación por separado:{' '}</span>{c.aprobacion_obligatoria ? 'Sí' : 'No'}</span
           >
-          <span><span class="text-dm-ink-2 md:sr-only">Asistencia mínima: </span>{porcentaje(c.asistencia_obligatoria)}</span>
+          <span><span class="text-dm-ink-2 md:sr-only">Asistencia mínima:{' '}</span>{porcentaje(c.asistencia_obligatoria)}</span>
         </div>
       {/each}
     </div>

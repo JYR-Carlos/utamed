@@ -45,11 +45,11 @@
       </div>
       {#if recurso.tipo === 'archivo'}
         <a href={recurso.href} target="_blank" rel="noopener noreferrer" class="{ACCION} max-sm:ml-12.5">
-          <FileText size={16} aria-hidden="true" />Ver archivo<span class="sr-only"> (se abre en otra pestaña)</span>
+          <FileText size={16} aria-hidden="true" />Ver archivo<span class="sr-only">{' '}(se abre en otra pestaña)</span>
         </a>
       {:else if recurso.tipo === 'enlace'}
         <a href={recurso.href} target="_blank" rel="noopener noreferrer" class="{ACCION} max-sm:ml-12.5">
-          Abrir enlace<ExternalLink size={16} aria-hidden="true" /><span class="sr-only"> (se abre en otra pestaña)</span>
+          Abrir enlace<ExternalLink size={16} aria-hidden="true" /><span class="sr-only">{' '}(se abre en otra pestaña)</span>
         </a>
       {/if}
     </li>

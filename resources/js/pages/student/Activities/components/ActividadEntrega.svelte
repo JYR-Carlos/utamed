@@ -131,9 +131,9 @@
             class="inline-flex min-h-11 shrink-0 items-center gap-1.5 px-1 text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline"
           >
             {#if visualizable}
-              <Eye size={16} aria-hidden="true" /><span class="max-sm:sr-only">Ver</span><span class="sr-only"> la entrega (se abre en otra pestaña)</span>
+              <Eye size={16} aria-hidden="true" /><span class="max-sm:sr-only">Ver</span><span class="sr-only">{' '}la entrega (se abre en otra pestaña)</span>
             {:else}
-              <Download size={16} aria-hidden="true" /><span class="max-sm:sr-only">Descargar</span><span class="sr-only"> la entrega</span>
+              <Download size={16} aria-hidden="true" /><span class="max-sm:sr-only">Descargar</span><span class="sr-only">{' '}la entrega</span>
             {/if}
           </a>
         {/if}

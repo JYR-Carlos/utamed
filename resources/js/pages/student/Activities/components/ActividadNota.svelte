@@ -108,7 +108,7 @@
         <span class="text-sm leading-5 text-dm-ink-2">
           {esSumativa ? 'Calificada' : 'Revisada'}{fecha ? ` el ${formatDiaCorto(new Date(fecha))}` : ''}{#if evaluador}
             por <strong class="font-semibold text-dm-ink">{titleCase(evaluador)}</strong>{/if}{#if tienePuntaje}
-            · {String(puntaje).replace('.', ',')} de {puntajeTotal} puntos<span class="max-lg:hidden"> en la rúbrica</span>{/if}
+            · {String(puntaje).replace('.', ',')} de {puntajeTotal} puntos<span class="max-lg:hidden">{' '}en la rúbrica</span>{/if}
         </span>
       {/if}
       {#if detalleAjuste}
