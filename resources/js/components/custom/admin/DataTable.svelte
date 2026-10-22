@@ -7,7 +7,7 @@
 
   interface Props {
     data: PaginatedResponse<any> | any[] | { data: any[]; meta?: any; [key: string]: any };
-    columns: { key: string; label: string; sortable?: boolean; class?: string }[];
+    columns: { key: string; label: string; sortable?: boolean; noSort?: boolean; noFilter?: boolean; class?: string }[];
     /** Variante de estilo: 'default' (gris estándar) | 'accent' (borde institucional azul y cabecera contrastada) */
     variant?: 'default' | 'accent';
     /** Clases CSS adicionales para el contenedor principal */
@@ -121,8 +121,14 @@
   /** Término efectivamente aplicado en el servidor (el de la URL). */
   let searchAplicado = $derived(urlParams().get('search') ?? '');
 
-  let activeSortKey = $derived(urlParams().get('sort_key'));
-  let activeSortDir = $derived(urlParams().get('sort_dir') as SortDir);
+  let activeSortKey = $derived(
+    isClientData ? clientSortKey : urlParams().get('sort_key'),
+  );
+  let activeSortDir = $derived(
+    isClientData ? clientSortDir : (urlParams().get('sort_dir') as SortDir),
+  );
+  let clientSortKey = $state<string | null>(null);
+  let clientSortDir = $state<SortDir>(null);
 
   let menuState = $state<{
     item: any;
@@ -172,9 +178,34 @@
     return out;
   }
 
+  function isColSortable(col: {
+    key: string;
+    sortable?: boolean;
+    noSort?: boolean;
+    noFilter?: boolean;
+  }): boolean {
+    if (col.sortable === false || col.noSort === true || col.noFilter === true) {
+      return false;
+    }
+    const nonSortableKeys = [
+      'acciones',
+      'actions',
+      'malla',
+      '#',
+      '_index',
+      'numero',
+      'correlativo',
+      'nro',
+    ];
+    return !nonSortableKeys.includes(col.key);
+  }
+
   // Three-state cycle: none → asc → desc → none
   // Fires a server request so the full dataset is sorted.
   function cycleSort(key: string) {
+    const col = columns.find((c) => c.key === key);
+    if (col && !isColSortable(col)) return;
+
     let nextDir: SortDir;
     if (activeSortKey !== key) {
       nextDir = 'asc';
@@ -182,6 +213,12 @@
       nextDir = 'desc';
     } else {
       nextDir = null;
+    }
+
+    if (isClientData) {
+      clientSortKey = nextDir ? key : null;
+      clientSortDir = nextDir;
+      return;
     }
 
     // Preserve search, tipo, per_page — drop page (reset to 1) and old sort
@@ -204,15 +241,34 @@
    * la misma columna igual que el ciclo de las cabeceras.
    */
   function setSortFromSelect(key: string) {
+    if (isClientData) {
+      if (!key) {
+        clientSortKey = null;
+        clientSortDir = null;
+        return;
+      }
+      clientSortKey = key;
+      clientSortDir = activeSortKey === key && activeSortDir === 'asc' ? 'desc' : 'asc';
+      return;
+    }
+
     if (!key) {
       const params = currentParamsExcept('sort_key', 'sort_dir', 'page');
-      router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+      router.get(currentPath, params, {
+        preserveState: true,
+        preserveScroll: true,
+        only: only?.length ? only : undefined,
+      });
       return;
     }
     const params = currentParamsExcept('sort_key', 'sort_dir', 'page');
     params.sort_key = key;
     params.sort_dir = activeSortKey === key && activeSortDir === 'asc' ? 'desc' : 'asc';
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+    router.get(currentPath, params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: only?.length ? only : undefined,
+    });
   }
 
   function getValue(item: any, key: string): any {
@@ -363,12 +419,30 @@
         : Math.min(totalCount, fromIndex + (items?.length || currentPerPage) - 1),
   );
 
+  let sortedClientData = $derived.by(() => {
+    if (!isClientData) return [];
+    const list = [...(data as any[])];
+    if (!clientSortKey || !clientSortDir) return list;
+    return list.sort((a, b) => {
+      const valA = getValue(a, clientSortKey!);
+      const valB = getValue(b, clientSortKey!);
+      if (valA === valB) return 0;
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
+      const cmp =
+        typeof valA === 'number' && typeof valB === 'number'
+          ? valA - valB
+          : String(valA).localeCompare(String(valB), 'es', { numeric: true, sensitivity: 'base' });
+      return clientSortDir === 'desc' ? -cmp : cmp;
+    });
+  });
+
   /** Lista normalizada de elementos a renderizar (soporta array directo o respuesta paginada) */
   let items = $derived<any[]>(
     isClientData
       ? paginate
-        ? (data as any[]).slice((pageCurrent - 1) * currentPerPage, pageCurrent * currentPerPage)
-        : (data as any[])
+        ? sortedClientData.slice((pageCurrent - 1) * currentPerPage, pageCurrent * currentPerPage)
+        : sortedClientData
       : ((data as any)?.data ?? []),
   );
 
@@ -485,7 +559,7 @@
             class="md:hidden px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
           >
             <option value="">Orden por defecto</option>
-            {#each columns as column (column.key)}
+            {#each columns.filter(isColSortable) as column (column.key)}
               <option value={column.key}>
                 {column.label}{activeSortKey === column.key ? (activeSortDir === 'desc' ? ' ↓' : ' ↑') : ''}
               </option>
@@ -565,14 +639,17 @@
             <th class="w-10 px-3 py-3"></th>
           {/if}
           {#each columns as column (column.key)}
+            {@const sortable = isColSortable(column)}
             <th
-              onclick={() => cycleSort(column.key)}
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide cursor-pointer select-none hover:bg-gray-100 transition-colors {variant === 'accent' ? 'text-slate-700' : 'text-gray-500'}"
+              onclick={sortable ? () => cycleSort(column.key) : undefined}
+              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide select-none {sortable
+                ? 'cursor-pointer hover:bg-gray-100 transition-colors'
+                : ''} {variant === 'accent' ? 'text-slate-700' : 'text-gray-500'} {column.class ?? ''}"
             >
               <span class="inline-flex items-center gap-1">
                 {column.label}
 
-                {#if activeSortKey === column.key && activeSortDir === 'asc'}
+                {#if sortable && activeSortKey === column.key && activeSortDir === 'asc'}
                   <!-- Ascending: A→Z, arrow down -->
                   <span class="text-blue-500 shrink-0">
                     <svg
@@ -593,7 +670,7 @@
                       <path d="M15 14h5l-5 6h5" />
                     </svg>
                   </span>
-                {:else if activeSortKey === column.key && activeSortDir === 'desc'}
+                {:else if sortable && activeSortKey === column.key && activeSortDir === 'desc'}
                   <!-- Descending: Z→A, arrow up — vertical mirror of ascending -->
                   <span class="text-blue-500 shrink-0">
                     <svg
@@ -614,7 +691,7 @@
                       <path d="M20 18h-5"></path>
                     </svg>
                   </span>
-                {:else}
+                {:else if sortable}
                   <!-- Unsorted: neutral hint icon -->
                   <span class="text-gray-300 shrink-0">
                     <svg

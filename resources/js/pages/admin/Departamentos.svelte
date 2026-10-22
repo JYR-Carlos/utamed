@@ -207,6 +207,7 @@
     <!-- Componente: Lista de Departamentos (Tabla expandible) -->
     <DepartamentoList
       {departamentos}
+      {facultades}
       {canEdit}
       {canDelete}
       onEdit={openEditModal}

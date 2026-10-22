@@ -653,8 +653,34 @@ class ProgramaController extends Controller
             $query->where('agno_real', $agno);
         }
 
+        $sortKey = $request->query('sort_key');
+        $sortDir = strtolower((string) $request->query('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sortKey === 'nombre') {
+            $query->orderBy('nombre', $sortDir)->orderBy('cod_curso', $sortDir);
+        } elseif ($sortKey === 'carrera') {
+            $sub = \App\Models\Administrativo\Carrera::select('nombre')
+                ->join('plan', 'carrera.id_carrera', '=', 'plan.id_carrera')
+                ->join('asignacion_plan', 'plan.id_plan', '=', 'asignacion_plan.id_plan')
+                ->whereColumn('asignacion_plan.id_asignacion_plan', 'curso.id_asignacion_plan')
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'estado') {
+            $sub = \App\Models\Curso\Programa::select('estado')
+                ->whereColumn('programa.id_curso', 'curso.id_curso')
+                ->where('es_actual', true)
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'fecha_basico') {
+            $query->orderBy('fecha_limite_entrega_basico', $sortDir);
+        } elseif ($sortKey === 'fecha_completo') {
+            $query->orderBy('fecha_limite_entrega_syllabus', $sortDir);
+        } else {
+            $query->orderBy('nombre');
+        }
+
         $perPage = (int) $request->query('per_page', 20);
-        $cursos = $query->orderBy('nombre')->paginate($perPage, ['*'], 'page', $request->query('page', 1));
+        $cursos = $query->paginate($perPage, ['*'], 'page', $request->query('page', 1))->withQueryString();
 
         $cursosData = $cursos->map(function (Curso $c) {
             $programa = $c->programas->first();
@@ -707,6 +733,8 @@ class ProgramaController extends Controller
                 'search'   => $busqueda,
                 'semestre' => $semestre,
                 'agno'     => $agno,
+                'sort_key' => $sortKey,
+                'sort_dir' => $sortDir,
             ],
             'semestres'  => $semestres,
             'agnos'      => $agnos,

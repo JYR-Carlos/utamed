@@ -1,5 +1,27 @@
 <?php
 
+// Re-enrutar autoloader si vendor fue compartido por junction en un worktree
+$localApp = realpath(__DIR__ . '/../app');
+foreach (spl_autoload_functions() as $autoloader) {
+    if (is_array($autoloader) && $autoloader[0] instanceof \Composer\Autoload\ClassLoader) {
+        $composerLoader = $autoloader[0];
+        $overrides = [];
+        foreach ($composerLoader->getClassMap() as $class => $file) {
+            if (str_starts_with($class, 'App\\')) {
+                $rel = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, substr($class, 4)) . '.php';
+                $candidate = $localApp . DIRECTORY_SEPARATOR . $rel;
+                if (file_exists($candidate)) {
+                    $overrides[$class] = $candidate;
+                }
+            }
+        }
+        if (!empty($overrides)) {
+            $composerLoader->addClassMap($overrides);
+        }
+        break;
+    }
+}
+
 use App\Http\Middleware\ForcePasswordChange;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;

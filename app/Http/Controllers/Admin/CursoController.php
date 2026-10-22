@@ -57,7 +57,7 @@ class CursoController extends Controller
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Curso::class);
-        $cursos = Curso::query()
+        $query = Curso::query()
             ->with([
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
@@ -75,9 +75,45 @@ class CursoController extends Controller
                         $q->where('nombre', 'ilike', "%{$search}%");
                     });
             })
-            ->whereNull('fecha_eliminacion')
-            ->orderBy('fecha_inicio', 'desc')
-            ->paginate($this->perPage($request))
+            ->whereNull('fecha_eliminacion');
+
+        // Filtro de estado
+        $status = $request->input('status', 'active');
+        if ($status === 'active') {
+            $query->whereIn(DB::raw('lower(estado_interno)'), ['activo', 'abierto']);
+        } elseif ($status === 'inactive') {
+            $query->whereRaw('lower(estado_interno) = ?', ['cerrado']);
+        }
+
+        // Ordenamiento con soporte para atributos compuestos
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sortKey === 'nombre') {
+            $query->orderBy('nombre', $sortDir)->orderBy('letra_grupo', $sortDir);
+        } elseif ($sortKey === 'periodo') {
+            $query->orderByRaw("COALESCE(curso.agno_real, EXTRACT(YEAR FROM curso.fecha_inicio)::integer, 0) {$sortDir}")
+                ->orderByRaw("COALESCE(curso.semestre_real, 0) {$sortDir}");
+        } elseif ($sortKey === 'carrera_nombre') {
+            $sub = Carrera::select('nombre')
+                ->join('plan', 'carrera.id_carrera', '=', 'plan.id_carrera')
+                ->join('asignacion_plan', 'plan.id_plan', '=', 'asignacion_plan.id_plan')
+                ->whereColumn('asignacion_plan.id_asignacion_plan', 'curso.id_asignacion_plan')
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'secciones') {
+            $query->withCount('componentes')->orderBy('componentes_count', $sortDir);
+        } elseif ($sortKey === 'programa_estado') {
+            $sub = \App\Models\Curso\Programa::select('estado')
+                ->whereColumn('programa.id_curso', 'curso.id_curso')
+                ->where('es_actual', true)
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } else {
+            $query->orderBy('fecha_inicio', 'desc');
+        }
+
+        $cursos = $query->paginate($this->perPage($request))
             ->withQueryString();
 
         $planes = Plan::with('carrera')->get();
@@ -91,7 +127,7 @@ class CursoController extends Controller
             'tipos_componente' => $tipos_componente,
             'availableRoles' => [],
             'availablePermissions' => [],
-            'filters' => $request->only(['search'])
+            'filters' => $request->only(['search', 'status', 'sort_key', 'sort_dir'])
         ]);
     }
 
