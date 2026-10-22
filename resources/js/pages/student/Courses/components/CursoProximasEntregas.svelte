@@ -1,67 +1,55 @@
 <script lang="ts">
   /**
-   * «Próximas entregas» del curso: las actividades con entrega que todavía no
-   * vencen, de la más cercana a la más lejana. Antes era una franja dentro del
-   * encabezado con sólo la primera; ahora es una sección propia (T26).
-   *
-   * Cada entrega es una tarjeta: etiqueta de tipo, nombre y, debajo, la fecha
-   * con el plazo. En móvil las tarjetas se apilan y el nombre ocupa todo el
-   * ancho; en escritorio se reparten en tres columnas.
+   * «Próximas entregas» del curso, en la columna lateral de Actividades: las
+   * que todavía se pueden entregar, de la más cercana a la más lejana. Las que
+   * vencen hoy o ya están atrasadas llevan el plazo en ámbar; las demás, sólo
+   * la fecha.
    */
   import { Link } from '@inertiajs/svelte';
-  import { CalendarClock } from 'lucide-svelte';
-  import ChipActividad from '@/components/student/ChipActividad.svelte';
-  import { diasHasta, etiquetaPlazo, formatFechaCorta } from '@/utils/formatters';
-
-  interface Entrega {
-    id_actividad: number;
-    nombre: string;
-    fecha_limite: string;
-    es_sumativa: boolean;
-  }
+  import { CalendarDays, Clock } from 'lucide-svelte';
+  import { fechaLimiteTexto, type ActividadAlumno } from '@/lib/actividadAlumno';
+  import { pildora, tarjeta, tono } from '@/lib/dm';
+  import { claveDia } from '@/utils/formatters';
 
   interface Props {
     idCurso: number;
-    entregas?: Entrega[];
+    entregas?: ActividadAlumno[];
+    /** Cuántas se muestran; la tabla de al lado tiene el resto. */
+    maximo?: number;
+    class?: string;
   }
 
-  let { idCurso, entregas = [] }: Props = $props();
+  let { idCurso, entregas = [], maximo = 3, class: clase = '' }: Props = $props();
+
+  const hoy = claveDia();
 </script>
 
-{#if entregas.length > 0}
-  <ul class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-    {#each entregas.filter((e) => diasHasta(e.fecha_limite) >= 0) as entrega (entrega.id_actividad)}
-      {@const dias = diasHasta(entrega.fecha_limite)}
-      {@const urgente = dias <= 3}
-
-      <li class="flex">
-        <Link
-          href={`/estudiante/cursos/${idCurso}/actividad/${entrega.id_actividad}`}
-          class="flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-4 no-underline transition-colors hover:border-uta-blue/30 hover:bg-uta-blue-light/40"
-        >
-          <ChipActividad tipo={entrega.es_sumativa ? 'sumativa' : 'formativa'} />
-
-          <span class="min-w-0 text-[15px] font-semibold leading-snug text-slate-900">
-            {entrega.nombre}
-          </span>
-
-          <span class="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
-            <CalendarClock
-              class="h-4 w-4 shrink-0 {urgente ? 'text-amber-700' : 'text-slate-600'}"
-              aria-hidden="true"
-            />
-            <span class="font-semibold text-slate-900">{formatFechaCorta(entrega.fecha_limite)}</span>
-            <span class="text-slate-600" aria-hidden="true">·</span>
-            <span class="font-bold {urgente ? 'text-amber-800' : 'text-uta-blue'}">
-              {etiquetaPlazo(dias)}
-            </span>
-          </span>
-        </Link>
-      </li>
-    {/each}
-  </ul>
-{:else}
-  <div class="rounded-3xl border border-dashed border-gray-200 p-6 text-center">
-    <p class="text-sm text-gray-600">No tienes entregas pendientes en este curso.</p>
-  </div>
-{/if}
+<section aria-labelledby="t-proximas" class="overflow-hidden {tarjeta} {clase}">
+  <h2 id="t-proximas" class="border-b border-dm-linea px-5 py-3.5 text-lg leading-6 font-semibold">Próximas entregas</h2>
+  {#if entregas.length > 0}
+    <ul>
+      {#each entregas.slice(0, maximo) as entrega (entrega.id_actividad)}
+        {@const dia = entrega.fecha_limite.slice(0, 10)}
+        <li class="border-b border-dm-linea last:border-b-0">
+          <Link
+            href={`/estudiante/cursos/${idCurso}/actividad/${entrega.id_actividad}`}
+            class="flex flex-col gap-1.5 px-5 py-3.5 text-dm-ink no-underline hover:bg-dm-sutil"
+          >
+            <span class="text-[15px] leading-5 font-semibold">{entrega.nombre}</span>
+            {#if dia < hoy}
+              <span class="{pildora} {tono.warn} self-start"><Clock size={14} aria-hidden="true" />Atrasada · aún se recibe</span>
+            {:else if dia === hoy}
+              <span class="{pildora} {tono.warn} self-start"><Clock size={14} aria-hidden="true" />Vence hoy, 23:59</span>
+            {:else}
+              <span class="inline-flex items-center gap-1.5 text-[13px] leading-[18px] text-dm-ink-2">
+                <CalendarDays size={14} aria-hidden="true" />{fechaLimiteTexto(entrega.fecha_limite, hoy)}
+              </span>
+            {/if}
+          </Link>
+        </li>
+      {/each}
+    </ul>
+  {:else}
+    <p class="px-5 py-4 text-sm text-dm-ink-2">No tienes entregas pendientes en este curso.</p>
+  {/if}
+</section>

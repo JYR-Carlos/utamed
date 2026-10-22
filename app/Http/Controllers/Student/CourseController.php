@@ -196,6 +196,10 @@ class CourseController extends Controller
                 // se cargan al abrirlas. Abrir la mensajería marca como leído.
                 'mensajeria' => Inertia::lazy(fn () => app(MensajeriaCursoEstudiante::class)
                     ->bandeja($curso, (int) $user->id_usuario, request()->integer('componente_id') ?: null)),
+                // Contador de la pestaña Mensajería, sin abrirla (no marca leído).
+                // En closure para que las recargas parciales no lo recalculen.
+                'mensajes_sin_leer' => fn () => app(MensajeriaCursoEstudiante::class)
+                    ->noLeidos($curso, (int) $user->id_usuario),
                 'bitacora' => Inertia::lazy(fn () => app(BitacoraCursoEstudiante::class)
                     ->compilar($curso, $estudiante)),
                 // Vista «Ver todos» del calendario: las fechas de todos los cursos

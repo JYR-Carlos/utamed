@@ -1,8 +1,8 @@
 <script lang="ts" module>
   /** Pestañas que se resuelven dentro de la ficha, sin cambiar de página. */
   export type SeccionCurso =
-    | 'programa'
     | 'actividades'
+    | 'programa'
     | 'notas'
     | 'biblioteca'
     | 'calendario'
@@ -10,8 +10,8 @@
     | 'bitacora';
 
   export const SECCIONES_CURSO: readonly SeccionCurso[] = [
-    'programa',
     'actividades',
+    'programa',
     'notas',
     'biblioteca',
     'calendario',
@@ -22,45 +22,57 @@
 
 <script lang="ts">
   /**
-   * Encabezado de la ficha del curso (vista del alumno): título y barra de
-   * pestañas.
+   * Encabezado de la ficha del curso (vista del alumno): portada noche con la
+   * franja del color del curso y, debajo, la fila de pestañas.
    *
-   * La barra es una bandeja de una sola fila —Programa, Actividades, Resumen
-   * de notas, Biblioteca— con la pestaña activa rellena. En pantallas
-   * angostas la fila se desliza hacia los lados y un degradado en el borde
-   * derecho avisa de que hay más pestañas; en escritorio caben todas. Los
-   * datos de la asignatura (créditos, horas) no se repiten aquí: están en la
-   * pestaña Programa.
+   * El color llega por las variables --curso* que pone la página en un
+   * contenedor (estiloCurso). En escritorio portada y pestañas forman una sola
+   * tarjeta; en móvil la portada va a todo el ancho, con «‹ Mis cursos» porque
+   * ahí no hay migas de pan, y la fila de pestañas se desliza hacia los lados.
    */
+  import { Link } from '@inertiajs/svelte';
+  import { ChevronLeft } from 'lucide-svelte';
+  import Reticula from '@/components/student/dm/Reticula.svelte';
+  import { etiqueta, tituloCond } from '@/lib/dm';
   import type { Curso } from '@/types';
 
   interface Props {
     curso?: Curso | null;
     seccion: SeccionCurso;
+    /** «Paula Fuentes · docente titular»; vacío si el curso no tiene docente. */
+    docente?: string;
     totalActividades?: number;
     /** Recursos de la Biblioteca; si es 0 la pestaña no lleva contador. */
     totalRecursos?: number;
+    mensajesSinLeer?: number;
     onCambiarSeccion: (seccion: SeccionCurso) => void;
   }
 
-  let { curso = null, seccion, totalActividades = 0, totalRecursos = 0, onCambiarSeccion }: Props = $props();
+  let {
+    curso = null,
+    seccion,
+    docente = '',
+    totalActividades = 0,
+    totalRecursos = 0,
+    mensajesSinLeer = 0,
+    onCambiarSeccion,
+  }: Props = $props();
 
   const codigo = $derived(curso?.cod_asignatura || curso?.cod_curso || '');
-  const titulo = $derived(curso?.asignatura_nombre || curso?.nombre || 'Curso');
-
-  // agno_real/semestre_real son el año y semestre de la malla (1..n), no el año
-  // calendario: se rotulan igual que en el resto de la app.
-  const periodo = $derived(
-    curso?.agno_real && curso?.semestre_real
-      ? `Año ${curso.agno_real} · Semestre ${curso.semestre_real}`
-      : '',
+  const titulo = $derived(
+    curso?.asignatura_nombre && curso.asignatura_nombre !== 'N/A' ? curso.asignatura_nombre : curso?.nombre || 'Curso',
   );
+  const grupo = $derived(curso?.letra_grupo ? `Grupo ${curso.letra_grupo}` : '');
+  const ordinal = $derived(curso?.semestre_real === 1 ? '1.er' : '2.º');
 
-  // Una sola línea sobre el título: código, grupo, carrera y período.
+  // agno_real es el año calendario del curso.
   const contexto = $derived(
-    [codigo, curso?.letra_grupo ? `Grupo ${curso.letra_grupo}` : '', curso?.carrera_nombre, periodo]
+    [codigo, grupo, curso?.carrera_nombre, curso?.agno_real ? `${ordinal} semestre ${curso.agno_real}` : '']
       .filter(Boolean)
       .join(' · '),
+  );
+  const contextoCorto = $derived(
+    [codigo, grupo, curso?.agno_real ? `${ordinal} sem. ${curso.agno_real}` : ''].filter(Boolean).join(' · '),
   );
 
   const PESTANAS: Array<{ id: SeccionCurso; etiqueta: string }> = [
@@ -74,23 +86,25 @@
     { id: 'bitacora', etiqueta: 'Bitácora' },
   ];
 
-  const BASE =
-    'inline-flex min-h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-sm no-underline transition-colors';
-  const INACTIVA = 'font-medium text-slate-700 hover:bg-white hover:text-uta-blue';
-  const ACTIVA = 'bg-uta-blue font-semibold text-white';
+  function cuenta(id: SeccionCurso): { texto: string; aviso: boolean } | null {
+    if (id === 'actividades' && totalActividades > 0) return { texto: String(totalActividades), aviso: false };
+    if (id === 'biblioteca' && totalRecursos > 0) return { texto: String(totalRecursos), aviso: false };
+    if (id === 'mensajeria' && mensajesSinLeer > 0) return { texto: `${mensajesSinLeer} sin leer`, aviso: true };
+    return null;
+  }
 
-  // ─── Bandeja deslizable ─────────────────────────────────────────────────────
-  let bandeja = $state<HTMLElement | null>(null);
+  // ─── Fila deslizable ────────────────────────────────────────────────────────
+  let fila = $state<HTMLElement | null>(null);
   let hayMas = $state(false);
 
   function medir() {
-    const el = bandeja;
+    const el = fila;
     if (!el) return;
     hayMas = el.scrollWidth - el.clientWidth - el.scrollLeft > 1;
   }
 
   $effect(() => {
-    const el = bandeja;
+    const el = fila;
     if (!el) return;
     medir();
     const ro = new ResizeObserver(medir);
@@ -101,43 +115,60 @@
   // La pestaña activa queda a la vista cuando la fila se desliza.
   $effect(() => {
     seccion;
-    bandeja
+    fila
       ?.querySelector<HTMLElement>('[aria-current="page"]')
       ?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   });
 </script>
 
-<header class="mb-8">
-  <div class="mb-6 flex flex-col gap-1">
-    {#if contexto}
-      <p class="text-xs font-medium text-slate-600">{contexto}</p>
-    {/if}
-    <h1 class="text-2xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-3xl">
-      {titulo}
-    </h1>
-  </div>
+<header class="flex flex-col overflow-hidden bg-dm-tarjeta lg:rounded-xl lg:border lg:border-dm-linea">
+  <section aria-labelledby="t-curso" class="sobre-noche relative overflow-hidden border-b-6 border-(--curso) bg-dm-noche">
+    <Reticula class="left-[45%] lg:left-1/2" />
+    <div class="relative flex flex-col gap-2 px-4 pt-3 pb-6 lg:px-10 lg:py-8">
+      <Link
+        href="/estudiante/cursos"
+        class="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-dm-noche-texto-2 no-underline hover:text-dm-noche-texto lg:hidden"
+      >
+        <ChevronLeft size={18} aria-hidden="true" />Mis cursos
+      </Link>
+      <span class="{etiqueta} text-dm-amarillo">
+        <span class="lg:hidden">{contextoCorto}</span><span class="max-lg:hidden">{contexto}</span>
+      </span>
+      <h1 id="t-curso" class="{tituloCond} text-[34px] leading-[34px] text-dm-noche-texto lg:text-5xl lg:leading-12">
+        {titulo}
+      </h1>
+      {#if docente}
+        <span class="text-sm leading-5 text-dm-noche-texto-2 lg:text-[15px] lg:leading-[22px]">{docente}</span>
+      {/if}
+    </div>
+  </section>
 
-  <div class="relative md:w-fit">
+  <div class="relative border-b border-dm-linea lg:border-b-0">
     <nav
       id="secciones-curso"
       aria-label="Secciones del curso"
-      bind:this={bandeja}
+      bind:this={fila}
       onscroll={medir}
-      class="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      class="flex gap-1 overflow-x-auto px-2 [scrollbar-width:none] lg:px-6 [&::-webkit-scrollbar]:hidden"
     >
       {#each PESTANAS as pestana (pestana.id)}
         {@const activa = seccion === pestana.id}
+        {@const n = cuenta(pestana.id)}
         <button
           type="button"
-          class="{BASE} {activa ? ACTIVA : INACTIVA}"
           aria-current={activa ? 'page' : undefined}
           onclick={() => onCambiarSeccion(pestana.id)}
+          class="inline-flex min-h-12 shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-2.5 text-sm whitespace-nowrap transition-colors lg:px-3 {activa
+            ? 'border-dm-accion font-bold text-dm-ink'
+            : 'border-transparent font-medium text-dm-ink-2 hover:text-dm-ink'}"
         >
           {pestana.etiqueta}
-          {#if pestana.id === 'actividades' && totalActividades > 0}
-            <span class="font-medium {activa ? '' : 'text-gray-600'}">({totalActividades})</span>
-          {:else if pestana.id === 'biblioteca' && totalRecursos > 0}
-            <span class="font-medium {activa ? '' : 'text-gray-600'}">({totalRecursos})</span>
+          {#if n}
+            <span
+              class="rounded-full px-1.5 text-[13px] leading-[18px] font-bold {n.aviso
+                ? 'bg-dm-accion-suave text-dm-accion-texto'
+                : 'bg-dm-sutil text-dm-ink-2'}">{n.texto}</span
+            >
           {/if}
         </button>
       {/each}
@@ -145,7 +176,7 @@
 
     {#if hayMas}
       <div
-        class="pointer-events-none absolute inset-y-0 right-0 w-12 rounded-r-xl bg-gradient-to-r from-transparent to-gray-100"
+        class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-linear-to-r from-transparent to-dm-tarjeta"
         aria-hidden="true"
       ></div>
     {/if}
