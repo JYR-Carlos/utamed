@@ -333,6 +333,24 @@
 
   const diasConSobrecarga = $derived(Object.keys(sobrecargas).filter(enRango).length);
 
+  /** Primera marca visible después del rango, para el salto desde la agenda vacía. */
+  const proximaMarca = $derived(
+    itemsVisibles
+      .filter((i) => i.fecha > rango.hasta)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha) || comparar(a, b))[0] ?? null,
+  );
+
+  // Muestras de la leyenda: mismo trazo que EventPill e ItemCard, con el azul
+  // de marca como acento. Sin ella el borde punteado no se explicaba en ningún lado.
+  const MUESTRA = {
+    sumativa:
+      'background:var(--background-color-uta-blue-light, #E6EDF5);border-left:3px solid var(--color-navy, #002F6C)',
+    formativa:
+      'background:var(--background-color-white, #FFFFFF);border:1px dashed var(--color-navy, #002F6C);border-left:3px solid var(--color-navy, #002F6C)',
+    oculta:
+      'background:var(--background-color-zinc-100, #F4F4F5);border:1px dashed var(--color-zinc-400, #A1A1AA);border-left:3px solid var(--color-navy, #002F6C)',
+  };
+
   const hayDatos = $derived(eventos.length + sesiones.length + hitos.length > 0);
 
   // ── Lenguaje visual del selector de vista ───────────────────────────────────
@@ -554,7 +572,27 @@
                 {accentPorCurso}
                 {cursoPorId}
                 {sobrecargas}
+                proxima={proximaMarca}
+                onIrA={(iso) => (ancla = iso)}
               />
+            {/if}
+
+            {#if familiasActivas.has('ENTREGA') && conteosFamilia.ENTREGA > 0}
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-0.5 text-xs text-ink-2">
+                <span class="font-semibold text-ink">Fechas límite:</span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.sumativa} aria-hidden="true"></span>
+                  Sumativa
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.formativa} aria-hidden="true"></span>
+                  Formativa (borde punteado)
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.oculta} aria-hidden="true"></span>
+                  Oculta al estudiante
+                </span>
+              </div>
             {/if}
 
             <div class="flex items-start gap-1.5 px-0.5">

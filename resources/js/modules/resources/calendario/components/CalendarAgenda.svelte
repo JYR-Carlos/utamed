@@ -6,9 +6,9 @@
    * Cada día lleva su cabecera (HOY / MAÑANA / nombre del día), el aviso de
    * sobrecarga del grupo si lo hay, y una ficha por marca.
    */
-  import { CalendarDays, TriangleAlert } from 'lucide-svelte';
+  import { ArrowRight, CalendarDays, TriangleAlert } from 'lucide-svelte';
   import type { CalendarCurso, CalendarDay, CalendarItem, CursoAccent, Sobrecarga } from '../types';
-  import { diasRestantes, formatMedio } from '../utils/calendar';
+  import { diasRestantes, formatCorto, formatMedio } from '../utils/calendar';
   import { AVISO_SOBRECARGA } from '../utils/estilos';
   import ItemCard from './ItemCard.svelte';
 
@@ -19,9 +19,29 @@
     accentPorCurso: Record<number, CursoAccent>;
     cursoPorId: Record<number, CalendarCurso>;
     sobrecargas: Record<string, Sobrecarga[]>;
+    /**
+     * Primera marca visible después del período. Con la semana vacía, el
+     * docente salta a ella en vez de avanzar semanas a ciegas.
+     */
+    proxima?: CalendarItem | null;
+    onIrA?: (iso: string) => void;
   }
 
-  let { dias, itemsPorDia, accentPorCurso, cursoPorId, sobrecargas }: Props = $props();
+  let {
+    dias,
+    itemsPorDia,
+    accentPorCurso,
+    cursoPorId,
+    sobrecargas,
+    proxima = null,
+    onIrA,
+  }: Props = $props();
+
+  function tituloMarca(item: CalendarItem): string {
+    if (item.familia === 'ENTREGA') return item.entrega.titulo;
+    if (item.familia === 'SESION') return `Clase de ${item.sesion.componente}`;
+    return item.hito.titulo;
+  }
 
   /** Sólo los días que tienen algo que mostrar. */
   const diasConMarcas = $derived(
@@ -57,6 +77,27 @@
       Ninguno de los cursos visibles tiene fechas límite, sesiones de asistencia registradas ni
       hitos de syllabus en estos días.
     </p>
+    {#if proxima}
+      {@const destino = proxima.fecha}
+      <div
+        class="mt-1 flex max-w-full flex-col items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
+      >
+        <p class="m-0 max-w-[420px] text-[13px] leading-[1.45] text-ink">
+          <span class="font-semibold">Próxima marca: {formatCorto(proxima.fecha)}</span>
+          · <span class="break-words">{tituloMarca(proxima)}</span>
+        </p>
+        {#if onIrA}
+          <button
+            type="button"
+            onclick={() => onIrA?.(destino)}
+            class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-uta-blue px-4 text-[13px] font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:min-h-9"
+          >
+            Ir a esa semana
+            <ArrowRight size={14} aria-hidden="true" />
+          </button>
+        {/if}
+      </div>
+    {/if}
   </div>
 {:else}
   <div class="flex flex-col gap-3.5">
