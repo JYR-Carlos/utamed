@@ -632,6 +632,8 @@
               />
             </label>
 
+            <!-- En el tablero el estado es la columna: el filtro no se muestra
+                 (deshabilitado sólo ocupaba sitio). -->
             {#if vista === 'lista'}
               <label class={FILTRO_CAJA}>
                 <span class={FILTRO_ROTULO}>Estado:</span>
@@ -643,18 +645,9 @@
                 </select>
                 <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
               </label>
-            {:else}
-              <span
-                class="inline-flex h-11 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm md:h-10"
-                title="En el tablero el estado es la columna, así que su filtro queda sin uso"
-              >
-                <span class="font-medium text-slate-600">Estado:</span>
-                <strong class="font-semibold text-ink">Todos</strong>
-                <Lock size={13} class="text-slate-600" aria-hidden="true" />
-              </span>
             {/if}
 
-            <label class={FILTRO_CAJA}>
+            <label class="{FILTRO_CAJA} {vista === 'lista' ? '' : 'col-span-2'}">
               <span class={FILTRO_ROTULO}>Tipo:</span>
               <select bind:value={filtroTipo} class={FILTRO_SELECT} aria-label="Filtrar por tipo de evaluación">
                 <option value="todas">Todas</option>
