@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Plan;
 use App\Models\Administrativo\Carrera;
+use App\Models\Administrativo\Asignatura;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -57,13 +58,18 @@ class PlanController extends Controller
             $sub = Carrera::select('nombre')->whereColumn('carrera.id_carrera', 'plan.id_carrera')->limit(1);
             $query->orderBy($sub, $sortDir);
         } elseif ($sortKey === 'agno_plan') {
-            $query->orderBy('agno_plan', $sortDir)->orderBy('version_plan', $sortDir);
+            $query->orderBy('plan.agno_plan', $sortDir)->orderBy('plan.version_plan', $sortDir);
         } elseif ($sortKey === 'version_plan') {
-            $query->orderBy('version_plan', $sortDir);
+            $query->orderBy('plan.version_plan', $sortDir);
         } elseif ($sortKey === 'creditos_sct_totales') {
-            $query->orderBy('creditos_sct_totales', $sortDir);
+            $sub = Asignatura::selectRaw('coalesce(sum(asignatura.creditos_sct), plan.creditos_sct_totales, 0)')
+                ->join('asignacion_plan', 'asignatura.id_asignatura', '=', 'asignacion_plan.id_asignatura')
+                ->whereColumn('plan.id_plan', 'asignacion_plan.id_plan')
+                ->whereNull('asignacion_plan.fecha_eliminacion')
+                ->whereNull('asignatura.fecha_eliminacion');
+            $query->orderBy($sub, $sortDir);
         } else {
-            $query->orderBy('agno_plan', 'desc')->orderBy('version_plan', 'desc');
+            $query->orderBy('plan.agno_plan', 'desc')->orderBy('plan.version_plan', 'desc');
         }
 
         // Pagination

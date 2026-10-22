@@ -7,7 +7,7 @@
 
   interface Props {
     data: PaginatedResponse<any> | any[] | { data: any[]; meta?: any; [key: string]: any };
-    columns: { key: string; label: string; sortable?: boolean; class?: string }[];
+    columns: { key: string; label: string; sortable?: boolean; noSort?: boolean; noFilter?: boolean; class?: string }[];
     /** Variante de estilo: 'default' (gris estándar) | 'accent' (borde institucional azul y cabecera contrastada) */
     variant?: 'default' | 'accent';
     /** Clases CSS adicionales para el contenedor principal */
@@ -178,14 +178,26 @@
     return out;
   }
 
-  function isColSortable(col: { key: string; sortable?: boolean }): boolean {
-    return (
-      col.sortable !== false &&
-      col.key !== 'acciones' &&
-      col.key !== 'malla' &&
-      col.key !== '#' &&
-      col.key !== '_index'
-    );
+  function isColSortable(col: {
+    key: string;
+    sortable?: boolean;
+    noSort?: boolean;
+    noFilter?: boolean;
+  }): boolean {
+    if (col.sortable === false || col.noSort === true || col.noFilter === true) {
+      return false;
+    }
+    const nonSortableKeys = [
+      'acciones',
+      'actions',
+      'malla',
+      '#',
+      '_index',
+      'numero',
+      'correlativo',
+      'nro',
+    ];
+    return !nonSortableKeys.includes(col.key);
   }
 
   // Three-state cycle: none → asc → desc → none
@@ -632,7 +644,7 @@
               onclick={sortable ? () => cycleSort(column.key) : undefined}
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide select-none {sortable
                 ? 'cursor-pointer hover:bg-gray-100 transition-colors'
-                : ''} {variant === 'accent' ? 'text-slate-700' : 'text-gray-500'}"
+                : ''} {variant === 'accent' ? 'text-slate-700' : 'text-gray-500'} {column.class ?? ''}"
             >
               <span class="inline-flex items-center gap-1">
                 {column.label}
@@ -679,7 +691,7 @@
                       <path d="M20 18h-5"></path>
                     </svg>
                   </span>
-                {:else}
+                {:else if sortable}
                   <!-- Unsorted: neutral hint icon -->
                   <span class="text-gray-300 shrink-0">
                     <svg
