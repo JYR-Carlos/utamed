@@ -49,6 +49,10 @@ class IntranetService
             'componentes.tipoComponente',
         ]);
 
+        if (!$curso->id_contexto) {
+            $curso->refresh();
+        }
+
         $carrera = $curso->asignacionPlan?->plan?->carrera;
         if (!$carrera) {
             throw new \InvalidArgumentException("El curso #{$curso->id_curso} no tiene una carrera asociada en su asignación de plan.");
@@ -186,7 +190,9 @@ class IntranetService
                         }
 
                         // Asegurar asignación del rol Estudiante en el contexto del Curso
-                        $this->estudianteService->asignarRolEnContexto($estudiante, $curso->id_contexto);
+                        if ($curso->id_contexto) {
+                            $this->estudianteService->asignarRolEnContexto($estudiante, $curso->id_contexto);
+                        }
 
 
                         // 2. Inscripción a Nivel Componente
@@ -584,7 +590,8 @@ class IntranetService
             }
 
             foreach ($curso->componentes as $compLocal) {
-                $coincideCurCodigo = $compLocal->cod_uta && in_array((int) $compLocal->cod_uta, $curCodigosIntranet, true);
+                $curCodigoLocal = $compLocal->intranet_cur_codigo;
+                $coincideCurCodigo = $curCodigoLocal && in_array((int) $curCodigoLocal, $curCodigosIntranet, true);
                 $coincideTipo = in_array($compLocal->id_tipo_componente, $tiposIntranet, true);
 
                 if (!$coincideCurCodigo && !$coincideTipo) {
@@ -592,7 +599,7 @@ class IntranetService
                         'id_componente'      => $compLocal->id_componente,
                         'id_tipo_componente' => $compLocal->id_tipo_componente,
                         'tipo'               => $compLocal->tipoComponente?->tipo ?? 'Desconocida',
-                        'cod_uta'            => $compLocal->cod_uta,
+                        'cod_uta'            => $curCodigoLocal,
                     ];
                 }
             }
