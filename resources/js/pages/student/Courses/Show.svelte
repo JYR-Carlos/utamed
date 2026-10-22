@@ -297,14 +297,17 @@
         {@render titulo('Resumen de notas', 'Escala de 1,0 a 7,0 · las notas aparecen cuando se publica la calificación')}
         <CursoResumenNotas cargando={diferidaCargando} error={diferidaError} {rendimiento} onReintentar={reintentar} />
       {:else if seccion === 'mensajeria'}
-        {@render titulo(
-          'Mensajería',
-          mensajesSinLeer > 0 ? `${mensajesSinLeer} sin leer` : 'Avisos y consultas con el equipo docente de cada componente.',
-        )}
-        <CursoMensajeria idCurso={id_curso} bandeja={mensajeria} cargando={diferidaCargando} error={diferidaError} />
+        <!-- El título va con los componentes en la misma fila: lo pone la pestaña. -->
+        <CursoMensajeria
+          idCurso={id_curso}
+          bandeja={mensajeria}
+          cargando={diferidaCargando}
+          error={diferidaError}
+          onReintentar={reintentar}
+        />
       {:else if seccion === 'bitacora'}
-        {@render titulo('Bitácora', 'Entregas, mensajes, retroalimentaciones y evaluaciones de todas tus actividades.')}
-        <CursoBitacora idCurso={id_curso} {bitacora} error={diferidaError} />
+        {@render titulo('Bitácora', 'Entregas, mensajes, retroalimentaciones y notas de todas tus actividades')}
+        <CursoBitacora idCurso={id_curso} {bitacora} error={diferidaError} onReintentar={reintentar} />
       {:else if seccion === 'biblioteca'}
         {@render titulo(
           'Biblioteca',

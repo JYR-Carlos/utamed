@@ -13,7 +13,7 @@
   import { agruparPorDia, ENTREGA, procesarHilo, type InteraccionDecorada } from '@/lib/agendaHilo';
   import { puntajeTotal } from '@/lib/rubricaAlumno';
   import { titleCase } from '@/lib/utils';
-  import { formatBytes, parseFechaSoloDia } from '@/utils/formatters';
+  import { formatBytes, formatDiaLargo } from '@/utils/formatters';
 
   interface Props {
     listado_interacciones: InteraccionItem[];
@@ -26,15 +26,6 @@
 
   const items = $derived(procesarHilo(listado_interacciones));
   const grupos = $derived(agruparPorDia(items));
-
-  /** «Lunes 5 de octubre» (con el año si no es el actual). */
-  function etiquetaDia(dia: string): string {
-    const d = parseFechaSoloDia(dia);
-    const semana = d.toLocaleDateString('es-CL', { weekday: 'long' });
-    const mes = d.toLocaleDateString('es-CL', { month: 'long' });
-    const agno = d.getFullYear() !== new Date().getFullYear() ? ` de ${d.getFullYear()}` : '';
-    return `${semana.charAt(0).toUpperCase()}${semana.slice(1)} ${d.getDate()} de ${mes}${agno}`;
-  }
 
   function hora(fecha: string | null | undefined): string {
     if (!fecha) return '';
@@ -106,7 +97,7 @@
   {:else}
     <div class="flex flex-col gap-3.5">
       {#each grupos as grupo (grupo.dia)}
-        <div class="flex justify-center"><span class={PILDORA_FECHA}>{etiquetaDia(grupo.dia)}</span></div>
+        <div class="flex justify-center"><span class={PILDORA_FECHA}>{formatDiaLargo(grupo.dia)}</span></div>
 
         {#each grupo.items as item (item.id_interaccion)}
           {@const derecha = deMiLado(item)}
@@ -174,7 +165,7 @@
                           ? 'ml-auto inline-flex min-h-9 shrink-0 items-center px-2.5 text-sm font-semibold text-dm-enlace'
                           : `ml-auto ${BTN_CHICO}`}
                       >
-                        {#if !historica}<Eye size={16} aria-hidden="true" />{/if}Ver<span class="sr-only"> (se abre en otra pestaña)</span>
+                        {#if !historica}<Eye size={16} aria-hidden="true" />{/if}Ver<span class="sr-only">{' '}(se abre en otra pestaña)</span>
                       </a>
                     {:else}
                       <a

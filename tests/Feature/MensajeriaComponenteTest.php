@@ -206,10 +206,17 @@ it('abrir el panel marca como leído y baja el contador', function () {
         ->bandeja(Curso::find($this->f['curso']), $this->f['alumno'], $this->f['componente']);
 
     expect($bandeja['componente_activo'])->toBe($this->f['componente'])
-        ->and($bandeja['panel']['difusiones']->pluck('tema'))->toContain('Aviso');
+        ->and($bandeja['panel']['difusiones']->pluck('tema'))->toContain('Aviso')
+        // Llegó sin abrir: en esta visita se destaca como «Nuevo».
+        ->and($bandeja['panel']['difusiones']->firstWhere('tema', 'Aviso')['nuevo'])->toBeTrue();
 
     $despues = $svc->noLeidosPorComponente([$this->f['componente']], $this->f['alumno'], false);
     expect($despues[$this->f['componente']] ?? 0)->toBe(0);
+
+    // La próxima vez ya no es nuevo.
+    $otraVez = app(MensajeriaCursoEstudiante::class)
+        ->bandeja(Curso::find($this->f['curso']), $this->f['alumno'], $this->f['componente']);
+    expect($otraVez['panel']['difusiones']->firstWhere('tema', 'Aviso')['nuevo'])->toBeFalse();
 });
 
 it('marcar leído dos veces no duplica el acuse', function () {
