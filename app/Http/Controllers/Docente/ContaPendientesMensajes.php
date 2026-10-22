@@ -18,12 +18,27 @@ trait ContaPendientesMensajes
 {
     /**
      * Devuelve [id_actividad => nº de grupos cuyo último mensaje es del estudiante],
-     * acotado a los cursos indicados.
+     * acotado a los cursos indicados (sólo las actividades con alguno).
      *
      * @param  int[]  $cursoIds
      * @return array<int,int>
      */
     protected function pendientesPorActividad(array $cursoIds): array
+    {
+        return array_filter(array_map(
+            fn (array $c) => $c['pendientes'],
+            $this->conversacionesPorActividad($cursoIds),
+        ));
+    }
+
+    /**
+     * Por actividad: cuántos grupos tienen conversación y cuántos de ellos
+     * esperan respuesta. Distingue «todo respondido» de «nunca hubo mensajes».
+     *
+     * @param  int[]  $cursoIds
+     * @return array<int, array{grupos: int, pendientes: int}>
+     */
+    protected function conversacionesPorActividad(array $cursoIds): array
     {
         if (empty($cursoIds)) {
             return [];
@@ -32,7 +47,9 @@ trait ContaPendientesMensajes
         $placeholders = implode(',', array_fill(0, count($cursoIds), '?'));
 
         $rows = DB::select(
-            "SELECT ultimo.id_actividad, COUNT(*) AS pendientes
+            "SELECT ultimo.id_actividad,
+                    COUNT(*) AS grupos,
+                    COUNT(*) FILTER (WHERE ultimo.tipo_mensaje = 'Mensaje al profesor') AS pendientes
              FROM (
                  SELECT DISTINCT ON (a.id_actividad_asignada_grupo)
                         aag.id_actividad,
@@ -46,13 +63,15 @@ trait ContaPendientesMensajes
                    AND a.tipo_mensaje IN ('Mensaje al profesor', 'Feedback')
                  ORDER BY a.id_actividad_asignada_grupo, a.fecha_envio DESC
              ) ultimo
-             WHERE ultimo.tipo_mensaje = 'Mensaje al profesor'
              GROUP BY ultimo.id_actividad",
             $cursoIds,
         );
 
-        return collect($rows)->pluck('pendientes', 'id_actividad')
-            ->map(fn($n) => (int) $n)
+        return collect($rows)
+            ->mapWithKeys(fn ($r) => [(int) $r->id_actividad => [
+                'grupos'     => (int) $r->grupos,
+                'pendientes' => (int) $r->pendientes,
+            ]])
             ->all();
     }
 

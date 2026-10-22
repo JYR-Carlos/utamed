@@ -33,17 +33,11 @@ class ForcePasswordChange
      *   navegador giraría en redirecciones para siempre.
      * - `logout`: dejar a alguien encerrado sin poder cerrar sesión convierte
      *   un aviso de seguridad en una cuenta inutilizable.
-     * - `verification.*`: son de Fortify y tienen su propio middleware que
-     *   redirige hacia ellas. Si las bloqueáramos, ambos middlewares se
-     *   mandarían al usuario de vuelta y de ida sin parar.
      */
     private const RUTAS_PERMITIDAS = [
         'user-password.edit',
         'user-password.update',
         'logout',
-        'verification.notice',
-        'verification.verify',
-        'verification.send',
     ];
 
     public function handle(Request $request, Closure $next): Response

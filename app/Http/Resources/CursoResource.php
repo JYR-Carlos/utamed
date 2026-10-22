@@ -39,6 +39,7 @@ class CursoResource extends JsonResource
             'fecha_fin' => $this->fecha_fin,
             'indice_grupo' => $this->indice_grupo,
             'letra_grupo' => $this->letra_grupo,
+            'es_plantilla' => (bool) $this->es_plantilla,
             'agno_real' => $this->agno_real,
             'semestre_real' => $this->semestre_real,
             'id_asignacion_plan' => $this->id_asignacion_plan,

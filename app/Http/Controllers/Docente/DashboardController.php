@@ -15,6 +15,7 @@ use App\Services\MensajeriaService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -302,7 +303,7 @@ class DashboardController extends Controller
             'componentes' => [],
             'alertasSyllabus' => [],
             'mensajeria' => ['no_leidos' => 0, 'cursos' => []],
-            'agendaPendiente' => [],
+            'agendaPendiente' => ['items' => [], 'total' => 0],
             'proximasFechasLimite' => [],
             'jefatura' => ['has_access' => false, 'id_contexto' => null, 'carrera' => null],
             'entreSemestres' => [
@@ -463,23 +464,34 @@ class DashboardController extends Controller
      * (a diferencia de MensajesController, que sólo cubre sus cursos como
      * titular).
      *
+     * Cada ítem trae el texto del mensaje (para leerlo sin abrir nada) y el
+     * grupo del curso; el enlace abre la agenda de ese grupo en la actividad,
+     * igual que la bandeja. `total` cuenta todos, no sólo los `$limit` listados.
+     *
      * @param  int[]  $cursoIds
-     * @return array<int,array{quien:string,actividad_nombre:string,id_curso:?int,cod_curso:?string,fecha_envio:?string}>
+     * @return array{items: array<int,array{quien:string,actividad_nombre:string,mensaje:string,id_curso:int,id_actividad:int,id_grupo:int,cod_curso:string,letra_grupo:?string,fecha_envio:?string}>, total: int}
      */
     private function agendaPendiente(array $cursoIds, int $limit = 5): array
     {
         if (empty($cursoIds)) {
-            return [];
+            return ['items' => [], 'total' => 0];
         }
 
         $placeholders = implode(',', array_fill(0, count($cursoIds), '?'));
 
         $rows = DB::select(
-            "SELECT ultimo.id_actividad_asignada_grupo, ultimo.fecha_envio
+            "SELECT ultimo.id_actividad_asignada_grupo, ultimo.fecha_envio, ultimo.mensaje,
+                    -- Posición del grupo dentro de su actividad, para «Grupo N».
+                    (SELECT COUNT(*) FROM agenda.actividad_asignada_grupo x
+                      WHERE x.id_actividad = ultimo.id_actividad
+                        AND x.id_actividad_asignada_grupo <= ultimo.id_actividad_asignada_grupo) AS posicion_grupo,
+                    COUNT(*) OVER () AS total
              FROM (
                  SELECT DISTINCT ON (a.id_actividad_asignada_grupo)
                         a.id_actividad_asignada_grupo,
+                        aag.id_actividad,
                         a.tipo_mensaje,
+                        a.mensaje,
                         a.fecha_envio
                  FROM agenda.agenda a
                  JOIN agenda.actividad_asignada_grupo aag
@@ -497,7 +509,7 @@ class DashboardController extends Controller
         );
 
         if (empty($rows)) {
-            return [];
+            return ['items' => [], 'total' => 0];
         }
 
         $grupoIds = collect($rows)->pluck('id_actividad_asignada_grupo');
@@ -507,7 +519,7 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('id_actividad_asignada_grupo');
 
-        return collect($rows)
+        $items = collect($rows)
             ->map(function ($row) use ($grupos) {
                 $grupo = $grupos->get($row->id_actividad_asignada_grupo);
                 $curso = $grupo?->actividad?->componente?->curso;
@@ -516,29 +528,31 @@ class DashboardController extends Controller
                     return null;
                 }
 
-                $miembros = $grupo->integranteGrupos;
-                $quien = $grupo->nombre_grupo;
-
-                if (!$quien) {
-                    if (!$grupo->actividad->es_grupal && $miembros->count() === 1) {
-                        $usuario = $miembros->first()->estudiante->usuario ?? null;
-                        $quien = $usuario ? trim("{$usuario->nombre1} {$usuario->apellido1}") : 'Estudiante';
-                    } else {
-                        $quien = "Grupo {$grupo->id_actividad_asignada_grupo}";
-                    }
-                }
+                // El nombre viene de la base en MAYÚSCULAS; en una lista de cinco se leía a gritos.
+                $usuario = $grupo->integranteGrupos->first()?->estudiante?->usuario;
 
                 return [
-                    'quien' => $quien,
+                    'quien' => ActividadAsignadaGrupo::etiqueta(
+                        (bool) $grupo->actividad->es_grupal,
+                        $grupo->nombre_grupo,
+                        $usuario ? Str::title(trim("{$usuario->nombre1} {$usuario->apellido1}")) : null,
+                        (int) $row->posicion_grupo,
+                    ),
                     'actividad_nombre' => $grupo->actividad->nombre,
+                    'mensaje' => $row->mensaje,
                     'id_curso' => $curso->id_curso,
+                    'id_actividad' => $grupo->id_actividad,
+                    'id_grupo' => $grupo->id_actividad_asignada_grupo,
                     'cod_curso' => $curso->cod_curso,
+                    'letra_grupo' => $curso->letra_grupo,
                     'fecha_envio' => $row->fecha_envio,
                 ];
             })
             ->filter()
             ->values()
             ->all();
+
+        return ['items' => $items, 'total' => (int) $rows[0]->total];
     }
 
     /**

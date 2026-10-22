@@ -774,7 +774,7 @@ class DocenteActivityController extends Controller
                 ->orWhereHas('componentes.docenteComponentes', fn ($dq) => $dq->where('id_docente', $idDocente));
         })
             ->whereNull('fecha_eliminacion')
-            ->with(['componentes' => function ($q) use ($idDocente) {
+            ->with(['asignacionPlan.asignatura', 'componentes' => function ($q) use ($idDocente) {
                 $q->with(['tipoComponente', 'docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]);
             }])
             ->orderByDesc('agno_real')
@@ -831,6 +831,11 @@ class DocenteActivityController extends Controller
             return [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
+                // Igual que el menú lateral: «Asignatura Grupo A» y el código
+                // de la asignatura; cod_curso es interno.
+                'etiqueta' => $curso->etiqueta(),
+                'letra_grupo' => $curso->letra_grupo,
+                'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 'cod_curso' => $curso->cod_curso,
                 'agno_real' => $curso->agno_real,
                 'semestre_real' => $curso->semestre_real,

@@ -82,6 +82,7 @@ class InscripcionCursoController extends Controller
                 'id_curso',
                 'cod_curso',
                 'nombre',
+                'letra_grupo',
                 'agno_real',
                 'semestre_real',
                 'id_asignacion_plan',
@@ -93,12 +94,14 @@ class InscripcionCursoController extends Controller
             ->withCount([
                 'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
             ])
+            ->where('es_plantilla', false)
             ->find($request->id_curso);
 
             $cursos = $selected ? [[
                 'id_curso' => $selected->id_curso,
                 'cod_curso' => $selected->cod_curso,
                 'nombre' => $selected->nombre,
+                'letra_grupo' => $selected->letra_grupo,
                 'asignatura_nombre' => $selected->asignacionPlan?->asignatura?->nombre,
                 'carrera_nombre' => $selected->asignacionPlan?->plan?->carrera?->nombre,
                 'agno_real' => $selected->agno_real,
@@ -111,6 +114,7 @@ class InscripcionCursoController extends Controller
                 'id_curso',
                 'cod_curso',
                 'nombre',
+                'letra_grupo',
                 'agno_real',
                 'semestre_real',
                 'id_asignacion_plan',
@@ -122,7 +126,8 @@ class InscripcionCursoController extends Controller
             ->withCount([
                 'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
             ])
-            ->whereNull('fecha_eliminacion');
+            ->whereNull('fecha_eliminacion')
+            ->where('es_plantilla', false);
 
             if ($request->filled('search')) {
                 $search = $request->search;
@@ -147,6 +152,7 @@ class InscripcionCursoController extends Controller
                 'id_curso' => $c->id_curso,
                 'cod_curso' => $c->cod_curso,
                 'nombre' => $c->nombre,
+                'letra_grupo' => $c->letra_grupo,
                 'asignatura_nombre' => $c->asignacionPlan?->asignatura?->nombre,
                 'carrera_nombre' => $c->asignacionPlan?->plan?->carrera?->nombre,
                 'agno_real' => $c->agno_real,

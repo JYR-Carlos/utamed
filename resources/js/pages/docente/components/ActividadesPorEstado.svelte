@@ -100,8 +100,9 @@
    * «calificadas / grupos»: una formativa no lleva nota y se quedaba en 0 %
    * para siempre. Ahora:
    *  - sumativa:  calificadas (con nota) y por calificar (entregaron, sin nota);
-   *  - formativa: con retroalimentación (feedback del docente) y por revisar.
+   *  - formativa: revisadas (con feedback del docente) y por revisar.
    * Sin entrega de archivo, lo pendiente es todo grupo aún no revisado.
+   * «con retroalimentación» no cabía en un tercio de tarjeta y se cortaba.
    */
   function avance(a: Actividad) {
     const sumativa = a.tipo_actividad === 'SUMATIVA';
@@ -119,7 +120,7 @@
       entregaron: a.grupos_con_entrega ?? 0,
       revisadas,
       pendientes,
-      rotuloRevisadas: sumativa ? 'calificadas' : 'con retroalimentación',
+      rotuloRevisadas: sumativa ? 'calificadas' : 'revisadas',
       rotuloPendientes: sumativa ? 'por calificar' : 'por revisar',
       promedio: sumativa ? (a.promedio_nota ?? null) : null,
     };
@@ -264,12 +265,12 @@
                       <span class="m-0 text-[15px] font-bold tabular-nums text-ink">
                         {av.entregaron}<span class="text-[11px] font-medium text-ink-2">/{av.total}</span>
                       </span>
-                      <span class="text-[10.5px] text-ink-2">entregaron</span>
+                      <span class="break-words text-xs leading-tight text-ink-2">entregaron</span>
                     </div>
                   {/if}
                   <div class="flex flex-col rounded-md bg-slate-50 px-2 py-1.5">
                     <span class="m-0 text-[15px] font-bold tabular-nums text-ink">{av.revisadas}</span>
-                    <span class="text-[10.5px] leading-tight text-ink-2">{av.rotuloRevisadas}</span>
+                    <span class="break-words text-xs leading-tight text-ink-2">{av.rotuloRevisadas}</span>
                   </div>
                   <div
                     class="flex flex-col rounded-md px-2 py-1.5 {av.pendientes > 0
@@ -283,7 +284,11 @@
                     >
                       {av.pendientes}
                     </span>
-                    <span class="text-[10.5px] {av.pendientes > 0 ? 'text-amber-800' : 'text-ink-2'}">
+                    <span
+                      class="break-words text-xs leading-tight {av.pendientes > 0
+                        ? 'text-amber-800'
+                        : 'text-ink-2'}"
+                    >
                       {av.rotuloPendientes}
                     </span>
                   </div>

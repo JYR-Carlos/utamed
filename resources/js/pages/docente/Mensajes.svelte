@@ -22,6 +22,7 @@
   import { Link } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import { MessageSquare, Search, EyeOff, ChevronRight, Inbox, CheckCheck } from 'lucide-svelte';
+  import { tonoGrupo } from '@/utils/grupoColor';
 
   interface ActividadItem {
     id_actividad: number;
@@ -33,9 +34,12 @@
     grupo_a_abrir: number | null;
     ultima_fecha: string | null;
     pendientes: number;
+    con_conversacion: boolean;
     curso: {
       id_curso: number;
       nombre: string;
+      letra_grupo: string | null;
+      cod_asignatura: string | null;
       cod_curso: string;
       agno_real: number;
       semestre_real: number;
@@ -83,6 +87,7 @@
       (a) =>
         a.nombre.toLowerCase().includes(q) ||
         a.curso.nombre.toLowerCase().includes(q) ||
+        (a.curso.cod_asignatura ?? '').toLowerCase().includes(q) ||
         a.curso.cod_curso.toLowerCase().includes(q),
     );
   });
@@ -146,9 +151,10 @@
         class="shrink-0 {a.no_leidos > 0 ? 'text-brand' : 'text-slate-300'}"
       />
     {/if}
-    <span class="min-w-0 flex-1">
+    <span class="flex min-w-0 flex-1 flex-col gap-1">
+      <!-- Dos líneas: con truncate, dos actividades de títulos parecidos se leían iguales. -->
       <span
-        class="block truncate text-sm {activa
+        class="line-clamp-2 text-sm leading-snug {activa
           ? a.no_leidos > 0
             ? 'font-bold text-slate-900'
             : 'font-medium text-slate-700'
@@ -156,137 +162,153 @@
       >
         {a.nombre}
       </span>
-      <span class="block truncate text-xs {activa ? 'text-slate-500' : 'text-muted-foreground'}">
-        {a.curso.cod_curso} · {a.curso.nombre} · {a.curso.agno_real}-{a.curso.semestre_real}
-        {#if !activa}· {etiquetaEstado(a.estado)}{/if}
+      <!-- Lo que distingue a dos cursos hermanos: el grupo, con su color de siempre. -->
+      <span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-600">
+        <span class="font-mono">{a.curso.cod_asignatura || a.curso.cod_curso}</span>
+        {#if a.curso.letra_grupo}
+          <span class="rounded-full px-2 py-px text-xs font-semibold {tonoGrupo(a.curso.letra_grupo).chip}">
+            Grupo {a.curso.letra_grupo}
+          </span>
+        {/if}
+        {#if a.curso.agno_real && a.curso.semestre_real}
+          <span>{a.curso.agno_real}-{a.curso.semestre_real}</span>
+        {/if}
+        {#if !activa}<span>· {etiquetaEstado(a.estado)}</span>{/if}
       </span>
     </span>
-    {#if a.no_leidos > 0}
-      <span class="flex shrink-0 flex-col items-end gap-0.5">
-        <span class="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
-          {a.no_leidos} {a.no_leidos === 1 ? 'msg nuevo' : 'msgs nuevos'}
+    <span class="flex shrink-0 flex-col items-end gap-1">
+      {#if a.no_leidos > 0}
+        <span class="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">
+          {a.no_leidos} {a.no_leidos === 1 ? 'nuevo' : 'nuevos'}
         </span>
         {#if a.ultima_fecha}
-          <span class="text-[10px] text-muted-foreground">{fmtFecha(a.ultima_fecha)}</span>
+          <span class="text-xs text-slate-600">{fmtFecha(a.ultima_fecha)}</span>
         {/if}
-      </span>
-    {/if}
+      {:else if a.pendientes > 0}
+        <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+          {a.pendientes} por responder
+        </span>
+      {:else if a.con_conversacion}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+          <CheckCheck size={14} aria-hidden="true" /> Respondido
+        </span>
+      {/if}
+    </span>
     <ChevronRight size={16} class="shrink-0 text-slate-300 group-hover:text-slate-500" />
   </Link>
 {/snippet}
 
 <DocenteLayout {breadcrumbs}>
-  <div class="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-6">
-    <!-- ── Encabezado ── -->
-    <div class="flex items-center gap-3">
-      <div
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white"
-      >
-        <MessageSquare size={20} />
-      </div>
-      <div class="min-w-0">
-        <h1 class="text-lg font-extrabold leading-tight text-slate-900">Mensajes de actividades</h1>
-        <p class="text-xs text-slate-500">
-          Al abrir una actividad se muestra la agenda del grupo con mensajes nuevos.
-        </p>
-      </div>
-      {#if totalNoLeidos > 0}
-        <span
-          class="ml-auto shrink-0 rounded-full bg-brand-light px-2.5 py-1 text-xs font-bold text-brand"
-        >
-          {totalNoLeidos} sin ver
-        </span>
-      {/if}
-    </div>
-
-    <!-- ── Búsqueda + interruptor ── -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div class="relative flex-1">
-        <Search size={14} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          bind:value={query}
-          type="search"
-          placeholder="Buscar curso o actividad…"
-          class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm focus:border-brand focus:outline-none"
-        />
-      </div>
-      <label class="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-600">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={verTodas}
-          aria-label="Ver todas las actividades"
-          onclick={() => (verTodas = !verTodas)}
-          class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors {verTodas
-            ? 'bg-brand'
-            : 'bg-slate-300'}"
-        >
+  <div class="pb-16">
+    <div class="mx-auto flex max-w-[1120px] flex-col gap-5 px-4 md:px-0">
+      <!-- ── Encabezado ── -->
+      <header class="flex flex-wrap items-end justify-between gap-3">
+        <div class="flex min-w-0 flex-col gap-1">
+          <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink sm:text-[28px] sm:leading-[34px]">
+            Mensajes de actividades
+          </h1>
+          <p class="m-0 text-sm font-medium text-slate-600">
+            Al abrir una actividad se muestra la agenda del grupo con mensajes nuevos.
+          </p>
+        </div>
+        {#if totalNoLeidos > 0}
           <span
-            class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {verTodas
-              ? 'translate-x-4'
-              : 'translate-x-0.5'}"
-          ></span>
-        </button>
-        Ver todas las actividades
-      </label>
-    </div>
+            class="shrink-0 rounded-full bg-brand-light px-2.5 py-1 text-xs font-bold text-brand"
+          >
+            {totalNoLeidos} sin ver
+          </span>
+        {/if}
+      </header>
 
-    <!-- ── Cajón: nuevos ── -->
-    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <h2
-        class="flex items-center gap-2 border-b border-slate-100 bg-brand-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-brand"
-      >
-        <Inbox size={14} /> Nuevos (sin ver)
-        <span class="ml-auto font-semibold normal-case tracking-normal text-brand">
-          {nuevas.length}
-        </span>
-      </h2>
-      {#if nuevas.length === 0}
-        <p class="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
-          <CheckCheck size={16} /> Estás al día: no hay mensajes sin ver.
-        </p>
-      {:else}
-        <div class="divide-y divide-slate-100">
-          {#each nuevas as a (a.id_actividad)}
-            {@render fila(a)}
-          {/each}
+      <!-- ── Búsqueda + interruptor ── -->
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div class="relative flex-1">
+          <Search size={14} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            bind:value={query}
+            type="search"
+            placeholder="Buscar curso o actividad…"
+            class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm focus:border-brand focus:outline-none"
+          />
         </div>
-      {/if}
-    </section>
+        <label class="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-600">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={verTodas}
+            aria-label="Ver todas las actividades"
+            onclick={() => (verTodas = !verTodas)}
+            class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors {verTodas
+              ? 'bg-brand'
+              : 'bg-slate-300'}"
+          >
+            <span
+              class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {verTodas
+                ? 'translate-x-4'
+                : 'translate-x-0.5'}"
+            ></span>
+          </button>
+          Ver todas las actividades
+        </label>
+      </div>
 
-    <!-- ── Cajón: vistos ── -->
-    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <h2
-        class="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500"
-      >
-        <CheckCheck size={14} /> Vistos
-        <span class="ml-auto font-semibold normal-case tracking-normal text-muted-foreground">
-          {vistas.length}
-        </span>
-      </h2>
-      {#if vistas.length === 0}
-        <p class="px-4 py-6 text-sm text-muted-foreground">
-          {query ? 'Sin resultados.' : 'No hay actividades activas sin mensajes nuevos.'}
-        </p>
-      {:else}
-        <div class="divide-y divide-slate-100">
-          {#each vistas as a (a.id_actividad)}
-            {@render fila(a)}
-          {/each}
-        </div>
-      {/if}
-      {#if !verTodas && ocultas > 0}
-        <button
-          type="button"
-          onclick={() => (verTodas = true)}
-          class="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-xs text-muted-foreground hover:bg-slate-50 hover:text-slate-600"
+      <!-- ── Cajón: nuevos ── -->
+      <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <h2
+          class="flex items-center gap-2 border-b border-slate-100 bg-brand-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-brand"
         >
-          <EyeOff size={13} />
-          {ocultas}
-          {ocultas === 1 ? 'actividad no activa oculta' : 'actividades no activas ocultas'} ·
-          <span class="font-semibold text-uta-blue underline underline-offset-2">Mostrar</span>
-        </button>
-      {/if}
-    </section>
+          <Inbox size={14} /> Nuevos (sin ver)
+          <span class="ml-auto font-semibold normal-case tracking-normal text-brand">
+            {nuevas.length}
+          </span>
+        </h2>
+        {#if nuevas.length === 0}
+          <p class="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
+            <CheckCheck size={16} /> Estás al día: no hay mensajes sin ver.
+          </p>
+        {:else}
+          <div class="divide-y divide-slate-100">
+            {#each nuevas as a (a.id_actividad)}
+              {@render fila(a)}
+            {/each}
+          </div>
+        {/if}
+      </section>
+
+      <!-- ── Cajón: vistos ── -->
+      <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <h2
+          class="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500"
+        >
+          <CheckCheck size={14} /> Vistos
+          <span class="ml-auto font-semibold normal-case tracking-normal text-muted-foreground">
+            {vistas.length}
+          </span>
+        </h2>
+        {#if vistas.length === 0}
+          <p class="px-4 py-6 text-sm text-muted-foreground">
+            {query ? 'Sin resultados.' : 'No hay actividades activas sin mensajes nuevos.'}
+          </p>
+        {:else}
+          <div class="divide-y divide-slate-100">
+            {#each vistas as a (a.id_actividad)}
+              {@render fila(a)}
+            {/each}
+          </div>
+        {/if}
+        {#if !verTodas && ocultas > 0}
+          <button
+            type="button"
+            onclick={() => (verTodas = true)}
+            class="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-xs text-muted-foreground hover:bg-slate-50 hover:text-slate-600"
+          >
+            <EyeOff size={13} />
+            {ocultas}
+            {ocultas === 1 ? 'actividad no activa oculta' : 'actividades no activas ocultas'} ·
+            <span class="font-semibold text-uta-blue underline underline-offset-2">Mostrar</span>
+          </button>
+        {/if}
+      </section>
+    </div>
   </div>
 </DocenteLayout>

@@ -12,21 +12,11 @@
    * de la actividad.
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import CentroPasos, { type ComponenteCentro, type CursoCentro } from '@/components/docente/CentroPasos.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { Link } from '@inertiajs/svelte';
   import { formatFechaCorta } from '@/utils/formatters';
-  import {
-    BarChart3,
-    ChevronRight,
-    BookOpen,
-    Layers,
-    Crown,
-    Users,
-    GraduationCap,
-    ClipboardList,
-    CalendarClock,
-    AlertTriangle,
-  } from 'lucide-svelte';
+  import { ChevronRight, Users, CalendarClock, AlertTriangle } from 'lucide-svelte';
 
   interface ActividadCalif {
     id_actividad: number;
@@ -37,26 +27,12 @@
     tiene_grupos: boolean;
   }
 
-  interface ComponenteCalif {
-    id_componente: number;
-    tipo_componente: string;
-    imparte: boolean;
-    es_titular_componente: boolean;
+  interface ComponenteCalif extends ComponenteCentro {
     actividades: ActividadCalif[];
   }
 
-  interface CursoCalif {
-    id_curso: number;
-    nombre: string;
-    cod_curso: string;
-    agno_real: number;
-    semestre_real: number;
-    es_titular_curso: boolean;
-    componentes: ComponenteCalif[];
-  }
-
   interface Props {
-    cursos: CursoCalif[];
+    cursos: CursoCentro<ComponenteCalif>[];
   }
 
   let { cursos }: Props = $props();
@@ -65,231 +41,78 @@
     { title: 'Inicio', href: '/docente/dashboard' },
     { title: 'Calificaciones', href: '/docente/calificaciones' },
   ];
-
-  let cursoSel = $state<number | null>(null);
-  let componenteSel = $state<number | null>(null);
-
-  // Auto-selección cuando hay una sola opción (evita clics innecesarios).
-  $effect(() => {
-    if (cursoSel === null && cursos.length === 1) {
-      cursoSel = cursos[0].id_curso;
-    }
-  });
-  $effect(() => {
-    const c = cursos.find((x) => x.id_curso === cursoSel);
-    if (cursoSel !== null && componenteSel === null && c && c.componentes.length === 1) {
-      componenteSel = c.componentes[0].id_componente;
-    }
-  });
-
-  const cursoActual = $derived(cursos.find((c) => c.id_curso === cursoSel) ?? null);
-  const componenteActual = $derived(
-    cursoActual?.componentes.find((c) => c.id_componente === componenteSel) ?? null,
-  );
-
-  function elegirCurso(id: number) {
-    cursoSel = id;
-    componenteSel = null;
-  }
-
-  function resetCurso() {
-    cursoSel = null;
-    componenteSel = null;
-  }
-
-  function resetComponente() {
-    componenteSel = null;
-  }
-
-  function periodo(c: CursoCalif): string {
-    // Sin año (null) se muestra sólo el semestre, no el literal «null».
-    const sem = `${c.semestre_real === 1 ? '1er' : '2do'} Sem.`;
-    return c.agno_real ? `${sem} · ${c.agno_real}` : sem;
-  }
 </script>
 
+{#snippet datosActividad(act: ActividadCalif)}
+  <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-600">
+    <span class="font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-ocre' : 'text-emerald-700'}">
+      {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
+    </span>
+    <span class="inline-flex items-center gap-1">
+      <Users size={12} aria-hidden="true" />
+      {act.es_grupal ? 'Grupal' : 'Individual'}
+    </span>
+    <span class="inline-flex items-center gap-1">
+      <CalendarClock size={12} aria-hidden="true" />
+      {formatFechaCorta(act.fecha_limite)}
+    </span>
+  </span>
+{/snippet}
+
 <DocenteLayout {breadcrumbs}>
-  <div class="max-w-[1100px] mx-auto w-full p-4 md:p-6 lg:p-8 flex flex-col gap-6">
-    <!-- Header -->
-    <header class="flex items-center gap-3">
-      <div class="flex items-center justify-center w-11 h-11 rounded-xl bg-uta-blue-light shrink-0">
-        <BarChart3 size={22} class="text-navy" />
-      </div>
-      <div>
-        <h1 class="text-2xl font-extrabold text-ink tracking-tight m-0 leading-tight">Calificaciones</h1>
-        <p class="text-sm text-ink-2 m-0">Evalúa las actividades de tus cursos con rúbrica y nota.</p>
-      </div>
-    </header>
+  <div class="pb-16">
+    <div class="mx-auto flex max-w-[1120px] flex-col gap-5 px-4 md:px-0">
+      <header class="flex flex-col gap-1">
+        <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink sm:text-[28px] sm:leading-[34px]">Calificaciones</h1>
+        <p class="m-0 text-sm font-medium text-slate-600">Evalúa las actividades de tus cursos con rúbrica y nota.</p>
+      </header>
 
-    {#if cursos.length === 0}
-      <div class="flex flex-col items-center justify-center py-20 text-center rounded-2xl border-2 border-dashed bg-sand border-sand-line">
-        <GraduationCap size={36} class="text-ink-3 mb-3" />
-        <p class="text-sm font-medium text-ink-2">No tienes actividades para calificar.</p>
-        <p class="text-xs text-muted-foreground mt-1 max-w-sm">
-          Las calificaciones se realizan sobre las actividades de los componentes que impartes; aún no hay actividades disponibles.
-        </p>
-      </div>
-    {:else}
-      <!-- Migas de selección -->
-      <nav class="flex items-center gap-2 text-sm flex-wrap" aria-label="Selección de calificación">
-        <button
-          onclick={resetCurso}
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all {cursoSel === null ? 'bg-navy text-white' : 'bg-sand text-ink-2 hover:bg-sand-2'}"
-        >
-          <BookOpen size={14} />
-          {cursoActual ? cursoActual.nombre : 'Curso'}
-        </button>
-        {#if cursoActual}
-          <ChevronRight size={14} class="text-ink-3" />
-          <button
-            onclick={resetComponente}
-            disabled={cursoActual.componentes.length <= 1}
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all {componenteSel === null ? 'bg-navy text-white' : 'bg-sand text-ink-2 hover:bg-sand-2'} disabled:opacity-60 disabled:cursor-default"
-          >
-            <Layers size={14} />
-            {componenteActual ? componenteActual.tipo_componente : 'Componente'}
-          </button>
-        {/if}
-      </nav>
+      {#if cursos.length === 0}
+        <div class="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center">
+          <p class="m-0 mb-1 text-base font-semibold text-ink">No tienes actividades para calificar.</p>
+          <p class="m-0 text-sm text-slate-600">
+            Las calificaciones se hacen sobre las actividades de los componentes que impartes; aún no hay ninguna.
+          </p>
+        </div>
+      {:else}
+        <CentroPasos {cursos} indicacionCursos="Elige el curso que quieres calificar." etiquetaMigas="Selección de calificación">
+          {#snippet datosComponente(comp)}
+            {comp.actividades.length}
+            {comp.actividades.length === 1 ? 'actividad' : 'actividades'}
+          {/snippet}
 
-      <!-- PASO 1: elegir curso -->
-      {#if cursoSel === null}
-        <section class="flex flex-col gap-4">
-          <h2 class="text-base font-bold text-ink m-0">
-            Seleccione el curso a calificar
-          </h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each cursos as c (c.id_curso)}
-              <button
-                onclick={() => elegirCurso(c.id_curso)}
-                class="flex flex-col gap-3 p-5 rounded-xl border bg-white border-sand-2 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-navy/30"
-              >
-                <div class="flex items-start justify-between gap-2">
-                  <span class="font-mono text-[12px] bg-uta-blue-light text-navy px-2 py-0.5 rounded-md font-semibold">{c.cod_curso}</span>
-                  {#if c.es_titular_curso}
-                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-ocre">
-                      <Crown size={10} /> Titular
+          {#snippet contenido(curso, comp)}
+            <p class="m-0 text-sm font-medium text-slate-600">Elige la actividad que quieres evaluar.</p>
+            <div class="flex flex-col gap-3">
+              {#each comp.actividades as act (act.id_actividad)}
+                {#if act.tiene_grupos}
+                  <Link
+                    href={`/docente/cursos/${curso.id_curso}/actividades/${act.id_actividad}/evaluacion`}
+                    class="flex min-h-11 items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 no-underline transition-colors hover:border-uta-blue hover:bg-slate-50"
+                  >
+                    <span class="flex min-w-0 flex-col gap-1">
+                      <span class="line-clamp-2 text-sm font-semibold leading-snug text-ink">{act.nombre}</span>
+                      {@render datosActividad(act)}
                     </span>
-                  {/if}
-                </div>
-                <p class="text-sm font-semibold text-ink leading-snug line-clamp-2 m-0">{c.nombre}</p>
-                <div class="flex items-center gap-3 text-xs text-muted-foreground mt-auto">
-                  <span>{periodo(c)}</span>
-                  <span class="inline-flex items-center gap-1">
-                    <Layers size={12} />
-                    {c.componentes.length} compon.
-                  </span>
-                </div>
-              </button>
-            {/each}
-          </div>
-        </section>
-
-        <!-- PASO 2: elegir componente -->
-      {:else if componenteSel === null && cursoActual}
-        <section class="flex flex-col gap-4">
-          <h2 class="text-base font-bold text-ink m-0">Seleccione la componente</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each cursoActual.componentes as comp (comp.id_componente)}
-              <button
-                onclick={() => (componenteSel = comp.id_componente)}
-                class="flex flex-col gap-3 p-5 rounded-xl border bg-white border-sand-2 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-navy/30"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <div class="flex items-center gap-2">
-                    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-uta-blue-light shrink-0">
-                      <Layers size={16} class="text-navy" />
-                    </div>
-                    <span class="text-sm font-bold text-ink">{comp.tipo_componente}</span>
-                  </div>
-                  {#if comp.es_titular_componente}
-                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-ocre" title="Titular de la componente">
-                      <Crown size={10} /> Titular
+                    <ChevronRight size={18} class="shrink-0 text-slate-500" aria-hidden="true" />
+                  </Link>
+                {:else}
+                  <div class="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <span class="flex min-w-0 flex-col gap-1">
+                      <span class="line-clamp-2 text-sm font-semibold leading-snug text-ink">{act.nombre}</span>
+                      {@render datosActividad(act)}
                     </span>
-                  {:else if comp.imparte}
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-emerald-700">Imparte</span>
-                  {:else}
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sand text-muted-foreground" title="Supervisión como titular del curso">Supervisión</span>
-                  {/if}
-                </div>
-                <div class="flex items-center gap-1.5 text-xs text-muted-foreground mt-auto">
-                  <ClipboardList size={12} />
-                  {comp.actividades.length} actividad{comp.actividades.length !== 1 ? 'es' : ''}
-                </div>
-              </button>
-            {/each}
-          </div>
-        </section>
-
-        <!-- PASO 3: elegir actividad → evaluar -->
-      {:else if cursoActual && componenteActual}
-        <section class="flex flex-col gap-4">
-          <h2 class="text-base font-bold text-ink m-0">
-            Seleccione la actividad a evaluar
-          </h2>
-          <div class="flex flex-col gap-3">
-            {#each componenteActual.actividades as act (act.id_actividad)}
-              {#if act.tiene_grupos}
-                <Link
-                  href={`/docente/cursos/${cursoActual.id_curso}/actividades/${act.id_actividad}/evaluacion`}
-                  class="flex items-center justify-between gap-4 p-4 rounded-xl border bg-white border-sand-2 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-navy/30"
-                >
-                  <div class="flex items-center gap-3 min-w-0">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-uta-blue-light shrink-0">
-                      <BarChart3 size={18} class="text-navy" />
-                    </div>
-                    <div class="min-w-0">
-                      <p class="text-sm font-semibold text-ink truncate m-0">{act.nombre}</p>
-                      <div class="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                        <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-ocre' : 'text-emerald-700'}">
-                          {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
-                        </span>
-                        <span class="inline-flex items-center gap-1">
-                          <Users size={12} />
-                          {act.es_grupal ? 'Grupal' : 'Individual'}
-                        </span>
-                        <span class="inline-flex items-center gap-1">
-                          <CalendarClock size={12} />
-                          {formatFechaCorta(act.fecha_limite)}
-                        </span>
-                      </div>
-                    </div>
+                    <span class="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ocre">
+                      <AlertTriangle size={15} aria-hidden="true" />
+                      Sin grupos asignados
+                    </span>
                   </div>
-                  <ChevronRight size={18} class="text-ink-3 shrink-0" />
-                </Link>
-              {:else}
-                <div class="flex items-center justify-between gap-4 p-4 rounded-xl border bg-amber-50 border-amber-200">
-                  <div class="flex items-center gap-3 min-w-0">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 shrink-0">
-                      <BarChart3 size={18} class="text-ocre" />
-                    </div>
-                    <div class="min-w-0">
-                      <p class="text-sm font-semibold text-ocre truncate m-0">{act.nombre}</p>
-                      <div class="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                        <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-ocre' : 'text-emerald-700'}">
-                          {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
-                        </span>
-                        <span class="inline-flex items-center gap-1">
-                          <Users size={12} />
-                          {act.es_grupal ? 'Grupal' : 'Individual'}
-                        </span>
-                        <span class="inline-flex items-center gap-1">
-                          <CalendarClock size={12} />
-                          {formatFechaCorta(act.fecha_limite)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-2 shrink-0 text-ocre">
-                    <AlertTriangle size={15} />
-                    <span class="text-xs font-medium whitespace-nowrap">Sin grupos asignados</span>
-                  </div>
-                </div>
-              {/if}
-            {/each}
-          </div>
-        </section>
+                {/if}
+              {/each}
+            </div>
+          {/snippet}
+        </CentroPasos>
       {/if}
-    {/if}
+    </div>
   </div>
 </DocenteLayout>

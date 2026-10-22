@@ -193,3 +193,27 @@ test('proximasAVencer excluye actividades que ya fueron evaluadas', function () 
     $ids = collect($pendientes)->pluck('id_actividad')->all();
     expect($ids)->not->toContain($actividad->id_actividad);
 });
+
+test('calendarioDelPeriodo trae las fechas de los cursos del período con su curso', function () {
+    $f = resumen_fixtureEstudianteConActividad();
+    expect($f)->not->toBeNull();
+
+    $actividad = Actividad::findOrFail($f['id_actividad']);
+    $actividad->visible = true;
+    $actividad->fecha_limite = Carbon::now()->addDays(10);
+    $actividad->save();
+
+    $curso = DB::table('curso.curso')->where('id_curso', $f['id_curso'])->first(['semestre_real', 'agno_real']);
+    $resumen = new ResumenActividadesEstudiante();
+
+    $item = collect($resumen->calendarioDelPeriodo($f['estudiante'], $curso->semestre_real, $curso->agno_real))
+        ->firstWhere('id_actividad', $actividad->id_actividad);
+    expect($item)->not->toBeNull();
+    expect($item['id_curso'])->toBe((int) $f['id_curso']);
+    expect($item['fecha_limite'])->toBe($actividad->fecha_limite->format('Y-m-d'));
+    expect($item)->toHaveKeys(['curso', 'asignatura', 'ya_entregada', 'es_sumativa']);
+
+    // Otro período no la incluye.
+    $otro = $resumen->calendarioDelPeriodo($f['estudiante'], $curso->semestre_real, 1990);
+    expect(collect($otro)->pluck('id_actividad'))->not->toContain($actividad->id_actividad);
+});
