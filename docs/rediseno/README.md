@@ -29,7 +29,7 @@ yendo a `main` sobre la paleta actual.
 | 2 | RED-02 | Docente (20) | Pendiente |
 | 3 | RED-03 | Jefe de carrera, ayudante y dashboards (11) | Pendiente |
 | 4 | RED-04 | Administración (15) | Pendiente |
-| 5 | RED-05 | Ingreso y ajustes (12) | Pendiente |
+| 5 | RED-05 | Ingreso y ajustes (12) | Propuestas A y B de portada y login en el lienzo (ver «Lote 5 · Ingreso»); falta elegir |
 
 ## Límites del plan Starter de Figma
 
@@ -203,6 +203,53 @@ cambian.
 
 **Trampa de Svelte 5:** recorta el espacio al principio y al final del contenido de una etiqueta (`<span> sin
 leer</span>` se ve «sin leer» pegado a lo anterior). Donde el espacio importa se escribe `{' '}`.
+
+## Lote 5 · Ingreso (propuestas)
+
+El 2026-10-22 se adelantaron la portada (`Welcome.svelte`) y el login (`auth/Login.svelte`) en el lienzo, página
+«Lote 5 · Ingreso». Hay dos propuestas, cada pantalla a 1440 y 390 px y con claro/oscuro. El estado del login se elige
+en las propiedades del tablero, y desde la portada se llega al login de la misma propuesta.
+
+- **A · Noche:** sigue al panel aprobado.
+  - Portada: la cabecera es noche con el degradado profundo (#161949 → #660959) y la retícula. El acceso va en una
+    tarjeta blanca, como «Lo de hoy» en el Inicio.
+  - Login: la pantalla se parte en un panel de marca noche y el formulario sobre fondo claro.
+- **B · Amarillo dm:** toma la portada de la guía.
+  - Portada: amarillo a sangre con la retícula del logotipo, y UTAMED en la condensada a 184 px. La ficha del curso se
+    muestra con sus siete pestañas, que se pueden recorrer.
+  - Login: una tarjeta blanca sobre el amarillo.
+  - En oscuro, el amarillo pasa a noche y el nombre queda en amarillo.
+
+Criterios comunes:
+
+- **Marcas (cap. 02):** primero el isologotipo UTA y después el cuadro dm, separados por el área de protección de la
+  UTA.
+  - El isologotipo es un marcador, porque la guía no lo reproduce y falta el archivo oficial.
+  - El dm es el cuadro de 150 px de Instagram, sin ampliar (asset `/_blob/fc366b8d1d4a6f3b6faea49ec7474232` del lienzo).
+- **Recursos (cap. 06):** un solo recurso dm por pantalla, la retícula. La barra tricolor va al pie como firma UTA, que
+  la guía pide en el ingreso.
+- **Login:** mismos campos y estados que `Login.svelte` y `ErrorAlert.svelte`, con los mensajes reescritos según el
+  cap. 10: qué pasó y cómo se arregla.
+  - El rojo queda para los errores. El bloqueo por intentos va como advertencia y la verificación de correo como
+    información.
+  - El botón de mostrar contraseña deja de tener `tabindex=-1`.
+  - El formato del RUT se avisa al enviar, no mientras se escribe.
+- **Portada:**
+  - Se conservan los ocho principios del modelo educativo y el contacto del CITE.
+  - Salen los enlaces muertos del pie (`href="#"`: Portal de Estudiantes, Biblioteca Digital, Calendario Académico) y
+    la foto desenfocada de fondo. No va foto hasta tener trabajo real de estudiantes con crédito (cap. 07).
+- **Trato neutro:** «Ingresa a UTAMED» en vez de «Bienvenido de vuelta».
+
+Pendiente:
+
+- Elegir A o B, o una mezcla.
+- Conseguir el isologotipo UTA y el vectorial del dm.
+- Decidir si se mantiene la diferencia entre «RUT no registrado» y «contraseña incorrecta». Hoy la app las distingue, y
+  eso permite averiguar qué RUT tienen cuenta.
+- Unificar el correo de soporte: `ErrorAlert` dice soporte@uta.cl para la cuenta desactivada y el resto de la app dice
+  cite@gestion.uta.cl. Las propuestas usan el segundo.
+- Hacer las otras diez pantallas del lote: recuperar y restablecer contraseña, 2FA, cambio obligatorio, ajustes y
+  SinRol.
 
 ## Decisiones
 
