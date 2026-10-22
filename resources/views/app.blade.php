@@ -24,7 +24,8 @@
 
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
+    {{-- Sofia Sans es la tipografía de la guía dm (rediseño, por ahora sólo la vista del alumno). --}}
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|sofia-sans:400,500,600,700,900|sofia-sans-condensed:700,800,900" rel="stylesheet" />
 
     @vite(['resources/js/app.ts'])
     @inertiaHead

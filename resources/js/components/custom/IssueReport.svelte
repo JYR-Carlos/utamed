@@ -2,6 +2,14 @@
   import Toast from '@/components/admin/Toast.svelte';
   import { router } from '@inertiajs/svelte'
   import { Bug, Flag, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
+  import { cn } from '@/lib/utils';
+
+  interface Props {
+    /** Clases para el botón disparador; pisan los colores por defecto (p. ej. la barra noche del alumno). */
+    class?: string;
+  }
+
+  let { class: claseBoton = '' }: Props = $props();
 
   let isOpen = $state(false);
   let showConfirmModal = $state(false);
@@ -117,7 +125,10 @@
 <button
   type="button"
   onclick={() => (isOpen = true)}
-  class="group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-[#002855] max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-purple-200"
+  class={cn(
+    'group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-[#002855] max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-purple-200',
+    claseBoton,
+  )}
   title="Reportar error"
   aria-label="Reportar error"
 >
