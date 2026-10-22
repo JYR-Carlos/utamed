@@ -30,14 +30,14 @@
     type ProgramaPublicado,
     type SeccionPrograma,
   } from './components/ProgramaAlumno.svelte';
-  import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
-  import { bloquesDeSeccion, textoDeSeccion } from '@/modules/resources/programa/utils/syllabusTexto';
+  import CursoBiblioteca from './components/CursoBiblioteca.svelte';
+  import { gruposDeRecursos } from '@/lib/programaAlumno';
   import { Link, page, router } from '@inertiajs/svelte';
-  import { BookMarked, ChevronRight, MessageSquare, Printer } from 'lucide-svelte';
+  import { ChevronRight, MessageSquare, Printer } from 'lucide-svelte';
   import { useFormatName } from '@/hooks';
   import { porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
-  import { tarjeta } from '@/lib/dm';
+  import { btnSecundario, tarjeta } from '@/lib/dm';
   import type { SidebarCourse } from '@/types';
 
   type Actividad = ActividadAlumno;
@@ -150,23 +150,9 @@
   );
 
   // ─── Biblioteca ─────────────────────────────────────────────────────────────
-  // Es la sección VIII del programa; se muestra igual que en el documento.
-  const bibliografia = $derived(
-    secciones.filter((s) => s.numeral_romano === 'VIII' && textoDeSeccion(s.contenidos).trim() !== ''),
-  );
-
-  // Recursos = ítems de las listas de la bibliografía.
-  const totalRecursos = $derived(
-    bibliografia.reduce(
-      (total, s) =>
-        total +
-        bloquesDeSeccion(textoDeSeccion(s.contenidos), s.numeral_romano).reduce(
-          (n, b) => n + (b.tipo === 'lista' ? b.items.length : 0),
-          0,
-        ),
-      0,
-    ),
-  );
+  // Es la sección VIII del programa, agrupada por sus subtítulos.
+  const gruposBiblioteca = $derived(gruposDeRecursos(secciones));
+  const totalRecursos = $derived(gruposBiblioteca.reduce((total, g) => total + g.recursos.length, 0));
 
   // ─── Calendario ─────────────────────────────────────────────────────────────
   // El alcance vive aquí para que sobreviva al cambiar de pestaña. «Ver
@@ -273,18 +259,23 @@
           </aside>
         </div>
       {:else if seccion === 'programa'}
-        {#if programa}
-          <div class="flex justify-end">
-            <Link
-              href={`/estudiante/cursos/${id_curso}/programa`}
-              class="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline"
-            >
-              <Printer size={16} aria-hidden="true" />
-              Versión para imprimir o guardar en PDF
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-[22px] leading-7 font-bold">Programa</h2>
+          {#if programa}
+            <!-- En móvil el botón va al pie del programa. -->
+            <Link href={`/estudiante/cursos/${id_curso}/programa`} class="{btnSecundario} min-h-10 max-lg:hidden">
+              <Printer size={16} aria-hidden="true" />Versión para imprimir
             </Link>
-          </div>
-        {/if}
-        <ProgramaAlumno {curso} {programa} {docentes} {secciones} categoria={datos?.categoria ?? ''} />
+          {/if}
+        </div>
+        <ProgramaAlumno
+          {curso}
+          {programa}
+          {docentes}
+          {secciones}
+          categoria={datos?.categoria ?? ''}
+          hrefImprimir={`/estudiante/cursos/${id_curso}/programa`}
+        />
       {:else if seccion === 'calendario'}
         {@render titulo(
           'Calendario',
@@ -314,21 +305,10 @@
         {@render titulo(
           'Biblioteca',
           totalRecursos > 0
-            ? `${totalRecursos} ${totalRecursos === 1 ? 'recurso' : 'recursos'}`
+            ? `${totalRecursos} ${totalRecursos === 1 ? 'recurso' : 'recursos'} · bibliografía y recursos indicados en el programa`
             : 'Bibliografía y recursos de aprendizaje indicados en el programa.',
         )}
-        {#if bibliografia.length > 0}
-          <ProgramaDocument secciones={bibliografia} variante="tarjetas" />
-        {:else}
-          <div class="rounded-2xl border border-dashed border-gray-200 p-10 text-center">
-            <BookMarked class="mx-auto mb-3 h-10 w-10 text-gray-300" />
-            <p class="text-sm text-gray-600">
-              {programa
-                ? 'El programa de este curso no registra bibliografía.'
-                : 'La bibliografía se publica con el programa del curso, que aún no ha sido aprobado.'}
-            </p>
-          </div>
-        {/if}
+        <CursoBiblioteca grupos={gruposBiblioteca} hayPrograma={!!programa} />
       {/if}
     </div>
   </div>
