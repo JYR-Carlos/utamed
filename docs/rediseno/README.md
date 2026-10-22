@@ -6,8 +6,9 @@ yendo a `main` sobre la paleta actual.
 
 - Guía dm v0.1: https://claude.ai/artifact/2PwgXZ4pjJz8UscQYU8sAd
 - Archivo de Figma: https://www.figma.com/design/gMGFJcNq1gsIvc5WRZNIs3
-- Direcciones del Inicio del estudiante (lienzo de Claude, mientras Figma no tenga cuota):
-  https://claude.ai/artifact/JThPrTH1s4KeK39DZzy8kT. A sobria, B marca dm y C editorial, con botón de claro/oscuro
+- Lienzo de Claude (mientras Figma no tenga cuota): https://claude.ai/artifact/JThPrTH1s4KeK39DZzy8kT. Página
+  «Direcciones» con la A sobria y la C editorial descartadas; página «Lote 1 · Estudiante» con las pantallas en la
+  dirección B, cada una a 1440 y 390 px y con botón de claro/oscuro
 - Tablero: `arreglos-reunion-23-09-2026`, tarjetas RED-00 a RED-05
 
 ## Flujo
@@ -19,11 +20,12 @@ yendo a `main` sobre la paleta actual.
 3. El usuario revisa el lote en Figma. Sólo con su aprobación se implementa en Svelte, en esta rama.
 4. Datos ficticios en Figma: ningún nombre, RUT ni nota real, porque Figma es un servicio externo.
 5. Una sesión nueva por lote, partiendo de este archivo.
+6. Sin cuota de Figma, el lote se arma en el lienzo de Claude con los mismos criterios y se pasa a Figma después.
 
 | Lote | Tarjeta | Alcance | Estado |
 |---|---|---|---|
-| 0 | RED-00 | Fundamentos: variables, estilos, componentes base y 2–3 direcciones del Inicio del estudiante | En curso |
-| 1 | RED-01 | Estudiante (18 pantallas) | Pendiente |
+| 0 | RED-00 | Fundamentos: variables, estilos, componentes base y 2–3 direcciones del Inicio del estudiante | Dirección B elegida; faltan componentes en Figma |
+| 1 | RED-01 | Estudiante (18 pantallas) | En curso en el lienzo de Claude |
 | 2 | RED-02 | Docente (20) | Pendiente |
 | 3 | RED-03 | Jefe de carrera, ayudante y dashboards (11) | Pendiente |
 | 4 | RED-04 | Administración (15) | Pendiente |
@@ -80,10 +82,32 @@ que flota.
 - El punto de curso del Ítem de menú debe ligarse a `Curso · Oscuro/curso-N/base`, porque el menú es noche en ambos
   temas (#2441CA sobre #161949 no se distingue).
 - Composiciones: menú lateral del estudiante y barra superior.
-- Pasar a la página Direcciones de Figma la dirección que se elija (las tres ya están en el lienzo de Claude, con
-  claro y oscuro).
+- Pasar la dirección B y las pantallas del lote 1 del lienzo de Claude a Figma.
 - Revisión de contraste AA y tamaños mínimos.
-- El usuario elige la dirección. Sin esa elección no se empieza el lote 1.
+
+## Lote 1 · Estudiante
+
+Se eligió la dirección B (marca dm) el 2026-10-22. Mientras Figma no tenga cuota, el lote se arma en el lienzo de
+Claude, por tandas:
+
+| Tanda | Pantallas | Estado |
+|---|---|---|
+| 1 | Inicio, Mis cursos, Ficha del curso · Actividades, Actividad por entregar | Publicada |
+| 2 | Ficha del curso · Resumen de notas, Ficha del curso · Mensajería, Actividad calificada | Publicada |
+| 3 | Ficha del curso · Programa, Biblioteca, Calendario y Bitácora; Syllabus | Pendiente |
+| 4 | Perfil, Cambiar contraseña, modales (agenda, subir entrega, rúbrica), estados vacíos y de error | Pendiente |
+
+Criterios de la tanda 2:
+
+- **Resumen de notas:** mismos datos que `rendimiento` (promedios, evaluadas, peso del componente, aprobación por
+  separado, exigencia y asistencia). La asistencia bajo el mínimo usa la insignia de advertencia con texto; el rojo
+  queda para errores.
+- **Mensajería:** propone renombrar «Generales» e «Individuales» a «Avisos del curso» y «Conversación con el equipo
+  docente», con el selector de componente arriba y el conteo de nuevos. Laboratorio muestra el estado vacío.
+- **Actividad calificada:** la rúbrica muestra el nivel de cada criterio (`ultima_evaluacion.resultado`) y el puntaje
+  (`puntaje_obtenido`). No hay botón de apelación porque la apelación (T48) no está implementada
+  (`puedeApelar = false` en `Activities/Index.svelte`); las dudas sobre la nota van a la agenda de la actividad.
+  Los nombres de los niveles de la rúbrica son de ejemplo.
 
 ## Decisiones
 
