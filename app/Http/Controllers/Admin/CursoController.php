@@ -831,6 +831,62 @@ class CursoController extends Controller
     }
 
     /**
+     * Lookup predictivo de cursos fuente para copia por código de asignatura o nombre.
+     */
+    public function buscarFuente(Request $request)
+    {
+        $this->authorize('viewAny', Curso::class);
+
+        $q = trim((string) $request->input('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $cursos = Curso::query()
+            ->whereNull('fecha_eliminacion')
+            ->where(function ($query) use ($q) {
+                $query->whereHas('asignacionPlan.asignatura', function ($sub) use ($q) {
+                    $sub->where('cod_asignatura', 'ilike', "%{$q}%")
+                        ->orWhere('nombre', 'ilike', "%{$q}%");
+                })
+                ->orWhere('nombre', 'ilike', "%{$q}%")
+                ->orWhere('cod_curso', 'like', "%{$q}%");
+            })
+            ->with([
+                'asignacionPlan.asignatura',
+                'asignacionPlan.plan.carrera',
+                'programas' => fn($p) => $p->where('es_actual', true)->limit(1),
+            ])
+            ->withCount(['componentes', 'inscripcionCursos'])
+            ->orderBy('agno_real', 'desc')
+            ->orderBy('semestre_real', 'desc')
+            ->orderBy('id_curso', 'desc')
+            ->limit(15)
+            ->get();
+
+        return response()->json($cursos->map(function (Curso $c) {
+            $asig = $c->asignacionPlan?->asignatura;
+            $programa = $c->programas->first();
+
+            return [
+                'id_curso'          => $c->id_curso,
+                'cod_curso'         => $c->cod_curso,
+                'nombre'            => $c->nombre,
+                'cod_asignatura'    => $asig?->cod_asignatura,
+                'asignatura_nombre' => $asig?->nombre,
+                'carrera_nombre'    => $c->asignacionPlan?->plan?->carrera?->nombre,
+                'agno_real'         => $c->agno_real,
+                'semestre_real'     => $c->semestre_real,
+                'periodo'           => "{$c->agno_real} · Sem. {$c->semestre_real}",
+                'total_componentes' => $c->componentes_count,
+                'total_alumnos'     => $c->inscripcion_cursos_count,
+                'tiene_programa'    => $programa !== null,
+                'estado_programa'   => $programa?->estado,
+            ];
+        })->values());
+    }
+
+    /**
      * Returns preview data for course copy modal (syllabus, components, teachers, activities).
      * Excludes students and activity responses.
      */
@@ -939,7 +995,7 @@ class CursoController extends Controller
                 'fecha_inicio'  => $validated['fecha_inicio'],
                 'agno_real'     => (int) $validated['agno_real'],
                 'semestre_real' => (int) $validated['semestre_real'],
-            ]);
+            ], $request->user());
 
             return redirect()
                 ->route('admin.cursos.index')

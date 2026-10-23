@@ -11,11 +11,15 @@
  *    copiar() debe copiar las unidades y reasignar cada actividad a su copia.
  */
 
+use App\Enums\DB\EstadoRubrica;
+use App\Models\Agenda\Actividad;
+use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\CursoService;
+use App\Services\ProgramaService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -365,4 +369,89 @@ test('al copiar un curso monocomponente conserva exclusivamente su unica compone
 
     expect($nuevo->componentes()->count())->toBe(1)
         ->and($nuevo->componentes()->first()->id_tipo_componente)->toBe($tipoCatedra->id_tipo_componente);
+});
+
+test('al copiar un curso clona el syllabus vigente y las rubricas analiticas con estado POSTULADA', function () {
+    // Asegurar que el curso padre tenga programa
+    if (!$this->padre->programas()->where('es_actual', true)->exists()) {
+        ProgramaService::generateProgramaWithSyllabus($this->padre, $this->admin);
+    }
+
+    $programaPadre = $this->padre->programas()->where('es_actual', true)->first();
+    $programaPadre->update([
+        'estado' => 'APROBADO',
+        'revisado_por' => $this->admin->id_usuario,
+    ]);
+
+    // Crear una actividad específica con rúbrica analítica en el curso padre
+    $comp = $this->padre->componentes()->first();
+    $unidad = $this->padre->unidades()->first();
+    $actividad = Actividad::create([
+        'nombre'         => 'Actividad Exclusiva con Rubrica Analitica',
+        'fecha_limite'   => now()->addDays(3),
+        'visible'        => true,
+        'ponderacion'    => 25,
+        'exigencia'      => 60,
+        'tipo_actividad' => 'SUMATIVA',
+        'tipo_entrega'   => 'ARCHIVO',
+        'es_grupal'      => false,
+        'es_plantilla'   => false,
+        'id_componente'  => $comp->id_componente,
+        'id_unidad'      => $unidad->id_unidad,
+    ]);
+
+    $rubricaPadre = Rubrica::create([
+        'id_actividad'   => $actividad->id_actividad,
+        'estado_rubrica' => EstadoRubrica::POSTULADA,
+        'rubrica'        => [
+            'criterios' => [
+                ['titulo' => 'Comprensión clínica', 'ponderacion' => 50],
+                ['titulo' => 'Razonamiento diagnóstico', 'ponderacion' => 50],
+            ],
+        ],
+    ]);
+
+    $nuevo = copiarCursoDeFixture($this->padre);
+
+    // 1. Validar que se clonó la rúbrica analítica asociada
+    $nuevaActividad = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $nuevo->id_curso))
+        ->where('nombre', 'Actividad Exclusiva con Rubrica Analitica')
+        ->first();
+
+    expect($nuevaActividad)->not->toBeNull()
+        ->and($nuevaActividad->fecha_limite)->toBeNull();
+
+    $nuevaRubrica = Rubrica::where('id_actividad', $nuevaActividad->id_actividad)->first();
+    expect($nuevaRubrica)->not->toBeNull()
+        ->and($nuevaRubrica->id_rubrica)->not->toBe($rubricaPadre->id_rubrica)
+        ->and($nuevaRubrica->estado_rubrica)->toBe(EstadoRubrica::POSTULADA)
+        ->and($nuevaRubrica->rubrica['criterios'][0]['titulo'])->toBe('Comprensión clínica')
+        ->and($nuevaRubrica->rubrica['criterios'][1]['ponderacion'])->toBe(50);
+
+    // 2. Validar que el syllabus vigente fue clonado como BORRADOR
+    $nuevoPrograma = $nuevo->programas()->where('es_actual', true)->first();
+    expect($nuevoPrograma)->not->toBeNull()
+        ->and($nuevoPrograma->id_curso)->toBe($nuevo->id_curso)
+        ->and($nuevoPrograma->estado)->toBe('BORRADOR')
+        ->and($nuevoPrograma->revisado_por)->toBeNull()
+        ->and($nuevoPrograma->fecha_entrega)->toBeNull();
+});
+
+test('endpoint buscarFuente retorna cursos filtrados por cod_asignatura o nombre', function () {
+    $ap = $this->padre->asignacionPlan;
+    if (!$ap?->asignatura) {
+        $this->padre->load('asignacionPlan.asignatura');
+        $ap = $this->padre->asignacionPlan;
+    }
+
+    $codAsig = $ap->asignatura->cod_asignatura;
+
+    $response = $this->actingAs($this->admin)
+        ->getJson(route('admin.cursos.buscar-fuente', ['q' => substr($codAsig, 0, 3)]));
+
+    $response->assertOk()
+        ->assertJsonFragment([
+            'id_curso'       => $this->padre->id_curso,
+            'cod_asignatura' => $codAsig,
+        ]);
 });
