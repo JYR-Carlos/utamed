@@ -635,6 +635,7 @@ class ProgramaController extends Controller
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
                 'programas' => fn ($q) => $q->where('es_actual', true),
+                'componentes.actividades',
             ])
             ->whereNull('fecha_eliminacion');
 
@@ -688,17 +689,21 @@ class ProgramaController extends Controller
             // Tipo de syllabus: BASICO, COMPLETO, o null (sin programa)
             $tipoSyllabus = $programa ? $programa->getTipoSyllabus() : null;
             $estadoPrograma = $programa ? $programa->estado : null;
+            $totalActividades = $c->componentes->sum(fn($comp) => $comp->actividades->count());
 
             return [
                 'id_curso'                      => $c->id_curso,
                 'cod_curso'                     => $c->cod_curso,
                 'nombre'                        => $c->nombre,
+                'id_asignacion_plan'            => $c->id_asignacion_plan,
+                'id_asignatura'                 => $c->asignacionPlan?->id_asignatura,
                 'agno_real'                     => $c->agno_real,
                 'semestre_real'                 => $c->semestre_real,
                 'asignatura'                    => $c->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                 'carrera'                       => $c->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_limite_entrega_basico'   => $c->fecha_limite_entrega_basico?->toIso8601String(),
                 'fecha_limite_entrega_syllabus' => $c->fecha_limite_entrega_syllabus?->toIso8601String(),
+                'total_actividades'             => $totalActividades,
                 'programa' => $programa ? [
                     'id_programa'      => $programa->id_programa,
                     'estado'           => $estadoPrograma,
@@ -1275,5 +1280,167 @@ class ProgramaController extends Controller
 
             return redirect()->back()->withErrors(['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Retorna los cursos hermanos (misma asignatura) disponibles para replicar el syllabus.
+     * Exclusivo para administradores.
+     * GET /admin/cursos/{curso}/syllabus/destinos-replicacion
+     */
+    public function destinosReplicacion(Request $request, Curso $curso)
+    {
+        $this->authorize('viewAny', Programa::class);
+
+        $curso->loadMissing(['asignacionPlan.asignatura', 'componentes.actividades']);
+        $idAsignatura = $curso->asignacionPlan?->id_asignatura;
+
+        if (!$idAsignatura) {
+            return response()->json([
+                'origen' => [
+                    'id_curso' => $curso->id_curso,
+                    'nombre'   => $curso->nombre,
+                ],
+                'destinos' => [],
+                'actividades_count' => 0,
+            ]);
+        }
+
+        $programaOrigen = $curso->programas()->where('es_actual', true)->first();
+        $totalActividadesOrigen = $curso->componentes->sum(fn($comp) => $comp->actividades->count());
+
+        $destinos = Curso::query()
+            ->whereNull('fecha_eliminacion')
+            ->where('id_curso', '!=', $curso->id_curso)
+            ->whereHas('asignacionPlan', fn($q) => $q->where('id_asignatura', $idAsignatura))
+            ->with([
+                'programas' => fn($q) => $q->where('es_actual', true),
+                'componentes.actividades',
+            ])
+            ->orderBy('agno_real', 'desc')
+            ->orderBy('semestre_real', 'desc')
+            ->orderBy('indice_grupo')
+            ->get();
+
+        return response()->json([
+            'origen' => [
+                'id_curso'          => $curso->id_curso,
+                'cod_curso'         => $curso->cod_curso,
+                'nombre'            => $curso->nombre,
+                'asignatura'        => $curso->asignacionPlan?->asignatura?->nombre,
+                'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura,
+                'agno_real'         => $curso->agno_real,
+                'semestre_real'     => $curso->semestre_real,
+                'programa'          => $programaOrigen ? [
+                    'id_programa'   => $programaOrigen->id_programa,
+                    'version'       => $programaOrigen->version_programa,
+                    'estado'        => $programaOrigen->estado,
+                    'tipo_syllabus' => $programaOrigen->getTipoSyllabus(),
+                ] : null,
+                'total_actividades' => $totalActividadesOrigen,
+            ],
+            'destinos' => $destinos->map(function (Curso $d) {
+                $p = $d->programas->first();
+                $totalAct = $d->componentes->sum(fn($c) => $c->actividades->count());
+
+                return [
+                    'id_curso'          => $d->id_curso,
+                    'cod_curso'         => $d->cod_curso,
+                    'nombre'            => $d->nombre,
+                    'agno_real'         => $d->agno_real,
+                    'semestre_real'     => $d->semestre_real,
+                    'periodo'           => "{$d->agno_real} · Sem. {$d->semestre_real}",
+                    'tiene_programa'    => $p !== null,
+                    'programa'          => $p ? [
+                        'id_programa'   => $p->id_programa,
+                        'version'       => $p->version_programa,
+                        'estado'        => $p->estado,
+                        'tipo_syllabus' => $p->getTipoSyllabus(),
+                    ] : null,
+                    'total_actividades' => $totalAct,
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Replica atómicamente el syllabus vigente (y opcionalmente actividades) hacia cursos hermanos.
+     * Exclusivo para administradores.
+     * POST /admin/cursos/{curso}/syllabus/replicar
+     */
+    public function replicar(Request $request, Curso $curso, \App\Services\CursoService $cursoService)
+    {
+        $this->authorize('viewAny', Programa::class);
+
+        $validated = $request->validate([
+            'destinos'        => 'required|array|min:1',
+            'destinos.*'      => 'required|integer|exists:curso,id_curso',
+            'con_actividades' => 'nullable|boolean',
+        ]);
+
+        $curso->loadMissing('asignacionPlan.asignatura');
+        $idAsignaturaOrigen = $curso->asignacionPlan?->id_asignatura;
+
+        if (!$idAsignaturaOrigen) {
+            return response()->json(['error' => 'El curso de origen no tiene una asignatura asignada.'], 422);
+        }
+
+        $programaOrigen = $curso->programas()->where('es_actual', true)->first();
+        if (!$programaOrigen) {
+            return response()->json(['error' => 'El curso de origen no posee un syllabus vigente para replicar.'], 422);
+        }
+
+        $conActividades = (bool) ($validated['con_actividades'] ?? true);
+        $destinosIds = $validated['destinos'];
+        $user = Auth::user();
+
+        $destinos = Curso::whereIn('id_curso', $destinosIds)
+            ->whereNull('fecha_eliminacion')
+            ->with('asignacionPlan')
+            ->get();
+
+        $replicados = [];
+        $errores = [];
+
+        DB::transaction(function () use ($curso, $destinos, $idAsignaturaOrigen, $programaOrigen, $user, $conActividades, $cursoService, &$replicados, &$errores) {
+            foreach ($destinos as $destino) {
+                if ((int) $destino->asignacionPlan?->id_asignatura !== (int) $idAsignaturaOrigen) {
+                    $errores[] = [
+                        'id_curso' => $destino->id_curso,
+                        'nombre'   => $destino->nombre,
+                        'motivo'   => 'No pertenece a la misma asignatura.',
+                    ];
+                    continue;
+                }
+
+                $nuevoProg = $cursoService->copiarSyllabus(
+                    $curso,
+                    $destino,
+                    $user instanceof \App\Models\Usuario\Usuario ? $user : null,
+                    $programaOrigen,
+                    $conActividades
+                );
+
+                $replicados[] = [
+                    'id_curso'          => $destino->id_curso,
+                    'nombre'            => $destino->nombre,
+                    'id_programa_nuevo' => $nuevoProg->id_programa,
+                    'version'           => $nuevoProg->version_programa,
+                ];
+            }
+        });
+
+        Log::info('[AdminProgramaController@replicar] Syllabus replicado atómicamente', [
+            'id_curso_origen' => $curso->id_curso,
+            'replicados'      => count($replicados),
+            'con_actividades' => $conActividades,
+        ]);
+
+        return response()->json([
+            'success'         => true,
+            'mensaje'         => sprintf('Syllabus replicado exitosamente a %d curso(s).', count($replicados)),
+            'replicados'      => $replicados,
+            'errores'         => $errores,
+            'con_actividades' => $conActividades,
+        ]);
     }
 }
