@@ -5,6 +5,7 @@ namespace App\Services\Docente;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioPermisoEspecial;
+use App\Services\Authorization\PermissionCache;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -113,6 +114,9 @@ class PermisosCursoService
             'otorgar'     => $otorgar,
             'auth_user'   => Auth::id(),
         ]);
+
+        // Invalidar caché del usuario modificado para reflejo inmediato en can()
+        app(PermissionCache::class)->olvidarUsuario($idUsuario);
     }
 
     // ────────────────────────────────────────────────────────────────────────

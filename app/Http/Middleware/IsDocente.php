@@ -44,6 +44,7 @@ class IsDocente
             'Docente Titular',
             'Docente Titular Restringido',
             'Docente Componente',
+            'Docente Componente Colegiado',
         ]);
 
         if (!$tieneRolDocente) {
