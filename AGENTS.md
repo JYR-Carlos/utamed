@@ -1,24 +1,30 @@
-# Directrices Generales de Agentes - UTAMED
+# General Agent Guidelines - UTAMED
 
-## Sincronización Obligatoria con Trello
+## Mandatory Trello Synchronization
 
-Antes de atender cualquier solicitud de desarrollo, arreglo de error, refactor o ajuste visual:
+Before addressing any development request, bug fix, refactor, or visual adjustment:
 
-1. **Consultar Proactivamente el Tablero Activo**:
-   - Inspeccionar el tablero de Trello (`arreglos-reunion-23-09-2026` o el tablero configurado en el MCP de Trello).
-   - Verificar si la petición coincide con una tarjeta existente en cualquiera de las listas (`Por definir`, `Pendiente`, `En progreso`, `En revisión`, `Hecho`).
-   - Citar la tarjeta (código, título, enlace Trello) y basar la solución en su descripción y Criterios de Aceptación (DoD).
-   - Al iniciar el trabajo activo en código, mover la tarjeta a `En progreso`.
+1. **Proactively Consult the Active Board**:
+   - Inspect the active Trello board (`arreglos-reunion-23-09-2026` or the board configured in the Trello MCP server).
+   - Check if the user request matches an existing card in any of the lists (`Por definir`, `Pendiente`, `En progreso`, `En revisión`, `Hecho`).
+   - Cite the card (code, title, Trello link) and base the solution on its description and Acceptance Criteria (DoD).
+   - When starting active coding, move the card to `En progreso`.
 
-2. **Convención Estricta de Estados**:
-   - **`En revisión` = Revisión humana / técnica**:
-     - Indica que el agente completó la implementación y verificaciones automáticas.
-     - Obligatorio: Mover a `En revisión`, marcar los checks de DoD cumplidos (`[x]`) y dejar un comentario con el resumen de cambios, commits y archivos afectados.
-   - **`Hecho` (Listo) = Aprobado por el usuario**:
-     - **Regla estricta**: El agente **NUNCA** mueve una tarjeta a `Hecho` por cuenta propia.
-     - Solo se mueve a `Hecho` cuando el usuario dé su aprobación explícita (*"aprobado"*, *"listo"*, *"validado"*, *"pasa a hecho"*).
-   - **`Pendiente`**: Cola de trabajo de tarjetas refinadas y listas para tomar.
-   - **`Por definir (preguntar al director)`**: Requerimientos con dependencias externas o reglas institucionales pendientes.
+2. **Automatic Member Assignment (Self-Assign Prompt Runner)**:
+   - When taking or creating a card for execution, automatically assign the team member who ran the prompt.
+   - Detect identity using the local git configuration (`git config user.name` / `git config user.email`) and match against the board members via `get_board_members`.
+   - **Interactive Fallback**: If the member identity cannot be determined with certainty, interactively ask the user to select their member profile using `ask_question`.
+   - Once resolved, assign the member to the card using `assign_member_to_card`.
 
-3. **Requerimientos Nuevos**:
-   - Si no existe tarjeta para lo solicitado, advertirlo al usuario y coordinar su alta en el tablero con formato estándar y Criterios de Aceptación (DoD).
+3. **Strict State Conventions**:
+   - **`En revisión` = Human / Technical Review**:
+     - Indicates that the agent finished implementation and automatic verifications.
+     - Mandatory: Move to `En revisión`, mark completed DoD items (`[x]`), and post a comment summarizing changes, commits, and modified files.
+   - **`Hecho` (Done) = Approved by User**:
+     - **Strict Rule**: The agent **NEVER** moves a card to `Hecho` autonomously.
+     - Only transition to `Hecho` when the user explicitly provides approval (*"approved"*, *"done"*, *"validated"*, *"move to done"*).
+   - **`Pendiente`**: Backlog of refined tasks ready to be taken.
+   - **`Por definir (preguntar al director)`**: Requirements with external dependencies or pending institutional definitions.
+
+4. **New Requirements**:
+   - If no card exists for the request, alert the user and coordinate creating it on the board following the standard format with Fibonacci estimation and Acceptance Criteria (DoD), self-assigning the user.

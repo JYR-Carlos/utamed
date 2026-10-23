@@ -46,7 +46,7 @@
     { key: 'carrera_nombre', label: 'Carrera' },
     { key: 'periodo', label: 'Periodo' },
     { key: 'inscritos_count', label: 'Inscritos', class: 'text-right' },
-    { key: 'acciones', label: '', class: 'text-right w-1 whitespace-nowrap' },
+    { key: 'acciones', label: '', sortable: false, class: 'text-right w-1 whitespace-nowrap' },
   ];
 </script>
 

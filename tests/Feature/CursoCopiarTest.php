@@ -11,11 +11,15 @@
  *    copiar() debe copiar las unidades y reasignar cada actividad a su copia.
  */
 
+use App\Enums\DB\EstadoRubrica;
+use App\Models\Agenda\Actividad;
+use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\CursoService;
+use App\Services\ProgramaService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -208,20 +212,22 @@ test('el endpoint admin de copia responde sin errores y crea el curso con la let
 });
 
 test('al copiar un curso en el mismo periodo calcula la siguiente letra consecutiva', function () {
-    $indicePadre = $this->padre->indice_grupo ?? 1;
-    $letraEsperada = \App\Support\LetraGrupo::fromIndice($indicePadre + 1);
+    $agnoReal = $this->padre->agno_real ?? 2026;
+    $semestreReal = $this->padre->semestre_real ?? 1;
+    $indiceEsperado = app(CursoService::class)->nextIndiceGrupo($this->padre->id_asignacion_plan, $agnoReal, $semestreReal);
+    $letraEsperada = \App\Support\LetraGrupo::fromIndice($indiceEsperado);
 
     $response = $this->actingAs($this->admin)
         ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
             'fecha_inicio'  => now()->toDateString(),
-            'agno_real'     => $this->padre->agno_real ?? 2026,
-            'semestre_real' => $this->padre->semestre_real ?? 1,
+            'agno_real'     => $agnoReal,
+            'semestre_real' => $semestreReal,
         ]);
 
     $response->assertSessionHasNoErrors();
-    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->first();
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->latest('id_curso')->first();
 
-    expect($nuevo->indice_grupo)->toBe($indicePadre + 1)
+    expect($nuevo->indice_grupo)->toBe($indiceEsperado)
         ->and($nuevo->nombre)->toContain("Grupo {$letraEsperada}");
 });
 
@@ -260,4 +266,192 @@ test('al copiar un curso con nombre personalizado respeta el nombre enviado', fu
 
     expect($nuevo)->not->toBeNull()
         ->and($nuevo->nombre)->toBe($nombreCustom);
+});
+
+test('al copiar un curso omite componentes con 0 horas en el plan si intranet no las oferta para el grupo destino', function () {
+    $tipoLab = \App\Models\Curso\TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
+    $asignatura = $this->padre->asignacionPlan->asignatura;
+    $asignatura->forceFill(['horas_laboratorio' => 0])->save();
+
+    \App\Models\Curso\Componente::create([
+        'id_curso'                          => $this->padre->id_curso,
+        'id_tipo_componente'                => $tipoLab->id_tipo_componente,
+        'genera_acta'                       => false,
+        'aprobacion_obligatoria'            => false,
+        'porcentaje_aprobacion'             => 60.00,
+        'porcentaje_asistencia_obligatoria' => 75.00,
+    ]);
+
+    $mockOracle = Mockery::mock();
+    $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+        new \App\DTOs\External\ComponenteCursoData(cur_codigo: 999901, curso_tipo_asig: \App\Enums\External\TipoAsignatura::Catedra, curso_grupo_asig: 'B'),
+    ]));
+    app()->instance('OracleDataService', $mockOracle);
+
+    $nuevo = app(CursoService::class)->copiar($this->padre->fresh(), [
+        'fecha_inicio' => now()->toDateString(),
+    ]);
+
+    $tiposNuevo = $nuevo->componentes()->pluck('id_tipo_componente')->toArray();
+    expect($tiposNuevo)->not->toContain($tipoLab->id_tipo_componente);
+});
+
+test('al copiar un curso conserva componentes con 0 horas si intranet las oferta explicitamente para el grupo destino', function () {
+    $tipoLab = \App\Models\Curso\TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
+    $asignatura = $this->padre->asignacionPlan->asignatura;
+    $asignatura->forceFill(['horas_laboratorio' => 0])->save();
+
+    \App\Models\Curso\Componente::create([
+        'id_curso'                          => $this->padre->id_curso,
+        'id_tipo_componente'                => $tipoLab->id_tipo_componente,
+        'genera_acta'                       => false,
+        'aprobacion_obligatoria'            => false,
+        'porcentaje_aprobacion'             => 60.00,
+        'porcentaje_asistencia_obligatoria' => 75.00,
+    ]);
+
+    $mockOracle = Mockery::mock();
+    $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+        new \App\DTOs\External\ComponenteCursoData(cur_codigo: 999901, curso_tipo_asig: \App\Enums\External\TipoAsignatura::Laboratorio, curso_grupo_asig: 'B'),
+    ]));
+    app()->instance('OracleDataService', $mockOracle);
+
+    $nuevo = app(CursoService::class)->copiar($this->padre->fresh(), [
+        'fecha_inicio' => now()->toDateString(),
+    ]);
+
+    $tiposNuevo = $nuevo->componentes()->pluck('id_tipo_componente')->toArray();
+    expect($tiposNuevo)->toContain($tipoLab->id_tipo_componente);
+});
+
+test('al copiar un curso monocomponente conserva exclusivamente su unica componente valida sin agregar otras', function () {
+    // Curso monocomponente (solo Cátedra)
+    $tipoCatedra = \App\Models\Curso\TipoComponente::firstOrCreate(['tipo' => 'Cátedra']);
+    $asignatura = $this->padre->asignacionPlan->asignatura;
+    $asignatura->forceFill([
+        'horas_catedra'     => 4,
+        'horas_taller'      => 0,
+        'horas_laboratorio' => 0,
+    ])->save();
+
+    $codCursoMono = codCursoLibreParaCopia();
+    $padreMono = Curso::create([
+        'cod_curso'                    => $codCursoMono,
+        'nombre'                       => 'Curso Mono Grupo A',
+        'indice_grupo'                 => 1,
+        'agno_real'                    => 2026,
+        'semestre_real'                => 1,
+        'id_asignacion_plan'           => $this->padre->id_asignacion_plan,
+        'id_docente_titular'           => $this->padre->id_docente_titular,
+        'id_tipo_componente_principal' => $tipoCatedra->id_tipo_componente,
+        'fecha_inicio'                 => now()->toDateString(),
+        'fecha_fin'                    => now()->addMonths(5)->toDateString(),
+    ]);
+
+    \App\Models\Curso\Componente::create([
+        'id_curso'                          => $padreMono->id_curso,
+        'id_tipo_componente'                => $tipoCatedra->id_tipo_componente,
+        'genera_acta'                       => true,
+        'aprobacion_obligatoria'            => false,
+        'porcentaje_aprobacion'             => 60.00,
+        'porcentaje_asistencia_obligatoria' => 75.00,
+    ]);
+
+    $mockOracle = Mockery::mock();
+    $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+        new \App\DTOs\External\ComponenteCursoData(cur_codigo: 999905, curso_tipo_asig: \App\Enums\External\TipoAsignatura::Catedra, curso_grupo_asig: 'B'),
+    ]));
+    app()->instance('OracleDataService', $mockOracle);
+
+    $nuevo = app(CursoService::class)->copiar($padreMono->fresh(), [
+        'fecha_inicio' => now()->toDateString(),
+    ]);
+
+    expect($nuevo->componentes()->count())->toBe(1)
+        ->and($nuevo->componentes()->first()->id_tipo_componente)->toBe($tipoCatedra->id_tipo_componente);
+});
+
+test('al copiar un curso clona el syllabus vigente y las rubricas analiticas con estado POSTULADA', function () {
+    // Asegurar que el curso padre tenga programa
+    if (!$this->padre->programas()->where('es_actual', true)->exists()) {
+        ProgramaService::generateProgramaWithSyllabus($this->padre, $this->admin);
+    }
+
+    $programaPadre = $this->padre->programas()->where('es_actual', true)->first();
+    $programaPadre->update([
+        'estado' => 'APROBADO',
+        'revisado_por' => $this->admin->id_usuario,
+    ]);
+
+    // Crear una actividad específica con rúbrica analítica en el curso padre
+    $comp = $this->padre->componentes()->first();
+    $unidad = $this->padre->unidades()->first();
+    $actividad = Actividad::create([
+        'nombre'         => 'Actividad Exclusiva con Rubrica Analitica',
+        'fecha_limite'   => now()->addDays(3),
+        'visible'        => true,
+        'ponderacion'    => 25,
+        'exigencia'      => 60,
+        'tipo_actividad' => 'SUMATIVA',
+        'tipo_entrega'   => 'ARCHIVO',
+        'es_grupal'      => false,
+        'es_plantilla'   => false,
+        'id_componente'  => $comp->id_componente,
+        'id_unidad'      => $unidad->id_unidad,
+    ]);
+
+    $rubricaPadre = Rubrica::create([
+        'id_actividad'   => $actividad->id_actividad,
+        'estado_rubrica' => EstadoRubrica::POSTULADA,
+        'rubrica'        => [
+            'criterios' => [
+                ['titulo' => 'Comprensión clínica', 'ponderacion' => 50],
+                ['titulo' => 'Razonamiento diagnóstico', 'ponderacion' => 50],
+            ],
+        ],
+    ]);
+
+    $nuevo = copiarCursoDeFixture($this->padre);
+
+    // 1. Validar que se clonó la rúbrica analítica asociada
+    $nuevaActividad = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $nuevo->id_curso))
+        ->where('nombre', 'Actividad Exclusiva con Rubrica Analitica')
+        ->first();
+
+    expect($nuevaActividad)->not->toBeNull()
+        ->and($nuevaActividad->fecha_limite)->toBeNull();
+
+    $nuevaRubrica = Rubrica::where('id_actividad', $nuevaActividad->id_actividad)->first();
+    expect($nuevaRubrica)->not->toBeNull()
+        ->and($nuevaRubrica->id_rubrica)->not->toBe($rubricaPadre->id_rubrica)
+        ->and($nuevaRubrica->estado_rubrica)->toBe(EstadoRubrica::POSTULADA)
+        ->and($nuevaRubrica->rubrica['criterios'][0]['titulo'])->toBe('Comprensión clínica')
+        ->and($nuevaRubrica->rubrica['criterios'][1]['ponderacion'])->toBe(50);
+
+    // 2. Validar que el syllabus vigente fue clonado como BORRADOR
+    $nuevoPrograma = $nuevo->programas()->where('es_actual', true)->first();
+    expect($nuevoPrograma)->not->toBeNull()
+        ->and($nuevoPrograma->id_curso)->toBe($nuevo->id_curso)
+        ->and($nuevoPrograma->estado)->toBe('BORRADOR')
+        ->and($nuevoPrograma->revisado_por)->toBeNull()
+        ->and($nuevoPrograma->fecha_entrega)->toBeNull();
+});
+
+test('endpoint buscarFuente retorna cursos filtrados por cod_asignatura o nombre', function () {
+    $ap = $this->padre->asignacionPlan;
+    if (!$ap?->asignatura) {
+        $this->padre->load('asignacionPlan.asignatura');
+        $ap = $this->padre->asignacionPlan;
+    }
+
+    $codAsig = $ap->asignatura->cod_asignatura;
+
+    $response = $this->actingAs($this->admin)
+        ->getJson(route('admin.cursos.buscar-fuente', ['q' => substr($codAsig, 0, 3)]));
+
+    $response->assertOk()
+        ->assertJsonFragment([
+            'id_curso'       => $this->padre->id_curso,
+            'cod_asignatura' => $codAsig,
+        ]);
 });

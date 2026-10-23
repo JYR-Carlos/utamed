@@ -61,13 +61,26 @@ class AsignaturaController extends Controller
             });
         }
 
-        $asignaturas = $query->orderBy(('cod_asignatura'))
-        ->paginate($this->perPage($request))
-        ->withQueryString();
+        // Ordenamiento
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sortKey === 'nombre') {
+            $query->orderBy('nombre', $sortDir);
+        } elseif ($sortKey === 'creditos_sct') {
+            $query->orderBy('creditos_sct', $sortDir);
+        } elseif ($sortKey === 'planes_count') {
+            $query->orderBy('planes_count', $sortDir);
+        } else {
+            $query->orderBy('cod_asignatura', $sortDir);
+        }
+
+        $asignaturas = $query->paginate($this->perPage($request))
+            ->withQueryString();
 
         return Inertia::render('admin/Asignaturas', [
             'asignaturas' => $asignaturas,
-            'filters' => $request->only(['search'])
+            'filters' => $request->only(['search', 'sort_key', 'sort_dir'])
         ]);
     }
 

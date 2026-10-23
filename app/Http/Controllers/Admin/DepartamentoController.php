@@ -40,19 +40,37 @@ class DepartamentoController extends Controller
         ]);
 
         // Search functionality
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where('nombre', 'ilike', "%{$search}%");
         }
 
         // Filter by facultad
-        if ($request->has('id_facultad')) {
+        if ($request->filled('id_facultad')) {
             $query->where('id_facultad', $request->input('id_facultad'));
         }
 
+        // Ordenamiento
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sortKey === 'nombre') {
+            $query->orderBy('nombre', $sortDir);
+        } elseif ($sortKey === 'facultad.nombre') {
+            $sub = Facultad::select('nombre')
+                ->whereColumn('facultad.id_facultad', 'departamento.id_facultad')
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'carreras_count') {
+            $query->orderBy('carreras_count', $sortDir);
+        } elseif ($sortKey === 'estado') {
+            $query->orderBy('fecha_eliminacion', $sortDir);
+        } else {
+            $query->orderBy('nombre');
+        }
+
         // Pagination
-        $departamentos = $query->orderBy('nombre')
-            ->paginate($this->perPage($request))
+        $departamentos = $query->paginate($this->perPage($request))
             ->withQueryString();
 
         // Get all facultades for the filter
@@ -63,7 +81,7 @@ class DepartamentoController extends Controller
         return Inertia::render('admin/Departamentos', [
             'departamentos' => $departamentos,
             'facultades'    => $facultades,
-            'filters'        => $request->only(['search', 'id_facultad']),
+            'filters'        => $request->only(['search', 'id_facultad', 'sort_key', 'sort_dir']),
             'canCreate'      => $user?->can('create', Departamento::class) ?? false,
             'canEdit'        => $user?->can('update', new Departamento()) ?? false,
             'canDelete'      => $user?->can('delete', new Departamento()) ?? false,

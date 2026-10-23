@@ -59,7 +59,7 @@ class InscripcionCursoController extends Controller
         // Autorizar vista
         $this->authorize('viewAny', InscripcionCurso::class);
 
-        $filters = $request->only(['search', 'id_curso', 'estado_inscripcion', 'carrera', 'page']);
+        $filters = $request->only(['search', 'id_curso', 'estado_inscripcion', 'carrera', 'page', 'sort_key', 'sort_dir']);
         $idDocente = $user->docente?->id_docente;
 
         // Para admin/InscripcionesCursos, la nómina por curso se consulta vía AJAX (fetchRoster).
@@ -117,6 +117,7 @@ class InscripcionCursoController extends Controller
                 'letra_grupo',
                 'agno_real',
                 'semestre_real',
+                'fecha_inicio',
                 'id_asignacion_plan',
             ])
             ->with([
@@ -144,8 +145,31 @@ class InscripcionCursoController extends Controller
                 $query->whereHas('asignacionPlan.plan.carrera', fn($q) => $q->where('nombre', $carrera));
             }
 
-            $cursos = $query->orderBy('cod_curso')
-                ->paginate($this->perPage($request))
+            // Ordenamiento con soporte para atributos compuestos
+            $sortKey = $request->input('sort_key', 'cod_curso');
+            $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+            if ($sortKey === 'curso') {
+                $query->orderBy('nombre', $sortDir)
+                    ->orderBy('letra_grupo', $sortDir)
+                    ->orderBy('cod_curso', $sortDir);
+            } elseif ($sortKey === 'carrera_nombre') {
+                $sub = \App\Models\Administrativo\Carrera::select('nombre')
+                    ->join('plan', 'carrera.id_carrera', '=', 'plan.id_carrera')
+                    ->join('asignacion_plan', 'plan.id_plan', '=', 'asignacion_plan.id_plan')
+                    ->whereColumn('asignacion_plan.id_asignacion_plan', 'curso.id_asignacion_plan')
+                    ->limit(1);
+                $query->orderBy($sub, $sortDir);
+            } elseif ($sortKey === 'periodo') {
+                $query->orderByRaw("COALESCE(curso.agno_real, EXTRACT(YEAR FROM curso.fecha_inicio)::integer, 0) {$sortDir}")
+                    ->orderByRaw("COALESCE(curso.semestre_real, 0) {$sortDir}");
+            } elseif ($sortKey === 'inscritos_count') {
+                $query->orderBy('inscritos_count', $sortDir);
+            } else {
+                $query->orderBy('cod_curso', $sortDir);
+            }
+
+            $cursos = $query->paginate($this->perPage($request))
                 ->withQueryString();
 
             $cursos->through(fn($c) => [

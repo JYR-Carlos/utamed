@@ -88,14 +88,36 @@ class CarreraController extends Controller
             );
         }
 
-        $carreras = $query->orderBy('nombre')
-            ->paginate($this->perPage($request))
+        // Ordenamiento
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sortKey === 'nombre') {
+            $query->orderBy('nombre', $sortDir);
+        } elseif ($sortKey === 'atributos') {
+            $query->orderBy('sede', $sortDir)->orderBy('jornada', $sortDir)->orderBy('modalidad', $sortDir);
+        } elseif ($sortKey === 'departamento') {
+            $sub = Departamento::select('nombre')
+                ->whereColumn('departamento.id_departamento', 'carrera.id_departamento')
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'planes_activos_count') {
+            $query->orderBy('planes_activos_count', $sortDir);
+        } elseif ($sortKey === 'has_director') {
+            $query->orderBy('has_director', $sortDir);
+        } elseif ($sortKey === 'estado') {
+            $query->orderBy('fecha_eliminacion', $sortDir);
+        } else {
+            $query->orderBy('nombre');
+        }
+
+        $carreras = $query->paginate($this->perPage($request))
             ->withQueryString();
 
         return Inertia::render('admin/Carreras', [
             'carreras'   => $carreras,
             'facultades' => Facultad::select(['id_facultad', 'nombre'])->orderBy('nombre')->get(),
-            'filters'    => $request->only(['search', 'id_departamento', 'id_facultad', 'status']),
+            'filters'    => $request->only(['search', 'id_departamento', 'id_facultad', 'status', 'sort_key', 'sort_dir']),
         ]);
     }
 

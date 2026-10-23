@@ -565,6 +565,7 @@
 
     const docentesPorComponenteFinal: Record<number, number[]> = {};
     const generaActaFinal: Record<number, boolean> = {};
+    const curCodigosFinal: Record<number, number> = {};
     const porcentajeAprobacionFinal: Record<number, number> = {};
     const porcentajeAsistenciaFinal: Record<number, number> = {};
     const aprobacionObligatoriaFinal: Record<number, boolean> = {};
@@ -576,6 +577,10 @@
       porcentajeAprobacionFinal[tc.id_tipo_componente] = porcentajeAprobacionPorComponente[tc.id_tipo_componente] ?? 60;
       porcentajeAsistenciaFinal[tc.id_tipo_componente] = porcentajeAsistenciaPorComponente[tc.id_tipo_componente] ?? 75;
       aprobacionObligatoriaFinal[tc.id_tipo_componente] = aprobacionObligatoriaPorComponente[tc.id_tipo_componente] ?? false;
+      const pc = previewComponentes.find((p) => p.id_tipo_componente === tc.id_tipo_componente);
+      if (pc?.cur_codigo) {
+        curCodigosFinal[tc.id_tipo_componente] = pc.cur_codigo;
+      }
     }
 
     onSubmit({
@@ -592,6 +597,7 @@
       tipos_componente_ids: [...selectedTipos],
       docentes_por_componente: docentesPorComponenteFinal,
       genera_acta_por_componente: generaActaFinal,
+      cur_codigos_por_componente: curCodigosFinal,
       porcentaje_aprobacion_por_componente: porcentajeAprobacionFinal,
       porcentaje_asistencia_por_componente: porcentajeAsistenciaFinal,
       aprobacion_obligatoria_por_componente: aprobacionObligatoriaFinal,
@@ -1009,15 +1015,19 @@
                   {#if loadingOferta}
                     <p class="text-xs text-gray-500 mb-1.5">Consultando la Intranet…</p>
                   {:else if ofertaIntranet && !ofertaIntranet.disponible}
-                    <p class="text-xs text-gray-500 mb-1.5">
-                      No se pudo consultar la Intranet: completa los datos a mano.
-                    </p>
+                    <div class="p-2.5 mb-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                      <span class="font-semibold block">⚠️ No se pudo consultar la Intranet:</span>
+                      <span>{ofertaIntranet.advertencias?.[0] || 'Error de conexión con el servicio de Oracle.'}</span>
+                      <span class="block mt-0.5 text-gray-600">Se derivarán las componentes según las horas del Plan de Estudios sin números de acta oficiales.</span>
+                    </div>
                   {:else if ofertaIntranet && ofertaIntranet.grupos.length === 0}
-                    <p class="text-xs text-gray-500 mb-1.5">
-                      La Intranet no tiene oferta de {selectedAsig?.cod_asignatura} en {agnoReal}-{semestreReal}.
-                    </p>
+                    <div class="p-2.5 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                      <span class="font-semibold block">ℹ️ Sin oferta oficial en Intranet:</span>
+                      <span>La Intranet no registra oferta para {selectedAsig?.cod_asignatura} en el período {agnoReal}-{semestreReal}.</span>
+                      <span class="block mt-0.5 text-gray-600">Puedes continuar; las componentes se configurarán según las horas del Plan de Estudios.</span>
+                    </div>
                   {:else if ofertaIntranet}
-                    <p class="text-xs text-gray-500 mb-1.5">En la Intranet ({agnoReal}-{semestreReal}):</p>
+                    <p class="text-xs text-emerald-800 font-medium mb-1.5">🟢 Oferta oficial encontrada en Intranet ({agnoReal}-{semestreReal}):</p>
                     <div class="flex flex-wrap gap-2">
                       {#each ofertaIntranet.grupos as g (g.letra)}
                         {@const yaCreado = g.indice_grupo !== null && indicesGrupoTomados.includes(g.indice_grupo)}
@@ -1045,16 +1055,25 @@
 
               <!-- Componentes del curso -->
               <div>
-                <p class="text-sm font-semibold text-gray-700 mb-1">Componentes del curso</p>
+                <div class="flex items-center justify-between mb-1">
+                  <p class="text-sm font-semibold text-gray-700">Componentes del curso</p>
+                  {#if previewOrigen === 'INTRANET'}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      🟢 Intranet conectada: Actas oficiales
+                    </span>
+                  {:else if previewOrigen === 'PLAN'}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800 border border-amber-300">
+                      {ofertaIntranet && !ofertaIntranet.disponible ? '🔴 Sin conexión Intranet: Plan de Estudios' : '🔵 Plan de Estudios (Sin acta oficial)'}
+                    </span>
+                  {/if}
+                </div>
                 <p class="text-xs text-gray-500 mb-3">
                   {#if loadingPreview}
                     Detectando componentes…
                   {:else if previewOrigen === 'INTRANET'}
-                    Detectadas en la Intranet. El componente principal se determina
-                    automáticamente (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
+                    Detectadas en la Intranet con sus números de acta oficial (CUR_CODIGO). El componente principal se determina automáticamente (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
                   {:else if previewOrigen === 'PLAN'}
-                    Derivadas de las horas del Plan de Estudios: la Intranet no informó este
-                    grupo (el motivo está en las advertencias).
+                    Derivadas de las horas del Plan de Estudios: las componentes se crearán sin acta oficial de Intranet.
                   {:else}
                     Se detectarán automáticamente al completar año, semestre y letra de grupo.
                   {/if}

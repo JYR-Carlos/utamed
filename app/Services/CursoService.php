@@ -6,12 +6,21 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Componente;
 use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\TipoComponente;
+use App\Models\Curso\Programa;
+use App\Models\Curso\Bibliografia;
+use App\Models\Curso\Unidad;
+use App\Models\Agenda\Actividad;
+use App\Models\Agenda\Rubrica;
+use App\Enums\DB\EstadoRubrica;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Services\IntranetService;
+use App\Services\SyllabusStructure;
 use App\Support\LetraGrupo;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +97,41 @@ class CursoService
                 $this->assignDocenteRolCurso($data['id_docente_sugerido'], $curso->id_contexto, true);
             }
 
+            // Autorrecuperar CUR_CODIGO de Intranet por componente
+            $curCodigosInput = $data['cur_codigos_por_componente'] ?? [];
+            $curCodigosIntranet = [];
+            $intranetEstado = 'sin_consultar';
+            $intranetError = null;
+
+            try {
+                $letra = LetraGrupo::fromIndice($indiceGrupo);
+                $componentesIntranet = app(IntranetService::class)->resolverComponentesDesdeParametros(
+                    idAsignatura: (int) $asignacionPlan->id_asignatura,
+                    idPlan: (int) $asignacionPlan->id_plan,
+                    agno: $agnoReal ?? (int) now()->year,
+                    semestre: $semestreReal ?? 1,
+                    letraGrupo: $letra
+                );
+
+                foreach ($componentesIntranet as $compData) {
+                    $tc = app(IntranetService::class)->resolverTipoComponentePorCodigoIntranet($compData->curso_tipo_asig->value);
+                    if ($tc && $compData->cur_codigo) {
+                        $curCodigosIntranet[$tc->id_tipo_componente] = (int) $compData->cur_codigo;
+                    }
+                }
+                $intranetEstado = $componentesIntranet->isNotEmpty() ? 'conectado' : 'sin_oferta';
+            } catch (\Throwable $e) {
+                $intranetEstado = 'error';
+                $intranetError = $e->getMessage();
+                Log::warning('[CursoService@crear] Intranet no disponible para autorrecuperar CUR_CODIGO: ' . $e->getMessage());
+            }
+
+            $resolverCurCodigo = function (int $idTipo) use ($curCodigosInput, $curCodigosIntranet): ?int {
+                return !empty($curCodigosInput[$idTipo])
+                    ? (int) $curCodigosInput[$idTipo]
+                    : ($curCodigosIntranet[$idTipo] ?? null);
+            };
+
             // Find the chosen component type
             $tipoComponente = TipoComponente::find($data['id_tipo_componente_principal']);
 
@@ -98,6 +142,8 @@ class CursoService
 
             if ($tipoComponente) {
                 $idPrinc = $tipoComponente->id_tipo_componente;
+                $curCodigoPrincipal = $resolverCurCodigo($idPrinc);
+
                 // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $componente = Componente::create([
                     'id_curso'                          => $curso->id_curso,
@@ -106,6 +152,7 @@ class CursoService
                     'aprobacion_obligatoria'            => $aprobObligPorComponente[$idPrinc] ?? ($data['aprobacion_obligatoria'] ?? false),
                     'porcentaje_aprobacion'             => $pctAprobPorComponente[$idPrinc] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
                     'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idPrinc] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
+                    'intranet_cur_codigo'               => $curCodigoPrincipal,
                 ])->refresh();
 
                 // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular),
@@ -129,6 +176,8 @@ class CursoService
                     }
 
                     $idAdic = $tipoAdicional->id_tipo_componente;
+                    $curCodigoAdicional = $resolverCurCodigo($idAdic);
+
                     $componenteAdicional = Componente::create([
                         'id_curso'                          => $curso->id_curso,
                         'id_tipo_componente'                => $idAdic,
@@ -136,6 +185,7 @@ class CursoService
                         'aprobacion_obligatoria'            => $aprobObligPorComponente[$idAdic] ?? ($data['aprobacion_obligatoria'] ?? false),
                         'porcentaje_aprobacion'             => $pctAprobPorComponente[$idAdic] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
                         'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idAdic] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
+                        'intranet_cur_codigo'               => $curCodigoAdicional,
                     ])->refresh();
 
                     $this->asignarDocentesComponente(
@@ -147,6 +197,8 @@ class CursoService
             }
 
             $curso->recalcularColegiado();
+            $curso->intranet_estado = $intranetEstado;
+            $curso->intranet_error = $intranetError;
 
             return $curso;
         });
@@ -158,16 +210,19 @@ class CursoService
      *
      * @param Curso $cursoPadre The source course
      * @param array $data 'fecha_inicio' (Y-m-d string) y, opcional, 'cod_curso' (si no viene se asigna el siguiente)
+     * @param Usuario|null $usuario Usuario que realiza la copia
      * @return Curso
      */
-    public function copiar(Curso $cursoPadre, array $data): Curso
+    public function copiar(Curso $cursoPadre, array $data, ?Usuario $usuario = null): Curso
     {
-        return DB::transaction(function () use ($cursoPadre, $data) {
-            $cursoPadre->load([
+        return DB::transaction(function () use ($cursoPadre, $data, $usuario) {
+            $cursoPadre->loadMissing([
+                'asignacionPlan.asignatura',
                 'unidades',
                 'componentes.tipoComponente',
                 'componentes.docenteComponentes',
-                'componentes.actividades',
+                'componentes.actividades.rubricas',
+                'programas',
             ]);
 
             $codCurso = !empty($data['cod_curso']) ? (int) $data['cod_curso'] : $this->siguienteCodCurso();
@@ -225,7 +280,65 @@ class CursoService
                 );
             }
 
+            $asignatura = $cursoPadre->asignacionPlan?->asignatura;
+            $ofertaIntranetDestino = null;
+            $curCodigosIntranetDestino = [];
+
             foreach ($cursoPadre->componentes as $comp) {
+                $tipo = $comp->tipoComponente;
+                if ($tipo && $asignatura) {
+                    $nombreNormalizado = str_replace(
+                        ['Á', 'É', 'Í', 'Ó', 'Ú'],
+                        ['A', 'E', 'I', 'O', 'U'],
+                        mb_strtoupper(trim($tipo->tipo ?? ''))
+                    );
+
+                    $horas = match ($nombreNormalizado) {
+                        'CATEDRA'     => (float) ($asignatura->horas_catedra ?? 0),
+                        'TALLER'      => (float) ($asignatura->horas_taller ?? 0),
+                        'LABORATORIO' => (float) ($asignatura->horas_laboratorio ?? 0),
+                        default       => 0.0,
+                    };
+
+                    if ($horas <= 0) {
+                        if ($ofertaIntranetDestino === null) {
+                            $ofertaIntranetDestino = [];
+                            try {
+                                /** @var IntranetService $intranetService */
+                                $intranetService = app(IntranetService::class);
+                                $compsIntranet = $intranetService->resolverComponentesDesdeParametros(
+                                    (int) $cursoPadre->asignacionPlan->id_asignatura,
+                                    (int) $cursoPadre->asignacionPlan->id_plan,
+                                    (int) $agnoReal,
+                                    (int) $semestreReal,
+                                    $letra
+                                );
+                                foreach ($compsIntranet as $c) {
+                                    match ($c->curso_tipo_asig->value) {
+                                        'C' => $ofertaIntranetDestino['CATEDRA'] = true,
+                                        'T' => $ofertaIntranetDestino['TALLER'] = true,
+                                        'L' => $ofertaIntranetDestino['LABORATORIO'] = true,
+                                        default => null,
+                                    };
+                                    $tc = $intranetService->resolverTipoComponentePorCodigoIntranet($c->curso_tipo_asig->value);
+                                    if ($tc && $c->cur_codigo) {
+                                        $curCodigosIntranetDestino[$tc->id_tipo_componente] = (int) $c->cur_codigo;
+                                    }
+                                }
+                                $ofertaIntranetDestino = array_keys($ofertaIntranetDestino);
+                            } catch (\Throwable $e) {
+                                Log::warning('[CursoService@copiar] No fue posible verificar oferta de Intranet para grupo destino: ' . $e->getMessage());
+                                $ofertaIntranetDestino = [];
+                            }
+                        }
+
+                        if (!in_array($nombreNormalizado, $ofertaIntranetDestino, true)) {
+                            Log::warning("[CursoService@copiar] Omitiendo componente '{$tipo->tipo}' al copiar curso #{$cursoPadre->id_curso} al grupo {$letra}: tiene 0 horas en plan y no figura en la oferta de Intranet.");
+                            continue;
+                        }
+                    }
+                }
+
                 // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $nuevoComp = Componente::create([
                     'id_curso'                          => $nuevoCurso->id_curso,
@@ -234,6 +347,7 @@ class CursoService
                     'aprobacion_obligatoria'            => $comp->aprobacion_obligatoria,
                     'porcentaje_aprobacion'             => $comp->porcentaje_aprobacion,
                     'porcentaje_asistencia_obligatoria' => $comp->porcentaje_asistencia_obligatoria,
+                    'intranet_cur_codigo'               => $curCodigosIntranetDestino[$comp->id_tipo_componente] ?? null,
                 ])->refresh();
 
                 foreach ($comp->docenteComponentes as $dc) {
@@ -245,7 +359,7 @@ class CursoService
                 }
 
                 foreach ($comp->actividades as $act) {
-                    \App\Models\Agenda\Actividad::create([
+                    $nuevaAct = Actividad::create([
                         'nombre'          => $act->nombre,
                         'fecha_limite'    => null,
                         'visible'         => $act->visible,
@@ -261,7 +375,21 @@ class CursoService
                         'id_componente'   => $nuevoComp->id_componente,
                         'id_unidad'       => $unidadNueva[$act->id_unidad] ?? null,
                     ]);
+
+                    // Clonar las rúbricas analíticas asociadas manteniendo criterios y ponderaciones
+                    foreach ($act->rubricas as $rubrica) {
+                        Rubrica::create([
+                            'rubrica'        => $rubrica->rubrica,
+                            'estado_rubrica' => EstadoRubrica::POSTULADA,
+                            'id_actividad'   => $nuevaAct->id_actividad,
+                        ]);
+                    }
                 }
+            }
+
+            // Clonar syllabus vigente adaptado al nuevo curso y período si el curso padre tiene programa
+            if ($cursoPadre->programas()->exists()) {
+                $this->copiarSyllabus($cursoPadre, $nuevoCurso, $usuario);
             }
 
             Log::info('[CursoService@copiar] Curso copiado', [
@@ -762,5 +890,306 @@ class CursoService
                 'id_contexto_curso' => $idContextoCurso,
             ]);
         }
+    }
+
+    /**
+     * Copia el syllabus (programa) vigente de un curso a otro que compartan la misma asignatura.
+     * Opcionalmente replica las actividades evaluativas y rúbricas definidas en el curso origen.
+     *
+     * @param Curso $cursoOrigen Curso con el programa fuente
+     * @param Curso $cursoDestino Curso receptor del nuevo programa
+     * @param Usuario|null $usuario Usuario que realiza la copia (o Auth::user())
+     * @param Programa|null $programaOrigen Programa específico a copiar (si es null, usa el actual o último)
+     * @param bool $copiarActividades Si es true, replica actividades evaluativas y rúbricas a componentes homólogos
+     * @return Programa
+     * @throws \InvalidArgumentException
+     */
+    public function copiarSyllabus(
+        Curso $cursoOrigen,
+        Curso $cursoDestino,
+        ?Usuario $usuario = null,
+        ?Programa $programaOrigen = null,
+        bool $copiarActividades = true
+    ): Programa {
+        return DB::transaction(function () use ($cursoOrigen, $cursoDestino, $usuario, $programaOrigen, $copiarActividades) {
+            $cursoOrigen->loadMissing('asignacionPlan.asignatura');
+            $cursoDestino->loadMissing('asignacionPlan.asignatura');
+
+            $idAsigOrigen = $cursoOrigen->asignacionPlan?->id_asignatura;
+            $idAsigDestino = $cursoDestino->asignacionPlan?->id_asignatura;
+
+            if (!$idAsigOrigen || !$idAsigDestino || (int) $idAsigOrigen !== (int) $idAsigDestino) {
+                throw new \InvalidArgumentException('Los cursos deben compartir la misma asignatura para copiar el syllabus.');
+            }
+
+            $programaFuente = $programaOrigen ?? $cursoOrigen->programas()->where('es_actual', true)->first()
+                ?? $cursoOrigen->programas()->latest('id_programa')->first();
+
+            if (!$programaFuente) {
+                throw new \InvalidArgumentException('El curso de origen no posee un programa o syllabus para copiar.');
+            }
+
+            // Desmarcar programa actual previo en el curso destino
+            Programa::where('id_curso', $cursoDestino->id_curso)
+                ->where('es_actual', true)
+                ->update(['es_actual' => false]);
+
+            $maxVersion = (int) Programa::where('id_curso', $cursoDestino->id_curso)->max('version_programa');
+            $nuevaVersion = $maxVersion + 1;
+
+            $usuarioId = $usuario?->id_usuario ?? Auth::id() ?? $cursoDestino->id_docente_titular ?? $cursoOrigen->id_docente_titular;
+
+            $tipoSyllabus = $programaFuente->getTipoSyllabus() ?? 'BASICO';
+
+            // Construir metadata limpia adaptada exclusivamente al curso destino (docente principal, id_curso, codigo, agno, semestre)
+            $shellDestino = (new SyllabusStructure($cursoDestino))
+                ->withAsignatura()
+                ->withSecciones()
+                ->withCategoriaFromString($cursoDestino->asignacionPlan?->tipo_ramo ?? 'OBLIGATORIO')
+                ->withTipoSyllabus($tipoSyllabus)
+                ->build();
+
+            // Las secciones académicas se copian íntegramente desde el programa origen
+            $secciones = $programaFuente->data_syllabus['secciones'] ?? $shellDestino['secciones'];
+
+            // Sincronizar unidades al curso destino para preservar integridad relacional y de bibliografías
+            $unidadMap = [];
+            if (!empty($secciones['VI']['contenido']['unidades'])) {
+                foreach ($secciones['VI']['contenido']['unidades'] as $u) {
+                    $num = $u['numero'] ?? null;
+                    $titulo = trim($u['titulo'] ?? '');
+                    if ($num !== null) {
+                        $uDest = Unidad::firstOrCreate(
+                            ['id_curso' => $cursoDestino->id_curso, 'num_unidad' => (int) $num],
+                            ['nombre' => $titulo ?: "Unidad {$num}", 'descripcion' => $u['contenidos_items'][0]['item'] ?? null]
+                        );
+                        $unidadMap[(int) $num] = $uDest->id_unidad;
+                    }
+                }
+            }
+
+            // Asegurar sincronización de unidades existentes en base de datos para el curso origen
+            $unidadesOrigen = Unidad::where('id_curso', $cursoOrigen->id_curso)->get();
+            foreach ($unidadesOrigen as $uOrig) {
+                if (!isset($unidadMap[$uOrig->num_unidad])) {
+                    $uDest = Unidad::firstOrCreate(
+                        ['id_curso' => $cursoDestino->id_curso, 'num_unidad' => $uOrig->num_unidad],
+                        ['nombre' => $uOrig->nombre, 'descripcion' => $uOrig->descripcion]
+                    );
+                    $unidadMap[$uOrig->num_unidad] = $uDest->id_unidad;
+                }
+            }
+
+            $nuevoDataSyllabus = [
+                'metadata' => $shellDestino['metadata'],
+                'secciones' => $secciones,
+                'timestamp' => now()->toIso8601String(),
+            ];
+
+            // El nuevo programa se inicializa como BORRADOR (no hereda aprobaciones ni firmas)
+            $nuevoPrograma = Programa::create([
+                'id_curso'           => $cursoDestino->id_curso,
+                'version_programa'   => $nuevaVersion,
+                'estado'             => 'BORRADOR',
+                'data_syllabus'      => $nuevoDataSyllabus,
+                'creado_por'         => $usuarioId,
+                'revisado_por'       => null,
+                'es_actual'          => true,
+                'fecha_creacion'     => now(),
+                'fecha_modificacion' => null,
+                'fecha_entrega'      => null,
+            ]);
+
+            // Copiar bibliografías (tabla curso.bibliografia) remapeando id_unidad
+            $programaFuente->loadMissing('bibliografias');
+            $nuevasBibliografiasSyllabus = [];
+
+            if ($programaFuente->bibliografias->isNotEmpty()) {
+                foreach ($programaFuente->bibliografias as $bib) {
+                    $numUnidadOrigen = $bib->id_unidad ? $bib->unidad?->num_unidad : null;
+                    $nuevoIdUnidad = $numUnidadOrigen !== null ? ($unidadMap[$numUnidadOrigen] ?? null) : null;
+                    $uuidBib = (string) Str::uuid();
+
+                    $nuevaBib = Bibliografia::create([
+                        'uuid_bibliografia'   => $uuidBib,
+                        'id_programa'         => $nuevoPrograma->id_programa,
+                        'id_unidad'           => $nuevoIdUnidad,
+                        'titulo'              => $bib->titulo,
+                        'autor'               => $bib->autor,
+                        'cita'                => $bib->cita,
+                        'editorial'           => $bib->editorial,
+                        'agno'                => $bib->agno,
+                        'url'                 => $bib->url,
+                        'uuid_archivo'        => $bib->uuid_archivo,
+                        'es_bibliografia_uta' => $bib->es_bibliografia_uta,
+                        'agregado_por'        => $usuarioId,
+                    ]);
+
+                    $nuevasBibliografiasSyllabus[] = [
+                        'id_bibliografia'     => $uuidBib,
+                        'titulo'              => $nuevaBib->titulo,
+                        'autor'               => $nuevaBib->autor,
+                        'cita'                => $nuevaBib->cita,
+                        'editorial'           => $nuevaBib->editorial,
+                        'anio'                => $nuevaBib->agno,
+                        'es_bibliografia_uta' => $nuevaBib->es_bibliografia_uta,
+                        'url'                 => $nuevaBib->url,
+                        'uuid_archivo'        => $nuevaBib->uuid_archivo,
+                        'id_unidad'           => $numUnidadOrigen,
+                    ];
+                }
+            } elseif (!empty($secciones['VIII']['contenido']['bibliografias'])) {
+                foreach ($secciones['VIII']['contenido']['bibliografias'] as $bibData) {
+                    if (empty($bibData['titulo'])) {
+                        continue;
+                    }
+                    $numUnidad = isset($bibData['id_unidad']) && is_numeric($bibData['id_unidad']) ? (int) $bibData['id_unidad'] : null;
+                    $nuevoIdUnidad = $numUnidad !== null ? ($unidadMap[$numUnidad] ?? null) : null;
+                    $uuidBib = (string) Str::uuid();
+
+                    $nuevaBib = Bibliografia::create([
+                        'uuid_bibliografia'   => $uuidBib,
+                        'id_programa'         => $nuevoPrograma->id_programa,
+                        'id_unidad'           => $nuevoIdUnidad,
+                        'titulo'              => $bibData['titulo'],
+                        'autor'               => !empty($bibData['autor']) ? $bibData['autor'] : 'Desconocido',
+                        'cita'                => $bibData['cita'] ?? null,
+                        'editorial'           => $bibData['editorial'] ?? null,
+                        'agno'                => $bibData['anio'] ?? date('Y'),
+                        'url'                 => $bibData['url'] ?? null,
+                        'uuid_archivo'        => $bibData['uuid_archivo'] ?? null,
+                        'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
+                        'agregado_por'        => $usuarioId,
+                    ]);
+
+                    $nuevasBibliografiasSyllabus[] = [
+                        'id_bibliografia'     => $uuidBib,
+                        'titulo'              => $nuevaBib->titulo,
+                        'autor'               => $nuevaBib->autor,
+                        'cita'                => $nuevaBib->cita,
+                        'editorial'           => $nuevaBib->editorial,
+                        'anio'                => $nuevaBib->agno,
+                        'es_bibliografia_uta' => $nuevaBib->es_bibliografia_uta,
+                        'url'                 => $nuevaBib->url,
+                        'uuid_archivo'        => $nuevaBib->uuid_archivo,
+                        'id_unidad'           => $numUnidad,
+                    ];
+                }
+            }
+
+            // Sincronizar los nuevos IDs de bibliografía en la sección VIII del JSON
+            if (!empty($nuevasBibliografiasSyllabus) && isset($nuevoDataSyllabus['secciones']['VIII']['contenido'])) {
+                $nuevoDataSyllabus['secciones']['VIII']['contenido']['bibliografias'] = $nuevasBibliografiasSyllabus;
+                $nuevoPrograma->update(['data_syllabus' => $nuevoDataSyllabus]);
+                $nuevoPrograma->refresh();
+            }
+
+            // Replicar actividades del curso origen si $copiarActividades es true
+            if ($copiarActividades) {
+                $this->replicarActividadesEntreCursos($cursoOrigen, $cursoDestino, $unidadMap);
+            }
+
+            Log::info('[CursoService@copiarSyllabus] Syllabus copiado exitosamente', [
+                'id_curso_origen'   => $cursoOrigen->id_curso,
+                'id_curso_destino'  => $cursoDestino->id_curso,
+                'id_programa_nuevo' => $nuevoPrograma->id_programa,
+                'version'           => $nuevaVersion,
+                'con_actividades'   => $copiarActividades,
+            ]);
+
+            return $nuevoPrograma;
+        });
+    }
+
+    /**
+     * Replica actividades evaluativas y rúbricas analíticas desde un curso origen hacia los componentes homólogos
+     * de un curso destino que comparte la misma asignatura.
+     *
+     * @param Curso $cursoOrigen Curso fuente con las actividades
+     * @param Curso $cursoDestino Curso receptor con componentes homólogos
+     * @param array<int, int> $unidadMap Mapeo opcional de num_unidad a id_unidad destino
+     * @return int Cantidad de actividades clonadas
+     */
+    public function replicarActividadesEntreCursos(Curso $cursoOrigen, Curso $cursoDestino, array $unidadMap = []): int
+    {
+        $cursoOrigen->loadMissing(['componentes.actividades.rubricas', 'componentes.actividades.unidad']);
+        $cursoDestino->loadMissing(['componentes', 'unidades']);
+
+        // Si no se proporcionó $unidadMap, armarlo a partir de las unidades de destino
+        if (empty($unidadMap)) {
+            $unidadMap = $cursoDestino->unidades->pluck('id_unidad', 'num_unidad')->all();
+        }
+
+        $componentesDestino = $cursoDestino->componentes->keyBy('id_tipo_componente');
+        if ($componentesDestino->isEmpty()) {
+            return 0;
+        }
+
+        // Obtener nombres de actividades ya existentes en el destino para evitar duplicados (idempotencia)
+        $actividadesDestinoNombres = Actividad::whereIn('id_componente', $componentesDestino->pluck('id_componente'))
+            ->pluck('nombre')
+            ->map(fn($n) => mb_strtolower(trim((string) $n)))
+            ->flip();
+
+        $gruposService = new \App\Services\Agenda\GrupoIndividualService();
+        $creadas = 0;
+
+        foreach ($cursoOrigen->componentes as $compOrigen) {
+            $compDest = $componentesDestino->get($compOrigen->id_tipo_componente);
+            if (!$compDest) {
+                continue;
+            }
+
+            foreach ($compOrigen->actividades as $actOrigen) {
+                $nombreNorm = mb_strtolower(trim((string) $actOrigen->nombre));
+                if ($actividadesDestinoNombres->has($nombreNorm)) {
+                    continue; // Ya existe en el curso destino
+                }
+
+                $numUnidadOrigen = $actOrigen->unidad?->num_unidad;
+                $nuevoIdUnidad = $numUnidadOrigen !== null ? ($unidadMap[(int) $numUnidadOrigen] ?? null) : null;
+
+                // Fallback a la primera unidad del destino si no hay coincidencia exacta de número
+                if ($nuevoIdUnidad === null && $cursoDestino->unidades->isNotEmpty()) {
+                    $nuevoIdUnidad = $cursoDestino->unidades->first()->id_unidad;
+                }
+
+                $copiaAct = Actividad::create([
+                    'nombre'          => $actOrigen->nombre,
+                    'fecha_limite'    => null, // Regla de negocio: fechas en blanco
+                    'visible'         => false, // Llega oculta para que el docente configure plazos y publique
+                    'ponderacion'     => $actOrigen->ponderacion,
+                    'exigencia'       => $actOrigen->exigencia,
+                    'tipo_actividad'  => $actOrigen->tipo_actividad instanceof \App\Enums\DB\TipoActividad
+                        ? $actOrigen->tipo_actividad->value
+                        : $actOrigen->tipo_actividad,
+                    'tipo_entrega'    => $actOrigen->tipo_entrega,
+                    'es_grupal'       => $actOrigen->es_grupal,
+                    'max_integrantes' => $actOrigen->max_integrantes,
+                    'es_plantilla'    => false,
+                    'id_componente'   => $compDest->id_componente,
+                    'id_unidad'       => $nuevoIdUnidad,
+                    'uuid_archivo_enunciado' => $actOrigen->uuid_archivo_enunciado,
+                ]);
+
+                // Duplicar rúbricas analíticas en estado POSTULADA
+                foreach ($actOrigen->rubricas as $rubrica) {
+                    Rubrica::create([
+                        'rubrica'        => $rubrica->rubrica,
+                        'estado_rubrica' => EstadoRubrica::POSTULADA,
+                        'id_actividad'   => $copiaAct->id_actividad,
+                    ]);
+                }
+
+                if (!$copiaAct->es_grupal) {
+                    $gruposService->asegurarGruposDelCurso($cursoDestino, $copiaAct);
+                }
+
+                $actividadesDestinoNombres->put($nombreNorm, true);
+                $creadas++;
+            }
+        }
+
+        return $creadas;
     }
 }

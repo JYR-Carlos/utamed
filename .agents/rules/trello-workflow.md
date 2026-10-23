@@ -1,35 +1,47 @@
-# Regla de Sincronización Obligatoria con Trello
+# Mandatory Trello Synchronization Rule
 
-## 1. Consulta Proactiva Obligatoria del Tablero
-Antes de implementar cualquier cambio, corrección de bug, mejora visual, refactor o nueva funcionalidad solicitada por el usuario:
-* **Consultar el tablero de Trello activo** (`arreglos-reunion-23-09-2026` o el configurado en el servidor MCP de Trello).
-* Verificar si la petición del usuario corresponde a una tarjeta existente (o conjunto de tarjetas) buscando por palabras clave, código identificador (`[BUG-01]`, `[FEAT-02]`, `SEC-01`, etc.), ruta, componente o descripción técnica en las listas (`Por definir`, `Pendiente`, `En progreso`, `En revisión`, `Hecho`).
-* Si existe una tarjeta relacionada:
-  - Referenciarla explícitamente en la respuesta y en los planes de trabajo (código, título y enlace Trello).
-  - Leer y respetar estrictamente su descripción y Criterios de Aceptación (DoD).
-  - Al iniciar el desarrollo activo en el código, mover la tarjeta a la lista **`En progreso`**.
+## 1. Mandatory Proactive Board Consultation
+Before implementing any change, bug fix, visual tweak, refactor, or new feature requested by the user:
+* **Consult the active Trello board** (`arreglos-reunion-23-09-2026` or the one configured in the Trello MCP server).
+* Verify whether the user's request matches an existing card (or set of cards) by searching keywords, identifier code (`[BUG-01]`, `[FEAT-02]`, `SEC-01`, etc.), route, component, or technical description across lists (`Por definir`, `Pendiente`, `En progreso`, `En revisión`, `Hecho`).
+* If a related card exists:
+  - Explicitly reference it in responses and plans (code, title, and Trello URL).
+  - Strictly follow and satisfy its description and Acceptance Criteria (DoD).
+  - When starting active development in code, move the card to **`En progreso`**.
 
-## 2. Definición Estricta de Estados y Transiciones
+## 2. Automatic Member Assignment (Self-Assign Prompt Runner)
+When taking a card into progress or creating a new card:
+* Auto-assign the person who executed the prompt to the card.
+* **Identity Detection**:
+  1. Inspect local git author settings via `git config user.name` and `git config user.email`.
+  2. Query board members with `get_board_members` from the Trello MCP tool.
+  3. Match name/username/email to the board members list.
+* **Interactive Fallback**:
+  - If the member cannot be identified unambiguously, ask the user interactively (via `ask_question`) to choose their profile from the active board members.
+* **Assignment Execution**:
+  - Call `assign_member_to_card` with the target `cardId` and matched `memberId`.
 
-### `En revisión` = Revisión Humana / Técnica
-* **Significado**: La funcionalidad, corrección o refactor fue implementado a nivel de código y validado técnicamente por el agente. La tarea queda dispuesta para inspección, pruebas y revisión de código por un humano.
-* **Acciones obligatorias al mover a `En revisión`**:
-  1. Mover la tarjeta a la lista **`En revisión`**.
-  2. Marcar como completados (`[x]`) los ítems correspondientes en el checklist de *Criterios de Aceptación (DoD)*.
-  3. Registrar un comentario en la tarjeta resumiendo los cambios implementados, archivos afectados, commits y rama utilizada.
+## 3. Strict State Definitions and Transitions
 
-### `Hecho` (Listo) = Aprobado por el Usuario
-* **Significado**: La tarjeta ha sido formalmente **aprobada y validada por el usuario**.
-* **Regla Inquebrantable**: El agente **NUNCA** debe mover una tarjeta a `Hecho` de forma autónoma.
-* **Condición de Transición**: Solo se transiciona a `Hecho` cuando el usuario manifieste explícitamente su conformidad (ej. *"aprobado"*, *"listo"*, *"pasa a hecho"*, *"funciona perfecto"*).
+### `En revisión` = Human / Technical Review
+* **Meaning**: The feature, fix, or refactor was implemented and verified technically by the agent. The task is ready for human inspection, testing, and code review.
+* **Mandatory actions when moving to `En revisión`**:
+  1. Move the card to list **`En revisión`**.
+  2. Check completed items (`[x]`) in the *Acceptance Criteria (DoD)* checklist.
+  3. Add a comment to the card summarizing changes, modified files, commits, and branch name.
+
+### `Hecho` (Done) = Approved by User
+* **Meaning**: The card has been formally **approved and validated by the user**.
+* **Strict Rule**: The agent **NEVER** moves a card to `Hecho` autonomously.
+* **Transition Condition**: Only transition to `Hecho` when the user explicitly expresses approval (e.g., *"approved"*, *"ready"*, *"looks good"*, *"move to done"*).
 
 ### `Pendiente`
-* Tarjetas priorizadas y refinadas en cola de trabajo, listas para ser tomadas para desarrollo.
+* Refined and prioritized cards in the queue, ready to be picked up for development.
 
 ### `Por definir (preguntar al director)`
-* Tarjetas cuyo alcance, causales o reglas de negocio están incompletas o supeditadas a decisiones institucionales o del director.
+* Cards whose scope, business rules, or causes are incomplete or awaiting institutional / director decisions.
 
-## 3. Nuevos Requerimientos o Bugs no Catalogados
-Si la solicitud del usuario no coincide con ninguna tarjeta del tablero:
-* Advertir al usuario que no existe una tarjeta previa en el tablero.
-* Sugerir o dar de alta la nueva tarjeta en la lista adecuada (`Pendiente` o `Por definir`), manteniendo el formato estándar del proyecto con estimación Fibonacci y Criterios de Aceptación (DoD).
+## 4. New Requirements or Untracked Bugs
+If the user's request does not match any card on the board:
+* Notify the user that no existing card was found.
+* Create or suggest creating the card in the appropriate list (`Pendiente` or `Por definir`), applying the project's standard format with Fibonacci estimation, Acceptance Criteria (DoD), and self-assigning the user.

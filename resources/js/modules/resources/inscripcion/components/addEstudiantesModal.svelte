@@ -210,6 +210,10 @@
           class="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-shadow"
         />
       </div>
+      <div class="mt-2.5 flex items-center gap-2 text-blue-700 text-xs bg-blue-50/80 border border-blue-200/60 rounded-xl px-3 py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-blue-500"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <span>Al inscribir un alumno en un curso, se inscribe automáticamente en todas sus componentes.</span>
+      </div>
       {#if bulkContextError}
         <div class="mt-2.5 flex items-center gap-1.5 text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">
           <svg

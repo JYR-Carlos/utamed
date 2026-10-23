@@ -138,7 +138,15 @@ class UsuarioController extends Controller
 
             $q->orderByDesc('usuario.esta_activo'); // Activos primero, inactivos al final
 
-            if ($sqlColumn) {
+            if ($sqlColumn === 'usuario.apellido1') {
+                $q->orderBy('usuario.apellido1', $sortDir)
+                    ->orderBy('usuario.apellido2', $sortDir)
+                    ->orderBy('usuario.nombre1', $sortDir);
+            } elseif ($sqlColumn === 'usuario.nombre1') {
+                $q->orderBy('usuario.nombre1', $sortDir)
+                    ->orderBy('usuario.nombre2', $sortDir)
+                    ->orderBy('usuario.apellido1', $sortDir);
+            } elseif ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
                 $q->orderBy('usuario.apellido1')
@@ -176,7 +184,15 @@ class UsuarioController extends Controller
 
             $q->orderByDesc('usuario.esta_activo'); // Activos primero, inactivos al final
 
-            if ($sqlColumn) {
+            if ($sqlColumn === 'usuario.apellido1') {
+                $q->orderBy('usuario.apellido1', $sortDir)
+                    ->orderBy('usuario.apellido2', $sortDir)
+                    ->orderBy('usuario.nombre1', $sortDir);
+            } elseif ($sqlColumn === 'usuario.nombre1') {
+                $q->orderBy('usuario.nombre1', $sortDir)
+                    ->orderBy('usuario.nombre2', $sortDir)
+                    ->orderBy('usuario.apellido1', $sortDir);
+            } elseif ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
                 $q->orderBy('usuario.apellido1')
@@ -212,7 +228,15 @@ class UsuarioController extends Controller
             $query->orderByDesc('esta_activo'); // Activos primero, inactivos al final
 
             // Ordenar y paginar
-            if ($sqlColumn) {
+            if ($sqlColumn === 'apellido1') {
+                $query->orderBy('apellido1', $sortDir)
+                    ->orderBy('apellido2', $sortDir)
+                    ->orderBy('nombre1', $sortDir);
+            } elseif ($sqlColumn === 'nombre1') {
+                $query->orderBy('nombre1', $sortDir)
+                    ->orderBy('nombre2', $sortDir)
+                    ->orderBy('apellido1', $sortDir);
+            } elseif ($sqlColumn) {
                 $query->orderBy($sqlColumn, $sortDir);
             } else {
                 $query->orderBy('nombre1')->orderBy('apellido1');
@@ -241,6 +265,12 @@ class UsuarioController extends Controller
             // y se muestra en el modal, de modo que la pantalla y la plantilla
             // descargable no puedan describir columnas distintas.
             'columnasImportacion' => self::columnasImportacion($tipo),
+            'filters' => [
+                'tipo' => $tipo,
+                'search' => $search,
+                'sort_key' => $sortKey,
+                'sort_dir' => $sortDir,
+            ],
         ]);
     }
 

@@ -352,7 +352,7 @@
               class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-2"
             >
               <BookOpen size={11} />
-              Programa Académico
+              Programa Académico (Syllabus)
             </p>
             {#if preview.programa}
               {@const badge = estadoProgramaBadge(preview.programa.estado)}
@@ -370,12 +370,12 @@
                   {badge.label}
                 </span>
               </div>
-              <p class="text-xs text-gray-400 mt-1.5">
-                El programa <strong>no se copia</strong>. El nuevo curso iniciará sin programa y deberás generarlo nuevamente.
+              <p class="text-xs text-blue-700 mt-1.5">
+                El syllabus vigente <strong>se clonará como borrador</strong> (v{preview.programa.version + 1}) adaptado al nuevo curso y período (secciones, unidades temáticas y bibliografías), sin duplicar firmas ni fechas de aprobación pasadas.
               </p>
             {:else}
               <p class="text-xs text-gray-400 italic p-3 border border-gray-200 rounded-xl bg-gray-50">
-                Este curso no tiene programa académico.
+                Este curso no tiene programa académico registrado.
               </p>
             {/if}
           </div>

@@ -14,6 +14,7 @@ use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
 use App\Models\Curso\TipoComponente;
+use App\Models\Curso\IntranetSincronizacionLog;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
@@ -21,6 +22,7 @@ use App\Services\CursoService;
 use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -57,7 +59,7 @@ class CursoController extends Controller
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Curso::class);
-        $cursos = Curso::query()
+        $query = Curso::query()
             ->with([
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
@@ -75,9 +77,45 @@ class CursoController extends Controller
                         $q->where('nombre', 'ilike', "%{$search}%");
                     });
             })
-            ->whereNull('fecha_eliminacion')
-            ->orderBy('fecha_inicio', 'desc')
-            ->paginate($this->perPage($request))
+            ->whereNull('fecha_eliminacion');
+
+        // Filtro de estado
+        $status = $request->input('status', 'active');
+        if ($status === 'active') {
+            $query->whereIn(DB::raw('lower(estado_interno)'), ['activo', 'abierto']);
+        } elseif ($status === 'inactive') {
+            $query->whereRaw('lower(estado_interno) = ?', ['cerrado']);
+        }
+
+        // Ordenamiento con soporte para atributos compuestos
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sortKey === 'nombre') {
+            $query->orderBy('nombre', $sortDir)->orderBy('letra_grupo', $sortDir);
+        } elseif ($sortKey === 'periodo') {
+            $query->orderByRaw("COALESCE(curso.agno_real, EXTRACT(YEAR FROM curso.fecha_inicio)::integer, 0) {$sortDir}")
+                ->orderByRaw("COALESCE(curso.semestre_real, 0) {$sortDir}");
+        } elseif ($sortKey === 'carrera_nombre') {
+            $sub = Carrera::select('nombre')
+                ->join('plan', 'carrera.id_carrera', '=', 'plan.id_carrera')
+                ->join('asignacion_plan', 'plan.id_plan', '=', 'asignacion_plan.id_plan')
+                ->whereColumn('asignacion_plan.id_asignacion_plan', 'curso.id_asignacion_plan')
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'secciones') {
+            $query->withCount('componentes')->orderBy('componentes_count', $sortDir);
+        } elseif ($sortKey === 'programa_estado') {
+            $sub = \App\Models\Curso\Programa::select('estado')
+                ->whereColumn('programa.id_curso', 'curso.id_curso')
+                ->where('es_actual', true)
+                ->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } else {
+            $query->orderBy('fecha_inicio', 'desc');
+        }
+
+        $cursos = $query->paginate($this->perPage($request))
             ->withQueryString();
 
         $planes = Plan::with('carrera')->get();
@@ -91,7 +129,7 @@ class CursoController extends Controller
             'tipos_componente' => $tipos_componente,
             'availableRoles' => [],
             'availablePermissions' => [],
-            'filters' => $request->only(['search'])
+            'filters' => $request->only(['search', 'status', 'sort_key', 'sort_dir'])
         ]);
     }
 
@@ -110,7 +148,26 @@ class CursoController extends Controller
             $curso = $this->cursoService->create($request->validated());
             Log::info('[CursoController@store] Curso creado exitosamente', ['id_curso' => $curso->id_curso]);
 
-            $mensajeSuccess = 'Curso creado exitosamente.';
+            $curso->loadMissing('componentes.tipoComponente');
+            $componentesConActa = $curso->componentes->whereNotNull('intranet_cur_codigo');
+
+            if ($componentesConActa->isNotEmpty()) {
+                $detallesActas = $componentesConActa
+                    ->map(fn($c) => "{$c->tipoComponente?->tipo} (Acta #{$c->intranet_cur_codigo})")
+                    ->join(', ');
+                $mensajeSuccess = "Curso creado exitosamente. Componentes vinculadas a actas oficiales de Intranet: {$detallesActas}.";
+            } else {
+                $mensajeSuccess = 'Curso creado exitosamente según Plan de Estudios.';
+            }
+
+            $avisoIntranet = null;
+            if (isset($curso->intranet_estado)) {
+                if ($curso->intranet_estado === 'error') {
+                    $avisoIntranet = 'Aviso: No fue posible conectar con la Intranet (' . ($curso->intranet_error ?? 'error de conexión') . '). Las componentes se configuraron según el Plan de Estudios sin actas oficiales.';
+                } elseif ($curso->intranet_estado === 'sin_oferta') {
+                    $avisoIntranet = 'Aviso: La Intranet no registra oferta oficial para este período y grupo. Se configuraron componentes según el Plan de Estudios.';
+                }
+            }
 
             if ($request->boolean('inscribir_automaticamente')) {
                 try {
@@ -122,7 +179,7 @@ class CursoController extends Controller
                     ]);
                     $redirect = redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', 'Curso creado exitosamente. ' . ($resultado->inscritos_exitosamente === 1
+                        ->with('success', $mensajeSuccess . ' ' . ($resultado->inscritos_exitosamente === 1
                             ? 'Se inscribió 1 alumno'
                             : "Se inscribieron {$resultado->inscritos_exitosamente} alumnos")
                             . ' automáticamente desde la Intranet.');
@@ -130,23 +187,30 @@ class CursoController extends Controller
                     // Sin esto, «0 alumnos inscritos» no decía si la Intranet no
                     // respondió, no tenía el grupo o falló algún alumno.
                     $avisos = array_merge(
+                        $avisoIntranet ? [$avisoIntranet] : [],
                         $resultado->advertencias,
                         array_map(fn ($e) => "RUT {$e['rut']}: {$e['motivo']}", $resultado->errores)
                     );
 
-                    return $avisos === [] ? $redirect : $redirect->with('error', implode(' ', $avisos));
+                    return $avisos === [] ? $redirect : $redirect->with('warning', implode(' ', $avisos));
                 } catch (\Throwable $e) {
                     Log::error('[CursoController@store] Error en inscripción automática tras creación: ' . $e->getMessage());
                     return redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', 'Curso creado exitosamente en UTAMED.')
+                        ->with('success', $mensajeSuccess)
                         ->with('error', 'No se pudieron inscribir los alumnos desde la Intranet: ' . $e->getMessage());
                 }
             }
 
-            return redirect()
+            $redirect = redirect()
                 ->route('admin.cursos.index')
                 ->with('success', $mensajeSuccess);
+
+            if ($avisoIntranet) {
+                $redirect->with('warning', $avisoIntranet);
+            }
+
+            return $redirect;
 
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -527,10 +591,23 @@ class CursoController extends Controller
                 idPlan: $asignacionPlan->id_plan,
                 agno: $curso->agno_real ?? (int) now()->year,
                 semestre: $curso->semestre_real ?? 1,
-                letraGrupo: $letraGrupo
+                letraGrupo: $letraGrupo,
+                curso: $curso
             );
 
-            return response()->json($resultado->toArray());
+            $ultimoLog = $curso->sincronizacionesLog()->with('usuario')->first();
+
+            return response()->json(array_merge($resultado->toArray(), [
+                'fecha_ultima_sincronizacion' => $curso->fecha_ultima_sincronizacion?->toIso8601String(),
+                'ultimo_log'                  => $ultimoLog ? [
+                    'id_log'               => $ultimoLog->id_log,
+                    'fecha_sincronizacion' => $ultimoLog->fecha_sincronizacion?->toIso8601String(),
+                    'tipo_sincronizacion'  => $ultimoLog->tipo_sincronizacion,
+                    'estado'               => $ultimoLog->estado,
+                    'usuario_nombre'       => $ultimoLog->usuario ? trim("{$ultimoLog->usuario->nombre1} {$ultimoLog->usuario->apellido1}") : 'Sistema',
+                    'es_reversible'        => $ultimoLog->esReversible(),
+                ] : null,
+            ]));
         } catch (\Throwable $e) {
             Log::error("[CursoController@previewSincronizarIntranet] Error al previsualizar curso #{$curso->id_curso}: " . $e->getMessage(), [
                 'curso_id'         => $curso->id_curso,
@@ -588,6 +665,48 @@ class CursoController extends Controller
     }
 
     /**
+     * Revierte la última sincronización de Intranet aplicada al curso.
+     */
+    public function revertirSincronizacion(Request $request, Curso $curso)
+    {
+        $this->authorize('update', $curso);
+
+        $validated = $request->validate([
+            'id_log' => ['required', 'integer', Rule::exists(IntranetSincronizacionLog::class, 'id_log')],
+            'motivo' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $resultado = app(IntranetService::class)->revertirSincronizacion(
+                $curso,
+                (int) $validated['id_log'],
+                $validated['motivo'] ?? null
+            );
+
+            return response()->json($resultado->toArray());
+        } catch (\DomainException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            Log::error("[CursoController@revertirSincronizacion] Error al revertir curso #{$curso->id_curso}: " . $e->getMessage(), [
+                'curso_id'   => $curso->id_curso,
+                'id_log'     => $validated['id_log'] ?? null,
+                'usuario_id' => auth()->id(),
+                'trace'      => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'No se pudo revertir la sincronización: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * "Mirar antes de tocar" para VARIOS cursos a la vez (los que aún no
      * tienen ninguna componente): mismo problema que sincronizar un curso a
      * la vez, misma solución — arma el reporte de todos antes de escribir
@@ -621,7 +740,8 @@ class CursoController extends Controller
                         idPlan: $asignacionPlan->id_plan,
                         agno: $curso->agno_real ?? (int) now()->year,
                         semestre: $curso->semestre_real ?? 1,
-                        letraGrupo: $letraGrupo
+                        letraGrupo: $letraGrupo,
+                        curso: $curso
                     );
 
                     return [
@@ -683,7 +803,8 @@ class CursoController extends Controller
                     idPlan: $curso->asignacionPlan->id_plan,
                     agno: $curso->agno_real ?? (int) now()->year,
                     semestre: $curso->semestre_real ?? 1,
-                    letraGrupo: $letraGrupo
+                    letraGrupo: $letraGrupo,
+                    curso: $curso
                 );
 
                 $idsTipos = collect($preview->componentes)->pluck('id_tipo_componente')->all();
@@ -707,6 +828,62 @@ class CursoController extends Controller
         }
 
         return response()->json(['resultados' => $reporte]);
+    }
+
+    /**
+     * Lookup predictivo de cursos fuente para copia por código de asignatura o nombre.
+     */
+    public function buscarFuente(Request $request)
+    {
+        $this->authorize('viewAny', Curso::class);
+
+        $q = trim((string) $request->input('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $cursos = Curso::query()
+            ->whereNull('fecha_eliminacion')
+            ->where(function ($query) use ($q) {
+                $query->whereHas('asignacionPlan.asignatura', function ($sub) use ($q) {
+                    $sub->where('cod_asignatura', 'ilike', "%{$q}%")
+                        ->orWhere('nombre', 'ilike', "%{$q}%");
+                })
+                ->orWhere('nombre', 'ilike', "%{$q}%")
+                ->orWhere('cod_curso', 'like', "%{$q}%");
+            })
+            ->with([
+                'asignacionPlan.asignatura',
+                'asignacionPlan.plan.carrera',
+                'programas' => fn($p) => $p->where('es_actual', true)->limit(1),
+            ])
+            ->withCount(['componentes', 'inscripcionCursos'])
+            ->orderBy('agno_real', 'desc')
+            ->orderBy('semestre_real', 'desc')
+            ->orderBy('id_curso', 'desc')
+            ->limit(15)
+            ->get();
+
+        return response()->json($cursos->map(function (Curso $c) {
+            $asig = $c->asignacionPlan?->asignatura;
+            $programa = $c->programas->first();
+
+            return [
+                'id_curso'          => $c->id_curso,
+                'cod_curso'         => $c->cod_curso,
+                'nombre'            => $c->nombre,
+                'cod_asignatura'    => $asig?->cod_asignatura,
+                'asignatura_nombre' => $asig?->nombre,
+                'carrera_nombre'    => $c->asignacionPlan?->plan?->carrera?->nombre,
+                'agno_real'         => $c->agno_real,
+                'semestre_real'     => $c->semestre_real,
+                'periodo'           => "{$c->agno_real} · Sem. {$c->semestre_real}",
+                'total_componentes' => $c->componentes_count,
+                'total_alumnos'     => $c->inscripcion_cursos_count,
+                'tiene_programa'    => $programa !== null,
+                'estado_programa'   => $programa?->estado,
+            ];
+        })->values());
     }
 
     /**
@@ -818,7 +995,7 @@ class CursoController extends Controller
                 'fecha_inicio'  => $validated['fecha_inicio'],
                 'agno_real'     => (int) $validated['agno_real'],
                 'semestre_real' => (int) $validated['semestre_real'],
-            ]);
+            ], $request->user());
 
             return redirect()
                 ->route('admin.cursos.index')
