@@ -13,18 +13,22 @@ class ResultadoSincronizacionComponentes
      * @param array<int, string> $componentes_existentes Nombres de tipo que ya existían (no se duplicaron).
      * @param array<int, string> $advertencias
      * @param ResultadoInscripcionAutomatica|null $inscripcion Sólo si se pidió inscribir alumnos.
+     * @param array<int, array> $componentes_sobrantes Componentes locales del curso sin respaldo en Intranet.
      */
     public function __construct(
         public readonly string $origen,
         public readonly array $componentes_creadas = [],
         public readonly array $componentes_existentes = [],
         public readonly array $advertencias = [],
-        public readonly ?ResultadoInscripcionAutomatica $inscripcion = null
+        public readonly ?ResultadoInscripcionAutomatica $inscripcion = null,
+        public readonly array $componentes_sobrantes = [],
+        public readonly ?int $id_log = null
     ) {}
 
     public function toArray(): array
     {
         return [
+            'id_log'                  => $this->id_log,
             'origen'                  => $this->origen,
             'componentes_creadas'     => $this->componentes_creadas,
             'componentes_existentes'  => $this->componentes_existentes,
@@ -35,6 +39,7 @@ class ResultadoSincronizacionComponentes
                 'alumnos_creados'=> $this->inscripcion->alumnos_creados,
                 'errores'        => count($this->inscripcion->errores),
             ] : null,
+            'componentes_sobrantes'   => $this->componentes_sobrantes,
         ];
     }
 }

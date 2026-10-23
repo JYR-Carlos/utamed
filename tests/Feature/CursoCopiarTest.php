@@ -208,20 +208,22 @@ test('el endpoint admin de copia responde sin errores y crea el curso con la let
 });
 
 test('al copiar un curso en el mismo periodo calcula la siguiente letra consecutiva', function () {
-    $indicePadre = $this->padre->indice_grupo ?? 1;
-    $letraEsperada = \App\Support\LetraGrupo::fromIndice($indicePadre + 1);
+    $agnoReal = $this->padre->agno_real ?? 2026;
+    $semestreReal = $this->padre->semestre_real ?? 1;
+    $indiceEsperado = app(CursoService::class)->nextIndiceGrupo($this->padre->id_asignacion_plan, $agnoReal, $semestreReal);
+    $letraEsperada = \App\Support\LetraGrupo::fromIndice($indiceEsperado);
 
     $response = $this->actingAs($this->admin)
         ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
             'fecha_inicio'  => now()->toDateString(),
-            'agno_real'     => $this->padre->agno_real ?? 2026,
-            'semestre_real' => $this->padre->semestre_real ?? 1,
+            'agno_real'     => $agnoReal,
+            'semestre_real' => $semestreReal,
         ]);
 
     $response->assertSessionHasNoErrors();
-    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->first();
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->latest('id_curso')->first();
 
-    expect($nuevo->indice_grupo)->toBe($indicePadre + 1)
+    expect($nuevo->indice_grupo)->toBe($indiceEsperado)
         ->and($nuevo->nombre)->toContain("Grupo {$letraEsperada}");
 });
 
@@ -260,4 +262,107 @@ test('al copiar un curso con nombre personalizado respeta el nombre enviado', fu
 
     expect($nuevo)->not->toBeNull()
         ->and($nuevo->nombre)->toBe($nombreCustom);
+});
+
+test('al copiar un curso omite componentes con 0 horas en el plan si intranet no las oferta para el grupo destino', function () {
+    $tipoLab = \App\Models\Curso\TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
+    $asignatura = $this->padre->asignacionPlan->asignatura;
+    $asignatura->forceFill(['horas_laboratorio' => 0])->save();
+
+    \App\Models\Curso\Componente::create([
+        'id_curso'                          => $this->padre->id_curso,
+        'id_tipo_componente'                => $tipoLab->id_tipo_componente,
+        'genera_acta'                       => false,
+        'aprobacion_obligatoria'            => false,
+        'porcentaje_aprobacion'             => 60.00,
+        'porcentaje_asistencia_obligatoria' => 75.00,
+    ]);
+
+    $mockOracle = Mockery::mock();
+    $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+        new \App\DTOs\External\ComponenteCursoData(cur_codigo: 999901, curso_tipo_asig: \App\Enums\External\TipoAsignatura::Catedra, curso_grupo_asig: 'B'),
+    ]));
+    app()->instance('OracleDataService', $mockOracle);
+
+    $nuevo = app(CursoService::class)->copiar($this->padre->fresh(), [
+        'fecha_inicio' => now()->toDateString(),
+    ]);
+
+    $tiposNuevo = $nuevo->componentes()->pluck('id_tipo_componente')->toArray();
+    expect($tiposNuevo)->not->toContain($tipoLab->id_tipo_componente);
+});
+
+test('al copiar un curso conserva componentes con 0 horas si intranet las oferta explicitamente para el grupo destino', function () {
+    $tipoLab = \App\Models\Curso\TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
+    $asignatura = $this->padre->asignacionPlan->asignatura;
+    $asignatura->forceFill(['horas_laboratorio' => 0])->save();
+
+    \App\Models\Curso\Componente::create([
+        'id_curso'                          => $this->padre->id_curso,
+        'id_tipo_componente'                => $tipoLab->id_tipo_componente,
+        'genera_acta'                       => false,
+        'aprobacion_obligatoria'            => false,
+        'porcentaje_aprobacion'             => 60.00,
+        'porcentaje_asistencia_obligatoria' => 75.00,
+    ]);
+
+    $mockOracle = Mockery::mock();
+    $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+        new \App\DTOs\External\ComponenteCursoData(cur_codigo: 999901, curso_tipo_asig: \App\Enums\External\TipoAsignatura::Laboratorio, curso_grupo_asig: 'B'),
+    ]));
+    app()->instance('OracleDataService', $mockOracle);
+
+    $nuevo = app(CursoService::class)->copiar($this->padre->fresh(), [
+        'fecha_inicio' => now()->toDateString(),
+    ]);
+
+    $tiposNuevo = $nuevo->componentes()->pluck('id_tipo_componente')->toArray();
+    expect($tiposNuevo)->toContain($tipoLab->id_tipo_componente);
+});
+
+test('al copiar un curso monocomponente conserva exclusivamente su unica componente valida sin agregar otras', function () {
+    // Curso monocomponente (solo Cátedra)
+    $tipoCatedra = \App\Models\Curso\TipoComponente::firstOrCreate(['tipo' => 'Cátedra']);
+    $asignatura = $this->padre->asignacionPlan->asignatura;
+    $asignatura->forceFill([
+        'horas_catedra'     => 4,
+        'horas_taller'      => 0,
+        'horas_laboratorio' => 0,
+    ])->save();
+
+    $codCursoMono = codCursoLibreParaCopia();
+    $padreMono = Curso::create([
+        'cod_curso'                    => $codCursoMono,
+        'nombre'                       => 'Curso Mono Grupo A',
+        'indice_grupo'                 => 1,
+        'agno_real'                    => 2026,
+        'semestre_real'                => 1,
+        'id_asignacion_plan'           => $this->padre->id_asignacion_plan,
+        'id_docente_titular'           => $this->padre->id_docente_titular,
+        'id_tipo_componente_principal' => $tipoCatedra->id_tipo_componente,
+        'fecha_inicio'                 => now()->toDateString(),
+        'fecha_fin'                    => now()->addMonths(5)->toDateString(),
+    ]);
+
+    \App\Models\Curso\Componente::create([
+        'id_curso'                          => $padreMono->id_curso,
+        'id_tipo_componente'                => $tipoCatedra->id_tipo_componente,
+        'genera_acta'                       => true,
+        'aprobacion_obligatoria'            => false,
+        'porcentaje_aprobacion'             => 60.00,
+        'porcentaje_asistencia_obligatoria' => 75.00,
+    ]);
+
+    $mockOracle = Mockery::mock();
+    $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+        new \App\DTOs\External\ComponenteCursoData(cur_codigo: 999905, curso_tipo_asig: \App\Enums\External\TipoAsignatura::Catedra, curso_grupo_asig: 'B'),
+    ]));
+    app()->instance('OracleDataService', $mockOracle);
+
+    $nuevo = app(CursoService::class)->copiar($padreMono->fresh(), [
+        'fecha_inicio' => now()->toDateString(),
+    ]);
+
+    expect($nuevo->componentes()->count())->toBe(1)
+        ->and($nuevo->componentes()->first()->id_tipo_componente)->toBe($tipoCatedra->id_tipo_componente);
 });

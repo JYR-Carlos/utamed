@@ -6,7 +6,11 @@ use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Administrativo\Plan;
 use App\Models\Curso\Curso;
+use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\Docente;
+use App\Services\CursoService;
+use App\Services\IntranetService;
+use App\Support\LetraGrupo;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +18,13 @@ use Illuminate\Validation\Rule;
 
 class StoreCursoRequest extends FormRequest
 {
+    /**
+     * Cache en memoria de los tipos de componente respaldados por Intranet para este request.
+     * Null = aún no consultado; array = nombres normalizados respaldados ('CATEDRA', 'TALLER', 'LABORATORIO').
+     *
+     * @var array<string>|null
+     */
+    protected ?array $componentesCertificadasIntranet = null;
     /**
      * La autorización se maneja en el controlador vía CursoPolicy
      * (CursoController@store llama $this->authorize('create', Curso::class)),
@@ -128,15 +139,42 @@ class StoreCursoRequest extends FormRequest
                     }
                 },
             ],
-            'id_tipo_componente_principal'      => 'required|integer|exists:tipo_componente,id_tipo_componente',
-            'tipos_componente_ids'              => 'nullable|array|min:1',
-            'tipos_componente_ids.*'            => 'integer|exists:tipo_componente,id_tipo_componente',
+            'id_tipo_componente_principal'      => [
+                'required',
+                'integer',
+                'exists:tipo_componente,id_tipo_componente',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $this->validarComponentePermitida($value, $fail);
+                },
+            ],
+            'tipos_componente_ids'              => [
+                'nullable',
+                'array',
+                'min:1',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (!is_array($value)) {
+                        return;
+                    }
+                    foreach ($value as $tipoId) {
+                        $this->validarComponentePermitida($tipoId, $fail);
+                    }
+                },
+            ],
+            'tipos_componente_ids.*'            => [
+                'integer',
+                'exists:tipo_componente,id_tipo_componente',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $this->validarComponentePermitida($value, $fail);
+                },
+            ],
             // id_tipo_componente => lista de id_docente (2+ en un componente = colegiado).
             'docentes_por_componente'           => 'nullable|array',
             'docentes_por_componente.*'         => 'array',
             'docentes_por_componente.*.*'       => ['integer', Rule::exists('docente', 'id_docente')],
             'genera_acta_por_componente'         => 'nullable|array',
             'genera_acta_por_componente.*'       => 'boolean',
+            'cur_codigos_por_componente'         => 'nullable|array',
+            'cur_codigos_por_componente.*'       => 'nullable|integer|min:1',
             'porcentaje_aprobacion_por_componente'   => 'nullable|array',
             'porcentaje_aprobacion_por_componente.*' => 'numeric|min:0|max:100',
             'porcentaje_asistencia_por_componente'   => 'nullable|array',
@@ -166,5 +204,131 @@ class StoreCursoRequest extends FormRequest
             'cod_curso.max'     => 'El código de curso no puede superar 999.999.999',
             'cod_curso.unique'  => 'Ya existe un curso con ese código',
         ];
+    }
+
+    /**
+     * Valida que un tipo de componente tenga horas > 0 en el plan de estudios (Asignatura)
+     * o cuente con respaldo explícito en la oferta de Intranet (Oracle).
+     */
+    protected function validarComponentePermitida(mixed $idTipoComponente, \Closure $fail): void
+    {
+        if (empty($idTipoComponente)) {
+            return;
+        }
+
+        $tipo = TipoComponente::find((int) $idTipoComponente);
+        if (!$tipo) {
+            return; // Manejado por regla exists
+        }
+
+        $idAsignatura = $this->input('id_asignatura');
+        if (!$idAsignatura) {
+            return; // Manejado por regla required
+        }
+
+        $asignatura = Asignatura::find((int) $idAsignatura);
+        if (!$asignatura) {
+            return; // Manejado por regla exists
+        }
+
+        $tipoNormalizado = $this->normalizarTipoComponente($tipo->tipo ?? '');
+
+        // 1. Verificar si el plan de estudios contempla horas > 0
+        $horas = match ($tipoNormalizado) {
+            'CATEDRA'     => (float) ($asignatura->horas_catedra ?? 0),
+            'TALLER'      => (float) ($asignatura->horas_taller ?? 0),
+            'LABORATORIO' => (float) ($asignatura->horas_laboratorio ?? 0),
+            default       => 0.0,
+        };
+
+        if ($horas > 0) {
+            return; // Válido por plan de estudios
+        }
+
+        // 2. Si horas <= 0, verificar si la oferta de Intranet lo certifica explícitamente
+        if ($this->componentesCertificadasIntranet === null) {
+            $this->componentesCertificadasIntranet = $this->obtenerComponentesCertificadasIntranet();
+        }
+
+        if (in_array($tipoNormalizado, $this->componentesCertificadasIntranet, true)) {
+            return; // Válido por oferta de Intranet
+        }
+
+        $fail("La componente '{$tipo->tipo}' no tiene horas asignadas en el plan de estudios ni cuenta con respaldo en la oferta de Intranet.");
+    }
+
+    /**
+     * Consulta la oferta oficial de Intranet para certificar qué componentes existen en Oracle.
+     *
+     * @return array<string>
+     */
+    protected function obtenerComponentesCertificadasIntranet(): array
+    {
+        $idAsignatura = (int) $this->input('id_asignatura');
+        $idPlan = (int) $this->input('id_plan');
+        $agnoReal = $this->input('agno_real');
+        $semestreReal = (int) ($this->input('semestre_real') ?? 2);
+
+        if (!$idAsignatura || !$idPlan || !$agnoReal) {
+            return [];
+        }
+
+        $letraGrupo = '';
+        $indiceGrupo = $this->input('indice_grupo');
+        if (!empty($indiceGrupo)) {
+            $letraGrupo = LetraGrupo::fromIndice((int) $indiceGrupo);
+        } else {
+            $asignacionPlan = AsignacionPlan::where('id_asignatura', $idAsignatura)
+                ->where('id_plan', $idPlan)
+                ->whereNull('fecha_eliminacion')
+                ->first();
+            if ($asignacionPlan) {
+                $nextIndice = app(CursoService::class)->nextIndiceGrupo(
+                    $asignacionPlan->id_asignacion_plan,
+                    (int) $agnoReal,
+                    $semestreReal
+                );
+                $letraGrupo = LetraGrupo::fromIndice($nextIndice);
+            }
+        }
+
+        try {
+            /** @var IntranetService $intranetService */
+            $intranetService = app(IntranetService::class);
+            $oferta = $intranetService->resolverComponentesDesdeParametros(
+                $idAsignatura,
+                $idPlan,
+                (int) $agnoReal,
+                $semestreReal,
+                $letraGrupo
+            );
+
+            $certificados = [];
+            foreach ($oferta as $compData) {
+                $codigo = $compData->curso_tipo_asig->value; // 'C', 'T', 'L'
+                match ($codigo) {
+                    'C' => $certificados['CATEDRA'] = true,
+                    'T' => $certificados['TALLER'] = true,
+                    'L' => $certificados['LABORATORIO'] = true,
+                    default => null,
+                };
+            }
+            return array_keys($certificados);
+        } catch (\Throwable $e) {
+            Log::warning('[StoreCursoRequest] Error al consultar oferta en Intranet para validar componentes: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Normaliza el nombre del tipo de componente a mayúsculas sin tildes.
+     */
+    protected function normalizarTipoComponente(string $nombre): string
+    {
+        return str_replace(
+            ['Á', 'É', 'Í', 'Ó', 'Ú'],
+            ['A', 'E', 'I', 'O', 'U'],
+            mb_strtoupper(trim($nombre))
+        );
     }
 }

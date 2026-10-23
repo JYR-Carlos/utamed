@@ -14,6 +14,7 @@ use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
 use App\Models\Curso\TipoComponente;
+use App\Models\Curso\IntranetSincronizacionLog;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
@@ -21,6 +22,7 @@ use App\Services\CursoService;
 use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -146,7 +148,26 @@ class CursoController extends Controller
             $curso = $this->cursoService->create($request->validated());
             Log::info('[CursoController@store] Curso creado exitosamente', ['id_curso' => $curso->id_curso]);
 
-            $mensajeSuccess = 'Curso creado exitosamente.';
+            $curso->loadMissing('componentes.tipoComponente');
+            $componentesConActa = $curso->componentes->whereNotNull('intranet_cur_codigo');
+
+            if ($componentesConActa->isNotEmpty()) {
+                $detallesActas = $componentesConActa
+                    ->map(fn($c) => "{$c->tipoComponente?->tipo} (Acta #{$c->intranet_cur_codigo})")
+                    ->join(', ');
+                $mensajeSuccess = "Curso creado exitosamente. Componentes vinculadas a actas oficiales de Intranet: {$detallesActas}.";
+            } else {
+                $mensajeSuccess = 'Curso creado exitosamente según Plan de Estudios.';
+            }
+
+            $avisoIntranet = null;
+            if (isset($curso->intranet_estado)) {
+                if ($curso->intranet_estado === 'error') {
+                    $avisoIntranet = 'Aviso: No fue posible conectar con la Intranet (' . ($curso->intranet_error ?? 'error de conexión') . '). Las componentes se configuraron según el Plan de Estudios sin actas oficiales.';
+                } elseif ($curso->intranet_estado === 'sin_oferta') {
+                    $avisoIntranet = 'Aviso: La Intranet no registra oferta oficial para este período y grupo. Se configuraron componentes según el Plan de Estudios.';
+                }
+            }
 
             if ($request->boolean('inscribir_automaticamente')) {
                 try {
@@ -158,7 +179,7 @@ class CursoController extends Controller
                     ]);
                     $redirect = redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', 'Curso creado exitosamente. ' . ($resultado->inscritos_exitosamente === 1
+                        ->with('success', $mensajeSuccess . ' ' . ($resultado->inscritos_exitosamente === 1
                             ? 'Se inscribió 1 alumno'
                             : "Se inscribieron {$resultado->inscritos_exitosamente} alumnos")
                             . ' automáticamente desde la Intranet.');
@@ -166,23 +187,30 @@ class CursoController extends Controller
                     // Sin esto, «0 alumnos inscritos» no decía si la Intranet no
                     // respondió, no tenía el grupo o falló algún alumno.
                     $avisos = array_merge(
+                        $avisoIntranet ? [$avisoIntranet] : [],
                         $resultado->advertencias,
                         array_map(fn ($e) => "RUT {$e['rut']}: {$e['motivo']}", $resultado->errores)
                     );
 
-                    return $avisos === [] ? $redirect : $redirect->with('error', implode(' ', $avisos));
+                    return $avisos === [] ? $redirect : $redirect->with('warning', implode(' ', $avisos));
                 } catch (\Throwable $e) {
                     Log::error('[CursoController@store] Error en inscripción automática tras creación: ' . $e->getMessage());
                     return redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', 'Curso creado exitosamente en UTAMED.')
+                        ->with('success', $mensajeSuccess)
                         ->with('error', 'No se pudieron inscribir los alumnos desde la Intranet: ' . $e->getMessage());
                 }
             }
 
-            return redirect()
+            $redirect = redirect()
                 ->route('admin.cursos.index')
                 ->with('success', $mensajeSuccess);
+
+            if ($avisoIntranet) {
+                $redirect->with('warning', $avisoIntranet);
+            }
+
+            return $redirect;
 
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -563,10 +591,23 @@ class CursoController extends Controller
                 idPlan: $asignacionPlan->id_plan,
                 agno: $curso->agno_real ?? (int) now()->year,
                 semestre: $curso->semestre_real ?? 1,
-                letraGrupo: $letraGrupo
+                letraGrupo: $letraGrupo,
+                curso: $curso
             );
 
-            return response()->json($resultado->toArray());
+            $ultimoLog = $curso->sincronizacionesLog()->with('usuario')->first();
+
+            return response()->json(array_merge($resultado->toArray(), [
+                'fecha_ultima_sincronizacion' => $curso->fecha_ultima_sincronizacion?->toIso8601String(),
+                'ultimo_log'                  => $ultimoLog ? [
+                    'id_log'               => $ultimoLog->id_log,
+                    'fecha_sincronizacion' => $ultimoLog->fecha_sincronizacion?->toIso8601String(),
+                    'tipo_sincronizacion'  => $ultimoLog->tipo_sincronizacion,
+                    'estado'               => $ultimoLog->estado,
+                    'usuario_nombre'       => $ultimoLog->usuario ? trim("{$ultimoLog->usuario->nombre1} {$ultimoLog->usuario->apellido1}") : 'Sistema',
+                    'es_reversible'        => $ultimoLog->esReversible(),
+                ] : null,
+            ]));
         } catch (\Throwable $e) {
             Log::error("[CursoController@previewSincronizarIntranet] Error al previsualizar curso #{$curso->id_curso}: " . $e->getMessage(), [
                 'curso_id'         => $curso->id_curso,
@@ -624,6 +665,48 @@ class CursoController extends Controller
     }
 
     /**
+     * Revierte la última sincronización de Intranet aplicada al curso.
+     */
+    public function revertirSincronizacion(Request $request, Curso $curso)
+    {
+        $this->authorize('update', $curso);
+
+        $validated = $request->validate([
+            'id_log' => ['required', 'integer', Rule::exists(IntranetSincronizacionLog::class, 'id_log')],
+            'motivo' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $resultado = app(IntranetService::class)->revertirSincronizacion(
+                $curso,
+                (int) $validated['id_log'],
+                $validated['motivo'] ?? null
+            );
+
+            return response()->json($resultado->toArray());
+        } catch (\DomainException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            Log::error("[CursoController@revertirSincronizacion] Error al revertir curso #{$curso->id_curso}: " . $e->getMessage(), [
+                'curso_id'   => $curso->id_curso,
+                'id_log'     => $validated['id_log'] ?? null,
+                'usuario_id' => auth()->id(),
+                'trace'      => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'No se pudo revertir la sincronización: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * "Mirar antes de tocar" para VARIOS cursos a la vez (los que aún no
      * tienen ninguna componente): mismo problema que sincronizar un curso a
      * la vez, misma solución — arma el reporte de todos antes de escribir
@@ -657,7 +740,8 @@ class CursoController extends Controller
                         idPlan: $asignacionPlan->id_plan,
                         agno: $curso->agno_real ?? (int) now()->year,
                         semestre: $curso->semestre_real ?? 1,
-                        letraGrupo: $letraGrupo
+                        letraGrupo: $letraGrupo,
+                        curso: $curso
                     );
 
                     return [
@@ -719,7 +803,8 @@ class CursoController extends Controller
                     idPlan: $curso->asignacionPlan->id_plan,
                     agno: $curso->agno_real ?? (int) now()->year,
                     semestre: $curso->semestre_real ?? 1,
-                    letraGrupo: $letraGrupo
+                    letraGrupo: $letraGrupo,
+                    curso: $curso
                 );
 
                 $idsTipos = collect($preview->componentes)->pluck('id_tipo_componente')->all();

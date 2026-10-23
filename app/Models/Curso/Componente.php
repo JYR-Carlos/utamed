@@ -12,9 +12,19 @@ use App\Models\Base\Curso\BaseComponente;
  */
 class Componente extends BaseComponente
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    protected $fillable = [
+        'genera_acta',
+        'porcentaje_aprobacion',
+        'aprobacion_obligatoria',
+        'porcentaje_asistencia_obligatoria',
+        'id_tipo_componente',
+        'id_curso',
+        'intranet_cur_codigo',
+    ];
+
+    protected $casts = [
+        'genera_acta'            => 'boolean',
+        'aprobacion_obligatoria' => 'boolean',
+        'intranet_cur_codigo'    => 'integer',
+    ];
 }

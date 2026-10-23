@@ -11,8 +11,8 @@
    *   4. Resultado final con lo creado, lo que ya existía y las advertencias.
    */
   import type { Curso } from '../types/curso.types';
-  import type { ComponenteDetectada, ResultadoSincronizacionComponentes } from '@/types/admin.types';
-  import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Layers, UserPlus } from 'lucide-svelte';
+  import type { ComponenteDetectada, ComponenteSobranteLocal, ResultadoSincronizacionComponentes, LogSincronizacionResumen } from '@/types/admin.types';
+  import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Layers, UserPlus, RotateCcw } from 'lucide-svelte';
 
   interface Props {
     isOpen: boolean;
@@ -28,24 +28,56 @@
   let paso = $state<Paso>('aviso');
   let origen = $state<'INTRANET' | 'PLAN' | null>(null);
   let componentes = $state<ComponenteDetectada[]>([]);
+  let componentesSobrantes = $state<ComponenteSobranteLocal[]>([]);
   let advertencias = $state<string[]>([]);
   let aceptados = $state<Set<number>>(new Set());
   let inscribirAlumnos = $state(false);
   let errorMsg = $state('');
   let resultado = $state<ResultadoSincronizacionComponentes | null>(null);
 
+  // Reversibilidad y trazabilidad
+  let fechaUltimaSync = $state<string | null>(null);
+  let ultimoLog = $state<LogSincronizacionResumen | null>(null);
+  let confirmarReversion = $state(false);
+  let revirtiendo = $state(false);
+  let motivoReversion = $state('');
+
   $effect(() => {
-    if (isOpen) {
+    if (isOpen && curso) {
       paso = 'aviso';
       origen = null;
       componentes = [];
+      componentesSobrantes = [];
       advertencias = [];
       aceptados = new Set();
       inscribirAlumnos = false;
       errorMsg = '';
       resultado = null;
+      confirmarReversion = false;
+      revirtiendo = false;
+      motivoReversion = '';
+      fechaUltimaSync = curso.fecha_ultima_sincronizacion ?? null;
+      consultarUltimoLog();
     }
   });
+
+  async function consultarUltimoLog() {
+    if (!curso) return;
+    try {
+      const res = await fetch(`/admin/cursos/${curso.id_curso}/sincronizar-intranet/preview`, {
+        headers: { Accept: 'application/json' },
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json) {
+        if (json.fecha_ultima_sincronizacion) {
+          fechaUltimaSync = json.fecha_ultima_sincronizacion;
+        }
+        ultimoLog = json.ultimo_log ?? null;
+      }
+    } catch {
+      // Ignorar fallo silencioso en background
+    }
+  }
 
   async function cargarPreview() {
     if (!curso) return;
@@ -61,14 +93,62 @@
       }
       origen = json.origen;
       componentes = json.componentes ?? [];
+      componentesSobrantes = json.componentes_sobrantes ?? [];
       advertencias = json.advertencias ?? [];
       aceptados = new Set(componentes.map((c) => c.id_tipo_componente));
+      fechaUltimaSync = json.fecha_ultima_sincronizacion ?? fechaUltimaSync;
+      ultimoLog = json.ultimo_log ?? ultimoLog;
       // Si el origen proviene de PLAN (fallback), deshabilitar inscripción automática
       inscribirAlumnos = origen === 'INTRANET';
       paso = 'revisar';
     } catch (e: any) {
       errorMsg = e?.message ?? 'Error al consultar la Intranet.';
       paso = 'error';
+    }
+  }
+
+  async function ejecutarReversion() {
+    if (!curso || !ultimoLog) return;
+    revirtiendo = true;
+    errorMsg = '';
+    try {
+      const res = await fetch(`/admin/cursos/${curso.id_curso}/sincronizar-intranet/revertir`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN':
+            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+        },
+        body: JSON.stringify({
+          id_log: ultimoLog.id_log,
+          motivo: motivoReversion.trim() || null,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.error ?? json?.message ?? `Error al revertir (código ${res.status}).`);
+      }
+      confirmarReversion = false;
+      onSuccess(json?.mensaje ?? 'Sincronización revertida exitosamente.');
+      onClose();
+    } catch (e: any) {
+      errorMsg = e?.message ?? 'Error al revertir la sincronización.';
+    } finally {
+      revirtiendo = false;
+    }
+  }
+
+  function formatearFecha(iso?: string | null): string {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat('es-CL', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(d);
+    } catch {
+      return iso;
     }
   }
 
@@ -147,18 +227,51 @@
     <!-- ── Body ── -->
     <div class="sync-body">
       {#if paso === 'aviso'}
-        <div class="sync-warning">
+        <div class="sync-warning" class:warning-previo={!!fechaUltimaSync}>
           <div class="flex items-start gap-3">
-            <AlertTriangle size={22} class="text-amber-600 shrink-0 mt-0.5" />
-            <div class="space-y-2">
-              <p class="font-semibold text-amber-900 text-sm">
-                Antes de continuar:
-              </p>
-              <p class="text-amber-800 text-sm leading-relaxed">
-                Si ya ejecutó la sincronización previamente para este curso, revise que las componentes y estudiantes no existan ya para evitar duplicidades.
-              </p>
-              <div class="mt-3 p-3 bg-amber-100/70 rounded-lg text-xs text-amber-900 leading-relaxed">
-                <strong>Paso de previsualización seguro:</strong> En este paso sólo se consulta la información disponible (Intranet y Plan de Estudios); <em>no se escribirá nada en la base de datos hasta que confirme</em>.
+            <AlertTriangle size={22} class="{fechaUltimaSync ? 'text-blue-600' : 'text-amber-600'} shrink-0 mt-0.5" />
+            <div class="space-y-2 flex-1 min-w-0">
+              {#if fechaUltimaSync}
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                  <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                  <span>Sincronizado previamente</span>
+                </div>
+                <h4 class="font-bold text-slate-900 text-sm">
+                  Se sincronizó el {formatearFecha(fechaUltimaSync)}. ¿Sincronizar de nuevo?
+                </h4>
+                <p class="text-slate-700 text-xs leading-relaxed">
+                  Este curso ya cuenta con un registro de sincronización previo. Puedes volver a consultar la oferta oficial de Intranet para conciliar componentes o actualizar el roster de inscritos.
+                </p>
+              {:else}
+                <p class="font-semibold text-amber-900 text-sm">
+                  Antes de continuar:
+                </p>
+                <p class="text-amber-800 text-sm leading-relaxed">
+                  Este curso aún no ha sido sincronizado con la Intranet. Al continuar, se consultarán las componentes y actas oficiales en Oracle.
+                </p>
+              {/if}
+
+              {#if ultimoLog && ultimoLog.es_reversible}
+                <div class="mt-3 p-3 bg-white/90 rounded-lg border border-slate-200 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                  <div>
+                    <p class="font-semibold text-slate-900">Última sincronización aplicada:</p>
+                    <p class="text-slate-600 mt-0.5">
+                      {formatearFecha(ultimoLog.fecha_sincronizacion)} · Tipo: {ultimoLog.tipo_sincronizacion} · Por: {ultimoLog.usuario_nombre}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-revertir-small"
+                    onclick={() => { confirmarReversion = true; }}
+                  >
+                    <RotateCcw size={13} class="inline mr-1" />
+                    Revertir última sincronización
+                  </button>
+                </div>
+              {/if}
+
+              <div class="mt-3 p-3 bg-slate-100/80 rounded-lg text-xs text-slate-700 leading-relaxed">
+                <strong>Paso de previsualización seguro:</strong> En este paso sólo se consulta la información disponible (Intranet y Plan de Estudios); <em>no se escribirá nada en la base de datos hasta que confirmes</em>.
               </div>
             </div>
           </div>
@@ -189,6 +302,37 @@
             {/if}
           </p>
         </div>
+
+        {#if componentesSobrantes.length > 0}
+          <div class="sync-sobrantes-box">
+            <div class="flex items-start gap-2.5">
+              <AlertTriangle size={18} class="text-amber-600 shrink-0 mt-0.5" />
+              <div class="space-y-1.5 flex-1 min-w-0">
+                <h4 class="text-sm font-bold text-amber-950">
+                  Componentes locales sin respaldo en Intranet ({componentesSobrantes.length})
+                </h4>
+                <p class="text-xs text-amber-900 leading-relaxed">
+                  El curso posee componentes registradas en UTAMED que no figuran en la oferta oficial de Intranet para este período y grupo:
+                </p>
+                <div class="flex flex-wrap gap-1.5 pt-1">
+                  {#each componentesSobrantes as sob}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-900 border border-amber-300">
+                      <span class="font-semibold">{sob.tipo}</span>
+                      {#if sob.cod_uta}
+                        <span class="text-amber-700 text-[11px]">(Acta anterior: #{sob.cod_uta})</span>
+                      {:else}
+                        <span class="text-amber-700 text-[11px]">(Sin acta oficial)</span>
+                      {/if}
+                    </span>
+                  {/each}
+                </div>
+                <p class="text-[11px] text-amber-800 pt-1 leading-normal border-t border-amber-200 mt-2">
+                  ℹ️ <strong>Orientación:</strong> Si estas componentes no corresponden a la oferta académica vigente, se aconseja revisarlas o eliminarlas desde la gestión del curso para evitar inconsistencias con las actas institucionales.
+                </p>
+              </div>
+            </div>
+          </div>
+        {/if}
 
         {#if componentes.length === 0}
           <div class="sync-empty-box">
@@ -333,7 +477,7 @@
       {#if paso === 'aviso'}
         <button type="button" class="btn-cancel" onclick={onClose}>Cancelar</button>
         <button type="button" class="btn-submit" onclick={cargarPreview}>
-          Continuar a Previsualización
+          {fechaUltimaSync ? 'Sincronizar de nuevo' : 'Continuar a Previsualización'}
         </button>
       {:else if paso === 'revisar'}
         <button type="button" class="btn-cancel" onclick={onClose}>Cancelar</button>
@@ -362,6 +506,63 @@
       {/if}
     </div>
   </div>
+
+  {#if confirmarReversion}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="revert-confirm-overlay" onclick={() => { if (!revirtiendo) confirmarReversion = false; }} role="presentation">
+      <div class="revert-confirm-card" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+            <RotateCcw size={18} />
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-sm font-bold text-slate-900">¿Revertir última sincronización?</h3>
+            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+              Se desharán las componentes y el estado de inscripciones registrado el <strong>{formatearFecha(ultimoLog?.fecha_sincronizacion)}</strong> por <em>{ultimoLog?.usuario_nombre}</em>.
+            </p>
+            <div class="mt-2 p-2 bg-amber-50 text-[11px] text-amber-900 rounded border border-amber-200">
+              ⚠️ Si alguna componente creada ya tiene actividades o entregas, la reversión será denegada por seguridad.
+            </div>
+            <div class="mt-3">
+              <label for="motivo-reversion-input" class="block text-[11px] font-semibold text-slate-700 mb-1">
+                Motivo de reversión (opcional):
+              </label>
+              <input
+                id="motivo-reversion-input"
+                type="text"
+                bind:value={motivoReversion}
+                placeholder="Ej: Sincronización realizada por error..."
+                class="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-md focus:border-red-500 focus:outline-none"
+              />
+            </div>
+            {#if errorMsg}
+              <div class="mt-2 p-2 bg-red-50 text-[11px] text-red-700 rounded border border-red-200">
+                {errorMsg}
+              </div>
+            {/if}
+            <div class="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                class="btn-cancel text-xs py-1.5 px-3"
+                disabled={revirtiendo}
+                onclick={() => { confirmarReversion = false; errorMsg = ''; }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                class="btn-danger-confirm text-xs py-1.5 px-3"
+                disabled={revirtiendo}
+                onclick={ejecutarReversion}
+              >
+                {revirtiendo ? 'Revirtiendo...' : 'Confirmar Reversión'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -426,6 +627,13 @@
     border: 1px solid var(--color-amber-200, #fde68a);
     border-radius: 12px;
     padding: 1.25rem 1.5rem;
+  }
+
+  .sync-sobrantes-box {
+    background: var(--background-color-amber-50, #fffbeb);
+    border: 1.5px solid var(--color-amber-300, #fcd34d);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
   }
 
   .sync-loading {
@@ -626,6 +834,71 @@
     background: var(--background-color-blue-300, #93c5fd);
     cursor: not-allowed;
     opacity: 0.7;
+  }
+
+  .warning-previo {
+    background: var(--background-color-slate-50, #f8fafc);
+    border-color: var(--color-blue-200, #bfdbfe);
+  }
+
+  .btn-revertir-small {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-red-700, #b91c1c);
+    background: var(--background-color-red-50, #fef2f2);
+    border: 1px solid var(--color-red-200, #fecaca);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-revertir-small:hover {
+    background: var(--background-color-red-100, #fee2e2);
+    border-color: var(--color-red-300, #fca5a5);
+  }
+
+  .revert-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .revert-confirm-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 1.5rem;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+  }
+
+  .btn-danger-confirm {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background: #dc2626;
+    color: #ffffff;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .btn-danger-confirm:hover:not(:disabled) {
+    background: #b91c1c;
+  }
+
+  .btn-danger-confirm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   @keyframes spin {

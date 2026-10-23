@@ -13,12 +13,14 @@ class ResultadoPreviewComponentes
      * @param array<int, ComponenteDetectada> $componentes
      * @param int|null $id_tipo_componente_principal Sugerido por prioridad (Cátedra > Taller > Laboratorio).
      * @param array<int, string> $advertencias
+     * @param array<int, array> $componentes_sobrantes Componentes locales del curso sin respaldo en Intranet.
      */
     public function __construct(
         public readonly string $origen,
         public readonly array $componentes,
         public readonly ?int $id_tipo_componente_principal,
-        public readonly array $advertencias = []
+        public readonly array $advertencias = [],
+        public readonly array $componentes_sobrantes = []
     ) {}
 
     public function toArray(): array
@@ -28,6 +30,7 @@ class ResultadoPreviewComponentes
             'componentes'                   => array_map(fn(ComponenteDetectada $c) => $c->toArray(), $this->componentes),
             'id_tipo_componente_principal'  => $this->id_tipo_componente_principal,
             'advertencias'                  => $this->advertencias,
+            'componentes_sobrantes'         => $this->componentes_sobrantes,
         ];
     }
 }

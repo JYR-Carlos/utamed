@@ -83,6 +83,7 @@ export interface Plan {
   fecha_creacion?: string;
   fecha_modificacion?: string;
   fecha_eliminacion?: string;
+  fecha_ultima_sincronizacion?: string | null;
 }
 
 /**
@@ -132,6 +133,7 @@ export interface AsignacionPlan {
   fecha_creacion?: string;
   fecha_modificacion?: string;
   fecha_eliminacion?: string;
+  fecha_ultima_sincronizacion?: string | null;
 }
 
 export interface AsignacionPlanFormData {
@@ -227,6 +229,7 @@ export interface Curso {
   fecha_creacion?: string;
   fecha_modificacion?: string;
   fecha_eliminacion?: string;
+  fecha_ultima_sincronizacion?: string | null;
   // Programa information
   has_programa?: boolean;
   programa_estado?: string;
@@ -553,6 +556,8 @@ export interface CursoFormData {
   porcentaje_asistencia_obligatoria?: number;
   /** Inscribir alumnos automáticamente desde la Intranet tras crear el curso */
   inscribir_automaticamente?: boolean;
+  /** Códigos de acta (CUR_CODIGO) por tipo de componente recuperados desde Intranet */
+  cur_codigos_por_componente?: Record<number, number | null>;
   [key: string]: FormDataConvertible;
 }
 
@@ -564,16 +569,48 @@ export interface ComponenteDetectada {
   cur_codigo?: number | null;
 }
 
+/** Componente registrada localmente en el curso que no figura en la oferta de Intranet. */
+export interface ComponenteSobranteLocal {
+  id_componente: number;
+  id_tipo_componente: number;
+  tipo: string;
+  cod_uta?: number | null;
+}
+
 /** Respuesta de /admin/cursos/preview-componentes y .../sincronizar-intranet/preview. */
 export interface ResultadoPreviewComponentes {
   origen: 'INTRANET' | 'PLAN';
   componentes: ComponenteDetectada[];
   id_tipo_componente_principal: number | null;
   advertencias: string[];
+  componentes_sobrantes?: ComponenteSobranteLocal[];
+}
+
+/** Resumen de log de sincronización para observabilidad y rollback */
+export interface LogSincronizacionResumen {
+  id_log: number;
+  fecha_sincronizacion: string;
+  tipo_sincronizacion: string;
+  estado: 'APLICADA' | 'REVERTIDA';
+  usuario_nombre: string;
+  es_reversible: boolean;
+}
+
+/** Respuesta de POST .../sincronizar-intranet/revertir */
+export interface ResultadoReversionSincronizacion {
+  id_log: number;
+  exitosa: boolean;
+  componentes_eliminadas: string[];
+  componentes_restauradas: string[];
+  inscripciones_eliminadas: number;
+  inscripciones_restauradas: number;
+  advertencias: string[];
+  mensaje?: string;
 }
 
 /** Respuesta de POST .../sincronizar-intranet (ejecución, ya confirmada). */
 export interface ResultadoSincronizacionComponentes {
+  id_log?: number;
   origen: 'INTRANET' | 'PLAN';
   componentes_creadas: string[];
   componentes_existentes: string[];
@@ -585,6 +622,7 @@ export interface ResultadoSincronizacionComponentes {
     alumnos_creados: number;
     errores: number;
   } | null;
+  componentes_sobrantes?: ComponenteSobranteLocal[];
 }
 
 export interface EstudianteFormData {

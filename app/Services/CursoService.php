@@ -11,6 +11,7 @@ use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -88,6 +89,41 @@ class CursoService
                 $this->assignDocenteRolCurso($data['id_docente_sugerido'], $curso->id_contexto, true);
             }
 
+            // Autorrecuperar CUR_CODIGO de Intranet por componente
+            $curCodigosInput = $data['cur_codigos_por_componente'] ?? [];
+            $curCodigosIntranet = [];
+            $intranetEstado = 'sin_consultar';
+            $intranetError = null;
+
+            try {
+                $letra = LetraGrupo::fromIndice($indiceGrupo);
+                $componentesIntranet = app(IntranetService::class)->resolverComponentesDesdeParametros(
+                    idAsignatura: (int) $asignacionPlan->id_asignatura,
+                    idPlan: (int) $asignacionPlan->id_plan,
+                    agno: $agnoReal ?? (int) now()->year,
+                    semestre: $semestreReal ?? 1,
+                    letraGrupo: $letra
+                );
+
+                foreach ($componentesIntranet as $compData) {
+                    $tc = app(IntranetService::class)->resolverTipoComponentePorCodigoIntranet($compData->curso_tipo_asig->value);
+                    if ($tc && $compData->cur_codigo) {
+                        $curCodigosIntranet[$tc->id_tipo_componente] = (int) $compData->cur_codigo;
+                    }
+                }
+                $intranetEstado = $componentesIntranet->isNotEmpty() ? 'conectado' : 'sin_oferta';
+            } catch (\Throwable $e) {
+                $intranetEstado = 'error';
+                $intranetError = $e->getMessage();
+                Log::warning('[CursoService@crear] Intranet no disponible para autorrecuperar CUR_CODIGO: ' . $e->getMessage());
+            }
+
+            $resolverCurCodigo = function (int $idTipo) use ($curCodigosInput, $curCodigosIntranet): ?int {
+                return !empty($curCodigosInput[$idTipo])
+                    ? (int) $curCodigosInput[$idTipo]
+                    : ($curCodigosIntranet[$idTipo] ?? null);
+            };
+
             // Find the chosen component type
             $tipoComponente = TipoComponente::find($data['id_tipo_componente_principal']);
 
@@ -98,6 +134,8 @@ class CursoService
 
             if ($tipoComponente) {
                 $idPrinc = $tipoComponente->id_tipo_componente;
+                $curCodigoPrincipal = $resolverCurCodigo($idPrinc);
+
                 // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $componente = Componente::create([
                     'id_curso'                          => $curso->id_curso,
@@ -106,6 +144,7 @@ class CursoService
                     'aprobacion_obligatoria'            => $aprobObligPorComponente[$idPrinc] ?? ($data['aprobacion_obligatoria'] ?? false),
                     'porcentaje_aprobacion'             => $pctAprobPorComponente[$idPrinc] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
                     'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idPrinc] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
+                    'intranet_cur_codigo'               => $curCodigoPrincipal,
                 ])->refresh();
 
                 // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular),
@@ -129,6 +168,8 @@ class CursoService
                     }
 
                     $idAdic = $tipoAdicional->id_tipo_componente;
+                    $curCodigoAdicional = $resolverCurCodigo($idAdic);
+
                     $componenteAdicional = Componente::create([
                         'id_curso'                          => $curso->id_curso,
                         'id_tipo_componente'                => $idAdic,
@@ -136,6 +177,7 @@ class CursoService
                         'aprobacion_obligatoria'            => $aprobObligPorComponente[$idAdic] ?? ($data['aprobacion_obligatoria'] ?? false),
                         'porcentaje_aprobacion'             => $pctAprobPorComponente[$idAdic] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
                         'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idAdic] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
+                        'intranet_cur_codigo'               => $curCodigoAdicional,
                     ])->refresh();
 
                     $this->asignarDocentesComponente(
@@ -147,6 +189,8 @@ class CursoService
             }
 
             $curso->recalcularColegiado();
+            $curso->intranet_estado = $intranetEstado;
+            $curso->intranet_error = $intranetError;
 
             return $curso;
         });
@@ -163,7 +207,8 @@ class CursoService
     public function copiar(Curso $cursoPadre, array $data): Curso
     {
         return DB::transaction(function () use ($cursoPadre, $data) {
-            $cursoPadre->load([
+            $cursoPadre->loadMissing([
+                'asignacionPlan.asignatura',
                 'unidades',
                 'componentes.tipoComponente',
                 'componentes.docenteComponentes',
@@ -225,7 +270,65 @@ class CursoService
                 );
             }
 
+            $asignatura = $cursoPadre->asignacionPlan?->asignatura;
+            $ofertaIntranetDestino = null;
+            $curCodigosIntranetDestino = [];
+
             foreach ($cursoPadre->componentes as $comp) {
+                $tipo = $comp->tipoComponente;
+                if ($tipo && $asignatura) {
+                    $nombreNormalizado = str_replace(
+                        ['Á', 'É', 'Í', 'Ó', 'Ú'],
+                        ['A', 'E', 'I', 'O', 'U'],
+                        mb_strtoupper(trim($tipo->tipo ?? ''))
+                    );
+
+                    $horas = match ($nombreNormalizado) {
+                        'CATEDRA'     => (float) ($asignatura->horas_catedra ?? 0),
+                        'TALLER'      => (float) ($asignatura->horas_taller ?? 0),
+                        'LABORATORIO' => (float) ($asignatura->horas_laboratorio ?? 0),
+                        default       => 0.0,
+                    };
+
+                    if ($horas <= 0) {
+                        if ($ofertaIntranetDestino === null) {
+                            $ofertaIntranetDestino = [];
+                            try {
+                                /** @var IntranetService $intranetService */
+                                $intranetService = app(IntranetService::class);
+                                $compsIntranet = $intranetService->resolverComponentesDesdeParametros(
+                                    (int) $cursoPadre->asignacionPlan->id_asignatura,
+                                    (int) $cursoPadre->asignacionPlan->id_plan,
+                                    (int) $agnoReal,
+                                    (int) $semestreReal,
+                                    $letra
+                                );
+                                foreach ($compsIntranet as $c) {
+                                    match ($c->curso_tipo_asig->value) {
+                                        'C' => $ofertaIntranetDestino['CATEDRA'] = true,
+                                        'T' => $ofertaIntranetDestino['TALLER'] = true,
+                                        'L' => $ofertaIntranetDestino['LABORATORIO'] = true,
+                                        default => null,
+                                    };
+                                    $tc = $intranetService->resolverTipoComponentePorCodigoIntranet($c->curso_tipo_asig->value);
+                                    if ($tc && $c->cur_codigo) {
+                                        $curCodigosIntranetDestino[$tc->id_tipo_componente] = (int) $c->cur_codigo;
+                                    }
+                                }
+                                $ofertaIntranetDestino = array_keys($ofertaIntranetDestino);
+                            } catch (\Throwable $e) {
+                                Log::warning('[CursoService@copiar] No fue posible verificar oferta de Intranet para grupo destino: ' . $e->getMessage());
+                                $ofertaIntranetDestino = [];
+                            }
+                        }
+
+                        if (!in_array($nombreNormalizado, $ofertaIntranetDestino, true)) {
+                            Log::warning("[CursoService@copiar] Omitiendo componente '{$tipo->tipo}' al copiar curso #{$cursoPadre->id_curso} al grupo {$letra}: tiene 0 horas en plan y no figura en la oferta de Intranet.");
+                            continue;
+                        }
+                    }
+                }
+
                 // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $nuevoComp = Componente::create([
                     'id_curso'                          => $nuevoCurso->id_curso,
@@ -234,6 +337,7 @@ class CursoService
                     'aprobacion_obligatoria'            => $comp->aprobacion_obligatoria,
                     'porcentaje_aprobacion'             => $comp->porcentaje_aprobacion,
                     'porcentaje_asistencia_obligatoria' => $comp->porcentaje_asistencia_obligatoria,
+                    'intranet_cur_codigo'               => $curCodigosIntranetDestino[$comp->id_tipo_componente] ?? null,
                 ])->refresh();
 
                 foreach ($comp->docenteComponentes as $dc) {

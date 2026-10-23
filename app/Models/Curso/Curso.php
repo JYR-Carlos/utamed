@@ -14,8 +14,34 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Curso extends BaseCurso
 {
     use HasFactory;
+
     /**
-     * Casts adicionales para fechas límite de entrega de programa
+     * Atributos asignables masivamente
+     */
+    protected $fillable = [
+        'cod_curso',
+        'nombre',
+        'indice_grupo',
+        'fecha_inicio',
+        'fecha_fin',
+        'agno_real',
+        'semestre_real',
+        'estado_interno',
+        'estado_acta',
+        'es_plantilla',
+        'es_colegiado',
+        'fecha_limite_entrega_basico',
+        'fecha_limite_entrega_syllabus',
+        'id_asignacion_plan',
+        'id_docente_titular',
+        'id_curso_padre',
+        'version_plantilla',
+        'letra_grupo',
+        'fecha_ultima_sincronizacion',
+    ];
+
+    /**
+     * Casts adicionales para fechas límite de entrega de programa y sincronización
      */
     protected $casts = [
         'fecha_inicio' => 'date',
@@ -25,9 +51,22 @@ class Curso extends BaseCurso
         'fecha_eliminacion' => 'datetime',
         'fecha_limite_entrega_basico' => 'datetime',
         'fecha_limite_entrega_syllabus' => 'datetime',
+        'fecha_ultima_sincronizacion' => 'datetime',
         'es_plantilla' => 'boolean',
         'es_colegiado' => 'boolean',
     ];
+
+    public function sincronizacionesLog(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(IntranetSincronizacionLog::class, 'id_curso', 'id_curso')
+            ->orderByDesc('fecha_sincronizacion');
+    }
+
+    public function ultimaSincronizacionLog(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(IntranetSincronizacionLog::class, 'id_curso', 'id_curso')
+            ->latestOfMany('fecha_sincronizacion');
+    }
 
     /**
      * Rótulo del curso para breadcrumbs, menús y encabezados:

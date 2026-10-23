@@ -355,11 +355,12 @@ test('sincronizarInscripciones reporta advertencia por inscripciones de componen
     $rut = 20555555;
     $a = crearAlumnoInscrito($curso, $carrera, $rut, 'ESTEBAN');
 
-    // El trigger en PostgreSQL ya crea la fila en inscripcion_componente.
-    // Asignamos el código UTA para verificar que quede registrada.
-    InscripcionComponente::where('id_componente', $componente->id_componente)
-        ->where('id_estudiante', $a['estudiante']->id_estudiante)
-        ->update(['cod_inscripcion_curso_uta' => '555555']);
+    // Aseguramos la existencia de la fila en inscripcion_componente con código UTA
+    // (tras la migración 18 el trigger no autoinscribe si cod_inscripcion_uta IS NOT NULL).
+    InscripcionComponente::firstOrCreate(
+        ['id_componente' => $componente->id_componente, 'id_estudiante' => $a['estudiante']->id_estudiante],
+        ['cod_inscripcion_curso_uta' => '555555']
+    );
 
     // La intranet devuelve lista vacía
     $curCodigo = 202610000891;
