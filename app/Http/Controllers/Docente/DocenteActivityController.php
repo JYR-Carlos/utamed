@@ -25,6 +25,7 @@ use App\Models\Curso\InscripcionCurso;
 use App\Models\Curso\Unidad;
 use App\Models\Operaciones\Archivo;
 use App\Models\Usuario\Usuario;
+use App\Support\Permissions;
 use App\Services\Agenda\AvanceEvaluacionService;
 use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Agenda\LecturaAgendaService;
@@ -108,6 +109,11 @@ class DocenteActivityController extends Controller
 
         // El titular manda sobre todas las actividades del curso.
         if ($curso->id_docente_titular === $docente->id_docente) {
+            return;
+        }
+
+        // Si el titular le delegó explícitamente el permiso de evaluar en el contexto del curso:
+        if ($user->can(Permissions::ACTIVIDADES_EVALUAR, $curso)) {
             return;
         }
 

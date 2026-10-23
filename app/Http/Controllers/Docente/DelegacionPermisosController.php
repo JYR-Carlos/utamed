@@ -7,6 +7,7 @@ use App\Models\Curso\Curso;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Usuario;
 use App\Services\Docente\PermisosCursoService;
+use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -38,59 +39,60 @@ class DelegacionPermisosController extends Controller
 {
     /**
      * Matriz de permisos que el DT puede delegar, agrupados por área funcional.
+     * Basado estrictamente en el enum Permissions.
      * Sólo los slugs presentes aquí son válidos para delegación.
      */
     private const DELEGABLE_MATRIX = [
         'Curso' => [
-            'cursos:ver',
-            'cursos:editar',
-            'cursos:eliminar',
+            Permissions::CURSOS_VER->value,
+            Permissions::CURSOS_EDITAR->value,
+            Permissions::CURSOS_ELIMINAR->value,
         ],
         'Inscripciones' => [
-            'cursos/inscripciones:ver',
+            Permissions::CURSOS_INSCRIPCIONES_VER->value,
         ],
         'Unidades' => [
-            'cursos/unidades:ver',
-            'cursos/unidades:crear',
-            'cursos/unidades:crear_plantilla',
-            'cursos/unidades:editar',
-            'cursos/unidades:eliminar',
+            Permissions::CURSOS_UNIDADES_VER->value,
+            Permissions::CURSOS_UNIDADES_CREAR->value,
+            Permissions::CURSOS_UNIDADES_CREAR_PLANTILLA->value,
+            Permissions::CURSOS_UNIDADES_EDITAR->value,
+            Permissions::CURSOS_UNIDADES_ELIMINAR->value,
         ],
         'Programas' => [
-            'cursos/programas:ver_todos',
-            'cursos/programas:agregar',
-            'cursos/programas:eliminar',
-            'cursos/programas/modificar:modulo_1',
-            'cursos/programas/modificar:modulo_2',
-            'cursos/programas/modificar:modulo_3',
-            'cursos/programas/modificar:modulo_4',
-            'cursos/programas/modificar:modulo_5',
-            'cursos/programas/modificar:modulo_6',
-            'cursos/programas/modificar:modulo_7',
-            'cursos/programas/modificar:modulo_8',
-            'cursos/programas/modificar:modulo_9',
+            Permissions::CURSOS_PROGRAMAS_VER_TODOS->value,
+            Permissions::CURSOS_PROGRAMAS_AGREGAR->value,
+            Permissions::CURSOS_PROGRAMAS_ELIMINAR->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_2->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_3->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_4->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_5->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_6->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_7->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_8->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_9->value,
         ],
         'Componentes' => [
-            'componentes:ver',
-            'componentes:editar',
+            Permissions::COMPONENTES_VER->value,
+            Permissions::COMPONENTES_EDITAR->value,
         ],
         'Actividades' => [
-            'actividades:ver',
-            'actividades:crear',
-            'actividades:crear_plantilla',
-            'actividades:editar',
-            'actividades:eliminar',
-            'actividades:evaluar',
-            'actividades:dar_feedback',
-            'actividades:descargar_entregas',
-            'actividades:enviar_recordatorios',
-            'actividades:subir_entregas',
+            Permissions::ACTIVIDADES_VER->value,
+            Permissions::ACTIVIDADES_CREAR->value,
+            Permissions::ACTIVIDADES_CREAR_PLANTILLA->value,
+            Permissions::ACTIVIDADES_EDITAR->value,
+            Permissions::ACTIVIDADES_ELIMINAR->value,
+            Permissions::ACTIVIDADES_EVALUAR->value,
+            Permissions::ACTIVIDADES_DAR_FEEDBACK->value,
+            Permissions::ACTIVIDADES_DESCARGAR_ENTREGAS->value,
+            Permissions::ACTIVIDADES_ENVIAR_RECORDATORIOS->value,
+            Permissions::ACTIVIDADES_SUBIR_ENTREGAS->value,
         ],
         'Grupos de Actividad' => [
-            'actividades/grupos:ver',
-            'actividades/grupos:crear',
-            'actividades/grupos:editar',
-            'actividades/grupos:eliminar',
+            Permissions::ACTIVIDADES_GRUPOS_VER->value,
+            Permissions::ACTIVIDADES_GRUPOS_CREAR->value,
+            Permissions::ACTIVIDADES_GRUPOS_EDITAR->value,
+            Permissions::ACTIVIDADES_GRUPOS_ELIMINAR->value,
         ],
     ];
 
