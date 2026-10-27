@@ -12,6 +12,7 @@ use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Services\Agenda\LecturaAgendaService;
+use App\Services\Student\ResumenActividadesEstudiante;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -172,7 +173,16 @@ class ActivityController extends Controller
             // El «Visto» (T07) se registra al ABRIR la agenda, no al cargar la
             // actividad (AgendaController::marcarLeida). Aquí sólo se trae quiénes
             // vieron el último mensaje.
-            $interacciones = (new LecturaAgendaService)->leerHilo($user->id_usuario, $interacciones, registrar: false);
+            $lectura = new LecturaAgendaService;
+            $interacciones = $lectura->leerHilo($user->id_usuario, $interacciones, registrar: false);
+
+            // «Nuevo» en el resumen de la agenda: lo que el alumno recibió y
+            // aún no abrió. Se apaga cuando abre la agenda.
+            $sinLeer = array_flip($lectura->sinLeer($user->id_usuario, array_column($interacciones, 'id_interaccion')));
+            $interacciones = array_map(
+                fn (array $i) => [...$i, 'nuevo' => isset($sinLeer[$i['id_interaccion']])],
+                $interacciones
+            );
 
             // Rúbrica usada en la evaluación más reciente (no la última rúbrica creada)
             $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
@@ -240,7 +250,11 @@ class ActivityController extends Controller
         return Inertia::render('student/Activities/Index', [
             'id_curso'              => $curso->id_curso,
             'cod_curso'             => $curso->cod_curso,
+            'cod_asignatura'        => $curso->asignacionPlan?->asignatura?->cod_asignatura,
             'nombre_curso'          => $curso->etiqueta(),
+            'componente_tipo'       => $actividad->componente?->tipoComponente?->tipo,
+            // «Lo que sigue en el curso»: la vista elige la próxima por entregar.
+            'actividades_curso'     => fn () => app(ResumenActividadesEstudiante::class)->delCurso($estudiante, $curso),
             'cod_actividad'         => (string) $actividad->id_actividad,
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 

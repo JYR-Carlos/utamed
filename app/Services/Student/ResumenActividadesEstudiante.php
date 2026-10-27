@@ -8,6 +8,7 @@ use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
+use App\Models\Curso\Curso;
 use App\Models\Usuario\Estudiante;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
@@ -149,6 +150,37 @@ class ResumenActividadesEstudiante
                 ];
             })
             ->all();
+    }
+
+    /**
+     * Las actividades visibles de un curso, ordenadas por plazo, tal como las
+     * ve el alumno (ver paraAlumno). Son las de sus componentes; si no figura
+     * inscrito en ninguno, las de todo el curso. La usan la ficha del curso y
+     * la página de una actividad («Lo que sigue en el curso»).
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function delCurso(Estudiante $estudiante, Curso $curso): Collection
+    {
+        $componenteIds = DB::table('curso.inscripcion_componente as ic')
+            ->join('curso.componente as c', 'c.id_componente', '=', 'ic.id_componente')
+            ->where('ic.id_estudiante', $estudiante->id_estudiante)
+            ->where('c.id_curso', $curso->id_curso)
+            ->pluck('ic.id_componente');
+
+        if ($componenteIds->isEmpty()) {
+            $componenteIds = DB::table('curso.componente')
+                ->where('id_curso', $curso->id_curso)
+                ->pluck('id_componente');
+        }
+
+        $actividades = Actividad::whereIn('id_componente', $componenteIds)
+            ->where('visible', true)
+            ->with(['componente.tipoComponente', 'unidad'])
+            ->orderBy('fecha_limite', 'asc')
+            ->get();
+
+        return $this->paraAlumno($estudiante, $actividades);
     }
 
     /**
