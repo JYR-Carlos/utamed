@@ -18,6 +18,7 @@ use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Support\Permissions;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class DelegacionPermisosCursoTest extends TestCase
@@ -39,6 +40,8 @@ class DelegacionPermisosCursoTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Cache::flush();
 
         // 1. Crear usuarios y docentes con password y verificación para evitar redirects
         $this->titular = Usuario::factory()->create([
