@@ -5,6 +5,7 @@
    * Como en Instagram: se nombran hasta dos lectores y el resto se resume
    * («y 3 más»). Al pasar el cursor se ve la lista completa con la hora. El
    * backend ya excluye a quien envió el mensaje y a quien está mirando.
+   * Dentro de la vista del alumno (`alumno:`) toma la letra de la guía dm.
    */
   import { CheckCheck } from 'lucide-svelte';
   import { formatFechaHora } from '@/utils/formatters';
@@ -40,8 +41,8 @@
 
 {#if lectores && lectores.length > 0}
   <div class="flex {clase} {alinear === 'derecha' ? 'justify-end' : 'justify-start'}">
-    <span class="flex items-center gap-1 text-[11px] text-ink-2" title={detalle}>
-      <CheckCheck class="h-3.5 w-3.5 text-navy" />
+    <span class="flex items-center gap-1 text-[11px] text-ink-2 alumno:gap-1.5 alumno:text-[13px] alumno:leading-[18px] alumno:text-dm-ink-3" title={detalle}>
+      <CheckCheck class="h-3.5 w-3.5 text-navy alumno:size-4 alumno:text-dm-accion-texto" aria-hidden="true" />
       {texto}
     </span>
   </div>

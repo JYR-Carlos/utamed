@@ -260,6 +260,8 @@ class ActivityController extends Controller
             'descripcion'           => '', 
             'fecha_limite'          => $actividad->fecha_limite?->format('Y-m-d') ?? '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+            // Porcentaje del puntaje que da el 4,0 (la columna trae 60 por defecto).
+            'exigencia'             => (int) ($actividad->exigencia ?? 60),
             'es_grupal'             => (bool) $actividad->es_grupal,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',

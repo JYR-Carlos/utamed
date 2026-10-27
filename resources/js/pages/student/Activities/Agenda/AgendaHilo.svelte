@@ -8,6 +8,7 @@
   import { tick } from 'svelte';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
+  import { agruparPorDia, ENTREGA, formatHora, procesarHilo, type InteraccionDecorada } from '@/lib/agendaHilo';
   import VistoPor from '@/components/mensajeria/VistoPor.svelte';
   import { formatBytes, formatFechaTextoLargo } from '@/utils/formatters';
   import {
@@ -23,11 +24,6 @@
   } from 'lucide-svelte';
 
   export type { InteraccionItem, RubricaDetalleEvent };
-
-  interface InteraccionDecorada extends InteraccionItem {
-    esConsecutivo?: boolean;
-    marcaTiempoSeparador?: string | null;
-  }
 
   interface Props {
     listado_interacciones: InteraccionItem[];
@@ -49,21 +45,6 @@
 
   let listaRef = $state<HTMLDivElement | null>(null);
 
-  const ENTREGA = 'Entrega de archivo';
-  const CANCELACION = 'Cancelación de entrega';
-
-  function formatHora(val: string | null | undefined): string {
-    if (!val) return '';
-    const d = new Date(val);
-    if (!isNaN(d.getTime())) {
-      const h = String(d.getHours()).padStart(2, '0');
-      const m = String(d.getMinutes()).padStart(2, '0');
-      return `${h}:${m} hrs`;
-    }
-    const match = String(val).match(/(\d{1,2}):(\d{2})/);
-    return match ? `${match[1].padStart(2, '0')}:${match[2]} hrs` : '';
-  }
-
   function formatNota(val: number | string | null | undefined): string {
     if (val == null || val === '') return '-';
     const num = Number(val);
@@ -81,124 +62,12 @@
     return !item.es_de_docente && item.tipo_interaccion !== 'Evaluación';
   }
 
-  const interaccionesProcesadas = $derived.by((): InteraccionDecorada[] => {
-    const lista: InteraccionDecorada[] = listado_interacciones.map((item) => ({ ...item }));
+  // Cancelaciones, reemplazos, reevaluaciones y agrupación: lib/agendaHilo.
+  const interaccionesProcesadas = $derived(procesarHilo(listado_interacciones));
 
-    // Paso 1: Mutar cancelaciones de entrega
-    for (let i = 0; i < lista.length; i++) {
-      const item = lista[i];
-      if (item.tipo_interaccion === CANCELACION) {
-        let entregaIndex = -1;
-        if (item.uuid_archivo) {
-          entregaIndex = lista.slice(0, i).findLastIndex(
-            (prev) => prev.tipo_interaccion === ENTREGA && prev.uuid_archivo === item.uuid_archivo,
-          );
-        }
-        if (entregaIndex === -1) {
-          entregaIndex = lista.slice(0, i).findLastIndex(
-            (prev) => prev.tipo_interaccion === ENTREGA && !prev.fue_cancelada,
-          );
-        }
-
-        if (entregaIndex !== -1) {
-          lista[entregaIndex].fue_cancelada = true;
-          lista[entregaIndex].fecha_cancelacion = item.fecha_emision;
-          lista[entregaIndex].cancelado_por = item.emisor;
-        }
-      }
-    }
-
-    // Paso 1b: Marcar entregas reemplazadas y evaluaciones reevaluadas (no válidas)
-    let ultimaEntregaNoCanceladaIndex = -1;
-    let ultimaEvaluacionIndex = -1;
-
-    for (let i = lista.length - 1; i >= 0; i--) {
-      const item = lista[i];
-
-      // Entregas: la más reciente no cancelada es la vigente; las anteriores quedan reemplazadas
-      if (item.tipo_interaccion === ENTREGA && !item.fue_cancelada) {
-        if (ultimaEntregaNoCanceladaIndex === -1) {
-          ultimaEntregaNoCanceladaIndex = i;
-        } else {
-          item.fue_reemplazada = true;
-          item.es_no_valido = true;
-        }
-      }
-
-      // Evaluaciones: la más reciente es la vigente; las anteriores quedan reevaluadas
-      if (item.tipo_interaccion === 'Evaluación') {
-        if (ultimaEvaluacionIndex === -1) {
-          ultimaEvaluacionIndex = i;
-        } else {
-          item.fue_reevaluada = true;
-          item.es_no_valido = true;
-        }
-      }
-    }
-
-    const visibles = lista.filter((item) => item.tipo_interaccion !== CANCELACION);
-
-    // Paso 2: Consecutividad y marcas de tiempo
-    for (let i = 0; i < visibles.length; i++) {
-      const actual = visibles[i];
-      const anterior = i > 0 ? visibles[i - 1] : null;
-
-      if (anterior) {
-        const tActual = new Date(actual.fecha_emision).getTime();
-        const tAnterior = new Date(anterior.fecha_emision).getTime();
-        const diffMinutos = Math.abs(tActual - tAnterior) / (1000 * 60);
-
-        const diaActual = actual.fecha_emision.slice(0, 10);
-        const diaAnterior = anterior.fecha_emision.slice(0, 10);
-        const mismoDia = diaActual === diaAnterior;
-
-        if (diffMinutos >= 30) {
-          actual.marcaTiempoSeparador = mismoDia
-            ? formatHora(actual.fecha_emision)
-            : `${formatFechaTextoLargo(diaActual)} · ${formatHora(actual.fecha_emision)}`;
-        }
-
-        const tiposTexto = ['Mensaje al profesor', 'Feedback', 'Consulta'];
-        const esMensajeTexto =
-          tiposTexto.includes(actual.tipo_interaccion) &&
-          tiposTexto.includes(anterior.tipo_interaccion);
-        const mismoEmisor =
-          (Boolean(actual.es_propio) && Boolean(anterior.es_propio)) ||
-          actual.emisor === anterior.emisor;
-        if (
-          !actual.marcaTiempoSeparador &&
-          mismoDia &&
-          mismoEmisor &&
-          actual.es_de_docente === anterior.es_de_docente &&
-          esMensajeTexto
-        ) {
-          actual.esConsecutivo = true;
-        }
-      }
-    }
-
-    return visibles;
-  });
-
-  interface Grupo {
-    etiqueta: string;
-    items: InteraccionDecorada[];
-  }
-
-  const gruposPorFecha = $derived.by((): Grupo[] => {
-    const grupos: Grupo[] = [];
-    for (const item of interaccionesProcesadas) {
-      const dia = item.fecha_emision.slice(0, 10);
-      const etiqueta = formatFechaTextoLargo(dia);
-      const ultimo = grupos[grupos.length - 1];
-      if (ultimo && ultimo.etiqueta === etiqueta) {
-        ultimo.items.push(item);
-      } else {
-        grupos.push({ etiqueta, items: [item] });
-      }
-    }
-    return grupos;
-  });
+  const gruposPorFecha = $derived(
+    agruparPorDia(interaccionesProcesadas).map((g) => ({ etiqueta: formatFechaTextoLargo(g.dia), items: g.items })),
+  );
 
   let totalPrevio = 0;
 
