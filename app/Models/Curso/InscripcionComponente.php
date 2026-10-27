@@ -12,9 +12,13 @@ use App\Models\Base\Curso\BaseInscripcionComponente;
  */
 class InscripcionComponente extends BaseInscripcionComponente
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    /**
+     * Alias del código de inscripción de Intranet (INS_ID).
+     */
+    public function getInsIdAttribute(): ?int
+    {
+        return $this->cod_inscripcion_curso_uta !== null && is_numeric($this->cod_inscripcion_curso_uta) && (int) $this->cod_inscripcion_curso_uta > 0
+            ? (int) $this->cod_inscripcion_curso_uta
+            : null;
+    }
 }
