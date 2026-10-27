@@ -26,10 +26,10 @@ yendo a `main` sobre la paleta actual.
 |---|---|---|---|
 | 0 | RED-00 | Fundamentos: variables, estilos, componentes base y 2–3 direcciones del Inicio del estudiante | Dirección B elegida; faltan componentes en Figma |
 | 1 | RED-01 | Estudiante (18 pantallas) | Implementado en Svelte en esta rama (ver «Implementación del lote 1»); falta la revisión y pasarlo a Figma |
-| 2 | RED-02 | Docente (20) | Pendiente |
-| 3 | RED-03 | Jefe de carrera, ayudante y dashboards (11) | Pendiente |
-| 4 | RED-04 | Administración (15) | Pendiente |
-| 5 | RED-05 | Ingreso y ajustes (12) | Propuestas A y B de portada y login en el lienzo (ver «Lote 5 · Ingreso»); falta elegir |
+| 2 | RED-02 | Docente (20) | Pendiente: falta un diseño propuesto |
+| 3 | RED-03 | Jefe de carrera, ayudante y dashboards (11) | Pendiente: falta un diseño propuesto |
+| 4 | RED-04 | Administración (15) | Pendiente: falta un diseño propuesto |
+| 5 | RED-05 | Ingreso y ajustes (12) | Dirección A elegida; portada y login implementados (RED-IMP-05, ver «Lote 5 · Implementación»); las otras 11 pantallas en espera (RED-05b) |
 
 ## Límites del plan Starter de Figma
 
@@ -240,16 +240,46 @@ Criterios comunes:
     la foto desenfocada de fondo. No va foto hasta tener trabajo real de estudiantes con crédito (cap. 07).
 - **Trato neutro:** «Ingresa a UTAMED» en vez de «Bienvenido de vuelta».
 
-Pendiente:
+Decisiones del usuario (2026-10-27):
 
-- Elegir A o B, o una mezcla.
-- Conseguir el isologotipo UTA y el vectorial del dm.
-- Decidir si se mantiene la diferencia entre «RUT no registrado» y «contraseña incorrecta». Hoy la app las distingue, y
-  eso permite averiguar qué RUT tienen cuenta.
-- Unificar el correo de soporte: `ErrorAlert` dice soporte@uta.cl para la cuenta desactivada y el resto de la app dice
-  cite@gestion.uta.cl. Las propuestas usan el segundo.
-- Hacer las otras diez pantallas del lote: recuperar y restablecer contraseña, 2FA, cambio obligatorio, ajustes y
-  SinRol.
+- Dirección A. El rediseño del ingreso vale para todos los roles; las interfaces internas de docente, jefe y admin
+  esperan su propio diseño.
+- Título «Bienvenido a mi UTA<sup>med</sup>», con «med» como exponente.
+- Un solo error de ingreso, «Credenciales incorrectas», sin distinguir RUT de contraseña.
+- Soporte en cite@gestion.uta.cl.
+- Las otras pantallas del lote (recuperar y restablecer contraseña, 2FA, confirmar contraseña, verificar correo,
+  cambio obligatorio, ajustes y SinRol) quedan en espera en RED-05b.
+
+## Lote 5 · Implementación
+
+Portada (`Welcome.svelte`) y login (`auth/Login.svelte`) en Svelte, tarjeta RED-IMP-05.
+
+- **Piezas compartidas** en `components/ingreso/`: `UtaMed` (el exponente, todo en em, así sirve en los dos tamaños
+  de título), `BotonTema` (el mismo ciclo Claro → Oscuro → Sistema de la barra del alumno) y `LogosInstitucionales`.
+  La clase `vista-ingreso` toma el foco dm de `guia-dm.css`.
+- **Logos:** `public/img/uta-isologotipo.png` y `public/img/dm-logotipo.jpeg` (renombrados para no tener espacios en
+  la URL). El isologotipo trae el texto en blanco y sólo se lee sobre noche; por eso el pie de la portada es noche y
+  no claro como en el lienzo.
+- **Diferencias con el lienzo:**
+  - «med» es un poco más grande que en el lienzo (0,55 em en vez de 0,42), como pidió el usuario.
+  - La portada móvil sigue la edición del usuario en la de escritorio: sin texto de apoyo ni tarjeta de acceso.
+    Para entrar queda el botón «Ingresar» de la cabecera.
+  - El RUT se sigue formateando al escribir (el guion se agrega solo), así que el aviso «falta el dígito verificador»
+    pasó a «El RUT está incompleto…», que se muestra al enviar.
+  - Sale el estado «correo sin verificar»: el backend nunca lo mandaba al login.
+- **Backend:**
+  - `LoginErrorCode` queda con `INVALID_CREDENTIALS`, `USER_INACTIVE` y `RATE_LIMIT_EXCEEDED`.
+  - La cuenta desactivada se revisa después de la contraseña.
+  - El throttle del login (`login.store`) vuelve al formulario con los segundos de pausa, en vez de un 429 en modal.
+  - Los registros del servidor siguen distinguiendo la causa.
+- **Verificación:**
+  - `tests/Feature/Auth`: pasan 33 de 34. Falla `RegistrationTest`, que ya fallaba antes de este cambio: la regla
+    `uncompromised()` rechaza `Password123!`.
+  - svelte-check: los 9 errores de siempre, ninguno nuevo. El build de Vite pasa.
+  - Playwright a 1440 y 390 px, en claro y oscuro: contraste AA, texto de 13 px o más y objetivos de 44 px sin
+    fallos. También se probaron los estados RUT incompleto, credenciales y pausa por intentos.
+- **Riesgo que queda:** un RUT inexistente responde algo más rápido que una contraseña errónea, porque no llega a
+  comparar el hash. Para cerrar esa vía habría que comparar contra un hash ficticio.
 
 ## Decisiones
 
