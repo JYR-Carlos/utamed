@@ -42,6 +42,23 @@ class MensajeriaCursoEstudiante
     }
 
     /**
+     * Mensajes del curso que el alumno todavía no abre, sumando sus
+     * componentes. Es el contador de la pestaña; a diferencia de bandeja(),
+     * no marca nada como leído.
+     */
+    public function noLeidos(Curso $curso, int $idUsuario): int
+    {
+        $noLeidos = $this->mensajeria->noLeidosPorComponente(
+            $this->componentesDelCurso($curso, $idUsuario)
+                ->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
+            $idUsuario,
+            esStaff: false,
+        );
+
+        return (int) array_sum($noLeidos);
+    }
+
+    /**
      * Bandeja del curso: sus componentes con badges de no leídos y el panel del
      * componente activo (el pedido si es suyo; si no, el primero).
      *

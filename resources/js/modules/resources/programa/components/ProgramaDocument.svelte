@@ -12,8 +12,8 @@
    * verdad es la IX, que trae su tabla de componentes de evaluación.
    */
   import type { Snippet } from 'svelte';
-  import { BookOpen, ExternalLink, Link } from 'lucide-svelte';
-  import { bloquesDeSeccion, textoDeSeccion } from '../utils/syllabusTexto';
+  import { Link } from 'lucide-svelte';
+  import { bloquesDeSeccion, segmentarTexto, textoDeSeccion } from '../utils/syllabusTexto';
 
   interface ComponenteEvaluacion {
     componente: string;
@@ -38,50 +38,15 @@
     pendientes?: Seccion[];
     /** Snippet para el sello/acciones que el padre inyecta bajo el documento. */
     actions?: Snippet;
-    /**
-     * 'documento' (docente/admin): una sola columna de lectura sin tarjetas.
-     * 'tarjetas' (estudiante, T28): cada sección en su propia tarjeta, mismo
-     * contenido íntegro.
-     */
-    variante?: 'documento' | 'tarjetas';
   }
 
-  let { secciones, pendientes = [], actions, variante = 'documento' }: Props = $props();
-
-  const enTarjetas = $derived(variante === 'tarjetas');
+  // El alumno lee el programa con sus propios componentes (pages/student/Courses).
+  let { secciones, pendientes = [], actions }: Props = $props();
 
   const contenidoDe = (s: Seccion) => textoDeSeccion(s.contenidos ?? s.contenidos_programa);
 
   /** Sólo se dibujan las secciones con contenido; las vacías van a «pendientes». */
   const conContenido = $derived(secciones.filter((s) => contenidoDe(s).trim() !== ''));
-
-  interface SegmentoTexto {
-    tipo: 'texto' | 'url' | 'archivo';
-    texto: string;
-    href?: string;
-  }
-
-  function segmentarTexto(texto: string | null | undefined): SegmentoTexto[] {
-    if (!texto) return [];
-    const partes = texto.split(
-      /(https?:\/\/[^\s,\])>]+|\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo)/g,
-    );
-    return partes.map((parte): SegmentoTexto => {
-      if (/^\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo$/.test(parte)) {
-        return { tipo: 'archivo', texto: 'Ver archivo', href: parte };
-      }
-      if (/^https?:\/\//.test(parte)) {
-        return { tipo: 'url', texto: parte, href: parte };
-      }
-      return { tipo: 'texto', texto: parte };
-    });
-  }
-
-  /** Primer enlace del texto (URL o archivo), para el ícono de «abrir» del recurso. */
-  const enlaceDe = (texto: string) => segmentarTexto(texto).find((s) => s.href)?.href;
-
-  /** La cita llega entre «guillemets»; como línea propia se lee sin ellos. */
-  const sinGuillemets = (cita: string) => cita.replace(/^«\s*/, '').replace(/\s*»$/, '');
 
   const NUM = 'min-w-[34px] shrink-0 whitespace-nowrap font-mono text-[13px] text-slate-600';
   const TITULO = 'm-0 min-w-0 break-words text-[19px] font-semibold tracking-[-0.01em] text-ink';
@@ -114,17 +79,13 @@
 {/snippet}
 
 <article
-  class="flex w-full flex-col text-[15px] leading-[1.65] text-ink {enTarjetas
-    ? 'programa-tarjetas gap-4'
-    : 'max-w-190 gap-7.5 rounded-[10px] border border-gray-200 bg-white px-6 py-9 sm:px-12 sm:pb-10'}"
+  class="flex w-full max-w-190 flex-col gap-7.5 rounded-[10px] border border-gray-200 bg-white px-6 py-9 text-[15px] leading-[1.65] text-ink sm:px-12 sm:pb-10"
 >
   {#each conContenido as seccion (seccion.numeral_romano ?? seccion.nombre_seccion)}
     {@const bloques = bloquesDeSeccion(contenidoDe(seccion), seccion.numeral_romano)}
     <section
       id="seccion-{seccion.numeral_romano}"
-      class="flex scroll-mt-6 flex-col gap-3 {enTarjetas
-        ? 'programa-tarjeta rounded-2xl border border-gray-200 bg-white p-5 sm:p-7'
-        : ''}"
+      class="flex scroll-mt-6 flex-col gap-3"
       aria-labelledby="titulo-{seccion.numeral_romano}"
     >
       <div class="flex items-baseline gap-2.5">
@@ -175,44 +136,6 @@
             {@const esListaBiblio =
               seccion.numeral_romano === 'VIII' ||
               bloque.items.some((i) => i.texto.includes('Biblioteca UTA'))}
-            {#if esListaBiblio && enTarjetas}
-              <!-- Vista del alumno: una fila por recurso, con ícono de libro, la
-                   referencia y, debajo, la cita en tamaño de apoyo (antes era
-                   una segunda línea itálica de 11–12 px casi idéntica). -->
-              <ul class="m-0 flex list-none flex-col p-0">
-                {#each bloque.items as item (item.texto)}
-                  {@const url = enlaceDe(item.texto)}
-                  <li
-                    class="flex items-start gap-3 border-b border-slate-200 py-4 last:border-b-0 {item.texto.includes('Biblioteca UTA')
-                      ? 'bg-brand-light'
-                      : ''}"
-                  >
-                    <BookOpen class="mt-0.5 h-5 w-5 shrink-0 text-uta-blue" aria-hidden="true" />
-                    <div class="flex min-w-0 flex-1 flex-col gap-1">
-                      <span class="text-pretty text-[15px] font-semibold leading-snug text-slate-900">
-                        {@render renderizarTexto(item.texto)}
-                      </span>
-                      {#if item.cita}
-                        <span class="text-pretty text-[13px] leading-snug text-slate-600">
-                          {@render renderizarTexto(sinGuillemets(item.cita))}
-                        </span>
-                      {/if}
-                    </div>
-                    {#if url}
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="mt-1 shrink-0 text-uta-blue"
-                        aria-label="Abrir el recurso (se abre en otra pestaña)"
-                      >
-                        <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
-                      </a>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
-            {:else}
             <ul class="m-0 flex list-disc flex-col gap-1.5 marker:text-gray-400">
               {#each bloque.items as item (item.texto)}
                 {@const esUta = item.texto.includes('Biblioteca UTA')}
@@ -232,7 +155,6 @@
                 </li>
               {/each}
             </ul>
-            {/if}
           {:else}
             <p class="m-0 text-pretty">{@render renderizarTexto(bloque.texto)}</p>
           {/if}
