@@ -865,6 +865,7 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $user = Auth::user();
         $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
@@ -1003,8 +1004,9 @@ class DocenteActivityController extends Controller
             Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
 
+        $esAdmin = $user->isSuperAdmin() || $user->hasAnyRoleGlobally(Usuario::ROLES_ADMINISTRATIVOS);
         $tieneEvaluaciones = $actividad->hanComenzadoEvaluaciones();
-        $puedeEditarRubrica = $esTitular && !$tieneEvaluaciones;
+        $puedeEditarRubrica = ($esAdmin || $esTitular || $esDocenteComponente || $user->can(Permissions::ACTIVIDADES_EVALUAR, $curso)) && !$tieneEvaluaciones;
 
         // Estudiantes inscritos en el curso (para asignación de grupos)
         $estudiantesInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
@@ -1815,6 +1817,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $entregas = $this->listarEntregas(
             Agenda::whereHas('actividadAsignadaGrupo', function ($query) use ($actividad) {
@@ -1835,6 +1838,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Verificar que el grupo pertenece a la actividad
         $grupoExiste = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)

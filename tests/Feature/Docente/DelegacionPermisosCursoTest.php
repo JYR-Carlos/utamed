@@ -243,8 +243,9 @@ class DelegacionPermisosCursoTest extends TestCase
         ]);
 
         // Verificar con motor de validación can() usando enum
+        $colegiadoOtorgado = Usuario::find($this->colegiado->id_usuario);
         $this->assertTrue(
-            $this->colegiado->can($permisoSlug, $this->curso),
+            $colegiadoOtorgado->can($permisoSlug, $this->curso),
             'El usuario colegiado debería tener el permiso otorgado evaluado con can(Permissions::...)'
         );
 
@@ -269,8 +270,9 @@ class DelegacionPermisosCursoTest extends TestCase
         ]);
 
         // Verificar que can() usando enum ahora retorne false
+        $colegiadoRevocado = Usuario::find($this->colegiado->id_usuario);
         $this->assertFalse(
-            $this->colegiado->can($permisoSlug, $this->curso),
+            $colegiadoRevocado->can($permisoSlug, $this->curso),
             'El usuario colegiado ya no debería tener el permiso tras la revocación'
         );
     }
@@ -341,16 +343,14 @@ class DelegacionPermisosCursoTest extends TestCase
             ->assertSessionHas('success');
 
         // Refrescar usuario autenticado
-        $this->colegiado->refresh();
+        $userColegiado = Usuario::find($this->colegiado->id_usuario);
         $this->assertTrue(
-            $this->colegiado->can(Permissions::ACTIVIDADES_EVALUAR, $this->curso),
+            $userColegiado->can(Permissions::ACTIVIDADES_EVALUAR, $this->curso),
             'Colegiado debe tener ACTIVIDADES_EVALUAR tras delegación'
         );
 
         // Con permiso delegado: el colegiado pasa el guard assertPuedeEditarEvaluacion
         // y no recibe 403 (llega a validación de campos)
-        $userColegiado = Usuario::find($this->colegiado->id_usuario);
-
         $responseConPermiso = $this->actingAs($userColegiado)
             ->post(route('docente.cursos.actividades.grupos.create', [$this->curso, $actividad]), [
                 'nombre_grupo' => 'Grupo 1',
@@ -412,5 +412,98 @@ class DelegacionPermisosCursoTest extends TestCase
                 "Colegiado NO debe tener {$slug} tras revocación batch"
             );
         }
+    }
+
+    /**
+     * Test 5: Autorización de showEvaluacion y permiso de rúbricas por componente y delegación
+     */
+    public function test_docente_no_puede_ver_evaluacion_de_componente_ajeno_pero_si_propio_con_edicion_de_rubrica(): void
+    {
+        $tipoOtro = TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
+        $componenteAjeno = Componente::create([
+            'id_curso' => $this->curso->id_curso,
+            'id_tipo_componente' => $tipoOtro->id_tipo_componente,
+            'total_alumnos' => 30,
+            'genera_acta' => true,
+            'porcentaje_aprobacion' => 100,
+            'aprobacion_obligatoria' => true,
+            'porcentaje_asistencia_obligatoria' => 75,
+        ]);
+
+        $unidad = Unidad::firstOrCreate([
+            'id_curso' => $this->curso->id_curso,
+            'num_unidad' => 1,
+        ], [
+            'nombre' => 'Unidad 1',
+            'es_plantilla' => false,
+        ]);
+
+        $actividadPropia = Actividad::create([
+            'id_componente' => $this->componente->id_componente,
+            'id_unidad' => $unidad->id_unidad,
+            'nombre' => 'Actividad Propia Colegiado',
+            'ponderacion' => 10,
+            'tipo_actividad' => 'SUMATIVA',
+            'tipo_entrega' => 'SIN_ENTREGA',
+            'es_sumativa' => true,
+            'es_grupal' => false,
+            'trae_archivo' => false,
+            'nro_dias_adicionales_para_bloqueo' => 0,
+        ]);
+
+        $actividadAjena = Actividad::create([
+            'id_componente' => $componenteAjeno->id_componente,
+            'id_unidad' => $unidad->id_unidad,
+            'nombre' => 'Actividad Ajena Sin Delegar',
+            'ponderacion' => 10,
+            'tipo_actividad' => 'SUMATIVA',
+            'tipo_entrega' => 'SIN_ENTREGA',
+            'es_sumativa' => true,
+            'es_grupal' => false,
+            'trae_archivo' => false,
+            'nro_dias_adicionales_para_bloqueo' => 0,
+        ]);
+
+        // 1. Actividad propia: el colegiado accede y puede editar la rúbrica
+        $responsePropia = $this->actingAs($this->colegiado)
+            ->get(route('docente.cursos.actividades.evaluacion', [$this->curso, $actividadPropia]));
+
+        $responsePropia->assertOk();
+        $responsePropia->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
+            $page->component('docente/Activities/Index')
+                ->where('puede_editar_rubrica', true)
+        );
+
+        // 2. Actividad ajena: el colegiado recibe 403 Forbidden
+        $responseAjena = $this->actingAs($this->colegiado)
+            ->get(route('docente.cursos.actividades.evaluacion', [$this->curso, $actividadAjena]));
+
+        $responseAjena->assertStatus(403);
+
+        // 3. Titular delega ACTIVIDADES_EVALUAR al colegiado
+        Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_EVALUAR->value],
+            ['nombre' => 'Evaluar Actividades', 'modulo' => 'Actividades']
+        );
+
+        $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario' => $this->colegiado->id_usuario,
+                'slug' => Permissions::ACTIVIDADES_EVALUAR->value,
+                'otorgar' => true,
+            ])
+            ->assertSessionHas('success');
+
+        $userColegiado = Usuario::find($this->colegiado->id_usuario);
+
+        // 4. Con permiso delegado: accede a la actividad ajena y puede editar rúbrica
+        $responseAjenaConPermiso = $this->actingAs($userColegiado)
+            ->get(route('docente.cursos.actividades.evaluacion', [$this->curso, $actividadAjena]));
+
+        $responseAjenaConPermiso->assertOk();
+        $responseAjenaConPermiso->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
+            $page->component('docente/Activities/Index')
+                ->where('puede_editar_rubrica', true)
+        );
     }
 }

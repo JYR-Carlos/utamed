@@ -225,7 +225,9 @@
    * el docente de componente, sólo el suyo.
    */
   const actividadesDelRol = $derived(
-    curso.es_titular_curso
+    curso.es_titular_curso ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:ver') ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:evaluar')
       ? actividades
       : actividades.filter((a) => misComponentesIds.includes(a.id_componente ?? -1)),
   );
@@ -251,7 +253,9 @@
 
   /** Componentes por los que se puede filtrar el tablero de actividades. */
   const componentesDeActividades = $derived(
-    curso.es_titular_curso
+    curso.es_titular_curso ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:ver') ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:evaluar')
       ? todos_componentes.map((c) => ({ id: c.id_componente, tipo: c.tipo_componente }))
       : mis_componentes.map((c) => ({ id: c.id_componente, tipo: c.tipo_componente })),
   );
