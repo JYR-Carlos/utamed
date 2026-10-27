@@ -8,6 +8,7 @@ use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Services\Authorization\PermissionCache;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -116,6 +117,103 @@ class PermisosCursoService
         ]);
 
         // Invalidar caché del usuario modificado para reflejo inmediato en can()
+        app(PermissionCache::class)->olvidarUsuario($idUsuario);
+    }
+
+    /**
+     * Sincroniza múltiples permisos para un usuario en un contexto específico en una sola transacción.
+     *
+     * @param int $idUsuario
+     * @param array<string|int> $slugsOrIds
+     * @param int $idContexto
+     * @param bool $otorgar
+     * @param string $origen
+     */
+    public function syncPermisosBatch(
+        int $idUsuario,
+        array $slugsOrIds,
+        int $idContexto,
+        bool $otorgar,
+        string $origen = 'PermisosCursoService'
+    ): void {
+        if (empty($slugsOrIds)) {
+            return;
+        }
+
+        DB::transaction(function () use ($idUsuario, $slugsOrIds, $idContexto, $otorgar, $origen) {
+            $slugs = array_values(array_filter($slugsOrIds, 'is_string'));
+            $ids   = array_values(array_filter($slugsOrIds, 'is_int'));
+
+            $query = Permiso::query();
+            if (!empty($slugs) && !empty($ids)) {
+                $query->whereIn('slug', $slugs)->orWhereIn('id_permiso', $ids);
+            } elseif (!empty($slugs)) {
+                $query->whereIn('slug', $slugs);
+            } else {
+                $query->whereIn('id_permiso', $ids);
+            }
+
+            $permisos = $query->get()->keyBy('id_permiso');
+            $permisosIds = $permisos->keys()->all();
+
+            $existing = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
+                ->where('id_contexto', $idContexto)
+                ->whereIn('id_permiso', $permisosIds)
+                ->get()
+                ->keyBy('id_permiso');
+
+            $authId = Auth::id();
+
+            foreach ($permisos as $permiso) {
+                $existente = $existing->get($permiso->id_permiso);
+
+                if ($otorgar) {
+                    if ($existente) {
+                        $existente->update([
+                            'esta_activo'             => true,
+                            'fue_borrado'             => false,
+                            'esta_permitido'          => true,
+                            'fecha_fin_real'          => null,
+                            'fecha_fin_planificada'   => now()->addYears(5),
+                            'creado_por'              => $authId,
+                        ]);
+                    } else {
+                        UsuarioPermisoEspecial::create([
+                            'id_usuario'               => $idUsuario,
+                            'id_permiso'               => $permiso->id_permiso,
+                            'id_contexto'              => $idContexto,
+                            'esta_permitido'           => true,
+                            'puede_delegar'            => false,
+                            'esta_activo'              => true,
+                            'fue_borrado'              => false,
+                            'fecha_inicio_planificada' => now(),
+                            'fecha_fin_planificada'    => now()->addYears(5),
+                            'fecha_fin_real'           => null,
+                            'creado_por'               => $authId,
+                        ]);
+                    }
+                } else {
+                    if ($existente) {
+                        $existente->update([
+                            'esta_activo'    => false,
+                            'fue_borrado'    => true,
+                            'fecha_fin_real' => now(),
+                            'eliminado_por'  => $authId,
+                        ]);
+                    }
+                }
+            }
+
+            Log::info("[{$origen}] syncPermisosBatch", [
+                'id_usuario'  => $idUsuario,
+                'total'       => count($permisos),
+                'id_contexto' => $idContexto,
+                'otorgar'     => $otorgar,
+                'auth_user'   => $authId,
+            ]);
+        });
+
+        // Invalidar caché del usuario modificado una sola vez
         app(PermissionCache::class)->olvidarUsuario($idUsuario);
     }
 

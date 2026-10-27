@@ -185,6 +185,43 @@ class DelegacionPermisosController extends Controller
         return back()->with('success', 'Permiso actualizado');
     }
 
+    /**
+     * POST /docente/cursos/{curso}/delegacion-permisos/batch
+     *
+     * Otorga o revoca un conjunto de permisos para un miembro del curso en una sola transacción.
+     *
+     * Request body:
+     *   { id_usuario: int, slugs: array<string>, otorgar: bool }
+     */
+    public function batch(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorize('manageTeam', $curso);
+
+        $allSlugs = $this->allDelegableSlugs();
+
+        $validated = $request->validate([
+            'id_usuario' => ['required', 'integer', 'exists:usuario,id_usuario'],
+            'slugs'      => ['required', 'array', 'min:1'],
+            'slugs.*'    => ['required', 'string', 'in:' . implode(',', $allSlugs)],
+            'otorgar'    => ['required', 'boolean'],
+        ]);
+
+        $this->assertIsMiembroCurso($curso, $validated['id_usuario']);
+
+        $this->permisosService->syncPermisosBatch(
+            idUsuario:  $validated['id_usuario'],
+            slugsOrIds: $validated['slugs'],
+            idContexto: $curso->id_contexto,
+            otorgar:    $validated['otorgar'],
+            origen:     'DelegacionPermisos',
+        );
+
+        $accion = $validated['otorgar'] ? 'otorgados' : 'revocados';
+        $cantidad = count($validated['slugs']);
+
+        return back()->with('success', "Se han {$accion} {$cantidad} permisos correctamente.");
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // HELPERS PRIVADOS
     // ────────────────────────────────────────────────────────────────────────
