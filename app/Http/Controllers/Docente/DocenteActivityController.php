@@ -162,7 +162,7 @@ class DocenteActivityController extends Controller
         return collect(Auth::user()->getAllPermissions($curso->id_contexto))
             ->map(fn ($perm) => [
                 'id_permiso' => $perm['id_permiso'],
-                'slug' => $perm['slug'],
+                'slug' => $perm['slug'] instanceof \BackedEnum ? $perm['slug']->value : (string) $perm['slug'],
                 'esta_permitido' => (bool) $perm['esta_permitido'],
             ])
             ->values()

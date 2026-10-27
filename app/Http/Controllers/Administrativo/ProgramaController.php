@@ -164,7 +164,7 @@ class ProgramaController extends Controller
         $user = Auth::user();
         $userPermissions = collect($user->getAllPermissions($curso->id_contexto))->map(fn($p) => [
             'id_permiso'    => $p['id_permiso'],
-            'slug'          => $p['slug'],
+            'slug'          => $p['slug'] instanceof \BackedEnum ? $p['slug']->value : (string) $p['slug'],
             'esta_permitido' => (bool) $p['esta_permitido'],
             'puede_delegar' => (bool) ($p['puede_delegar'] ?? false),
         ])->values()->toArray();

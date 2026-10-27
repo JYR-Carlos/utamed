@@ -194,8 +194,11 @@ class PermissionValidator
             ->select('id_usuario', 'id_contexto', 'id_permiso', 'slug', 'esta_permitido', 'tipo_asignacion', 'puede_delegar')
             ->where('id_usuario', $user->id_usuario);
 
+        $contextRank = null;
         if ($contextId !== null) {
-            $query->where('id_contexto', $contextId);
+            $contextIds = $this->resolveTargetContextsFromExplicit($contextId);
+            $query->whereIn('id_contexto', $contextIds);
+            $contextRank = array_flip($contextIds);
         }
 
         if ($permissionType !== null) {
@@ -221,11 +224,17 @@ class PermissionValidator
                 'tipo_asignacion' => $perm->tipo_asignacion,
                 'puede_delegar' => $perm->puede_delegar ?? false,
             ];
-        });
+        })->filter();
 
-        return $permissions->filter(
-            fn($perm) => $perm !== null
-        )->values();
+        if ($contextRank !== null) {
+            $permissions = $permissions->sortBy(function ($perm) use ($contextRank) {
+                $rank = $contextRank[$perm['id_contexto']] ?? 999;
+                $typeRank = $perm['tipo_asignacion'] === 'especial' ? 0 : 1;
+                return $rank * 10 + $typeRank;
+            })->unique(fn($perm) => $perm['slug']->value);
+        }
+
+        return $permissions->values();
     }
 
     /**
