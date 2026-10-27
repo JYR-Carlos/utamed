@@ -39,7 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Handle LoginException - convert to validation errors with specific error codes
-        $exceptions->render(function (\App\Exceptions\LoginException $e, $request) {
+        $responderLogin = function (\App\Exceptions\LoginException $e, $request) {
             // Log the exception
             \Illuminate\Support\Facades\Log::channel('single')->warning('[LOGIN EXCEPTION]', [
                 'error_code' => $e->errorCode->value,
@@ -65,8 +65,9 @@ return Application::configure(basePath: dirname(__DIR__))
                     'retry_after' => $e->retryAfter,
                 ]);
 
+                // La contraseña no se guarda en la sesión con el resto del input.
                 return back()
-                    ->withInput($request->input())
+                    ->withInput($request->except('password'))
                     ->withErrors([
                         'email' => $e->getMessage(),
                     ]);
@@ -74,5 +75,21 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // For other requests, don't catch - let default error handling occur
             return null;
+        };
+
+        $exceptions->render($responderLogin);
+
+        // El límite de intentos del login (throttle de Fortify) llega como un 429
+        // que Inertia mostraría en un modal; se responde como un error del login
+        // para que el formulario muestre la pausa con su cuenta regresiva.
+        $exceptions->render(function (\Illuminate\Http\Exceptions\ThrottleRequestsException $e, $request) use ($responderLogin) {
+            if (! $request->routeIs('login.store') || $request->expectsJson()) {
+                return null;
+            }
+
+            return $responderLogin(new \App\Exceptions\LoginException(
+                \App\Enums\LoginErrorCode::RATE_LIMIT_EXCEEDED,
+                (int) ($e->getHeaders()['Retry-After'] ?? 60),
+            ), $request);
         });
     })->create();

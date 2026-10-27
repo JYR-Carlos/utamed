@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Usuario\Usuario;
+use App\Support\DataGenerators\ChileanNameGenerator;
 
 test('login screen can be rendered', function () {
     $response = $this->get('/login');
@@ -43,6 +44,50 @@ test('users can not authenticate with invalid password', function () {
         'password' => 'wrong-password',
     ]);
 
+    $this->assertGuest();
+});
+
+test('un RUT sin cuenta y una contraseña errónea dan el mismo error', function () {
+    $user = Usuario::factory()->create();
+    do {
+        $rutSinCuenta = ChileanNameGenerator::generarRUT();
+    } while (Usuario::where('rut', $rutSinCuenta)->exists());
+
+    $this->post('/login', ['email' => $rutSinCuenta, 'password' => 'password'])
+        ->assertSessionHas('login_error.code', 'INVALID_CREDENTIALS')
+        ->assertSessionHasErrors(['email' => 'Credenciales incorrectas.']);
+
+    $this->post('/login', ['email' => $user->rut, 'password' => 'wrong-password'])
+        ->assertSessionHas('login_error.code', 'INVALID_CREDENTIALS')
+        ->assertSessionHasErrors(['email' => 'Credenciales incorrectas.']);
+
+    $this->assertGuest();
+});
+
+test('la cuenta desactivada sólo se informa con la contraseña correcta', function () {
+    $user = Usuario::factory()->inactive()->create();
+
+    $this->post('/login', ['email' => $user->rut, 'password' => 'wrong-password'])
+        ->assertSessionHas('login_error.code', 'INVALID_CREDENTIALS');
+
+    $this->post('/login', ['email' => $user->rut, 'password' => 'password'])
+        ->assertSessionHas('login_error.code', 'USER_INACTIVE');
+
+    $this->assertGuest();
+});
+
+test('el exceso de intentos vuelve al login con la pausa en segundos', function () {
+    $user = Usuario::factory()->create();
+
+    for ($i = 0; $i < 5; $i++) {
+        $this->post('/login', ['email' => $user->rut, 'password' => 'wrong-password']);
+    }
+
+    $response = $this->post('/login', ['email' => $user->rut, 'password' => 'password']);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('login_error.code', 'RATE_LIMIT_EXCEEDED');
+    expect(session('login_error.retry_after'))->toBeGreaterThan(0);
     $this->assertGuest();
 });
 

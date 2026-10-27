@@ -1,490 +1,303 @@
 <script lang="ts">
   /**
-   * Página de login del sistema UtaMed.
+   * Ingreso a UTAMED con RUT y contraseña (guía dm, dirección A · Noche).
    *
-   * Formulario de autenticación que permite a usuarios ingresar sus
-   * credenciales (RUT/contraseña).
+   * Panel de marca noche con el degradado y la retícula (en móvil, arriba) y el
+   * formulario sobre la página. El campo se llama `email` por compatibilidad
+   * con Fortify, pero lleva el RUT.
    *
-   * Características:
-   * - Campo de RUT para flexibilidad en login
-   * - Opción de "Recuérdame" para mantener sesión
-   * - Enlace a recuperación de contraseña
-   * - Validación de errores con display diferenciado (RUT no encontrado, contraseña incorrecta, etc)
-   * - Spinner de carga durante autenticación
-   * - Soporte para login con Fortify (Laravel)
-   * - Timer visual para rate limiting
-   *
-   * Composición: tarjeta de cristal centrada sobre la foto de fondo, partida
-   * en dos: panel de marca a la izquierda (logo, nombre, tagline y una
-   * retícula de "teclas" decorativa con una tecla naranja, el color del
-   * isotipo) y el formulario a la derecha. En pantallas angostas el panel se
-   * oculta y el logo pasa a encabezar el formulario.
+   * Errores (loginError, ver bootstrap/app.php): RUT inexistente y contraseña
+   * errónea dan el mismo «Credenciales incorrectas», para no revelar qué RUT
+   * tienen cuenta; la cuenta desactivada sólo llega con la contraseña correcta,
+   * y el exceso de intentos trae los segundos de pausa.
    */
-  import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
-  import ErrorAlert from '@/components/custom/common/ErrorAlert.svelte';
-  import TextLink from '@/components/custom/common/TextLink.svelte';
-  import { Button } from '@/components/ui/button';
-  import { Checkbox } from '@/components/ui/checkbox';
-  import { Label } from '@/components/ui/label';
-  import { Spinner } from '@/components/ui/spinner';
-  import { login } from '@/routes';
+  import BotonTema from '@/components/ingreso/BotonTema.svelte';
+  import LogosInstitucionales from '@/components/ingreso/LogosInstitucionales.svelte';
+  import UtaMed from '@/components/ingreso/UtaMed.svelte';
+  import Reticula from '@/components/student/dm/Reticula.svelte';
+  import { campo, enlace, etiqueta } from '@/lib/dm';
+  import { home, login } from '@/routes';
   import { request } from '@/routes/password';
-  import type { BaseFormSnippetProps } from '@/types/forms';
-  import { Form, useForm } from '@inertiajs/svelte';
-  import { Eye, EyeOff } from 'lucide-svelte';
+  import { Link, useForm } from '@inertiajs/svelte';
+  import { ArrowLeft, CircleAlert, CircleCheck, Clock, Eye, EyeOff, LoaderCircle } from 'lucide-svelte';
 
-  /**
-   * Props recibidas del servidor.
-   */
   interface Props {
-    /** Mensaje de estado (ej: "Email verificado") */
+    /** Aviso de Fortify; al login sólo llega el de contraseña restablecida. */
     status?: string;
-    /** Si la contraseña puede ser recuperada */
     canResetPassword: boolean;
-    /** Si está habilitado el registro de usuarios */
     canRegister: boolean;
-    /** Error de login desde el backend (cuando hay POST redirect) */
     loginError?: {
       code: string;
       message: string;
-      retry_after?: number;
-    };
+      retry_after?: number | null;
+    } | null;
   }
 
-  type ErrorCode =
-    | 'RUT_NOT_FOUND'
-    | 'PASSWORD_INCORRECT'
-    | 'USER_INACTIVE'
-    | 'EMAIL_NOT_VERIFIED'
-    | 'RATE_LIMIT_EXCEEDED'
-    | null;
+  let { status, canResetPassword, loginError }: Props = $props();
 
-  let { status, canResetPassword, canRegister, loginError }: Props = $props();
-  let showPassword = $state(false);
-  let errorCode: ErrorCode = $state(null);
-  let rateLimitRetryAfter: number | undefined = $state(undefined);
-  let rateLimitTimer: ReturnType<typeof setInterval> | null = null;
+  const form = useForm({ email: '', password: '', remember: false });
 
-  const form = useForm({
-    email: '',
-    password: '',
-    remember: false,
-  }) as any;
+  let verClave = $state(false);
+  let rutError = $state('');
 
-  // Inicializar errorCode desde loginError si existe
+  // Pausa por exceso de intentos: cuenta regresiva desde los segundos que
+  // manda el servidor; mientras dura, el formulario queda deshabilitado.
+  let restante = $state(0);
   $effect(() => {
-    if (loginError?.code) {
-      const code = loginError.code as ErrorCode;
-      if (
-        code &&
-        [
-          'RUT_NOT_FOUND',
-          'PASSWORD_INCORRECT',
-          'USER_INACTIVE',
-          'EMAIL_NOT_VERIFIED',
-          'RATE_LIMIT_EXCEEDED',
-        ].includes(code)
-      ) {
-        errorCode = code;
-        if (code === 'RATE_LIMIT_EXCEEDED' && loginError.retry_after) {
-          startRateLimitTimer(loginError.retry_after);
-        }
-      }
-    }
-  });
-
-  // Función para extraer error code de la respuesta del servidor
-  function extractErrorCode(response: any): ErrorCode {
-    // Primero intentar obtener el error_code directo (desde nuestro exception handler)
-    if (response?.error_code) {
-      const code = String(response.error_code);
-      if (
-        code === 'RUT_NOT_FOUND' ||
-        code === 'PASSWORD_INCORRECT' ||
-        code === 'USER_INACTIVE' ||
-        code === 'EMAIL_NOT_VERIFIED' ||
-        code === 'RATE_LIMIT_EXCEEDED'
-      ) {
-        return code as ErrorCode;
-      }
-    }
-
-    // Fallback: intentar inferir del mensaje de error
-    if (response?.email) {
-      const errorMsg = String(response.email).toLowerCase();
-      if (
-        errorMsg.includes('no existe') ||
-        errorMsg.includes('not found') ||
-        errorMsg.includes('rut')
-      ) {
-        return 'RUT_NOT_FOUND';
-      }
-    }
-
-    if (response?.password) {
-      const errorMsg = String(response.password).toLowerCase();
-      if (errorMsg.includes('incorrecta') || errorMsg.includes('incorrect')) {
-        return 'PASSWORD_INCORRECT';
-      }
-      if (errorMsg.includes('inactivo') || errorMsg.includes('inactive')) {
-        return 'USER_INACTIVE';
-      }
-    }
-
-    return null;
-  }
-
-  // Monitorear cambios en los errores del formulario
-  $effect(() => {
-    if ($form.errors && Object.keys($form.errors).length > 0) {
-      const extracted = extractErrorCode($form.errors);
-      if (extracted) {
-        errorCode = extracted;
-
-        // Si hay rate limit, extraer el retry_after
-        if (extracted === 'RATE_LIMIT_EXCEEDED' && !rateLimitTimer) {
-          const retryAfter = parseInt(String(($form.errors as any)?.retry_after ?? 60));
-          startRateLimitTimer(retryAfter);
-        }
-      }
-    } else {
-      errorCode = null;
-      // Limpiar timer si se borran los errores
-      if (rateLimitTimer) {
-        clearInterval(rateLimitTimer);
-        rateLimitTimer = null;
-      }
-      rateLimitRetryAfter = undefined;
-    }
-  });
-
-  // Iniciar countdown para rate limit
-  function startRateLimitTimer(seconds: number) {
-    rateLimitRetryAfter = seconds;
-
-    if (rateLimitTimer) {
-      clearInterval(rateLimitTimer);
-    }
-
-    rateLimitTimer = setInterval(() => {
-      rateLimitRetryAfter = (rateLimitRetryAfter ?? 0) - 1;
-
-      if ((rateLimitRetryAfter ?? 0) <= 0) {
-        clearInterval(rateLimitTimer!);
-        rateLimitTimer = null;
-        rateLimitRetryAfter = undefined;
-      }
+    if (loginError?.code !== 'RATE_LIMIT_EXCEEDED') return;
+    restante = loginError.retry_after ?? 60;
+    const reloj = setInterval(() => {
+      restante -= 1;
+      if (restante <= 0) clearInterval(reloj);
     }, 1000);
-  }
+    return () => clearInterval(reloj);
+  });
+  const bloqueado = $derived(loginError?.code === 'RATE_LIMIT_EXCEEDED' && restante > 0);
+  const deshabilitado = $derived(bloqueado || $form.processing);
+  const cuenta = $derived(`${Math.floor(restante / 60)}:${String(restante % 60).padStart(2, '0')}`);
 
-  // Monitorear checkbox de remember
-  function handleRememberChange(e: Event) {
-    const target = e.target as HTMLInputElement;
-    $form.data.remember = target.checked;
-  }
+  type Aviso = { tono: 'error' | 'warn' | 'ok'; titulo: string; texto?: string };
 
-  // Limpiar timer al desmontar componente
-  $effect(() => {
-    return () => {
-      if (rateLimitTimer) {
-        clearInterval(rateLimitTimer);
-      }
-    };
+  const aviso = $derived.by((): Aviso | null => {
+    if (!loginError) {
+      return status ? { tono: 'ok', titulo: 'Tu contraseña se restableció', texto: 'Ya puedes entrar con la nueva.' } : null;
+    }
+    switch (loginError.code) {
+      case 'INVALID_CREDENTIALS':
+        return { tono: 'error', titulo: 'Credenciales incorrectas' };
+      case 'USER_INACTIVE':
+        return {
+          tono: 'error',
+          titulo: 'Tu cuenta está desactivada',
+          texto: 'Mientras siga así no puedes entrar. Para reactivarla, escribe a cite@gestion.uta.cl desde tu correo institucional.',
+        };
+      case 'RATE_LIMIT_EXCEEDED':
+        return bloqueado
+          ? {
+              tono: 'warn',
+              titulo: 'Hubo varios intentos fallidos seguidos',
+              texto: 'Por seguridad, el ingreso queda en pausa unos segundos. Si no recuerdas la contraseña, recupérala mientras tanto.',
+            }
+          : null;
+      default:
+        return { tono: 'error', titulo: loginError.message };
+    }
   });
 
-  // Deshabilitar inputs si hay rate limit
-  const isRateLimited = $derived(
-    errorCode === 'RATE_LIMIT_EXCEEDED' && (rateLimitRetryAfter ?? 0) > 0,
-  );
+  const avisoEstilo = {
+    error: { caja: 'border-dm-error bg-dm-error-s', icono: 'text-dm-error', Icono: CircleAlert },
+    warn: { caja: 'border-dm-warn bg-dm-warn-s', icono: 'text-dm-warn', Icono: Clock },
+    ok: { caja: 'border-dm-ok bg-dm-ok-s', icono: 'text-dm-ok', Icono: CircleCheck },
+  } as const;
 
-  function formatRut(rut: string): string {
-    // 1. Limpiar absolutamente todo lo que no sea número o K
-    const cleanRut = rut.replace(/[^0-9kK]/gi, '');
+  // Sin btnPrimario: aquí el botón no se aclara al enviar y bloqueado va en gris.
+  const botonEntrar =
+    'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 text-[15px] font-bold';
 
-    // 2. Si no hay suficientes caracteres para un RUT (mínimo cuerpo + DV), no formatear
-    if (cleanRut.length < 2) {
-      return cleanRut;
+  /** Deja sólo números y K, y pone el guion antes del dígito verificador. */
+  function formatearRut(valor: string): string {
+    const limpio = valor.replace(/[^0-9kK]/g, '').slice(0, 9);
+    if (limpio.length < 2) return limpio;
+    return `${limpio.slice(0, -1)}-${limpio.slice(-1).toUpperCase()}`;
+  }
+
+  function entrar(evento: SubmitEvent) {
+    evento.preventDefault();
+    // El formato se revisa al enviar, no mientras se escribe.
+    if (!/^\d{7,8}-[0-9K]$/.test($form.email)) {
+      rutError = 'El RUT está incompleto. Escribe los números y el dígito verificador, por ejemplo 12345678-5.';
+      document.getElementById('rut')?.focus();
+      return;
     }
-
-    // 3. Limitar el largo máximo para evitar que peguen textos gigantes (8 cuerpo + 1 DV = 9)
-    const truncatedRut = cleanRut.slice(0, 9);
-
-    // 4. Separar limpiamente el cuerpo del dígito verificador
-    const body = truncatedRut.slice(0, -1);
-    const dv = truncatedRut.slice(-1).toUpperCase();
-
-    // 5. Retornar el formato limpio que Svelte espera
-    return `${body}-${dv}`;
+    rutError = '';
+    $form.post(login().url, { onFinish: () => $form.reset('password') });
   }
-
-  // Manejar cambios en el input de RUT
-  function handleRutInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-
-    // Formateamos el valor que viene del input
-    const formatted = formatRut(target.value);
-
-    // Actualizamos el estado de Inertia (esto actualizará el input automáticamente)
-    $form.data.email = formatted;
-  }
-
-  // Valida que el RUT tenga el formato correcto
-  function isValidRutFormat(rut: string): boolean {
-    // Elimina puntos, guiones y espacios en blanco al principio/final
-    const cleanRut = rut.replace(/[.-]/g, '').trim();
-
-    // \d{7,8} permite que el cuerpo del RUT tenga 7 u 8 dígitos
-    return /^\d{7,8}[0-9kK]$/.test(cleanRut);
-  }
-
-  let rutValid = $derived(isValidRutFormat($form.data.email));
-
-  /**
-   * Retícula decorativa del panel de marca: sobra por los cuatro lados y la
-   * recorta el `overflow-hidden` del panel, así que la cantidad sólo tiene
-   * que cubrirlo.
-   */
-  const COLUMNAS = 16;
-  const FILAS = 9;
-  const teclas = Array.from({ length: COLUMNAS * FILAS }, (_, i) => i);
 </script>
 
 <svelte:head>
-  <title>Iniciar Sesión | UTAmed</title>
+  <title>Ingresar | UTAMED</title>
 </svelte:head>
 
-<div class="relative min-h-screen w-full overflow-hidden bg-[#0d1522]">
-  <!-- Fondo fotográfico full-bleed -->
-  <div
-    class="absolute inset-0 scale-105 bg-cover bg-center blur-[2px]"
-    style="background-image: url('/img/bardesign.jpg');"
-    aria-hidden="true"
-  ></div>
-
-  <!-- Overlay nocturno violeta para legibilidad y atmósfera -->
-  <div
-    class="absolute inset-0 bg-gradient-to-br from-[#10233a]/80 via-[#0d1626]/75 to-[#070c15]/90"
-    aria-hidden="true"
-  ></div>
-
-  <!-- Resplandor ambiental detrás de la card -->
-  <div
-    class="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#5B9BD5]/10 blur-[120px]"
-    aria-hidden="true"
-  ></div>
-
-  <!-- Card de cristal, partida en panel de marca + formulario -->
-  <div class="relative z-10 flex min-h-screen items-center justify-center px-2 py-4 sm:px-4">
-    <div
-      class="grid w-full max-w-6xl overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl lg:min-h-[680px] lg:grid-cols-[5fr_6fr]"
+<div class="vista-ingreso flex min-h-screen flex-col bg-dm-pagina font-dm text-sm leading-5 text-dm-ink">
+  <div class="flex flex-1 flex-col lg:flex-row">
+    <aside
+      aria-label="UTAMED · Diseño Multimedia"
+      class="sobre-noche relative flex flex-col gap-3 overflow-hidden bg-[linear-gradient(160deg,#161949_0%,#161949_45%,#660959_100%)] pb-7 text-dm-noche-texto lg:w-[42%] lg:shrink-0 lg:justify-between lg:gap-10 lg:bg-[linear-gradient(150deg,#161949_0%,#161949_45%,#660959_100%)] lg:px-14 lg:pt-8 lg:pb-12"
     >
-      <!-- ── Panel de marca (sólo escritorio) ─────────────────────────── -->
-      <aside
-        aria-hidden="true"
-        class="relative hidden overflow-hidden border border-[rgba(255,255,255,0.1)] bg-gradient-to-br from-[rgba(91,155,213,0.16)] via-[rgba(255,255,255,0.03)] to-[rgba(91,155,213,0.06)] lg:m-3 lg:block lg:rounded-[22px]"
-      >
-        <div class="relative z-10 px-12 pt-28 xl:px-14">
-          <div
-            class="flex size-16 items-center justify-center rounded-full border border-dashed border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.04)]"
-          >
-            <AppLogoIcon class="size-8" />
-          </div>
-          <div class="flex gap-1">
-            <p class="text-[64px] font-semibold text-center text-[#F5F3FF]">UTA</p>
-            <p class="py-1 text-[38px] justify-center font-semibold text-center text-[#F5F3FF]">med</p>
+      <Reticula class="left-[30%] lg:left-[25%]" />
 
-          </div>
-          
-          <p class="mt-10 max-w-sm text-[15px] leading-relaxed text-[#C4BFE0]">
-            Cursos, actividades, calificaciones y asistencia en un solo lugar. 
-          </p>
-        </div>
+      <div class="relative flex h-16 items-center gap-2 ps-4 pe-2 lg:h-auto lg:p-0">
+        <Link href={home()} class="flex min-h-11 flex-1 items-center gap-2 text-dm-noche-texto no-underline lg:flex-none lg:gap-2.5">
+          <img src="/icon.png" alt="" width="32" height="32" class="size-7 shrink-0 object-contain lg:size-8" />
+          <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] lg:text-2xl lg:leading-7">UTAMED</span>
+        </Link>
+        <BotonTema class="text-dm-noche-texto hover:bg-dm-noche-activo lg:hidden" />
+      </div>
 
-        <!-- Retícula de teclas, inclinada y recortada por el panel -->
-        <div
-          class="absolute top-[62%] -left-[8%] grid w-[128%] origin-top-left rotate-[7deg] grid-cols-[repeat(16,minmax(0,1fr))] gap-2"
-        >
-          {#each teclas as tecla (tecla)}
+      <div class="relative flex max-w-[460px] flex-col gap-3 px-4 lg:gap-4 lg:px-0">
+        <span class="{etiqueta} text-dm-amarillo">Diseño Multimedia · Universidad de Tarapacá</span>
+        <p class="m-0 font-dm-cond text-4xl leading-[34px] font-black uppercase lg:text-[56px] lg:leading-[52px]">
+          Cursos, entregas y notas en un solo lugar
+        </p>
+        <p class="m-0 text-base leading-6 text-dm-noche-texto-2 max-lg:hidden">
+          El aula virtual de la carrera, para quienes estudian y enseñan en ella.
+        </p>
+      </div>
+
+      <LogosInstitucionales class="relative mt-3 px-4 lg:mt-0 lg:px-0" />
+    </aside>
+
+    <main class="flex min-w-0 flex-1 flex-col gap-5 px-4 pt-7 pb-8 lg:px-10 lg:pt-6 lg:pb-7">
+      <div class="flex items-center justify-between gap-4 max-lg:hidden">
+        <Link href={home()} class="{enlace} gap-1.5!">
+          <ArrowLeft size={16} aria-hidden="true" />
+          Volver a la portada
+        </Link>
+        <BotonTema class="size-10! border border-dm-linea bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil" />
+      </div>
+
+      <div class="flex flex-1 items-center justify-center lg:py-8">
+        <div class="flex w-full max-w-[420px] flex-col gap-5 lg:gap-6">
+          <div class="flex flex-col gap-1.5 lg:gap-2">
+            <h1 class="m-0 text-[28px] leading-[34px] font-bold">Bienvenido a mi <UtaMed /></h1>
+            <p class="m-0 text-[15px] leading-[22px] text-dm-ink-2">
+              Usa tu RUT y la contraseña que te llegó al correo institucional.
+            </p>
+          </div>
+
+          {#if aviso}
+            {@const estilo = avisoEstilo[aviso.tono]}
             <div
-              class="aspect-square rounded-[7px] border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.06)]"
-            ></div>
-          {/each}
-        </div>
-
-        <!-- La tecla que se salió del teclado -->
-        <div
-          class="absolute top-[71%] right-[8%] size-10 -rotate-[16deg] rounded-[8px] bg-[#f28c1e] shadow-[0_16px_32px_-8px_rgba(242,140,30,0.75)]"
-        ></div>
-      </aside>
-
-      <!-- ── Formulario ────────────────────────────────────────────────── -->
-      <section class="flex flex-col justify-center px-6 py-8 sm:px-10 lg:px-12 xl:px-20">
-        <div class="mx-auto w-full max-w-md">
-          <!-- Icono circular: en escritorio ya está en el panel -->
-          <div
-            class="mx-auto mb-6 flex size-12 items-center justify-center rounded-full border border-dashed border-[rgba(255,255,255,0.25)] lg:hidden"
-          >
-            <AppLogoIcon class="size-6" />
-          </div>
-
-          <!-- Título -->
-          <h1 class="mt-10 text-center text-[28px] font-semibold leading-[1.2] text-[#F5F3FF] sm:text-[40px]">
-            Bienvenido de
-            <span class="bg-gradient-to-r from-[#FFFFFF] to-[#BFD9F2] bg-clip-text text-transparent"
-              >vuelta</span
+              role={aviso.tono === 'ok' ? 'status' : 'alert'}
+              class="flex items-start gap-3 rounded-[10px] border px-3.5 py-3.5 lg:px-4 {estilo.caja}"
             >
-          </h1>
-          <p class="mx-auto mt-3 max-w-[320px] text-center text-[15px] leading-[1.5] text-[#C4BFE0]">
-            Ingresa tus credenciales institucionales para acceder a tu portal académico UTAmed.
-          </p>
-
-          {#if status}
-            <div class="mt-6 text-center text-sm font-medium text-[#5EE9B5]">
-              {status}
-            </div>
-          {/if}
-
-          {#if errorCode}
-            <div class="mt-6">
-              <ErrorAlert {errorCode} retryAfter={rateLimitRetryAfter} />
-            </div>
-          {/if}
-
-          <Form form={$form} method="post" action={login().url} class="mt-8 flex flex-col gap-6">
-            {#snippet children({ errors, processing }: BaseFormSnippetProps)}
-              <div class="flex flex-col gap-6">
-                <!-- RUT Field -->
-                <div class="space-y-1.5">
-                  <label for="email" class="text-[13px] font-medium text-[#C4BFE0]"> RUT </label>
-                  <div class="relative">
-                    <input
-                      id="email"
-                      name="email"
-                      type="text"
-                      required
-                      maxlength="13"
-                      autocomplete="off"
-                      placeholder="11111111-1"
-                      aria-describedby="email-hint"
-                      aria-invalid={$form.data.email && !rutValid ? true : undefined}
-                      disabled={isRateLimited || processing}
-                      bind:value={$form.data.email}
-                      oninput={handleRutInput}
-                      class="w-full rounded-[14px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 text-[#F5F3FF] transition-all duration-150 placeholder:text-[#C4BFE0]/60 focus:border-[#5B9BD5] focus:shadow-[0_0_0_3px_rgba(91,155,213,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                  </div>
-                  {#if $form.data.email && !rutValid}
-                    <p id="email-hint" class="text-xs text-[#FFA2A2]">
-                      RUT debe tener 8 dígitos + dígito verificador (formato: 12345678-K)
-                    </p>
-                  {:else if $form.data.email && rutValid}
-                    <p id="email-hint" class="text-xs text-[#5EE9B5]">Formato válido</p>
-                  {:else}
-                    <p id="email-hint" class="text-xs text-[#C4BFE0]/70">
-                      Ingresa sin puntos y con guion
-                    </p>
-                  {/if}
-                </div>
-
-                <!-- Password Field -->
-                <div class="space-y-1.5">
-                  <label for="password" class="text-[13px] font-medium text-[#C4BFE0]"> Contraseña </label>
-                  <div class="relative">
-                    <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      autocomplete="current-password"
-                      placeholder="••••••••"
-                      disabled={isRateLimited || processing}
-                      bind:value={$form.data.password}
-                      class="w-full rounded-[14px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 pr-12 text-[#F5F3FF] transition-all duration-150 placeholder:text-[#C4BFE0]/60 focus:border-[#5B9BD5] focus:shadow-[0_0_0_3px_rgba(91,155,213,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <button
-                      type="button"
-                      tabindex={-1}
-                      disabled={isRateLimited || processing}
-                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                      class="absolute right-4 top-1/2 -translate-y-1/2 text-[#C4BFE0] transition-colors hover:text-[#F5F3FF] disabled:cursor-not-allowed disabled:opacity-50"
-                      onclick={() => (showPassword = !showPassword)}
-                    >
-                      {#if showPassword}
-                        <EyeOff size={20} aria-hidden="true" />
-                      {:else}
-                        <Eye size={20} aria-hidden="true" />
-                      {/if}
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Remember me + Forgot password -->
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <input type="hidden" name="remember" value="off" />
-                    <Checkbox
-                      id="remember"
-                      name="remember"
-                      checked={Boolean((form?.data as any)?.remember)}
-                      disabled={isRateLimited || processing}
-                      onchange={handleRememberChange}
-                      class="border-[rgba(255,255,255,0.25)] bg-[rgba(255,255,255,0.05)] data-[state=checked]:border-[#5B9BD5] data-[state=checked]:bg-[#5B9BD5] data-[state=checked]:text-[#1A1625] disabled:opacity-50"
-                    />
-                    <Label
-                      for="remember"
-                      class="cursor-pointer text-[13px] text-[#C4BFE0] hover:text-[#F5F3FF] {isRateLimited ||
-                      processing
-                        ? 'opacity-50'
-                        : ''}">Recuérdame</Label
-                    >
-                  </div>
-                  {#if canResetPassword}
-                    <div class={isRateLimited ? 'pointer-events-none opacity-50' : ''}>
-                      <TextLink
-                        href={request().url}
-                        class="text-xs text-white transition-colors hover:text-[#5B9BD5] decoration-[#C4BFE0]/40! hover:!decoration-[#5B9BD5]"
-                      >
-                        ¿Olvidaste tu contraseña?
-                      </TextLink>
-                    </div>
-                  {/if}
-                </div>
-
-                <!-- Submit Button -->
-                <Button
-                  type="submit"
-                  class="mt-1 cursor-pointer hover:text-white hover:font-semibold flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#F5F4F0] py-3.5 text-[15px] font-semibold text-[#1A1625] shadow-none transition-all duration-150 hover:brightness-95 active:scale-[0.98] disabled:opacity-50"
-                  disabled={isRateLimited || $form.processing}
-                >
-                  {#if $form.processing}
-                    <Spinner class="h-4 w-4" />
-                  {/if}
-                  {isRateLimited ? `Bloqueado por ${rateLimitRetryAfter}s` : 'Entrar al Portal'}
-                </Button>
-
-                <!-- Info box -->
-                <div
-                  class="rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] p-5 text-start space-y-2.5"
-                >
-                  <p class="text-sm font-medium text-[#F5F3FF]">Información de Acceso</p>
-                  <p class="text-xs leading-relaxed text-[#C4BFE0]">
-                    Como parte de nuestra comunidad académica, tus credenciales han sido enviadas
-                    previamente a tu correo institucional.
-                  </p>
-                  <p class="text-xs font-medium text-[#C4BFE0]">
-                    ¿Problemas para entrar? <br />
-                    <a
-                      href="mailto:cite@gestion.uta.cl"
-                      class="text-[#5B9BD5] transition-colors hover:text-[#2A66AC] hover:underline"
-                      >Contactar a soporte: cite@gestion.uta.cl</a
-                    >
-                  </p>
-                </div>
+              <estilo.Icono size={20} aria-hidden="true" class="mt-px shrink-0 {estilo.icono}" />
+              <div class="flex min-w-0 flex-col gap-0.5">
+                <span class="text-[15px] leading-[22px] font-bold text-dm-ink">{aviso.titulo}</span>
+                {#if aviso.texto}
+                  <span class="text-sm leading-5 text-dm-ink-2">{aviso.texto}</span>
+                {/if}
               </div>
-            {/snippet}
-          </Form>
+            </div>
+          {/if}
+
+          <form aria-label="Ingreso" novalidate onsubmit={entrar} class="flex flex-col gap-5">
+            <div class="flex flex-col gap-1.5">
+              <label for="rut" class="text-sm leading-5 font-semibold">RUT</label>
+              <input
+                id="rut"
+                name="email"
+                type="text"
+                required
+                maxlength="10"
+                autocomplete="username"
+                placeholder="12345678-5"
+                aria-invalid={rutError ? true : undefined}
+                aria-describedby="rut-ayuda"
+                disabled={deshabilitado}
+                value={$form.email}
+                oninput={(e) => {
+                  // Se reescribe también el campo: si el valor formateado no cambia
+                  // (p. ej. se tecleó un punto), Svelte no lo volvería a pintar.
+                  $form.email = e.currentTarget.value = formatearRut(e.currentTarget.value);
+                }}
+                class="{campo} min-h-12! text-base!"
+              />
+              {#if rutError}
+                <span id="rut-ayuda" class="flex items-start gap-1.5 text-sm leading-5 text-dm-error">
+                  <CircleAlert size={16} aria-hidden="true" class="mt-0.5 shrink-0" />
+                  {rutError}
+                </span>
+              {:else}
+                <span id="rut-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">
+                  Sin puntos; el guion antes del dígito verificador se agrega solo.
+                </span>
+              {/if}
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label for="clave" class="text-sm leading-5 font-semibold">Contraseña</label>
+              <div class="relative">
+                <input
+                  id="clave"
+                  name="password"
+                  type={verClave ? 'text' : 'password'}
+                  required
+                  autocomplete="current-password"
+                  disabled={deshabilitado}
+                  bind:value={$form.password}
+                  class="{campo} min-h-12! pe-[52px]! text-base!"
+                />
+                <button
+                  type="button"
+                  aria-label={verClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-pressed={verClave}
+                  disabled={deshabilitado}
+                  onclick={() => (verClave = !verClave)}
+                  class="absolute inset-y-0 end-0 flex w-12 cursor-pointer items-center justify-center rounded-e-[10px] text-dm-ink-2 hover:text-dm-ink disabled:cursor-not-allowed"
+                >
+                  {#if verClave}
+                    <EyeOff size={20} aria-hidden="true" />
+                  {:else}
+                    <Eye size={20} aria-hidden="true" />
+                  {/if}
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <label for="recordar" class="inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-sm leading-5">
+                <input
+                  id="recordar"
+                  name="remember"
+                  type="checkbox"
+                  disabled={deshabilitado}
+                  bind:checked={$form.remember}
+                  class="size-5 shrink-0 accent-dm-accion"
+                />
+                Mantener la sesión iniciada
+              </label>
+              {#if canResetPassword}
+                <Link href={request()} class="{enlace} lg:min-h-11!">¿Olvidaste tu contraseña?</Link>
+              {/if}
+            </div>
+
+            {#if bloqueado}
+              <button type="submit" disabled class="{botonEntrar} cursor-not-allowed bg-dm-linea text-dm-ink-2">
+                <Clock size={18} aria-hidden="true" />
+                Podrás intentar de nuevo en {cuenta}
+              </button>
+            {:else}
+              <button
+                type="submit"
+                disabled={$form.processing}
+                class="{botonEntrar} cursor-pointer bg-dm-accion text-dm-sobre-accion hover:bg-dm-accion-hover disabled:cursor-wait"
+              >
+                {#if $form.processing}
+                  <LoaderCircle size={18} aria-hidden="true" class="animate-spin motion-reduce:animate-none" />
+                  <span aria-live="polite">Entrando…</span>
+                {:else}
+                  Entrar a UTAMED
+                {/if}
+              </button>
+            {/if}
+          </form>
+
+          <p class="m-0 border-t border-dm-linea pt-5 text-sm leading-5 text-dm-ink-2">
+            ¿No puedes entrar? Escribe a
+            <a href="mailto:cite@gestion.uta.cl" class="text-sm font-semibold text-dm-enlace hover:text-dm-enlace-hover">cite@gestion.uta.cl</a>
+            desde tu correo institucional e indica tu RUT.
+          </p>
         </div>
-      </section>
-    </div>
+      </div>
+
+      <p class="m-0 text-[13px] leading-[18px] text-dm-ink-3">
+        © {new Date().getFullYear()} Universidad de Tarapacá · Escuela de Diseño e Innovación Tecnológica
+      </p>
+    </main>
+  </div>
+
+  <div aria-hidden="true" class="grid h-2 grid-cols-3">
+    <span class="bg-[#DEB01F]"></span><span class="bg-[#22213F]"></span><span class="bg-[#678FCA]"></span>
   </div>
 </div>

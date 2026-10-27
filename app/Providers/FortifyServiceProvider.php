@@ -77,7 +77,7 @@ class FortifyServiceProvider extends ServiceProvider
 
                 if (!$user) {
                     Log::channel('single')->warning('[LOGIN] Usuario no encontrado', ['rut_normalized' => $normalizedInput]);
-                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::RUT_NOT_FOUND);
+                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::INVALID_CREDENTIALS);
                 }
 
                 Log::channel('single')->info('[LOGIN] Usuario encontrado', [
@@ -86,12 +86,6 @@ class FortifyServiceProvider extends ServiceProvider
                     'esta_activo'     => $user->esta_activo,
                     'passhash_length' => strlen($user->passhash ?? ''),
                 ]);
-
-                // Validar que el usuario está activo
-                if (!$user->esta_activo) {
-                    Log::channel('single')->warning('[LOGIN] Usuario inactivo', ['id' => $user->id_usuario]);
-                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::USER_INACTIVE);
-                }
 
                 // Validar contraseña
                 $passwordOk = \Illuminate\Support\Facades\Hash::check($request->password, $user->passhash);
@@ -115,7 +109,14 @@ class FortifyServiceProvider extends ServiceProvider
                         'id'       => $user->id_usuario,
                         'username' => $user->username,
                     ]);
-                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::PASSWORD_INCORRECT);
+                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::INVALID_CREDENTIALS);
+                }
+
+                // La cuenta desactivada se informa sólo con la contraseña correcta;
+                // antes de eso respondería «existe» a cualquiera que pruebe un RUT.
+                if (!$user->esta_activo) {
+                    Log::channel('single')->warning('[LOGIN] Usuario inactivo', ['id' => $user->id_usuario]);
+                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::USER_INACTIVE);
                 }
 
                 Log::channel('single')->info('[LOGIN] Autenticación exitosa', [
@@ -132,7 +133,7 @@ class FortifyServiceProvider extends ServiceProvider
                     'file'    => $e->getFile(),
                     'line'    => $e->getLine(),
                 ]);
-                throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::RUT_NOT_FOUND);
+                throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::INVALID_CREDENTIALS);
             }
         });
     }

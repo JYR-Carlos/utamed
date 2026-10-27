@@ -278,7 +278,7 @@ class HandleInertiaRequests extends Middleware
                 'data' => fn() => $request->session()->get('flash_data', []),
             ],
 
-            // LOGIN ERROR: Errores específicos de autenticación (RUT_NOT_FOUND, PASSWORD_INCORRECT, etc)
+            // LOGIN ERROR: error del login (INVALID_CREDENTIALS, USER_INACTIVE, RATE_LIMIT_EXCEEDED)
             'loginError' => fn() => $request->session()->pull('login_error'),
         ];
     }
