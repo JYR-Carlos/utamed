@@ -31,30 +31,23 @@
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { usePermissions } from '@/lib/composables/usePermissions';
+  import { AMBIENTES, ambientesDisponibles, type Ambiente } from '@/lib/ambientes';
 
   const { can } = usePermissions();
 
   // ── Shared props ──────────────────────────────────────────────
-  let authRoles = $derived(($page.props.auth?.roles as string[]) || []);
   let docenteCourses = $derived(($page.props.auth?.docente_courses as SidebarCourse[]) || []);
   let estudianteCourses = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) || []);
   let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as SidebarCourse[]) || []);
 
   // ── Role flags ────────────────────────────────────────────────
-  let isSuperAdmin = $derived(($page.props.auth?.is_super_admin as boolean) || false);
-  // Permission-based flags — independent of role name strings
-  let userDocente = $derived(($page.props.auth?.docente as any) ?? null);
-  let userEstudiante = $derived(($page.props.auth?.estudiante as any) ?? null);
-  let isDocente = $derived(userDocente !== null && can('cursos:ver'));
-  let isEstudiante = $derived(userEstudiante !== null);
-  let isAyudante = $derived(ayudanteCourses.length > 0);
-  let isJefeCarrera = $derived(authRoles.includes('Jefe de Carrera'));
-  let isAdmin = $derived(
-    isSuperAdmin ||
-      can('facultades:ver') ||
-      can('departamentos:ver') ||
-      can('usuarios/permisos/roles:ver'),
-  );
+  // Secciones disponibles según los roles del usuario, en orden de prioridad.
+  let availableSections = $derived(ambientesDisponibles($page.props.auth, can));
+  let isDocente = $derived(availableSections.includes('docente'));
+  let isEstudiante = $derived(availableSections.includes('estudiante'));
+  let isAyudante = $derived(availableSections.includes('ayudante'));
+  let isJefeCarrera = $derived(availableSections.includes('jefe'));
+  let isAdmin = $derived(availableSections.includes('admin'));
 
   // ── Active route detection ─────────────────────────────────
   const currentPath = $derived($page.url ?? '');
@@ -92,28 +85,8 @@
   // ── Selector de ambiente ──────────────────────────────────
   // Un usuario puede tener varios roles; sólo uno se muestra a la vez,
   // elegido con un selector tipo combobox que se despliega hacia abajo.
-  type SectionId = 'docente' | 'jefe' | 'estudiante' | 'ayudante' | 'admin';
-
-  const sectionMeta: Record<SectionId, { label: string; icon: any; href: string }> = {
-    docente: { label: 'Docente', icon: GraduationCap, href: '/docente/dashboard' },
-    jefe: { label: 'Jefe de Carrera', icon: ClipboardList, href: '/docente/jefe-carrera/dashboard' },
-    estudiante: { label: 'Estudiante', icon: GraduationCap, href: '/estudiante/dashboard' },
-    ayudante: { label: 'Ayudantía', icon: BookOpen, href: '/ayudante/dashboard' },
-    admin: { label: 'Administración', icon: Building2, href: '/admin/dashboard' },
-  };
-
-  // Secciones disponibles según los roles del usuario, en orden de prioridad.
-  let availableSections = $derived(
-    (
-      [
-        isDocente && 'docente',
-        isJefeCarrera && 'jefe',
-        isEstudiante && 'estudiante',
-        isAyudante && 'ayudante',
-        isAdmin && 'admin',
-      ] as Array<SectionId | false>
-    ).filter((s): s is SectionId => s !== false),
-  );
+  type SectionId = Ambiente;
+  const sectionMeta = AMBIENTES;
 
   // Sección que corresponde a la URL actual (para abrirla automáticamente).
   let urlSection = $derived.by<SectionId | null>(() => {

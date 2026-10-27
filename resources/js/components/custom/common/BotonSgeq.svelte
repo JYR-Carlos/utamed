@@ -13,6 +13,7 @@
    * peor que ningún botón.
    */
   import ExternalLink from '@lucide/svelte/icons/external-link';
+  import { cn } from '@/lib/utils';
 
   interface Props {
     visible?: boolean;
@@ -27,7 +28,10 @@
     href="/sso/sgeq"
     target="_blank"
     rel="noopener noreferrer"
-    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uta-blue {className}"
+    class={cn(
+      'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uta-blue',
+      className,
+    )}
   >
     <ExternalLink class="h-4 w-4" aria-hidden="true" />
     Préstamo de equipos
