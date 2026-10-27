@@ -764,7 +764,7 @@
             Adjuntar enunciado
           </button>
         {/if}
-        {#if actividad.es_sumativa && (esTitular || rubrica)}
+        {#if actividad.es_sumativa && (puedeEvaluar || puede_editar_rubrica || rubrica)}
           <button class={BTN_SEC} onclick={() => (showRubricaEditor = true)}>
             {#if puede_editar_rubrica || !rubrica}
               <Pencil class="size-4 shrink-0" />
