@@ -244,7 +244,10 @@ Decisiones del usuario (2026-10-27):
 
 - Dirección A. El rediseño del ingreso vale para todos los roles; las interfaces internas de docente, jefe y admin
   esperan su propio diseño.
-- Título «Bienvenido a mi UTA<sup>med</sup>», con «med» como exponente.
+- Título «Bienvenido a mi UTA<sup>med</sup>», con «med» como exponente, en la portada.
+- Login (cambio posterior del mismo día): el panel noche dice «Ingresa a tu UTA<sup>med</sup>» en la condensada y
+  el formulario se titula «Inicia sesión». Sale el titular de marketing del panel («Cursos, entregas y notas en un
+  solo lugar») y su texto de apoyo.
 - Un solo error de ingreso, «Credenciales incorrectas», sin distinguir RUT de contraseña.
 - Soporte en cite@gestion.uta.cl.
 - Las otras pantallas del lote (recuperar y restablecer contraseña, 2FA, confirmar contraseña, verificar correo,
