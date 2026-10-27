@@ -76,7 +76,20 @@
   let banner = $state<{ tipo: 'success' | 'error'; texto: string } | null>(null);
 
   const toggleUrl = $derived(`/docente/cursos/${curso.id_curso}/delegacion-permisos/toggle`);
+  const batchUrl = $derived(`/docente/cursos/${curso.id_curso}/delegacion-permisos/batch`);
   const todosExpandidos = $derived(grupos.every((g) => expandido[g.grupo]));
+  const todosLosSlugs = $derived(grupos.flatMap((g) => g.permisos.map((p) => p.slug)));
+  const totalPermisosDisponibles = $derived(todosLosSlugs.length);
+
+  function totalActivosMiembro(idUsuario: number): number {
+    const usuarioPerms = permisosLocales[idUsuario] ?? {};
+    return todosLosSlugs.filter((slug) => usuarioPerms[slug] === true).length;
+  }
+
+  function subtituloMiembro(m: Miembro): string {
+    const rol = m.es_titular ? 'Docente de componente' : 'Docente colegiado';
+    return m.tipo_componente ? `${rol} · ${m.tipo_componente}` : rol;
+  }
 
   function claveCelda(idUsuario: number, slug: string): string {
     return `${idUsuario}:${slug}`;
@@ -124,6 +137,66 @@
           banner = { tipo: 'error', texto: Object.values(errs)[0] || 'No se pudo actualizar el permiso.' };
           setTimeout(() => {
             if (estadosCelda[key] === 'error') estadosCelda[key] = 'reposo';
+          }, 2500);
+        },
+      },
+    );
+  }
+
+  function handleBatch(
+    idUsuario: number,
+    slugs: string[],
+    otorgar: boolean,
+    nombreSeccion?: string,
+  ) {
+    if (slugs.length === 0) return;
+
+    const persona = nombreMiembro(idUsuario);
+    const prevPermisos = { ...permisosLocales[idUsuario] };
+
+    // Actualización optimista inmediata
+    for (const slug of slugs) {
+      permisosLocales[idUsuario][slug] = otorgar;
+      estadosCelda[claveCelda(idUsuario, slug)] = 'guardando';
+    }
+
+    router.post(
+      batchUrl,
+      { id_usuario: idUsuario, slugs, otorgar },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          for (const slug of slugs) {
+            estadosCelda[claveCelda(idUsuario, slug)] = 'confirmado';
+          }
+          banner = {
+            tipo: 'success',
+            texto: `Permisos actualizados — ${slugs.length} permisos ${otorgar ? 'otorgados' : 'revocados'}${nombreSeccion ? ' (' + nombreSeccion + ')' : ''} a ${persona}.`,
+          };
+          setTimeout(() => {
+            for (const slug of slugs) {
+              if (estadosCelda[claveCelda(idUsuario, slug)] === 'confirmado') {
+                estadosCelda[claveCelda(idUsuario, slug)] = 'reposo';
+              }
+            }
+          }, 1500);
+        },
+        onError: (errs) => {
+          permisosLocales[idUsuario] = prevPermisos;
+          for (const slug of slugs) {
+            estadosCelda[claveCelda(idUsuario, slug)] = 'error';
+          }
+          banner = {
+            tipo: 'error',
+            texto: Object.values(errs)[0] || 'No se pudieron actualizar los permisos en lote.',
+          };
+          setTimeout(() => {
+            for (const slug of slugs) {
+              if (estadosCelda[claveCelda(idUsuario, slug)] === 'error') {
+                estadosCelda[claveCelda(idUsuario, slug)] = 'reposo';
+              }
+            }
           }, 2500);
         },
       },
@@ -216,6 +289,52 @@
         </div>
       </div>
 
+      <!-- Acciones globales por integrante (otorgar / revocar todo el curso) -->
+      <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm">
+        <div class="mb-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <ShieldCheck class="h-4 w-4 text-uta-blue" />
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Acciones rápidas globales por integrante</span>
+          </div>
+          <span class="text-xs text-slate-500">Aplica a todas las {grupos.length} secciones ({totalPermisosDisponibles} permisos)</span>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {#each miembros as miembro (miembro.id_usuario)}
+            {@const activos = totalActivosMiembro(miembro.id_usuario)}
+            {@const total = totalPermisosDisponibles}
+            <div class="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex min-w-0 flex-col">
+                  <span class="truncate text-sm font-semibold text-ink">{miembro.nombre}</span>
+                  <span class="truncate text-xs text-slate-500">{subtituloMiembro(miembro)}</span>
+                </div>
+                <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-700">
+                  {activos} / {total}
+                </span>
+              </div>
+              <div class="flex items-center gap-2 pt-1 border-t border-slate-100">
+                <button
+                  type="button"
+                  class="flex-1 rounded-md bg-uta-blue px-2.5 py-1.5 text-center text-xs font-semibold text-white shadow-xs hover:bg-navy disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  disabled={activos === total}
+                  onclick={() => handleBatch(miembro.id_usuario, todosLosSlugs, true, 'todas las secciones')}
+                >
+                  Otorgar todos
+                </button>
+                <button
+                  type="button"
+                  class="flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-center text-xs font-semibold text-slate-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  disabled={activos === 0}
+                  onclick={() => handleBatch(miembro.id_usuario, todosLosSlugs, false, 'todas las secciones')}
+                >
+                  Revocar todos
+                </button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+
       <div class="flex flex-col gap-2.5">
         {#each grupos as grupo, i (grupo.grupo)}
           <GrupoPermisosMatriz
@@ -227,6 +346,7 @@
             {isChecked}
             {getEstado}
             onToggle={handleToggle}
+            onBatch={handleBatch}
           />
         {/each}
       </div>

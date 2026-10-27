@@ -358,4 +358,56 @@ class DelegacionPermisosCursoTest extends TestCase
 
         $this->assertNotEquals(403, $responseConPermiso->status());
     }
+
+    /**
+     * Test 4: Delegación y Revocación en Lote (Batch)
+     */
+    public function test_docente_titular_puede_otorgar_y_revocar_permisos_en_lote_batch(): void
+    {
+        $slugs = [
+            Permissions::ACTIVIDADES_EVALUAR->value,
+            Permissions::ACTIVIDADES_DAR_FEEDBACK->value,
+            Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_6->value,
+        ];
+
+        foreach ($slugs as $slug) {
+            Permiso::firstOrCreate(['slug' => $slug], ['nombre' => $slug, 'modulo' => 'Test']);
+        }
+
+        // 1. Otorgar en lote
+        $responseOtorgar = $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.batch', $this->curso), [
+                'id_usuario' => $this->colegiado->id_usuario,
+                'slugs' => $slugs,
+                'otorgar' => true,
+            ]);
+
+        $responseOtorgar->assertRedirect();
+        $responseOtorgar->assertSessionHas('success');
+
+        foreach ($slugs as $slug) {
+            $this->assertTrue(
+                $this->colegiado->can(Permissions::from($slug), $this->curso),
+                "Colegiado debe tener {$slug} otorgado tras batch"
+            );
+        }
+
+        // 2. Revocar en lote
+        $responseRevocar = $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.batch', $this->curso), [
+                'id_usuario' => $this->colegiado->id_usuario,
+                'slugs' => $slugs,
+                'otorgar' => false,
+            ]);
+
+        $responseRevocar->assertRedirect();
+        $responseRevocar->assertSessionHas('success');
+
+        foreach ($slugs as $slug) {
+            $this->assertFalse(
+                $this->colegiado->can(Permissions::from($slug), $this->curso),
+                "Colegiado NO debe tener {$slug} tras revocación batch"
+            );
+        }
+    }
 }

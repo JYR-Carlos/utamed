@@ -467,6 +467,8 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
         ->name('cursos.delegacion-permisos.index');
     Route::post('cursos/{curso}/delegacion-permisos/toggle', [DelegacionPermisosController::class, 'toggle'])
         ->name('cursos.delegacion-permisos.toggle');
+    Route::post('cursos/{curso}/delegacion-permisos/batch', [DelegacionPermisosController::class, 'batch'])
+        ->name('cursos.delegacion-permisos.batch');
 
     // ── Cambio de titular del componente por el DT del curso (sin acceso admin)
     Route::put('cursos/{curso}/componentes/{componente}/titular', [ComponenteController::class, 'setTitularByDt'])

@@ -34,9 +34,10 @@
     isChecked: (idUsuario: number, slug: string) => boolean;
     getEstado: (idUsuario: number, slug: string) => Estado;
     onToggle: (idUsuario: number, slug: string, next: boolean) => void;
+    onBatch?: (idUsuario: number, slugs: string[], otorgar: boolean, nombreGrupo: string) => void;
   }
 
-  let { numero, grupo, miembros, expandido, onToggleExpandido, isChecked, getEstado, onToggle }: Props = $props();
+  let { numero, grupo, miembros, expandido, onToggleExpandido, isChecked, getEstado, onToggle, onBatch }: Props = $props();
 
   const columnas = $derived(grupo.permisos.filter((p) => !esSlugModuloPrograma(p.slug)));
   const modulosPrograma = $derived(
@@ -45,6 +46,12 @@
       .map((p) => ({ slug: p.slug, numero: numeroModuloPrograma(p.slug) ?? 0 }))
       .sort((a, b) => a.numero - b.numero),
   );
+
+  const slugsDeGrupo = $derived(grupo.permisos.map((p) => p.slug));
+
+  function activosEnGrupo(idUsuario: number): number {
+    return grupo.permisos.filter((p) => isChecked(idUsuario, p.slug)).length;
+  }
 
   const resumenAcciones = $derived(columnas.map((p) => formatSlugAction(p.slug).toLowerCase()).join(' · '));
 
@@ -100,7 +107,7 @@
       <table class="w-full table-fixed border-collapse">
         <thead>
           <tr class="bg-gray-50">
-            <th class="w-[260px] px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-2">
+            <th class="w-[300px] px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-2">
               Persona
             </th>
             {#each columnas as permiso (permiso.slug)}
@@ -119,14 +126,41 @@
           {#each miembros as miembro, i (miembro.id_usuario)}
             <tr class="border-t border-gray-200 {i % 2 === 1 ? 'bg-stone-50' : ''}">
               <td class="px-4 py-2.5">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-uta-blue-light text-[12px] font-semibold text-navy">
-                    {iniciales(miembro.nombre)}
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex min-w-0 items-center gap-2.5">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-uta-blue-light text-[12px] font-semibold text-navy">
+                      {iniciales(miembro.nombre)}
+                    </div>
+                    <div class="flex min-w-0 flex-col">
+                      <span class="truncate text-[13px] font-semibold text-ink">{miembro.nombre}</span>
+                      <span class="truncate text-[11.5px] text-ink-2">{subtitulo(miembro)}</span>
+                    </div>
                   </div>
-                  <div class="flex min-w-0 flex-col">
-                    <span class="truncate text-[13px] font-semibold text-ink">{miembro.nombre}</span>
-                    <span class="truncate text-[11.5px] text-ink-2">{subtitulo(miembro)}</span>
-                  </div>
+                  {#if onBatch}
+                    {@const activos = activosEnGrupo(miembro.id_usuario)}
+                    {@const total = grupo.permisos.length}
+                    <div class="flex shrink-0 items-center gap-1 text-[11px]">
+                      <button
+                        type="button"
+                        class="rounded px-1.5 py-0.5 font-medium text-uta-blue hover:bg-blue-50 hover:underline disabled:opacity-40 disabled:hover:bg-transparent disabled:no-underline transition-colors"
+                        disabled={activos === total}
+                        onclick={() => onBatch?.(miembro.id_usuario, slugsDeGrupo, true, grupo.grupo)}
+                        title={`Otorgar todos los permisos de ${grupo.grupo} a ${miembro.nombre}`}
+                      >
+                        Otorgar
+                      </button>
+                      <span class="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        class="rounded px-1.5 py-0.5 font-medium text-slate-500 hover:text-red-700 hover:bg-red-50 hover:underline disabled:opacity-40 disabled:hover:bg-transparent disabled:no-underline transition-colors"
+                        disabled={activos === 0}
+                        onclick={() => onBatch?.(miembro.id_usuario, slugsDeGrupo, false, grupo.grupo)}
+                        title={`Revocar todos los permisos de ${grupo.grupo} a ${miembro.nombre}`}
+                      >
+                        Revocar
+                      </button>
+                    </div>
+                  {/if}
                 </div>
               </td>
               {#each columnas as permiso (permiso.slug)}
