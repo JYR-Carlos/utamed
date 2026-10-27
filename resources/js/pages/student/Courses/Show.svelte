@@ -132,8 +132,8 @@
   let diferidaCargando = $state(false);
   let diferidaError = $state<string | null>(null);
 
-  $effect(() => {
-    const diferida = DIFERIDAS[seccion];
+  function cargarDiferida(s: SeccionCurso) {
+    const diferida = DIFERIDAS[s];
     if (!diferida) return;
     diferidaError = null;
     diferidaCargando = true;
@@ -142,7 +142,11 @@
       onError: () => (diferidaError = diferida.error),
       onFinish: () => (diferidaCargando = false),
     });
-  });
+  }
+
+  $effect(() => cargarDiferida(seccion));
+
+  const reintentar = () => cargarDiferida(seccion);
 
   // Abierta la bandeja, manda su conteo: abrirla marca como leído lo que muestra.
   const mensajesSinLeer = $derived(
@@ -290,8 +294,8 @@
           bind:alcance={alcanceCalendario}
         />
       {:else if seccion === 'notas'}
-        {@render titulo('Resumen de notas')}
-        <CursoResumenNotas cargando={diferidaCargando} error={diferidaError} {rendimiento} />
+        {@render titulo('Resumen de notas', 'Escala de 1,0 a 7,0 · las notas aparecen cuando se publica la calificación')}
+        <CursoResumenNotas cargando={diferidaCargando} error={diferidaError} {rendimiento} onReintentar={reintentar} />
       {:else if seccion === 'mensajeria'}
         {@render titulo(
           'Mensajería',
