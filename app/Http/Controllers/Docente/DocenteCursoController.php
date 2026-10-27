@@ -79,10 +79,10 @@ class DocenteCursoController extends Controller
                 $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
                 $userPermissions = $esTitular
                     ? [] // El titular no necesita permisos explícitos — tiene acceso completo
-                    : ($allPermsGrouped->get($curso->id_contexto) ?? collect([]))
+                    : collect($user->getAllPermissions($curso->id_contexto))
                         ->map(fn($perm) => [
                             'id_permiso'    => $perm['id_permiso'],
-                            'slug'          => $perm['slug'],
+                            'slug'          => $perm['slug'] instanceof \BackedEnum ? $perm['slug']->value : (string) $perm['slug'],
                             'esta_permitido' => (bool) $perm['esta_permitido'],
                         ])
                         ->values()
@@ -288,7 +288,7 @@ class DocenteCursoController extends Controller
             : collect($user->getAllPermissions($curso->id_contexto))
                 ->map(fn($perm) => [
                     'id_permiso'    => $perm['id_permiso'],
-                    'slug'          => $perm['slug'],
+                    'slug'          => $perm['slug'] instanceof \BackedEnum ? $perm['slug']->value : (string) $perm['slug'],
                     'esta_permitido' => (bool) $perm['esta_permitido'],
                 ])
                 ->values()
