@@ -491,6 +491,40 @@ class MensajeriaService
      *
      * @param  int[]  $idsMensaje
      */
+    /**
+     * De esos mensajes, los de otros que el lector todavía no abre: lo que
+     * marcarLeidos() marcaría ahora. Para destacarlos como «Nuevo» antes de
+     * marcarlos.
+     *
+     * @param  int[]  $idsMensaje
+     * @return array<int,true>  id_mensaje => true
+     */
+    public function sinLeer(array $idsMensaje, int $idUsuarioLector): array
+    {
+        if (empty($idsMensaje)) {
+            return [];
+        }
+
+        $ids = DB::select("
+            SELECT m.id_mensaje
+            FROM curso.mensaje m
+            WHERE m.id_mensaje = ANY(string_to_array(:ids, ',')::int[])
+              AND m.id_usuario_emisor <> :id_emisor
+              AND NOT EXISTS (
+                    SELECT 1 FROM curso.interaccion_mensaje im
+                    WHERE im.id_mensaje = m.id_mensaje
+                      AND im.id_usuario_lector = :id_lector
+                      AND im.fecha_eliminacion IS NULL
+              )
+        ", [
+            'id_emisor' => $idUsuarioLector,
+            'id_lector' => $idUsuarioLector,
+            'ids'       => $this->pgIntArray($idsMensaje),
+        ]);
+
+        return collect($ids)->mapWithKeys(fn($f) => [(int) $f->id_mensaje => true])->all();
+    }
+
     public function marcarLeidos(array $idsMensaje, int $idUsuarioLector): void
     {
         if (empty($idsMensaje)) {

@@ -113,16 +113,18 @@ class MensajeriaCursoEstudiante
         $difusiones = $this->mensajeria->difusionesDeComponente($idComponente, $idUsuario);
         $mensajes = $this->mensajeria->mensajesDelCanal($idComponente, $idUsuario, $idUsuario);
 
-        $this->mensajeria->marcarLeidos(
-            $difusiones->pluck('id_mensaje')->merge($mensajes->pluck('id_mensaje'))->all(),
-            $idUsuario,
-        );
+        // Lo que llega sin abrir se destaca como «Nuevo» en esta visita.
+        $ids = $difusiones->pluck('id_mensaje')->merge($mensajes->pluck('id_mensaje'))->all();
+        $nuevos = $this->mensajeria->sinLeer($ids, $idUsuario);
+        $this->mensajeria->marcarLeidos($ids, $idUsuario);
+
+        $conNuevo = fn(array $m) => $m + ['nuevo' => isset($nuevos[$m['id_mensaje']])];
 
         return [
             'id_componente' => $idComponente,
             'componente'    => $componente->tipo_componente,
-            'difusiones'    => $difusiones->values(),
-            'mensajes'      => $mensajes->values(),
+            'difusiones'    => $difusiones->map($conNuevo)->values(),
+            'mensajes'      => $mensajes->map($conNuevo)->values(),
             'docentes'      => $this->mensajeria->docentesDeComponente($idComponente)->values(),
         ];
     }
