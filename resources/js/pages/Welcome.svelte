@@ -1,282 +1,222 @@
 <script lang="ts">
-    /**
-     * Página de bienvenida de UTAmed - Estética Académica Moderna
-     *
-     * Diseño inspirado en "Swiss Style" / Bauhaus para facultad de diseño.
-     * Enfoque en tipografía, grillas estructuradas, y claridad institucional.
-     */
-    import { dashboard, login } from '@/routes';
-    import { Link, page } from '@inertiajs/svelte';
-    import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
-    import {
-        Clock,
-        CalendarRange,
-        MonitorPlay,
-        MousePointer2,
-        MessageSquareQuote,
-        BrainCircuit,
-        UserCheck,
-        Users2,
-        ArrowRight,
-        GraduationCap,
-        ChevronRight
-    } from 'lucide-svelte';
-    import { fade, fly } from 'svelte/transition';
+  /**
+   * Portada pública de UTAMED (guía dm, dirección A · Noche).
+   *
+   * Cabecera noche con el degradado profundo y la retícula, qué hace cada rol
+   * en la plataforma, los ocho principios del modelo educativo, ayuda para
+   * entrar y el pie con el isologotipo UTA y el cuadro dm. Sólo la ven
+   * visitantes: con sesión iniciada, `/` redirige al inicio de cada rol.
+   */
+  import BotonTema from '@/components/ingreso/BotonTema.svelte';
+  import LogosInstitucionales from '@/components/ingreso/LogosInstitucionales.svelte';
+  import UtaMed from '@/components/ingreso/UtaMed.svelte';
+  import Reticula from '@/components/student/dm/Reticula.svelte';
+  import { btnNoche, enlace, etiqueta, tarjeta } from '@/lib/dm';
+  import { login } from '@/routes';
+  import { request } from '@/routes/password';
+  import { Link } from '@inertiajs/svelte';
+  import {
+    BookOpen,
+    ChevronRight,
+    ClipboardCheck,
+    ClipboardList,
+    FileText,
+    Mail,
+    MessageSquare,
+    Upload,
+    UserCheck,
+  } from 'lucide-svelte';
 
-    let user = $derived($page.props.auth.user);
+  // Cada ítem lleva el color de un curso (guía dm), sólo como acento del ícono.
+  const roles = [
+    {
+      titulo: 'Si estudias',
+      quien: 'Estudiantes',
+      items: [
+        { Icono: BookOpen, tono: 'bg-dm-c1-s text-dm-c1-t', titulo: 'Tus cursos', texto: 'Programa, biblioteca y calendario de cada curso del semestre.' },
+        { Icono: Upload, tono: 'bg-dm-c3-s text-dm-c3-t', titulo: 'Entregas', texto: 'Sube tu trabajo y revisa el plazo de cada actividad.' },
+        { Icono: ClipboardCheck, tono: 'bg-dm-c4-s text-dm-c4-t', titulo: 'Notas y retroalimentación', texto: 'La nota, la rúbrica y el comentario de tu docente.' },
+        { Icono: MessageSquare, tono: 'bg-dm-c2-s text-dm-c2-t', titulo: 'Mensajes', texto: 'Avisos del curso y conversación con el equipo docente.' },
+      ],
+    },
+    {
+      titulo: 'Si enseñas',
+      quien: 'Docentes y ayudantes',
+      items: [
+        { Icono: FileText, tono: 'bg-dm-c5-s text-dm-c5-t', titulo: 'Programa del curso', texto: 'Redáctalo paso a paso y envíalo a aprobación.' },
+        { Icono: ClipboardList, tono: 'bg-dm-c1-s text-dm-c1-t', titulo: 'Actividades', texto: 'Publícalas con su plazo, su rúbrica y sus grupos.' },
+        { Icono: ClipboardCheck, tono: 'bg-dm-c4-s text-dm-c4-t', titulo: 'Evaluación', texto: 'Califica con la rúbrica y deja retroalimentación a cada grupo.' },
+        { Icono: UserCheck, tono: 'bg-dm-c3-s text-dm-c3-t', titulo: 'Asistencia', texto: 'Registra cada sesión y revisa la asistencia del curso.' },
+      ],
+    },
+  ];
 
-    let scrolled = $state(false);
+  const principios = [
+    ['Asíncrono', 'Aprendizaje que se adapta a tu ritmo.'],
+    ['Flexible', 'Modalidades de estudio que se ajustan a tus necesidades.'],
+    ['Accesible', 'Sin barreras geográficas ni tecnológicas.'],
+    ['Interactivo', 'Participación activa en tu proceso formativo.'],
+    ['Retroalimentado', 'Evaluación y mejora continua de tu progreso.'],
+    ['Contextualizado', 'Conocimiento aplicado a realidades profesionales.'],
+    ['Centrado en el estudiante', 'Tu desarrollo integral es el eje del modelo.'],
+    ['Construcción social del aprendizaje', 'Se aprende en colaboración, en comunidad.'],
+  ];
 
-    $effect(() => {
-        const onScroll = () => {
-            scrolled = window.scrollY > 40;
-        };
-        onScroll();
-        window.addEventListener('scroll', onScroll, { passive: true });
-        return () => window.removeEventListener('scroll', onScroll);
-    });
-
-    const features = [
-        {
-            title: 'Asíncrono',
-            description: 'Aprendizaje que se adapta a tu ritmo personal.',
-            icon: Clock,
-        },
-        {
-            title: 'Flexible',
-            description: 'Modalidades de estudio adaptables a tus necesidades.',
-            icon: CalendarRange,
-        },
-        {
-            title: 'Accesible',
-            description: 'Sin barreras geográficas o tecnológicas.',
-            icon: MonitorPlay,
-        },
-        {
-            title: 'Interactivo',
-            description: 'Participación activa en tu proceso formativo.',
-            icon: MousePointer2,
-        },
-        {
-            title: 'Retroalimentado',
-            description: 'Evaluación y mejora continua de tu progreso.',
-            icon: MessageSquareQuote,
-        },
-        {
-            title: 'Contextualizado',
-            description: 'Conocimiento aplicado a realidades profesionales.',
-            icon: BrainCircuit,
-        },
-        {
-            title: 'Centrado en el Estudiante',
-            description: 'Tu desarrollo integral es el eje del modelo.',
-            icon: UserCheck,
-        },
-        {
-            title: 'Construcción Social de Aprendizaje',
-            description: 'Aprendizaje colaborativo en comunidad.',
-            icon: Users2,
-        }
-    ];
+  const contenedor = 'mx-auto w-full max-w-[1200px] px-4 lg:px-10';
+  const tituloSeccion = 'm-0 text-[22px] leading-7 font-bold lg:text-[28px] lg:leading-[34px]';
+  const enlaceSeccion =
+    'inline-flex min-h-11 items-center px-3 text-sm font-semibold text-dm-noche-texto-2 no-underline hover:text-dm-noche-texto';
 </script>
 
 <svelte:head>
-    <title>UTAmed | Entorno Virtual de Aprendizaje</title>
+  <title>UTAMED | Universidad de Tarapacá</title>
 </svelte:head>
 
-<div class="relative min-h-screen font-sans text-[#F5F3FF] selection:bg-[#5B9BD5]/30 selection:text-[#F5F3FF]">
-    <!-- Fondo fotográfico full-bleed, fijo al viewport -->
-    <div
-        class="fixed inset-0 z-0 scale-110 bg-cover bg-center blur-md"
-        style="background-image: url('/img/background-design.jpg');"
-        aria-hidden="true"
-    ></div>
+<div class="vista-ingreso flex min-h-screen flex-col bg-dm-pagina font-dm text-sm leading-5 text-dm-ink">
+  <section
+    aria-labelledby="t-portada"
+    class="sobre-noche relative overflow-hidden bg-[linear-gradient(160deg,#161949_0%,#161949_45%,#660959_100%)] text-dm-noche-texto lg:bg-[linear-gradient(135deg,#161949_0%,#161949_40%,#660959_100%)]"
+  >
+    <Reticula class="left-[30%] lg:left-[48%]" />
 
-    <!-- Velo nocturno base para legibilidad constante -->
-    <div class="fixed inset-0 z-0 bg-[#0d1626]/80" aria-hidden="true"></div>
-
-    <!-- Overlay progresivo: se oscurece hacia el final del scroll -->
-    <div
-        class="absolute inset-0 z-0 bg-gradient-to-b from-transparent via-[rgba(13,22,38,0.55)] to-[rgba(13,22,38,0.9)]"
-        aria-hidden="true"
-    ></div>
-
-    <!-- Resplandor ambiental lavanda -->
-    <div
-        class="pointer-events-none fixed left-1/2 top-1/3 z-0 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#5B9BD5]/10 blur-[120px]"
-        aria-hidden="true"
-    ></div>
-
-    <!-- Navigation -->
-    <nav
-        class="fixed top-0 z-50 w-full border-b transition-all duration-200 ease-out {scrolled
-            ? 'border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] backdrop-blur-2xl'
-            : 'border-transparent bg-transparent'}"
+    <header
+      class="relative mx-auto flex w-full max-w-[1200px] items-center gap-2 py-2.5 ps-4 pe-2 lg:flex-wrap lg:justify-between lg:gap-4 lg:px-10 lg:py-5"
     >
-        <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-12">
-            <div class="flex items-center gap-3">
-                <AppLogoIcon class="size-6 fill-current text-[#F5F3FF] -rotate-3" />
-                <div class="flex flex-col leading-none">
-                    <span class="text-lg font-bold tracking-tight text-[#F5F3FF]">UTAmed</span>
-                    <span class="text-[0.6rem] uppercase tracking-widest text-[#C4BFE0] font-medium">EDIT - FAE - UTA</span>
-                </div>
-            </div>
+      <div class="flex min-w-0 flex-1 items-center gap-2 lg:flex-none lg:gap-2.5">
+        <img src="/icon.png" alt="" width="32" height="32" class="size-7 shrink-0 object-contain lg:size-8" />
+        <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] lg:text-2xl lg:leading-7">UTAMED</span>
+      </div>
+      <nav aria-label="Secciones de la portada" class="flex items-center gap-1">
+        <a href="#que-es" class="{enlaceSeccion} max-lg:hidden">Qué es UTAMED</a>
+        <a href="#modelo" class="{enlaceSeccion} max-lg:hidden">Modelo educativo</a>
+        <a href="#ayuda" class="{enlaceSeccion} max-lg:hidden">Ayuda</a>
+        <BotonTema class="text-dm-noche-texto hover:bg-dm-noche-activo lg:ms-2" />
+        <Link href={login()} class="{btnNoche} font-bold! lg:ms-2">Ingresar</Link>
+      </nav>
+    </header>
 
-            <div class="flex items-center gap-6 text-sm font-medium">
-                {#if user}
-                    <Link
-                        href={dashboard()}
-                        class="group flex items-center gap-2 rounded-md text-[#5B9BD5] transition-colors hover:text-[#2A66AC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]"
-                    >
-                        Ir al inicio
-                        <ArrowRight size={16} class="group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                {:else}
-                    <Link
-                        href={login()}
-                        class="rounded-[14px] bg-[#F5F4F0] px-8 py-3 text-sm font-semibold text-[#1A1625] transition-all duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]"
-                    >
-                        Acceso Institucional
-                    </Link>
-                {/if}
-            </div>
+    <div class="relative {contenedor} flex flex-col gap-4 pt-8 pb-10 lg:gap-5 lg:pt-[72px] lg:pb-24">
+      <span class="{etiqueta} text-dm-amarillo">Entorno virtual de enseñanza y aprendizaje</span>
+      <h1
+        id="t-portada"
+        class="m-0 max-w-[640px] font-dm-cond text-[48px] leading-[46px] font-black uppercase lg:text-[72px] lg:leading-[66px]"
+      >
+        Bienvenido a<br />mi <UtaMed />
+      </h1>
+      <p class="m-0 mt-1 text-[13px] leading-[18px] text-dm-noche-texto-2">
+        Escuela de Diseño e Innovación Tecnológica · Universidad de Tarapacá
+      </p>
+    </div>
+  </section>
+
+  <section id="que-es" aria-labelledby="t-que-es" class="{contenedor} flex flex-col gap-5 py-10 lg:gap-8 lg:pt-20 lg:pb-[72px]">
+    <div class="flex max-w-[640px] flex-col gap-2">
+      <h2 id="t-que-es" class={tituloSeccion}>Qué haces en UTAMED</h2>
+      <p class="m-0 text-base leading-6 text-dm-ink-2">
+        Cada curso de la carrera tiene su espacio, con el mismo orden en todos. Lo que ves depende de tu rol.
+      </p>
+    </div>
+    <div class="grid gap-4 lg:grid-cols-2 lg:gap-6">
+      {#each roles as rol (rol.titulo)}
+        <div class="{tarjeta} flex flex-col overflow-hidden">
+          <div class="flex items-baseline justify-between gap-3 border-b border-dm-linea px-4 py-4 lg:px-6 lg:py-5">
+            <h3 class="m-0 text-lg leading-6 font-semibold">{rol.titulo}</h3>
+            <span class="text-[13px] leading-[18px] text-dm-ink-3">{rol.quien}</span>
+          </div>
+          <ul class="m-0 flex list-none flex-col p-0 py-2">
+            {#each rol.items as item (item.titulo)}
+              <li class="flex items-start gap-4 px-4 py-3.5 lg:px-6">
+                <span aria-hidden="true" class="flex size-10 shrink-0 items-center justify-center rounded-[10px] {item.tono}">
+                  <item.Icono size={20} />
+                </span>
+                <div class="flex min-w-0 flex-col gap-0.5">
+                  <span class="text-base leading-[22px] font-semibold">{item.titulo}</span>
+                  <span class="text-sm leading-5 text-dm-ink-2">{item.texto}</span>
+                </div>
+              </li>
+            {/each}
+          </ul>
         </div>
-    </nav>
+      {/each}
+    </div>
+  </section>
 
-    <main class="relative z-10 pt-32 pb-24">
-        <!-- Hero Section -->
-        <div class="container mx-auto px-6 lg:px-12 mb-24">
-            <div class="grid lg:grid-cols-12 gap-12 lg:gap-24 items-center">
-
-                <!-- Typography / Left Column -->
-                <div class="lg:col-span-6 space-y-10" in:fade={{ duration: 800 }}>
-                    <div class="inline-flex items-center gap-3 border-b border-[#5B9BD5] pb-1 w-fit">
-                        <GraduationCap size={16} class="text-[#5B9BD5]" />
-                        <span class="text-xs font-bold uppercase tracking-widest text-[#5B9BD5]">Modelo Educativo 2026</span>
-                    </div>
-
-                    <h1 class="text-5xl lg:text-7xl font-bold tracking-tight leading-[1.05] text-[#F5F3FF]">
-                        Entorno Virtual de <br/>
-                        <span class="bg-gradient-to-r from-[#FFFFFF] to-[#BFD9F2] bg-clip-text text-transparent"
-                            >Enseñanza <span class="font-light text-[#C4BFE0]">&</span> Aprendizaje.</span
-                        >
-                    </h1>
-
-                    <p class="text-lg text-[#C4BFE0] max-w-lg leading-relaxed border-l-2 border-[rgba(255,255,255,0.12)] pl-6">
-                        Una plataforma que redefine la experiencia académica mediante la integración de tecnología, diseño y pedagogía.
-                    </p>
-
-                    <div class="flex items-center gap-4 pt-4">
-                        <Link
-                            href={user ? dashboard() : login()}
-                            class="inline-flex h-12 items-center px-8 rounded-[14px] bg-[#F5F4F0] text-[15px] font-semibold text-[#1A1625] shadow-[0_24px_64px_rgba(0,0,0,0.35)] transition-all duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]"
-                        >
-                            {user ? 'Continuar al Panel' : 'Ingresar al Portal'}
-                        </Link>
-                        {#if !user}
-                        <div class="text-xs text-[#C4BFE0] max-w-[150px] leading-tight">
-                            Acceso exclusivo para docentes y estudiantes.
-                        </div>
-                        {/if}
-                    </div>
-                </div>
-
-                <!-- Structured Image / Right Column -->
-                <div class="lg:col-span-6 relative" in:fly={{ x: 50, duration: 1000, delay: 200 }}>
-                    <!-- Decorative Graphic Elements behind -->
-                    <div class="absolute -top-12 -right-12 w-64 h-64 bg-[#5B9BD5]/10 rounded-full blur-3xl"></div>
-                    <div class="absolute -bottom-8 -left-8 w-40 h-40 bg-[#BFD9F2]/10 rounded-full blur-2xl"></div>
-
-                    <!-- Main Image Container (marco glass) -->
-                    <div class="relative aspect-[4/3] rounded-[20px] border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] p-2 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-                        <img
-                            src="/banner-utamed.jpg"
-                            alt="Estudiantes de Diseño UTAmed"
-                            class="w-full h-full object-cover rounded-2xl filter saturate-[.8] contrast-[1.1]"
-                        />
-
-                    </div>
-                </div>
-            </div>
+  <section id="modelo" aria-labelledby="t-modelo" class="border-y border-dm-linea bg-dm-tarjeta">
+    <div class="{contenedor} flex flex-col gap-8 py-10 lg:py-[72px]">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div class="flex max-w-[640px] flex-col gap-2">
+          <span class="{etiqueta} text-dm-ink-3">Modelo educativo 2026</span>
+          <h2 id="t-modelo" class={tituloSeccion}>Ocho principios para enseñar y aprender en línea</h2>
         </div>
+        <p class="m-0 max-w-[420px] text-sm leading-5 text-dm-ink-2">
+          Orientan cómo se diseñan los cursos y las actividades de la plataforma.
+        </p>
+      </div>
+      <ol class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-x-6 gap-y-8 p-0">
+        {#each principios as [titulo, texto], i (titulo)}
+          <li class="flex flex-col gap-2 border-t-[3px] border-dm-ink pt-4">
+            <span aria-hidden="true" class="font-dm-cond text-[32px] leading-8 font-extrabold text-dm-ink-3 tabular-nums">
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <span class="text-lg leading-6 font-semibold">{titulo}</span>
+            <span class="text-sm leading-5 text-dm-ink-2">{texto}</span>
+          </li>
+        {/each}
+      </ol>
+    </div>
+  </section>
 
-        <!-- Features Grid -->
-        <div class="py-24">
-            <div class="container mx-auto px-6 lg:px-12">
-                <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
-                    <div>
-                        <h2 class="text-3xl font-bold text-[#F5F3FF] tracking-tight mb-2">Pilares Fundamentales</h2>
-                        <div class="h-1 w-24 bg-[#5B9BD5] mt-4"></div>
-                    </div>
-                    <p class="text-[#C4BFE0] max-w-md text-sm leading-relaxed text-right md:text-left">
-                        Nuestro modelo pedagógico se sustenta en 8 dimensiones clave que garantizan una formación integral de vanguardia.
-                    </p>
-                </div>
+  <section id="ayuda" aria-labelledby="t-ayuda" class="{contenedor} flex flex-col gap-6 py-10 lg:py-[72px]">
+    <h2 id="t-ayuda" class={tituloSeccion}>¿Problemas para entrar?</h2>
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4">
+      <div class="{tarjeta} flex flex-col gap-2 p-5 lg:p-6">
+        <h3 class="m-0 text-lg leading-6 font-semibold">Tu RUT</h3>
+        <p class="m-0 text-sm leading-5 text-dm-ink-2">
+          Escríbelo sin puntos y con guion antes del dígito verificador, por ejemplo 12345678-5.
+        </p>
+      </div>
+      <div class="{tarjeta} flex flex-col gap-2 p-5 lg:p-6">
+        <h3 class="m-0 text-lg leading-6 font-semibold">Tu contraseña</h3>
+        <p class="m-0 text-sm leading-5 text-dm-ink-2">
+          Te llegó al correo institucional cuando se creó tu cuenta. Si no la encuentras, pide una nueva.
+        </p>
+        <Link href={request()} class="{enlace} self-start">
+          Recuperar contraseña
+          <ChevronRight size={16} aria-hidden="true" />
+        </Link>
+      </div>
+      <div class="{tarjeta} flex flex-col gap-2 p-5 lg:p-6">
+        <h3 class="m-0 text-lg leading-6 font-semibold">Soporte</h3>
+        <p class="m-0 text-sm leading-5 text-dm-ink-2">
+          Centro de Innovación Tecnoeducativa (CITE). Escribe desde tu correo institucional e indica tu RUT.
+        </p>
+        <a href="mailto:cite@gestion.uta.cl" class="{enlace} gap-1.5! self-start">
+          <Mail size={16} aria-hidden="true" />
+          cite@gestion.uta.cl
+        </a>
+      </div>
+    </div>
+  </section>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {#each features as feature, i}
-                        <div
-                            class="rounded-[20px] border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] backdrop-blur-2xl p-8 group hover:bg-[rgba(91,155,213,0.08)] transition-colors duration-300 flex flex-col h-full relative overflow-hidden"
-                        >
-                            <div class="mb-6 text-[#5B9BD5] bg-[#5B9BD5]/15 w-12 h-12 flex items-center justify-center rounded-2xl group-hover:bg-[#5B9BD5] group-hover:text-white transition-all duration-300">
-                                <feature.icon size={24} strokeWidth={1.5} />
-                            </div>
-
-                            <h3 class="text-lg font-bold text-[#F5F3FF] mb-3 group-hover:text-[#2A66AC] transition-colors">{feature.title}</h3>
-                            <p class="text-sm text-[#C4BFE0] leading-relaxed max-w-[90%]">
-                                {feature.description}
-                            </p>
-
-                            <!-- Decorative corner -->
-                            <div class="absolute top-0 right-0 w-8 h-8 flex items-start justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div class="w-1.5 h-1.5 bg-[#5B9BD5] rounded-full"></div>
-                            </div>
-                        </div>
-                    {/each}
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Institutional Footer -->
-    <footer class="relative z-10 border-t border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] backdrop-blur-2xl pt-16 pb-8">
-        <div class="container mx-auto px-6 lg:px-12">
-            <div class="grid md:grid-cols-4 gap-12 mb-12">
-                <div class="space-y-4 col-span-2">
-                    <div class="flex items-center gap-2">
-                        <AppLogoIcon class="size-5 fill-current text-[#F5F3FF]" />
-                        <span class="font-bold text-[#F5F3FF] tracking-tight">UTAmed</span>
-                    </div>
-                    <p class="text-[#C4BFE0] text-sm max-w-xs leading-relaxed">
-                        Universidad de Tarapacá.<br/>
-                        Escuela de Diseño e Innovación Tecnológica.<br/>
-                        Centro de Innovación Tecnoeducativa (CITE).
-                    </p>
-                </div>
-
-                <div>
-                    <h4 class="font-bold text-[#F5F3FF] text-sm mb-4 uppercase tracking-wider">Enlaces</h4>
-                    <ul class="space-y-2 text-sm text-[#C4BFE0]">
-                        <li><a href="#" class="rounded-sm transition-colors hover:text-[#5B9BD5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]">Portal de Estudiantes</a></li>
-                        <li><a href="#" class="rounded-sm transition-colors hover:text-[#5B9BD5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]">Biblioteca Digital</a></li>
-                        <li><a href="#" class="rounded-sm transition-colors hover:text-[#5B9BD5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]">Calendario Académico</a></li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h4 class="font-bold text-[#F5F3FF] text-sm mb-4 uppercase tracking-wider">Ayuda</h4>
-                    <ul class="space-y-2 text-sm text-[#C4BFE0]">
-                        <li><a href="mailto:cite@gestion.uta.cl" class="rounded-sm transition-colors hover:text-[#5B9BD5] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]">cite@gestion.uta.cl</a></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="border-t border-[rgba(255,255,255,0.12)] pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#C4BFE0]">
-                <p>&copy; 2026 Universidad de Tarapacá. Arica - Chile.</p>
-                <div class="flex gap-6">
-                    <span>Acreditada por CNA-Chile</span>
-                </div>
-            </div>
-        </div>
-    </footer>
+  <footer class="sobre-noche mt-auto bg-dm-noche text-dm-noche-texto">
+    <div class="{contenedor} flex flex-col gap-6 pt-8 pb-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-8 lg:pt-10 lg:pb-8">
+      <LogosInstitucionales />
+      <div class="flex flex-col gap-1 text-[13px] leading-[18px] text-dm-noche-texto-2 lg:text-right">
+        <span class="font-semibold text-dm-noche-texto">Universidad de Tarapacá</span>
+        <span>Escuela de Diseño e Innovación Tecnológica · Diseño Multimedia</span>
+        <span>Centro de Innovación Tecnoeducativa (CITE)</span>
+      </div>
+    </div>
+    <div class={contenedor}>
+      <div
+        class="flex flex-col gap-1 border-t border-dm-noche-linea pt-4 pb-6 text-[13px] leading-[18px] text-dm-noche-texto-2 lg:flex-row lg:flex-wrap lg:justify-between lg:gap-2"
+      >
+        <span>© {new Date().getFullYear()} Universidad de Tarapacá · Arica, Chile</span>
+        <span>Universidad acreditada por la CNA-Chile</span>
+      </div>
+    </div>
+    <div aria-hidden="true" class="grid h-2 grid-cols-3">
+      <span class="bg-[#DEB01F]"></span><span class="bg-[#22213F]"></span><span class="bg-[#678FCA]"></span>
+    </div>
+  </footer>
 </div>
