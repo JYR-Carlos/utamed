@@ -871,6 +871,12 @@ class DocenteActivityController extends Controller
 
         $actividad->load(['componente', 'unidad']);
 
+        $esDocenteComponente = (bool) ($user->docente && $actividad->componente
+            ? $actividad->componente->docenteComponentes()
+                ->where('id_docente', $user->docente->id_docente)
+                ->exists()
+            : false);
+
         // Aquí se reparaban al vuelo los grupos individuales faltantes, con un
         // bucle de consultas en cada carga de la pantalla (B-7). Ahora los crea
         // la escritura: al crear la actividad y al inscribir al estudiante
@@ -1050,6 +1056,7 @@ class DocenteActivityController extends Controller
                 'es_grupal' => (bool) $actividad->es_grupal,
                 'max_integrantes' => $actividad->max_integrantes,
                 'es_titular' => $esTitular,
+                'es_docente_componente' => $esDocenteComponente,
                 'nro_dias_adicionales_para_bloqueo' => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
                 // El enunciado se muestra junto a la rúbrica en «Sobre esta actividad».
                 'archivo_enunciado' => $actividad->archivo ? [
