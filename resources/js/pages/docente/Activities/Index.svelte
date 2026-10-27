@@ -58,6 +58,8 @@
   import { ConfirmDialog } from '@/components/custom/common';
   import { textoCierre } from '@/utils/plazo';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
+  import { hasPermission } from '@/services/permissionValidator';
+  import type { PermissionItem } from '@/services/permissionValidator';
   import RubricaEditor from './RubricaEditor.svelte';
   import MatrizEvaluacion from './MatrizEvaluacion.svelte';
   import GrupoCard from './components/GrupoCard.svelte';
@@ -107,7 +109,14 @@
 
   // ─── Props desde Inertia ──────────────────────────────────────────────────
   interface Props {
-    curso: { id_curso: number; nombre: string; etiqueta?: string; cod_curso: string };
+    curso: {
+      id_curso: number;
+      nombre: string;
+      etiqueta?: string;
+      cod_curso: string;
+      es_titular_curso?: boolean;
+      userPermissions?: PermissionItem[];
+    };
     actividad: {
       id_actividad: number;
       nombre: string;
@@ -118,6 +127,7 @@
       es_grupal: boolean;
       max_integrantes?: number;
       es_titular: boolean;
+      es_docente_componente?: boolean;
       nro_dias_adicionales_para_bloqueo: number;
       archivo_enunciado?: { nombre_original: string; mime_type: string | null; peso_bytes: number | null } | null;
     };
@@ -163,6 +173,25 @@
     { title: curso.etiqueta ?? curso.nombre, href: `/docente/cursos/${curso.id_curso}/actividades` },
     { title: actividad.nombre, href: '#' },
   ]);
+
+  // ─── Permisos del usuario ──────────────────────────────────────────────────
+  const esTitular = $derived(actividad.es_titular || (curso.es_titular_curso ?? false));
+  const esDocenteComponente = $derived(actividad.es_docente_componente ?? false);
+  const puedeEvaluar = $derived(
+    esTitular ||
+      esDocenteComponente ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:evaluar'),
+  );
+  const puedeGestionarGrupos = $derived(
+    esTitular ||
+      hasPermission(curso.userPermissions ?? [], 'actividades/grupos:crear') ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:evaluar'),
+  );
+  const puedeEnviarMensajes = $derived(
+    esTitular ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:enviar_recordatorios') ||
+      hasPermission(curso.userPermissions ?? [], 'actividades:dar_feedback'),
+  );
 
   // ─── Estado del UI ────────────────────────────────────────────────────────
   let grupoSeleccionado = $state<GrupoData | null>(null);
@@ -735,7 +764,7 @@
             Adjuntar enunciado
           </button>
         {/if}
-        {#if actividad.es_sumativa && (actividad.es_titular || rubrica)}
+        {#if actividad.es_sumativa && (esTitular || rubrica)}
           <button class={BTN_SEC} onclick={() => (showRubricaEditor = true)}>
             {#if puede_editar_rubrica || !rubrica}
               <Pencil class="size-4 shrink-0" />
@@ -751,7 +780,7 @@
             {/if}
           </button>
         {/if}
-        {#if actividad.es_titular && grupos.length > 0}
+        {#if puedeEnviarMensajes && grupos.length > 0}
           <button onclick={abrirMensajeTodos} class={BTN_SEC}>
             <Send class="size-4 shrink-0" />
             {actividad.es_grupal ? 'Mensaje a todos los grupos' : 'Mensaje a todos'}
@@ -789,7 +818,7 @@
               <span class="text-xs font-medium text-slate-600">
                 {grupos.length} {grupos.length === 1 ? 'grupo' : 'grupos'}
               </span>
-              {#if actividad.es_titular}
+              {#if puedeGestionarGrupos}
                 {#if actividadesConGrupos.length > 0}
                   <button
                     onclick={() => {
@@ -839,7 +868,7 @@
         {#if !actividad.es_grupal}
           <EstudiantesTabla
             {grupos}
-            esTitular={actividad.es_titular}
+            esTitular={puedeEvaluar}
             traeArchivo={actividad.trae_archivo}
             esSumativa={actividad.es_sumativa}
             puedeCalificar={!!(rubrica && rubrica_id)}
@@ -865,7 +894,7 @@
             {#each [...grupos].sort((a, b) => a.grupo - b.grupo) as grupo (grupo.grupo)}
               <GrupoCard
                 {grupo}
-                esTitular={actividad.es_titular}
+                esTitular={puedeEvaluar}
                 traeArchivo={actividad.trae_archivo}
                 esGrupal={actividad.es_grupal}
                 {savingDecimas}
@@ -899,7 +928,7 @@
           </div>
         {/if}
 
-        {#if grupos.length === 0 && actividad.es_grupal && actividad.es_titular}
+        {#if grupos.length === 0 && actividad.es_grupal && puedeGestionarGrupos}
           <div
             class="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-gray-200 rounded-3xl"
           >
