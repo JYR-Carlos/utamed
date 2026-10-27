@@ -5,7 +5,8 @@
  * text-dm-noche, border-dm-noche… Van en @theme sin `inline` para que el
  * modo oscuro las redefina abajo y las clases cambien solas, sin `dark:`.
  *
- * Por ahora sólo las usa la vista del alumno (lote 1). Lo que el alumno
+ * Por ahora las usan la vista del alumno (lote 1) y el ingreso (portada y
+ * login, `.vista-ingreso`). Lo que el alumno
  * comparte con el docente se ajusta con la variante `alumno:`, que aplica
  * dentro de `.vista-alumno` (StudentLayout) y deja igual al docente.
  */
@@ -161,11 +162,11 @@
 
     /* Foco por teclado con el color de enlace (azul en claro, lavanda en
        oscuro) y amarillo sobre noche, donde el azul no se distingue. */
-    .vista-alumno :focus-visible {
+    :is(.vista-alumno, .vista-ingreso) :focus-visible {
         outline-color: var(--color-dm-enlace);
     }
 
-    .vista-alumno .sobre-noche :focus-visible {
+    :is(.vista-alumno, .vista-ingreso) .sobre-noche :focus-visible {
         outline-color: var(--color-dm-amarillo);
     }
 }
