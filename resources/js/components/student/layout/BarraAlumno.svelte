@@ -43,7 +43,7 @@
     <Menu size={22} aria-hidden="true" />
   </button>
 
-  <Link href="/estudiante/dashboard" class="flex min-w-0 flex-1 items-center gap-2 no-underline lg:hidden {foco}">
+  <Link href="/estudiante/dashboard" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 no-underline lg:hidden {foco}">
     <img src="/icon.png" alt="" width="28" height="28" class="size-7 shrink-0 object-contain" />
     <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] text-dm-noche-texto">UTAMED</span>
   </Link>

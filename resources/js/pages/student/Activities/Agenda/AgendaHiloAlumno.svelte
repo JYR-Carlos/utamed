@@ -121,11 +121,11 @@
                     />{:else}<FileCheck size={16} aria-hidden="true" />{/if}
                   <span class="min-w-0 truncate text-[13px] leading-[18px] font-bold">Entrega · {quien}</span>
                   {#if historica}
-                    <span class="ml-auto shrink-0 rounded-full border border-dm-off px-2 text-xs leading-[18px] font-bold">
+                    <span class="ml-auto shrink-0 rounded-full border border-dm-off px-2 text-[13px] leading-[18px] font-bold">
                       {item.fue_cancelada ? 'Cancelada' : 'Reemplazada'}
                     </span>
                   {:else}
-                    <span class="ml-auto shrink-0 rounded-full bg-dm-accion px-2 text-xs leading-[18px] font-bold text-dm-sobre-accion">Vigente</span>
+                    <span class="ml-auto shrink-0 rounded-full bg-dm-accion px-2 text-[13px] leading-[18px] font-bold text-dm-sobre-accion">Vigente</span>
                   {/if}
                 </div>
                 <div class="flex flex-col gap-2.5 px-3.5 py-3">
@@ -135,7 +135,7 @@
                   <div class="flex min-w-0 items-center gap-2.5 {historica ? '' : 'rounded-lg bg-dm-sutil px-2.5 py-2'}">
                     <span
                       aria-hidden="true"
-                      class="flex size-9 shrink-0 items-center justify-center rounded-md text-[11px] font-extrabold tracking-[0.04em] {historica
+                      class="flex size-9 shrink-0 items-center justify-center rounded-md text-xs font-extrabold tracking-[0.04em] {historica
                         ? 'bg-dm-off-s text-dm-off'
                         : 'bg-dm-accion text-dm-sobre-accion'}">{extension(archivo?.nombre_original)}</span
                     >
@@ -202,12 +202,12 @@
                   <Award size={16} aria-hidden="true" />
                   <span class="min-w-0 truncate text-[13px] leading-[18px] font-bold text-dm-ink">Evaluación · {titleCase(item.emisor)}</span>
                   {#if item.fue_reevaluada}
-                    <span class="ml-auto shrink-0 rounded-full border border-dm-off px-2 text-xs leading-[18px] font-bold">Reevaluada</span>
+                    <span class="ml-auto shrink-0 rounded-full border border-dm-off px-2 text-[13px] leading-[18px] font-bold">Reevaluada</span>
                   {:else if esFormativa}
-                    <span class="ml-auto shrink-0 rounded-full bg-dm-info px-2 text-xs leading-[18px] font-bold text-dm-tarjeta">{opinion}</span>
+                    <span class="ml-auto shrink-0 rounded-full bg-dm-info px-2 text-[13px] leading-[18px] font-bold text-dm-tarjeta">{opinion}</span>
                   {:else}
                     <span
-                      class="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 text-xs leading-[18px] font-bold text-dm-tarjeta {aprobada
+                      class="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 text-[13px] leading-[18px] font-bold text-dm-tarjeta {aprobada
                         ? 'bg-dm-ok'
                         : 'bg-dm-error'}"
                     >
@@ -274,7 +274,7 @@
                     <span class="flex flex-wrap items-center gap-2">
                       <span class="text-[13px] leading-[18px] font-bold">{quien}</span>
                       <span
-                        class="rounded-full px-2 text-xs leading-[18px] font-bold {docente
+                        class="rounded-full px-2 text-[13px] leading-[18px] font-bold {docente
                           ? 'bg-dm-accion-suave text-dm-accion-texto'
                           : 'bg-dm-sutil text-dm-ink-2'}">{docente ? 'Docente' : 'Tu grupo'}</span
                       >

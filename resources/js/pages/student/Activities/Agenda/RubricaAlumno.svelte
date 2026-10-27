@@ -146,7 +146,7 @@
               </span>
               {#if n.texto}<span class="text-[13px] leading-[18px] text-dm-ink-2">{n.texto}</span>{/if}
               {#if n.marcado}
-                <span class="mt-0.5 inline-flex items-center gap-1 self-start rounded-full bg-dm-amarillo px-2 text-xs leading-5 font-extrabold text-[#161949]">
+                <span class="mt-0.5 inline-flex items-center gap-1 self-start rounded-full bg-dm-amarillo px-2 text-[13px] leading-5 font-extrabold text-[#161949]">
                   <Check size={13} strokeWidth={3} aria-hidden="true" />Nivel asignado
                 </span>
               {/if}

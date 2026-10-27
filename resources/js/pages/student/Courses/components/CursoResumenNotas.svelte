@@ -172,7 +172,7 @@
                   ></span>
                   <span class="absolute -top-1.5 -bottom-1.5 w-0.5 bg-dm-ink" style="left: {minimo}%"></span>
                 </div>
-                <div aria-hidden="true" class="relative h-4.5 text-xs leading-[18px] text-dm-ink-3 tabular-nums">
+                <div aria-hidden="true" class="relative h-4.5 text-[13px] leading-[18px] text-dm-ink-3 tabular-nums">
                   <span class="absolute left-0">0 %</span>
                   <span class="absolute -translate-x-1/2 font-bold text-dm-ink-2" style="left: {minimo}%">mínimo</span>
                   <span class="absolute right-0">100 %</span>

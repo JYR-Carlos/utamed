@@ -167,8 +167,8 @@
     );
   }
 
-  const PILDORA = 'rounded-full px-1.5 text-xs leading-[18px] font-bold';
-  const NUEVO = 'rounded-full bg-dm-activo-suave px-2 text-xs leading-[18px] font-bold text-dm-activo-texto';
+  const PILDORA = 'rounded-full px-1.5 text-[13px] leading-[18px] font-bold';
+  const NUEVO = 'rounded-full bg-dm-activo-suave px-2 text-[13px] leading-[18px] font-bold text-dm-activo-texto';
 </script>
 
 <div class="flex flex-col gap-4">

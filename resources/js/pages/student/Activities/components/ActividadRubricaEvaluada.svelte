@@ -63,7 +63,7 @@
           {#each c.niveles as n, i (i)}
             <span
               aria-current={n.marcado ? 'true' : undefined}
-              class="inline-flex min-h-8 flex-1 items-center justify-center rounded-lg border px-1 text-center text-xs leading-4 {n.marcado
+              class="inline-flex min-h-8 flex-1 items-center justify-center rounded-lg border px-1 text-center text-[13px] leading-4 {n.marcado
                 ? 'border-dm-amarillo bg-dm-activo-suave font-bold text-dm-activo-texto'
                 : 'border-dm-linea font-medium text-dm-ink-3'}"
             >

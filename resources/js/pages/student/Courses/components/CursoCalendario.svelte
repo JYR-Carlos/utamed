@@ -357,7 +357,7 @@
                             {@const e = ESTILOS[estadoDe(a)]}
                             {@const Icono = e.icono}
                             <span
-                              class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-xs leading-4 font-semibold {e.marca}"
+                              class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-[13px] leading-4 font-semibold {e.marca}"
                               title="{cursoDe(a) ? `${cursoDe(a)} · ` : ''}{a.nombre} · {etiquetaDe(a)}"
                             >
                               <Icono size={12} class="shrink-0" />
@@ -365,7 +365,7 @@
                             </span>
                           {/each}
                           {#if lista.length > 2}
-                            <span class="px-1 text-xs font-bold text-dm-enlace">+{lista.length - 2} más</span>
+                            <span class="px-1 text-[13px] font-bold text-dm-enlace">+{lista.length - 2} más</span>
                           {/if}
                         </span>
                       </button>

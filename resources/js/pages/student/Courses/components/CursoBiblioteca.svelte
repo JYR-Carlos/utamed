@@ -42,7 +42,7 @@
         href="#{g.id}"
         class="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-dm-control bg-dm-tarjeta px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap text-dm-ink no-underline hover:bg-dm-sutil"
       >
-        {g.corto}<span class="rounded-full bg-dm-sutil px-1.5 text-xs leading-[18px] font-bold text-dm-ink-2">{g.recursos.length}</span>
+        {g.corto}<span class="rounded-full bg-dm-sutil px-1.5 text-[13px] leading-[18px] font-bold text-dm-ink-2">{g.recursos.length}</span>
       </a>
     {/each}
   </nav>
