@@ -17,7 +17,7 @@ use Illuminate\Database\Seeder;
  * - Facultad de Administración y Economía
  * - Escuela de Diseño e Innovación Tecnológica
  * - Carrera Diseño Multimedia
- * - Plan de estudio 2026 v1
+ * - Plan de estudio 2016 v1
  * - Catálogo completo de asignaturas y sus asignaciones al plan.
  */
 class CarreraDisenioMultimediaSeeder extends Seeder
@@ -47,17 +47,22 @@ class CarreraDisenioMultimediaSeeder extends Seeder
             ]
         );
 
-        // 4. Plan de Estudios (2026 v1)
-        $plan = Plan::firstOrCreate(
-            [
+        // 4. Plan de Estudios (2016 v1 - Plan oficial de Diseño Multimedia / Carrera 23)
+        $plan = Plan::where('id_carrera', $carrera->id_carrera)
+            ->whereIn('agno_plan', [2016, 2026])
+            ->where('version_plan', 1)
+            ->first();
+
+        if ($plan && (int)$plan->agno_plan === 2026) {
+            $plan->update(['agno_plan' => 2016]);
+        } elseif (!$plan) {
+            $plan = Plan::create([
                 'id_carrera' => $carrera->id_carrera,
-                'agno_plan' => 2026,
+                'agno_plan' => 2016,
                 'version_plan' => 1,
-            ],
-            [
                 'creditos_sct_totales' => 290,
-            ]
-        );
+            ]);
+        }
 
         // 5. Catálogo de asignaturas y su planificación
         $asignaturas = [

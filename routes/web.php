@@ -158,6 +158,10 @@ Route::prefix('admin')->middleware(['auth', 'is_admin'])->name('admin.')->group(
         ->name('cursos.programa.fechas');
     Route::post('cursos/{curso}/programa/instanciar', [AdminProgramaController::class, 'instantiar'])
         ->name('cursos.programa.instanciar');
+    Route::get('cursos/{curso}/syllabus/destinos-replicacion', [AdminProgramaController::class, 'destinosReplicacion'])
+        ->name('cursos.syllabus.destinos-replicacion');
+    Route::post('cursos/{curso}/syllabus/replicar', [AdminProgramaController::class, 'replicar'])
+        ->name('cursos.syllabus.replicar');
 
     // Componentes routes
     Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])
@@ -180,6 +184,8 @@ Route::prefix('admin')->middleware(['auth', 'is_admin'])->name('admin.')->group(
     Route::resource('asignaturas', AsignaturaController::class);
 
     // Copia de curso (BEFORE resource to avoid conflict with {curso} binding)
+    Route::get('cursos/buscar-fuente', [CursoController::class, 'buscarFuente'])
+        ->name('cursos.buscar-fuente');
     Route::get('cursos/{curso}/preview-copia', [CursoController::class, 'previewCopia'])
         ->name('cursos.preview-copia');
     Route::post('cursos/{curso}/copiar', [CursoController::class, 'copiar'])
@@ -293,6 +299,8 @@ Route::prefix('admin')->middleware(['auth', 'is_admin'])->name('admin.')->group(
         ->name('cursos.sincronizar-intranet.preview');
     Route::post('cursos/{curso}/sincronizar-intranet', [CursoController::class, 'sincronizarIntranet'])
         ->name('cursos.sincronizar-intranet');
+    Route::post('cursos/{curso}/sincronizar-intranet/revertir', [CursoController::class, 'revertirSincronizacion'])
+        ->name('cursos.sincronizar-intranet.revertir');
 
     // Course Team Management
     Route::get('cursos/{curso}/team', [CourseTeamController::class, 'index'])->name('cursos.team.index');

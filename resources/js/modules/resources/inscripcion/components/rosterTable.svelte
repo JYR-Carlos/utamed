@@ -14,6 +14,7 @@
     studentUsername,
     initials,
     cursoDisplayName,
+    formatInsId,
   } from '../types/inscripcion.types';
 
   interface Props {
@@ -67,8 +68,11 @@
     rosterOrdenado.filter((item) => {
       const term = rosterSearch.trim().toLowerCase();
       if (!term) return true;
+      const termDigits = term.replace(/\s+/g, '');
+      const insIdStr = item.ins_id != null ? String(item.ins_id) : '';
       return (
         studentName(item).toLowerCase().includes(term) ||
+        (insIdStr !== '' && (insIdStr.includes(termDigits) || formatInsId(item.ins_id).includes(term))) ||
         studentUsername(item).toLowerCase().includes(term)
       );
     }),
@@ -105,12 +109,12 @@
 
   const columns = [
     { key: 'estudiante', label: 'Estudiante' },
-    { key: 'usuario', label: 'Usuario' },
+    { key: 'ins_id', label: 'Cód. Inscripción' },
     { key: 'inscripcion', label: 'Inscripción' },
     { key: 'intento', label: 'Intento', class: 'text-center' },
     { key: 'promedio', label: 'Promedio', class: 'text-center' },
     { key: 'estado', label: 'Estado' },
-    { key: 'acciones', label: '', class: 'text-right w-1 whitespace-nowrap' },
+    { key: 'acciones', label: '', sortable: false, class: 'text-right w-1 whitespace-nowrap' },
   ];
 </script>
 
@@ -308,7 +312,7 @@
     <DataTable
       data={rosterFiltrado}
       {columns}
-      searchPlaceholder="Buscar estudiante por nombre o usuario…"
+      searchPlaceholder="Buscar estudiante por nombre o código…"
       onSearch={(term) => (rosterSearch = term)}
       rowClass={(item) => {
         const cfg = ESTADO_CFG[item.estado_inscripcion] ?? ESTADO_CFG['INSCRITO'];
@@ -339,12 +343,14 @@
               {studentName(item)}
             </span>
           </div>
-        {:else if column.key === 'usuario'}
-          <span
-            class="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md ring-1 ring-gray-200"
-          >
-            {studentUsername(item)}
-          </span>
+        {:else if column.key === 'ins_id'}
+          {#if formatInsId(item.ins_id) !== '—'}
+            <span class="font-mono text-xs text-gray-600">
+              {formatInsId(item.ins_id)}
+            </span>
+          {:else}
+            <span class="text-gray-300 text-sm" title="No especificado">—</span>
+          {/if}
         {:else if column.key === 'inscripcion'}
           <span class="whitespace-nowrap text-sm text-gray-400">
             {item.fecha_inscripcion ?? '—'}

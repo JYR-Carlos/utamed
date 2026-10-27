@@ -12,11 +12,14 @@
    * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
    */
   import { ordenarComponentesCTL } from '@/lib/componentes';
-  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy, UserPlus } from 'lucide-svelte';
+  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy, UserPlus, Search, Loader2, ArrowUpRight } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
   import { untrack } from 'svelte';
   import type { Curso, Componente } from '../types/curso.types';
   import { tonoGrupo, limpiarNombreGrupo } from '@/utils/grupoColor';
+  import { fetchRoster } from '@/modules/resources/inscripcion/services/inscripcionApi';
+  import type { RosterItem } from '@/modules/resources/inscripcion/types/inscripcion.types';
+  import { studentName } from '@/modules/resources/inscripcion/types/inscripcion.types';
 
 
 
@@ -50,8 +53,62 @@
     onSincronizarIntranet = () => {},
   }: Props = $props();
 
-  type Tab = 'secciones' | 'equipo' | 'configuracion';
+  type Tab = 'secciones' | 'equipo' | 'inscritos' | 'configuracion';
   let activeTab = $state<Tab>('secciones');
+
+  // ─── Estado de la lista de inscritos (FEAT-08) ─────────────────────────
+  let roster = $state<RosterItem[]>([]);
+  let loadingRoster = $state(false);
+  let rosterError = $state('');
+  let loadedCursoId = $state<number | null>(null);
+  let filtroInscritos = $state('');
+
+  async function cargarRoster(idCurso: number) {
+    loadingRoster = true;
+    rosterError = '';
+    try {
+      roster = await fetchRoster(idCurso);
+      loadedCursoId = idCurso;
+    } catch (e) {
+      rosterError = e instanceof Error ? e.message : 'Error al cargar los inscritos del curso';
+    } finally {
+      loadingRoster = false;
+    }
+  }
+
+  const estudiantesInscritos = $derived(
+    [...roster.filter((r) => r.estado_inscripcion !== 'ANULADO')].sort((a, b) =>
+      studentName(a).localeCompare(studentName(b), 'es', { sensitivity: 'base' }),
+    ),
+  );
+
+  const inscritosCount = $derived(
+    loadingRoster && loadedCursoId !== curso?.id_curso ? null : estudiantesInscritos.length,
+  );
+
+  const inscritosFiltrados = $derived(
+    filtroInscritos.trim()
+      ? estudiantesInscritos.filter((item) =>
+          studentName(item).toLowerCase().includes(filtroInscritos.trim().toLowerCase()),
+        )
+      : estudiantesInscritos,
+  );
+
+  function getTerminoBusqueda(item: RosterItem): string {
+    const u = item.estudiante?.usuario as any;
+    const est = item.estudiante as any;
+    return (u?.rut || est?.rut || u?.username || studentName(item)).trim();
+  }
+
+  function handleStudentClick(e: MouseEvent, item: RosterItem) {
+    if (e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    const term = getTerminoBusqueda(item);
+    quitarEntradaPropia();
+    isOpen = false;
+    onClose();
+    router.visit(`/admin/usuarios?tipo=estudiante&search=${encodeURIComponent(term)}`);
+  }
 
   // ─── Estado del editor de fechas límite ────────────────────────────────
   let fechaBasico = $state('');
@@ -122,13 +179,21 @@
   // Reinicia la pestaña activa y los campos de fecha cada vez que se abre el panel
   $effect(() => {
     if (isOpen && curso) {
-      activeTab = 'secciones';
+      if (!window.location.hash || !TAB_IDS.includes(window.location.hash.slice(1) as Tab)) {
+        activeTab = 'secciones';
+      }
       guardadaBasico = fechaBasico = isoToInput(curso.fecha_limite_entrega_basico);
       guardadaSyllabus = fechaSyllabus = isoToInput(curso.fecha_limite_entrega_syllabus);
       fechasError = '';
       fechasSuccess = false;
       editingFechaBasico = false;
       editingFechaSyllabus = false;
+
+      if (loadedCursoId !== curso.id_curso) {
+        cargarRoster(curso.id_curso);
+      }
+    } else if (!isOpen) {
+      filtroInscritos = '';
     }
   });
 
@@ -175,7 +240,7 @@
    * llevaba el modal recién abierto. Se limpia el hash en el sitio y la
    * entrada queda en el historial como una más de /admin/cursos.
    */
-  const TAB_IDS = ['secciones', 'equipo', 'configuracion'];
+  const TAB_IDS: Tab[] = ['secciones', 'equipo', 'inscritos', 'configuracion'];
   let entradaPropia = false;
 
   /** Quita el hash del panel sin disparar popstate. */
@@ -252,6 +317,7 @@
   const TABS: { id: Tab; label: string }[] = [
     { id: 'secciones', label: 'Componentes' },
     { id: 'equipo', label: 'Equipo Docente' },
+    { id: 'inscritos', label: 'Inscritos' },
     { id: 'configuracion', label: 'Configuración' },
   ];
 </script>
@@ -324,10 +390,18 @@
           role="tab"
           aria-selected={activeTab === tab.id}
           onclick={() => cambiarTab(tab.id)}
-          class="relative py-3 px-1 mr-7 text-sm font-medium transition-colors outline-none
+          class="relative py-3 px-1 mr-7 text-sm font-medium transition-colors outline-none flex items-center gap-1.5
             {activeTab === tab.id ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}"
         >
-          {tab.label}
+          <span>{tab.label}</span>
+          {#if tab.id === 'inscritos' && inscritosCount !== null}
+            <span
+              class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[11px] font-bold
+                {activeTab === tab.id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}"
+            >
+              {inscritosCount}
+            </span>
+          {/if}
           {#if activeTab === tab.id}
             <span class="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full"
             ></span>
@@ -507,7 +581,96 @@
           {/if}
         </div>
 
-        <!-- Tab 3: Configuración / Syllabus -->
+        <!-- Tab 3: Inscritos (FEAT-08) -->
+      {:else if activeTab === 'inscritos'}
+        <div class="p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-800">
+              Alumnos inscritos
+              {#if inscritosCount !== null}
+                <span
+                  class="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700"
+                >
+                  {inscritosCount}
+                </span>
+              {/if}
+            </h3>
+          </div>
+
+          {#if loadingRoster && loadedCursoId !== curso.id_curso}
+            <div class="flex flex-col items-center justify-center py-14 text-center">
+              <Loader2 size={24} class="animate-spin text-blue-600 mb-2" />
+              <p class="text-xs text-gray-500">Cargando lista de inscritos…</p>
+            </div>
+          {:else if rosterError}
+            <div class="p-4 rounded-xl border border-red-200 bg-red-50 text-center space-y-2">
+              <p class="text-xs text-red-700">{rosterError}</p>
+              <button
+                type="button"
+                onclick={() => cargarRoster(curso!.id_curso)}
+                class="text-xs font-semibold text-red-700 underline hover:no-underline"
+              >
+                Reintentar
+              </button>
+            </div>
+          {:else if estudiantesInscritos.length === 0}
+            <div
+              class="flex flex-col items-center justify-center py-14 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+            >
+              <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                <Users size={18} class="text-gray-400" />
+              </div>
+              <p class="text-sm font-medium text-gray-600">Sin alumnos inscritos</p>
+              <p class="text-xs text-gray-400 mt-1">
+                Este curso no registra estudiantes inscritos actualmente.
+              </p>
+            </div>
+          {:else}
+            {#if estudiantesInscritos.length > 6}
+              <div class="relative">
+                <Search size={14} class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  bind:value={filtroInscritos}
+                  placeholder="Buscar alumno por nombre…"
+                  class="w-full text-xs pl-8 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/60"
+                />
+              </div>
+            {/if}
+
+            {#if inscritosFiltrados.length === 0 && filtroInscritos.trim()}
+              <p class="text-xs text-gray-400 text-center py-8">
+                No se encontraron alumnos que coincidan con «{filtroInscritos}».
+              </p>
+            {:else}
+              <div class="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+                <ul class="divide-y divide-gray-100">
+                  {#each inscritosFiltrados as item (item.id_inscripcion_curso)}
+                    {@const nombre = studentName(item)}
+                    <li>
+                      <a
+                        href={`/admin/usuarios?tipo=estudiante&search=${encodeURIComponent(getTerminoBusqueda(item))}`}
+                        onclick={(e) => handleStudentClick(e, item)}
+                        class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-50/60 transition-colors group cursor-pointer"
+                        title="Ver perfil de {nombre}"
+                      >
+                        <span class="text-sm font-medium text-gray-800 group-hover:text-blue-600 transition-colors">
+                          {nombre}
+                        </span>
+                        <span class="flex items-center text-xs text-gray-400 group-hover:text-blue-600 transition-colors gap-1 shrink-0">
+                          <span class="hidden group-hover:inline text-[11px] font-medium">Ver perfil</span>
+                          <ArrowUpRight size={14} class="text-gray-300 group-hover:text-blue-600 transition-colors" />
+                        </span>
+                      </a>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+          {/if}
+        </div>
+
+        <!-- Tab 4: Configuración / Syllabus -->
       {:else if activeTab === 'configuracion'}
         <div class="p-6 space-y-5">
           <h3 class="text-sm font-semibold text-gray-800">Configuración del Curso</h3>

@@ -11,11 +11,13 @@
     AlertCircle,
     Edit,
     Plus,
+    Copy,
   } from 'lucide-svelte';
   import * as Dialog from '@/components/ui/dialog';
   import { Button } from '@/components/ui/button';
   import { Label } from '@/components/ui/label';
   import DatePickerCL from '@/components/custom/common/DatePickerCL.svelte';
+  import SyllabusReplicarModal from '@/modules/resources/programa/components/SyllabusReplicarModal.svelte';
 
   // ─── Props ───────────────────────────────────────────────────────────────
   interface CursoSyllabus {
@@ -67,7 +69,7 @@
     { key: 'estado', label: 'Estado syllabus' },
     { key: 'fecha_basico', label: 'Fecha básico' },
     { key: 'fecha_completo', label: 'Fecha completo' },
-    { key: 'acciones', label: 'Acciones', class: 'text-right' },
+    { key: 'acciones', label: 'Acciones', class: 'text-right', sortable: false },
   ];
 
   let activeAgno = $derived(
@@ -98,6 +100,15 @@
       preserveState: true,
       preserveScroll: true,
     });
+  }
+
+  // ─── Modal replicar syllabus ─────────────────────────────────────────────
+  let showReplicarModal = $state(false);
+  let replicarCursoId = $state<number | null>(null);
+
+  function abrirReplicarModal(idCurso: number) {
+    replicarCursoId = idCurso;
+    showReplicarModal = true;
   }
 
   // ─── Diálogo crear programa ──────────────────────────────────────────────
@@ -431,6 +442,15 @@
             {/if}
 
             {#if item.programa}
+              <button
+                type="button"
+                onclick={() => abrirReplicarModal(item.id_curso)}
+                class="btn btn-neutral btn-sm"
+                title="Replicar este syllabus y actividades a los demás cursos de la asignatura"
+              >
+                <Copy size={14} />
+                Replicar
+              </button>
               <a
                 href="/admin/cursos/{item.id_curso}/programa/revisar"
                 class="btn btn-neutral btn-sm"
@@ -564,3 +584,18 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
+
+<!-- ─── Modal Replicación Atómica de Syllabus y Actividades ──────────────── -->
+<SyllabusReplicarModal
+  bind:isOpen={showReplicarModal}
+  cursoId={replicarCursoId}
+  onSuccess={() => {
+    showReplicarModal = false;
+    replicarCursoId = null;
+    router.reload({ only: ['cursos', 'pagination'] });
+  }}
+  onClose={() => {
+    showReplicarModal = false;
+    replicarCursoId = null;
+  }}
+/>

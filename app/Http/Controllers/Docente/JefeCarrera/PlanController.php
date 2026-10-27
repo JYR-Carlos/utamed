@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
+use App\Models\Administrativo\Asignatura;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -38,10 +39,32 @@ class PlanController extends Controller
             });
         }
 
-        $planes = $query->orderBy('agno_plan', 'desc')
-            ->orderBy('version_plan', 'desc')
-            ->withSum('asignaturas as creditos_sct_totales', 'creditos_sct')
-            ->paginate($this->perPage($request))
+        // Calculate total SCT credits summing Asignatura.creditos_sct via AsignacionPlan
+        $query->withSum('asignaturas as creditos_sct_totales', 'creditos_sct');
+
+        // Ordenamiento
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sortKey === 'carrera.nombre') {
+            $sub = Carrera::select('nombre')->whereColumn('carrera.id_carrera', 'plan.id_carrera')->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'agno_plan') {
+            $query->orderBy('plan.agno_plan', $sortDir)->orderBy('plan.version_plan', $sortDir);
+        } elseif ($sortKey === 'version_plan') {
+            $query->orderBy('plan.version_plan', $sortDir);
+        } elseif ($sortKey === 'creditos_sct_totales') {
+            $sub = Asignatura::selectRaw('coalesce(sum(asignatura.creditos_sct), plan.creditos_sct_totales, 0)')
+                ->join('asignacion_plan', 'asignatura.id_asignatura', '=', 'asignacion_plan.id_asignatura')
+                ->whereColumn('plan.id_plan', 'asignacion_plan.id_plan')
+                ->whereNull('asignacion_plan.fecha_eliminacion')
+                ->whereNull('asignatura.fecha_eliminacion');
+            $query->orderBy($sub, $sortDir);
+        } else {
+            $query->orderBy('plan.agno_plan', 'desc')->orderBy('plan.version_plan', 'desc');
+        }
+
+        $planes = $query->paginate($this->perPage($request))
             ->withQueryString();
 
         // El selector de carrera queda bloqueado a la carrera del jefe.
@@ -50,7 +73,7 @@ class PlanController extends Controller
         return Inertia::render('admin/Planes', [
             'planes' => $planes,
             'carreras' => $carreras,
-            'filters' => $request->only(['search', 'id_carrera']),
+            'filters' => $request->only(['search', 'id_carrera', 'sort_key', 'sort_dir']),
             'routePrefix' => self::PREFIX,
         ]);
     }

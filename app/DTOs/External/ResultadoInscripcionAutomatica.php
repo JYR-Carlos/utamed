@@ -31,20 +31,24 @@ class ResultadoInscripcionAutomatica
         public readonly array $componentes_procesadas = [],
         public readonly array $advertencias = [],
         public readonly array $estudiantes_en_intranet = [],
-        public readonly bool $lectura_completa = false
+        public readonly bool $lectura_completa = false,
+        public readonly array $inscripciones_creadas = [],
+        public readonly array $inscripciones_componentes_creadas = []
     ) {}
 
     public function toArray(): array
     {
         return [
-            'total_procesados'       => $this->total_procesados,
-            'inscritos_exitosamente' => $this->inscritos_exitosamente,
-            'alumnos_creados'        => $this->alumnos_creados,
-            'ya_inscritos'           => $this->ya_inscritos,
-            'errores'                => $this->errores,
-            'componentes_procesadas' => $this->componentes_procesadas,
-            'advertencias'           => $this->advertencias,
-            'lectura_completa'       => $this->lectura_completa,
+            'total_procesados'                  => $this->total_procesados,
+            'inscritos_exitosamente'            => $this->inscritos_exitosamente,
+            'alumnos_creados'                   => $this->alumnos_creados,
+            'ya_inscritos'                      => $this->ya_inscritos,
+            'errores'                           => $this->errores,
+            'componentes_procesadas'            => $this->componentes_procesadas,
+            'advertencias'                      => $this->advertencias,
+            'lectura_completa'                  => $this->lectura_completa,
+            'inscripciones_creadas'             => $this->inscripciones_creadas,
+            'inscripciones_componentes_creadas' => $this->inscripciones_componentes_creadas,
         ];
     }
 }

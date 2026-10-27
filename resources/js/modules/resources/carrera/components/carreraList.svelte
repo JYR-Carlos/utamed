@@ -62,15 +62,12 @@
       onStatusChange(newStatus);
     }
     const url = new URL($page.url, window.location.origin);
-    if (newStatus === statusOptions.ALL) {
-      url.searchParams.delete('status');
-    } else {
-      url.searchParams.set('status', newStatus);
-    }
+    url.searchParams.set('status', newStatus);
     url.searchParams.delete('page');
     router.get(url.pathname, Object.fromEntries(url.searchParams), {
       preserveState: true,
       preserveScroll: true,
+      only: ['carreras'],
     });
   }
 </script>

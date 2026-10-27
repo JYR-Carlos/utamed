@@ -37,22 +37,34 @@ class FacultadController extends Controller
 
         $query = Facultad::with(['departamentos' => function($q) {
             $q->withTrashed();
+        }])->withCount(['departamentos' => function($q) {
+            $q->withTrashed();
         }]);
 
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where('nombre', 'ilike', "%{$search}%");
         }
 
-        $facultades = $query->orderBy('nombre')
-            ->paginate($this->perPage($request))
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sortKey === 'nombre') {
+            $query->orderBy('nombre', $sortDir);
+        } elseif ($sortKey === 'departamentos_count') {
+            $query->orderBy('departamentos_count', $sortDir);
+        } else {
+            $query->orderBy('nombre');
+        }
+
+        $facultades = $query->paginate($this->perPage($request))
             ->withQueryString();
 
         $user = Auth::user();
 
         return Inertia::render('admin/Facultades', [
             'facultades' => $facultades,
-            'filters'    => $request->only(['search']),
+            'filters'    => $request->only(['search', 'sort_key', 'sort_dir']),
             'canCreate'  => $user->can('create', Facultad::class),
             'canEdit'    => $user->can('update', new Facultad()),
             'canDelete'  => $user->can('delete', new Facultad()),

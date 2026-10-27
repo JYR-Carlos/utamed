@@ -7,6 +7,7 @@ use App\DTOs\External\ComponenteDetectada;
 use App\DTOs\External\InscripcionData;
 use App\DTOs\External\ResultadoInscripcionAutomatica;
 use App\DTOs\External\ResultadoPreviewComponentes;
+use App\DTOs\External\ResultadoReversionSincronizacion;
 use App\DTOs\External\ResultadoSincronizacionComponentes;
 use App\DTOs\External\ResultadoSincronizacionInscripciones;
 use App\Models\Administrativo\AsignacionPlan;
@@ -14,9 +15,11 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionComponente;
 use App\Models\Curso\InscripcionCurso;
+use App\Models\Curso\IntranetSincronizacionLog;
 use App\Models\Curso\TipoComponente;
 use App\Support\LetraGrupo;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class IntranetService
@@ -48,6 +51,10 @@ class IntranetService
             'asignacionPlan.asignatura',
             'componentes.tipoComponente',
         ]);
+
+        if (!$curso->id_contexto) {
+            $curso->refresh();
+        }
 
         $carrera = $curso->asignacionPlan?->plan?->carrera;
         if (!$carrera) {
@@ -95,158 +102,175 @@ class IntranetService
         // inscritos (uno que figura en Cátedra y Taller es un alumno, no dos).
         $nuevosEnCurso = [];
         $contados = [];
+        $inscripcionesCreadasIds = [];
+        $inscripcionesCompCreadasIds = [];
 
-        foreach ($componentesIntranet as $compIntranet) {
-            $compUtamed = $this->mapearComponenteIntranetAUtamed($compIntranet, $curso);
-            if (!$compUtamed) {
-                // Antes: Log::info("Skip silencioso...") y se seguía sin dejar rastro
-                // visible para el usuario. Ahora queda como advertencia reportada.
-                $advertencias[] = "La componente {$compIntranet->curso_tipo_asig->value} (acta {$compIntranet->cur_codigo}) "
-                    . "no tiene equivalente configurado en UTAMED para el curso #{$curso->id_curso}; no se inscribió a sus alumnos.";
-                $lecturaCompleta = false;
-                continue;
-            }
+        try {
+            DB::statement("SET utamed.skip_componente_trigger = 'on'");
+        } catch (\Throwable) {
+        }
 
-            /** @var Collection<int, InscripcionData> $inscripcionesIntranet */
-            try {
-                $oracleService = app('OracleDataService');
-                $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
-            } catch (\Throwable $e) {
-                Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar inscripciones de Intranet para acta {$compIntranet->cur_codigo}: " . $e->getMessage(), [
-                    'curso_id'   => $curso->id_curso,
-                    'cur_codigo' => $compIntranet->cur_codigo,
-                    'exception'  => get_class($e),
-                    'file'       => $e->getFile() . ':' . $e->getLine(),
-                    'trace'      => $e->getTraceAsString(),
-                ]);
-                $advertencias[] = "No fue posible consultar inscripciones de Intranet para el acta {$compIntranet->cur_codigo}: {$e->getMessage()}";
-                $lecturaCompleta = false;
-                continue;
-            }
+        try {
+            foreach ($componentesIntranet as $compIntranet) {
+                $compUtamed = $this->mapearComponenteIntranetAUtamed($compIntranet, $curso);
+                if (!$compUtamed) {
+                    // Antes: Log::info("Skip silencioso...") y se seguía sin dejar rastro
+                    // visible para el usuario. Ahora queda como advertencia reportada.
+                    $advertencias[] = "La componente {$compIntranet->curso_tipo_asig->value} (acta {$compIntranet->cur_codigo}) "
+                        . "no tiene equivalente configurado en UTAMED para el curso #{$curso->id_curso}; no se inscribió a sus alumnos.";
+                    $lecturaCompleta = false;
+                    continue;
+                }
 
-            $inscritosComponenteCount = 0;
-
-            foreach ($inscripcionesIntranet as $inscripcionData) {
-                $totalProcesados++;
-
+                /** @var Collection<int, InscripcionData> $inscripcionesIntranet */
                 try {
-                    $estudianteExistente = $this->estudianteService->buscarPorRut($inscripcionData->alum_rut);
-                    $estudiante = $this->estudianteService->obtenerOCrearDesdeIntranet($inscripcionData->alum_rut, $carrera);
+                    $oracleService = app('OracleDataService');
+                    $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
+                } catch (\Throwable $e) {
+                    Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar inscripciones de Intranet para acta {$compIntranet->cur_codigo}: " . $e->getMessage(), [
+                        'curso_id'   => $curso->id_curso,
+                        'cur_codigo' => $compIntranet->cur_codigo,
+                        'exception'  => get_class($e),
+                        'file'       => $e->getFile() . ':' . $e->getLine(),
+                        'trace'      => $e->getTraceAsString(),
+                    ]);
+                    $advertencias[] = "No fue posible consultar inscripciones de Intranet para el acta {$compIntranet->cur_codigo}: {$e->getMessage()}";
+                    $lecturaCompleta = false;
+                    continue;
+                }
 
-                    if (!$estudiante) {
-                        $errores[] = [
-                            'rut'    => $inscripcionData->alum_rut,
-                            'motivo' => "No se encontraron datos del alumno en la Intranet.",
-                        ];
-                        continue;
-                    }
+                $inscritosComponenteCount = 0;
 
-                    if (!$estudianteExistente) {
-                        $alumnosCreados++;
-                    }
+                foreach ($inscripcionesIntranet as $inscripcionData) {
+                    $totalProcesados++;
 
-                    // Figura en la Intranet, esté ya inscrito o no: es lo que
-                    // distingue «sigue en el ramo» de «lo botó».
-                    $estudiantesEnIntranet[$estudiante->id_estudiante] = $estudiante->id_estudiante;
+                    try {
+                        $estudianteExistente = $this->estudianteService->buscarPorRut($inscripcionData->alum_rut);
+                        $estudiante = $this->estudianteService->obtenerOCrearDesdeIntranet($inscripcionData->alum_rut, $carrera);
 
-                    // 1. Inscripción a Nivel Curso
-                    $yaInscritoCurso = InscripcionCurso::where('id_curso', $curso->id_curso)
-                        ->where('id_estudiante', $estudiante->id_estudiante)
-                        ->exists();
-
-                    if (!$yaInscritoCurso) {
-                        // El INS_ID de la Intranet es el folio de inscripción del alumno en
-                        // el periodo y se repite en todas sus asignaturas, pero
-                        // cod_inscripcion_uta es UNIQUE: guardarlo siempre hacía fallar la
-                        // inscripción del alumno en su segundo curso del semestre. Se guarda
-                        // sólo si está libre; el INS_ID queda siempre en la componente
-                        // (cod_inscripcion_curso_uta), que es donde corresponde.
-                        $codInscripcion = (string) $inscripcionData->ins_id;
-                        $codLibre = !InscripcionCurso::where('cod_inscripcion_uta', $codInscripcion)->exists();
-
-                        $this->inscripcionCursoService->create([
-                            'id_curso'            => $curso->id_curso,
-                            'id_estudiante'       => $estudiante->id_estudiante,
-                            'cod_inscripcion_uta' => $codLibre ? $codInscripcion : null,
-                            'fecha_inscripcion'   => now()->toDateString(),
-                            'estado_inscripcion'  => 'INSCRITO',
-                            'num_intento'         => 1,
-                        ]);
-
-                        // tr_inscribir_componente_curso_automaticamente ya lo inscribió en
-                        // todas las componentes del curso: por eso abajo la fila de
-                        // componente «ya existe» aunque sea nueva, y el reporte decía
-                        // «0 alumnos inscritos» después de inscribirlos.
-                        $nuevosEnCurso[$estudiante->id_estudiante] = true;
-                    }
-
-                    // Asegurar asignación del rol Estudiante en el contexto del Curso
-                    $this->estudianteService->asignarRolEnContexto($estudiante, $curso->id_contexto);
-
-
-                    // 2. Inscripción a Nivel Componente
-                    $inscripcionCompExistente = InscripcionComponente::where('id_componente', $compUtamed->id_componente)
-                        ->where('id_estudiante', $estudiante->id_estudiante)
-                        ->first();
-
-                    if ($inscripcionCompExistente) {
-                        if (!$inscripcionCompExistente->cod_inscripcion_curso_uta) {
-                            $inscripcionCompExistente->update([
-                                'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
-                            ]);
+                        if (!$estudiante) {
+                            $errores[] = [
+                                'rut'    => $inscripcionData->alum_rut,
+                                'motivo' => "No se encontraron datos del alumno en la Intranet.",
+                            ];
+                            continue;
                         }
 
-                        if (isset($nuevosEnCurso[$estudiante->id_estudiante])) {
+                        if (!$estudianteExistente) {
+                            $alumnosCreados++;
+                        }
+
+                        // Figura en la Intranet, esté ya inscrito o no: es lo que
+                        // distingue «sigue en el ramo» de «lo botó».
+                        $estudiantesEnIntranet[$estudiante->id_estudiante] = $estudiante->id_estudiante;
+
+                        // 1. Inscripción a Nivel Curso
+                        $yaInscritoCurso = InscripcionCurso::where('id_curso', $curso->id_curso)
+                            ->where('id_estudiante', $estudiante->id_estudiante)
+                            ->exists();
+
+                        if (!$yaInscritoCurso) {
+                            // El INS_ID de la Intranet es el folio de inscripción del alumno en
+                            // el periodo y se repite en todas sus asignaturas, pero
+                            // cod_inscripcion_uta es UNIQUE: guardarlo siempre hacía fallar la
+                            // inscripción del alumno en su segundo curso del semestre. Se guarda
+                            // sólo si está libre; el INS_ID queda siempre en la componente
+                            // (cod_inscripcion_curso_uta), que es donde corresponde.
+                            $codInscripcion = (string) $inscripcionData->ins_id;
+                            $codLibre = !InscripcionCurso::where('cod_inscripcion_uta', $codInscripcion)->exists();
+
+                            $nuevaInsc = $this->inscripcionCursoService->create([
+                                'id_curso'            => $curso->id_curso,
+                                'id_estudiante'       => $estudiante->id_estudiante,
+                                'cod_inscripcion_uta' => $codLibre ? $codInscripcion : null,
+                                'fecha_inscripcion'   => now()->toDateString(),
+                                'estado_inscripcion'  => 'INSCRITO',
+                                'num_intento'         => 1,
+                            ]);
+                            $inscripcionesCreadasIds[] = $nuevaInsc->id_inscripcion_curso;
+
+                            // tr_inscribir_componente_curso_automaticamente ya no autoinscribe en
+                            // componentes en inscripciones de Intranet; la inscripción a nivel de componente
+                            // se realiza explícitamente abajo según el acta oficial.
+                            $nuevosEnCurso[$estudiante->id_estudiante] = true;
+                        }
+
+                        // Asegurar asignación del rol Estudiante en el contexto del Curso
+                        if ($curso->id_contexto) {
+                            $this->estudianteService->asignarRolEnContexto($estudiante, $curso->id_contexto);
+                        }
+
+
+                        // 2. Inscripción a Nivel Componente
+                        $inscripcionCompExistente = InscripcionComponente::where('id_componente', $compUtamed->id_componente)
+                            ->where('id_estudiante', $estudiante->id_estudiante)
+                            ->first();
+
+                        if ($inscripcionCompExistente) {
+                            if (!$inscripcionCompExistente->cod_inscripcion_curso_uta) {
+                                $inscripcionCompExistente->update([
+                                    'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
+                                ]);
+                            }
+
+                            if (isset($nuevosEnCurso[$estudiante->id_estudiante])) {
+                                $inscritosComponenteCount++;
+                                if (!isset($contados[$estudiante->id_estudiante])) {
+                                    $contados[$estudiante->id_estudiante] = true;
+                                    $inscritosExitosamente++;
+                                }
+                            } else {
+                                $yaInscritos++;
+                            }
+                        } else {
+                            $nuevaInscComp = InscripcionComponente::create([
+                                'id_componente'             => $compUtamed->id_componente,
+                                'id_estudiante'             => $estudiante->id_estudiante,
+                                'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
+                            ]);
+                            $inscripcionesCompCreadasIds[] = $nuevaInscComp->id_inscripcion_componente;
+
                             $inscritosComponenteCount++;
                             if (!isset($contados[$estudiante->id_estudiante])) {
                                 $contados[$estudiante->id_estudiante] = true;
                                 $inscritosExitosamente++;
                             }
-                        } else {
-                            $yaInscritos++;
                         }
-                    } else {
-                        InscripcionComponente::create([
-                            'id_componente'             => $compUtamed->id_componente,
-                            'id_estudiante'             => $estudiante->id_estudiante,
-                            'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
+
+                        // Asignar el rol Estudiante en el contexto de la componente
+                        $this->estudianteService->asignarRolEnContexto($estudiante, $compUtamed->id_contexto);
+
+                    } catch (\Throwable $e) {
+                        Log::error("Error al inscribir alumno RUT {$inscripcionData->alum_rut}: " . $e->getMessage(), [
+                            'curso_id'  => $curso->id_curso,
+                            'alum_rut'  => $inscripcionData->alum_rut,
+                            'ins_id'    => $inscripcionData->ins_id,
+                            'exception' => get_class($e),
+                            'file'      => $e->getFile() . ':' . $e->getLine(),
+                            'trace'     => $e->getTraceAsString(),
                         ]);
-
-                        $inscritosComponenteCount++;
-                        if (!isset($contados[$estudiante->id_estudiante])) {
-                            $contados[$estudiante->id_estudiante] = true;
-                            $inscritosExitosamente++;
-                        }
+                        $errores[] = [
+                            'rut'    => $inscripcionData->alum_rut,
+                            'motivo' => $e->getMessage(),
+                        ];
+                        // Un alumno que falló es un alumno del que no sabemos si
+                        // sigue o no: la foto ya no está completa.
+                        $lecturaCompleta = false;
                     }
-
-                    // Asignar el rol Estudiante en el contexto de la componente
-                    $this->estudianteService->asignarRolEnContexto($estudiante, $compUtamed->id_contexto);
-
-                } catch (\Throwable $e) {
-                    Log::error("Error al inscribir alumno RUT {$inscripcionData->alum_rut}: " . $e->getMessage(), [
-                        'curso_id'  => $curso->id_curso,
-                        'alum_rut'  => $inscripcionData->alum_rut,
-                        'ins_id'    => $inscripcionData->ins_id,
-                        'exception' => get_class($e),
-                        'file'      => $e->getFile() . ':' . $e->getLine(),
-                        'trace'     => $e->getTraceAsString(),
-                    ]);
-                    $errores[] = [
-                        'rut'    => $inscripcionData->alum_rut,
-                        'motivo' => $e->getMessage(),
-                    ];
-                    // Un alumno que falló es un alumno del que no sabemos si
-                    // sigue o no: la foto ya no está completa.
-                    $lecturaCompleta = false;
                 }
-            }
 
-            $componentesReporte[] = [
-                'cur_codigo' => $compIntranet->cur_codigo,
-                'tipo'       => $compIntranet->curso_tipo_asig->value,
-                'grupo'      => $compIntranet->curso_grupo_asig,
-                'inscritos'  => $inscritosComponenteCount,
-            ];
+                $componentesReporte[] = [
+                    'cur_codigo' => $compIntranet->cur_codigo,
+                    'tipo'       => $compIntranet->curso_tipo_asig->value,
+                    'grupo'      => $compIntranet->curso_grupo_asig,
+                    'inscritos'  => $inscritosComponenteCount,
+                ];
+            }
+        } finally {
+            try {
+                DB::statement("SET utamed.skip_componente_trigger = 'off'");
+            } catch (\Throwable) {
+            }
         }
 
         return new ResultadoInscripcionAutomatica(
@@ -258,7 +282,9 @@ class IntranetService
             componentes_procesadas: $componentesReporte,
             advertencias: $advertencias,
             estudiantes_en_intranet: array_values($estudiantesEnIntranet),
-            lectura_completa: $lecturaCompleta
+            lectura_completa: $lecturaCompleta,
+            inscripciones_creadas: $inscripcionesCreadasIds,
+            inscripciones_componentes_creadas: $inscripcionesCompCreadasIds
         );
     }
 
@@ -306,6 +332,7 @@ class IntranetService
         // una corrida anterior tiene que volver a INSCRITO antes de que el paso
         // siguiente mire quién está activo.
         $reactivados = [];
+        $reactivadosIds = [];
         if ($enIntranet !== []) {
             $porReactivar = InscripcionCurso::with('estudiante.usuario')
                 ->where('id_curso', $curso->id_curso)
@@ -316,6 +343,7 @@ class IntranetService
             foreach ($porReactivar as $inscripcion) {
                 $this->inscripcionCursoService->reEnroll($inscripcion);
                 $reactivados[] = $this->identificarAlumno($inscripcion);
+                $reactivadosIds[] = $inscripcion->id_inscripcion_curso;
             }
         }
 
@@ -330,9 +358,11 @@ class IntranetService
             ->get();
 
         $retirados = [];
+        $retiradosIds = [];
         foreach ($porRetirar as $inscripcion) {
             $this->inscripcionCursoService->marcarRetirada($inscripcion);
             $retirados[] = $this->identificarAlumno($inscripcion);
+            $retiradosIds[] = $inscripcion->id_inscripcion_curso;
         }
 
         // Nivel componente: se informa, no se toca. `inscripcion_componente` no
@@ -351,13 +381,36 @@ class IntranetService
                 . 'borrarlas perdería el historial de evaluación de la componente.';
         }
 
+        // Registrar auditoría y snapshot de sincronización de roster
+        $snapshot = [
+            'tipo'                              => 'ROSTER',
+            'inscripciones_creadas'             => $resultadoInscripcion->inscripciones_creadas,
+            'inscripciones_componentes_creadas' => $resultadoInscripcion->inscripciones_componentes_creadas,
+            'inscripciones_reactivadas'         => $reactivadosIds,
+            'inscripciones_retiradas'           => $retiradosIds,
+            'componentes_creadas'               => [],
+            'componentes_actualizadas'          => [],
+        ];
+
+        $log = IntranetSincronizacionLog::create([
+            'id_curso'             => $curso->id_curso,
+            'id_usuario'           => auth()->id(),
+            'fecha_sincronizacion' => now(),
+            'tipo_sincronizacion'  => 'ROSTER',
+            'estado'               => 'APLICADA',
+            'snapshot_cambios'     => $snapshot,
+        ]);
+
+        $curso->update(['fecha_ultima_sincronizacion' => now()]);
+
         return new ResultadoSincronizacionInscripciones(
             inscripcion: $resultadoInscripcion,
             retirados: $retirados,
             reactivados: $reactivados,
             componentes_sin_respaldo: $componentesSinRespaldo,
             retiro_aplicado: true,
-            advertencias: $advertencias
+            advertencias: $advertencias,
+            id_log: $log->id_log
         );
     }
 
@@ -464,7 +517,8 @@ class IntranetService
         int $idPlan,
         int $agno,
         int $semestre,
-        string $letraGrupo
+        string $letraGrupo,
+        ?Curso $curso = null
     ): ResultadoPreviewComponentes {
         $advertencias = [];
 
@@ -555,15 +609,56 @@ class IntranetService
             $advertencias[] = 'No se detectó ninguna componente (ni en Intranet ni en el Plan de Estudios). Debe revisarse manualmente.';
         }
 
-        $idPrincipal = collect($componentes)
+        $componentesSobrantes = [];
+        if ($curso !== null) {
+            $curso->loadMissing(['componentes.tipoComponente']);
+
+            $tiposIntranet = [];
+            $curCodigosIntranet = [];
+            if ($componentesIntranet->isNotEmpty()) {
+                foreach ($componentesIntranet as $compIntranet) {
+                    $curCodigosIntranet[] = (int) $compIntranet->cur_codigo;
+                    $tc = $this->resolverTipoComponentePorCodigoIntranet($compIntranet->curso_tipo_asig->value);
+                    if ($tc) {
+                        $tiposIntranet[] = $tc->id_tipo_componente;
+                    }
+                }
+            }
+
+            foreach ($curso->componentes as $compLocal) {
+                $curCodigoLocal = $compLocal->intranet_cur_codigo;
+                $coincideCurCodigo = $curCodigoLocal && in_array((int) $curCodigoLocal, $curCodigosIntranet, true);
+                $coincideTipo = in_array($compLocal->id_tipo_componente, $tiposIntranet, true);
+
+                if (!$coincideCurCodigo && !$coincideTipo) {
+                    $componentesSobrantes[] = [
+                        'id_componente'      => $compLocal->id_componente,
+                        'id_tipo_componente' => $compLocal->id_tipo_componente,
+                        'tipo'               => $compLocal->tipoComponente?->tipo ?? 'Desconocida',
+                        'cod_uta'            => $curCodigoLocal,
+                    ];
+                }
+            }
+
+            if (!empty($componentesSobrantes)) {
+                $nombresSobrantes = implode(', ', array_column($componentesSobrantes, 'tipo'));
+                $advertencias[] = "El curso posee componente(s) locales ({$nombresSobrantes}) que no figuran en la oferta oficial de Intranet para este período y grupo.";
+            }
+        }
+
+        $componentes = collect($componentes)
             ->sortBy(fn(ComponenteDetectada $c) => TipoComponente::PRIORIDAD[$this->normalizarNombreTipo($c->tipo)] ?? 99)
-            ->first()?->id_tipo_componente;
+            ->values()
+            ->all();
+
+        $idPrincipal = $componentes[0]?->id_tipo_componente ?? null;
 
         return new ResultadoPreviewComponentes(
             origen: $origen,
             componentes: $componentes,
             id_tipo_componente_principal: $idPrincipal,
-            advertencias: $advertencias
+            advertencias: $advertencias,
+            componentes_sobrantes: $componentesSobrantes
         );
     }
 
@@ -643,6 +738,7 @@ class IntranetService
         $curso->loadMissing(['asignacionPlan.plan.carrera', 'asignacionPlan.asignatura', 'componentes.tipoComponente']);
 
         $origen = 'PLAN';
+        $componentesSobrantes = [];
         $asignacionPlan = $curso->asignacionPlan;
         if ($asignacionPlan) {
             try {
@@ -652,9 +748,11 @@ class IntranetService
                     $asignacionPlan->id_plan,
                     $curso->agno_real ?? (int) now()->year,
                     $curso->semestre_real ?? 1,
-                    $letra
+                    $letra,
+                    $curso
                 );
                 $origen = $preview->origen;
+                $componentesSobrantes = $preview->componentes_sobrantes;
             } catch (\Throwable $e) {
                 Log::warning('[IntranetService@sincronizarComponentes] No se pudo determinar el origen: ' . $e->getMessage(), [
                     'curso_id'  => $curso->id_curso,
@@ -667,6 +765,8 @@ class IntranetService
         $creadas = [];
         $existentes = [];
         $advertencias = [];
+        $componentesCreadasIds = [];
+        $componentesActualizadas = [];
 
         foreach ($idsTipoComponenteAceptados as $idTipoComponente) {
             $tipoComponente = TipoComponente::find((int) $idTipoComponente);
@@ -675,21 +775,45 @@ class IntranetService
                 continue;
             }
 
+            $curCodigo = null;
+            if (isset($preview) && !empty($preview->componentes)) {
+                $compDetectada = collect($preview->componentes)
+                    ->firstWhere('id_tipo_componente', $tipoComponente->id_tipo_componente);
+                $curCodigo = $compDetectada?->cur_codigo;
+            }
+
             $yaExiste = $curso->componentes->firstWhere('id_tipo_componente', $tipoComponente->id_tipo_componente);
             if ($yaExiste) {
+                if ($yaExiste->intranet_cur_codigo === null && $curCodigo !== null) {
+                    $yaExiste->update(['intranet_cur_codigo' => $curCodigo]);
+                    $componentesActualizadas[] = [
+                        'id_componente'       => $yaExiste->id_componente,
+                        'tipo'                => $tipoComponente->tipo,
+                        'cur_codigo_anterior' => null,
+                        'cur_codigo_nuevo'    => $curCodigo,
+                    ];
+                }
                 $existentes[] = $tipoComponente->tipo;
                 continue;
             }
 
             // id_contexto lo asigna el trigger tr_componente_pre_insert.
-            Componente::create([
+            $compNueva = Componente::create([
                 'id_curso'                          => $curso->id_curso,
                 'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
-                'genera_acta'                        => true,
-                'aprobacion_obligatoria'             => false,
-                'porcentaje_aprobacion'              => 60.00,
-                'porcentaje_asistencia_obligatoria'  => 75.00,
+                'genera_acta'                       => true,
+                'aprobacion_obligatoria'            => false,
+                'porcentaje_aprobacion'             => 60.00,
+                'porcentaje_asistencia_obligatoria' => 75.00,
+                'intranet_cur_codigo'               => $curCodigo,
             ]);
+
+            $componentesCreadasIds[] = [
+                'id_componente'       => $compNueva->id_componente,
+                'id_tipo_componente'  => $tipoComponente->id_tipo_componente,
+                'tipo'                => $tipoComponente->tipo,
+                'intranet_cur_codigo' => $curCodigo,
+            ];
 
             $creadas[] = $tipoComponente->tipo;
         }
@@ -711,12 +835,188 @@ class IntranetService
             }
         }
 
+        // Registrar auditoría y snapshot de sincronización de componentes
+        $snapshot = [
+            'tipo'                              => $inscribirAlumnos ? 'COMPLETA' : 'COMPONENTES',
+            'componentes_creadas'               => $componentesCreadasIds,
+            'componentes_actualizadas'          => $componentesActualizadas,
+            'inscripciones_creadas'             => $resultadoInscripcion?->inscripciones_creadas ?? [],
+            'inscripciones_componentes_creadas' => $resultadoInscripcion?->inscripciones_componentes_creadas ?? [],
+            'inscripciones_reactivadas'         => [],
+            'inscripciones_retiradas'           => [],
+        ];
+
+        $log = IntranetSincronizacionLog::create([
+            'id_curso'             => $curso->id_curso,
+            'id_usuario'           => auth()->id(),
+            'fecha_sincronizacion' => now(),
+            'tipo_sincronizacion'  => $inscribirAlumnos ? 'COMPLETA' : 'COMPONENTES',
+            'estado'               => 'APLICADA',
+            'snapshot_cambios'     => $snapshot,
+        ]);
+
+        $curso->update(['fecha_ultima_sincronizacion' => now()]);
+
         return new ResultadoSincronizacionComponentes(
             origen: $origen,
             componentes_creadas: $creadas,
             componentes_existentes: $existentes,
             advertencias: $advertencias,
-            inscripcion: $resultadoInscripcion
+            inscripcion: $resultadoInscripcion,
+            componentes_sobrantes: $componentesSobrantes,
+            id_log: $log->id_log
+        );
+    }
+
+    /**
+     * Revierte de forma atómica y segura los efectos de una sincronización previa
+     * registrada en IntranetSincronizacionLog.
+     *
+     * Valida que no existan dependencias posteriores (actividades asociadas a
+     * componentes dadas de alta en esa sincronización) y restaura el estado previo
+     * tanto de componentes como de alumnos inscritos/retirados.
+     */
+    public function revertirSincronizacion(Curso $curso, int $idLog, ?string $motivo = null): ResultadoReversionSincronizacion
+    {
+        $log = IntranetSincronizacionLog::where('id_curso', $curso->id_curso)
+            ->where('id_log', $idLog)
+            ->first();
+
+        if (!$log) {
+            throw new \InvalidArgumentException("No se encontró el registro de sincronización #{$idLog} para el curso #{$curso->id_curso}.");
+        }
+
+        if (!$log->esReversible()) {
+            throw new \DomainException("La sincronización #{$idLog} ya fue revertida previamente el " . ($log->fecha_reversion?->format('d/m/Y H:i') ?? 'N/A') . '.');
+        }
+
+        // Regla LIFO: sólo se puede revertir la última sincronización activa
+        $haySincronizacionesPosteriores = IntranetSincronizacionLog::where('id_curso', $curso->id_curso)
+            ->where('estado', 'APLICADA')
+            ->where('id_log', '>', $idLog)
+            ->exists();
+
+        if ($haySincronizacionesPosteriores) {
+            throw new \DomainException('Solo es posible revertir la sincronización activa más reciente para evitar conflictos de integridad.');
+        }
+
+        $snapshot = $log->snapshot_cambios ?? [];
+        $componentesCreadasRaw = $snapshot['componentes_creadas'] ?? [];
+        $componentesCreadasIds = [];
+        foreach ($componentesCreadasRaw as $item) {
+            $componentesCreadasIds[] = is_array($item) ? ($item['id_componente'] ?? 0) : (int) $item;
+        }
+        $componentesCreadasIds = array_filter($componentesCreadasIds);
+
+        $componentesActualizadas = $snapshot['componentes_actualizadas'] ?? [];
+        $inscripcionesCreadasIds = $snapshot['inscripciones_creadas'] ?? [];
+        $inscripcionesCompCreadasIds = $snapshot['inscripciones_componentes_creadas'] ?? [];
+        $reactivadosIds = $snapshot['inscripciones_reactivadas'] ?? [];
+        $retiradosIds = $snapshot['inscripciones_retiradas'] ?? [];
+
+        // Guardarraíl: Verificar que las componentes a eliminar no tengan actividades o entregas
+        if (!empty($componentesCreadasIds)) {
+            $actividadesAsociadas = DB::table('agenda.actividad')
+                ->whereIn('id_componente', $componentesCreadasIds)
+                ->count();
+
+            if ($actividadesAsociadas > 0) {
+                throw new \DomainException("No se puede revertir la sincronización: Existen {$actividadesAsociadas} actividad(es) o evaluaciones asociadas a las componentes creadas en esta sincronización.");
+            }
+        }
+
+        $componentesEliminadasNombres = [];
+        $componentesRestauradasNombres = [];
+        $inscripcionesEliminadasCount = 0;
+        $inscripcionesRestauradasCount = 0;
+
+        DB::transaction(function () use (
+            $curso,
+            $log,
+            $motivo,
+            $componentesCreadasIds,
+            $componentesActualizadas,
+            $inscripcionesCreadasIds,
+            $inscripcionesCompCreadasIds,
+            $reactivadosIds,
+            $retiradosIds,
+            &$componentesEliminadasNombres,
+            &$componentesRestauradasNombres,
+            &$inscripcionesEliminadasCount,
+            &$inscripcionesRestauradasCount
+        ) {
+            // 1. Revertir inscripciones en componentes
+            if (!empty($inscripcionesCompCreadasIds)) {
+                InscripcionComponente::whereIn('id_inscripcion_componente', $inscripcionesCompCreadasIds)->delete();
+            }
+
+            // 2. Revertir alumnos inscritos nuevos
+            if (!empty($inscripcionesCreadasIds)) {
+                $inscripcionesEliminadasCount = InscripcionCurso::whereIn('id_inscripcion_curso', $inscripcionesCreadasIds)->delete();
+            }
+
+            // 3. Revertir alumnos reactivados (devolver a RETIRADO)
+            if (!empty($reactivadosIds)) {
+                $inscripcionesRestauradasCount += InscripcionCurso::whereIn('id_inscripcion_curso', $reactivadosIds)
+                    ->update(['estado_inscripcion' => 'RETIRADO']);
+            }
+
+            // 4. Revertir alumnos retirados (devolver a INSCRITO)
+            if (!empty($retiradosIds)) {
+                $inscripcionesRestauradasCount += InscripcionCurso::whereIn('id_inscripcion_curso', $retiradosIds)
+                    ->update(['estado_inscripcion' => 'INSCRITO']);
+            }
+
+            // 5. Revertir cur_codigo en componentes actualizadas
+            if (!empty($componentesActualizadas)) {
+                foreach ($componentesActualizadas as $compAct) {
+                    $c = Componente::with('tipoComponente')->find($compAct['id_componente']);
+                    if ($c) {
+                        $c->update(['intranet_cur_codigo' => $compAct['cur_codigo_anterior']]);
+                        $componentesRestauradasNombres[] = $c->tipoComponente?->tipo ?? "Componente #{$c->id_componente}";
+                    }
+                }
+            }
+
+            // 6. Eliminar componentes creadas
+            if (!empty($componentesCreadasIds)) {
+                $comps = Componente::with('tipoComponente')->whereIn('id_componente', $componentesCreadasIds)->get();
+                foreach ($comps as $c) {
+                    $componentesEliminadasNombres[] = $c->tipoComponente?->tipo ?? "Componente #{$c->id_componente}";
+                    // Si tuviera inscripcion_componente huérfanas, eliminarlas
+                    InscripcionComponente::where('id_componente', $c->id_componente)->delete();
+                    $c->delete();
+                }
+            }
+
+            // 7. Marcar log como REVERTIDA
+            $log->update([
+                'estado'               => 'REVERTIDA',
+                'fecha_reversion'      => now(),
+                'id_usuario_reversion' => auth()->id(),
+                'motivo_reversion'     => $motivo,
+            ]);
+
+            // 8. Actualizar fecha_ultima_sincronizacion en el curso con la anterior activa (o null)
+            $ultimoLogActivo = IntranetSincronizacionLog::where('id_curso', $curso->id_curso)
+                ->where('estado', 'APLICADA')
+                ->latest('fecha_sincronizacion')
+                ->first();
+
+            $curso->update([
+                'fecha_ultima_sincronizacion' => $ultimoLogActivo?->fecha_sincronizacion,
+            ]);
+        });
+
+        return new ResultadoReversionSincronizacion(
+            id_log: $log->id_log,
+            exitosa: true,
+            componentes_eliminadas: $componentesEliminadasNombres,
+            componentes_restauradas: $componentesRestauradasNombres,
+            inscripciones_eliminadas: $inscripcionesEliminadasCount,
+            inscripciones_restauradas: $inscripcionesRestauradasCount,
+            advertencias: [],
+            mensaje: 'Sincronización revertida exitosamente. Se restauró el estado previo del curso.'
         );
     }
 
@@ -727,11 +1027,25 @@ class IntranetService
      */
     protected function mapearComponenteIntranetAUtamed(ComponenteCursoData $compIntranet, Curso $curso): ?Componente
     {
+        // 1. Coincidencia directa por intranet_cur_codigo si ya fue grabado
+        if ($compIntranet->cur_codigo) {
+            $match = $curso->componentes->first(
+                fn($c) => $c->intranet_cur_codigo !== null && (int)$c->intranet_cur_codigo === (int)$compIntranet->cur_codigo
+            );
+            if ($match) {
+                return $match;
+            }
+        }
+
+        // 2. Coincidencia por tipología normalizada y backfill de intranet_cur_codigo
         $nombresBuscados = self::TIPO_INTRANET_A_NOMBRES[$compIntranet->curso_tipo_asig->value] ?? [];
 
         foreach ($curso->componentes as $comp) {
             $nombreTipo = $this->normalizarNombreTipo($comp->tipoComponente?->tipo ?? '');
             if (in_array($nombreTipo, $nombresBuscados, true)) {
+                if ($comp->intranet_cur_codigo === null && $compIntranet->cur_codigo !== null) {
+                    $comp->update(['intranet_cur_codigo' => $compIntranet->cur_codigo]);
+                }
                 return $comp;
             }
         }
@@ -743,7 +1057,7 @@ class IntranetService
      * Busca en el catálogo UTAMED el TipoComponente que corresponde a un
      * código de tipo de Intranet (C/T/L).
      */
-    protected function resolverTipoComponentePorCodigoIntranet(string $codigoIntranet): ?TipoComponente
+    public function resolverTipoComponentePorCodigoIntranet(string $codigoIntranet): ?TipoComponente
     {
         $nombresAceptados = self::TIPO_INTRANET_A_NOMBRES[$codigoIntranet] ?? [];
         if ($nombresAceptados === []) {

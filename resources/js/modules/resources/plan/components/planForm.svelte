@@ -58,11 +58,11 @@
 
   <div class="grid grid-cols-2 gap-4">
     <div class="mb-4">
-      <label for="agno" class="block text-sm font-medium text-gray-700 mb-2">Año *</label>
+      <label for="agno_plan" class="block text-sm font-medium text-gray-700 mb-2">Año *</label>
       <input
-        id="agno"
+        id="agno_plan"
         type="number"
-        bind:value={formData.agno}
+        bind:value={formData.agno_plan}
         class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         min="1900"
         max="2100"

@@ -178,6 +178,32 @@ test('previsualizar cae al Plan de Estudios cuando Intranet no tiene oferta para
     expect($resultado->id_tipo_componente_principal)->toBe($this->tipoCatedra->id_tipo_componente);
 });
 
+test('previsualizarComponentes devuelve componentes ordenadas en jerarquía CTL (Cátedra > Taller > Laboratorio) independientemente del orden de Intranet', function () {
+    TipoComponente::firstOrCreate(['tipo' => 'Cátedra']);
+    TipoComponente::firstOrCreate(['tipo' => 'Taller']);
+    TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
+
+    // Intranet devuelve deliberadamente en orden invertido (Laboratorio, Taller, Cátedra)
+    iscMockOracle(collect([
+        new ComponenteCursoData(cur_codigo: 1003, curso_tipo_asig: TipoAsignatura::Laboratorio, curso_grupo_asig: 'A'),
+        new ComponenteCursoData(cur_codigo: 1002, curso_tipo_asig: TipoAsignatura::Taller, curso_grupo_asig: 'A'),
+        new ComponenteCursoData(cur_codigo: 1001, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+    ]));
+
+    $resultado = app(IntranetService::class)->previsualizarComponentes(
+        idAsignatura: $this->idAsignatura,
+        idPlan: $this->plan->id_plan,
+        agno: 2026,
+        semestre: 1,
+        letraGrupo: 'A'
+    );
+
+    expect($resultado->componentes)->toHaveCount(3);
+    $tipos = array_map(fn($c) => $c->tipo, $resultado->componentes);
+    expect($tipos)->toBe(['Cátedra', 'Taller', 'Laboratorio']);
+    expect($resultado->id_tipo_componente_principal)->toBe($this->tipoCatedra->id_tipo_componente);
+});
+
 test('sincronizarComponentes es idempotente: no duplica una componente que ya existe', function () {
     $curso = Curso::create([
         'cod_curso' => 919191919,

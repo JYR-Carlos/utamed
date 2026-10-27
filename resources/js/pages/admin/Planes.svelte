@@ -102,7 +102,7 @@
     editingPlan = plan;
     formData = {
       id_carrera: plan.id_carrera,
-      agno_plan: new Date(plan.agno_plan).getFullYear(),
+      agno_plan: Number(plan.agno_plan),
       version_plan: plan.version_plan,
     };
     showModal = true;
@@ -251,6 +251,7 @@
 
     <PlanList
       data={planes}
+      {carreras}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
       onViewMalla={verMalla}

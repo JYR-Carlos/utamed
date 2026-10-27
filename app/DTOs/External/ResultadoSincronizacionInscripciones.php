@@ -31,12 +31,14 @@ class ResultadoSincronizacionInscripciones
         public readonly array $reactivados = [],
         public readonly int $componentes_sin_respaldo = 0,
         public readonly bool $retiro_aplicado = true,
-        public readonly array $advertencias = []
+        public readonly array $advertencias = [],
+        public readonly ?int $id_log = null
     ) {}
 
     public function toArray(): array
     {
         return [
+            'id_log'                   => $this->id_log,
             'inscripcion'              => $this->inscripcion->toArray(),
             'retirados'                => $this->retirados,
             'reactivados'              => $this->reactivados,

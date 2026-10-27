@@ -67,7 +67,7 @@
     {/snippet}
   </PageHeader>
 
-  <DataTable data={asignaturas} {columns} {onEdit} {onDelete}>
+  <DataTable data={asignaturas} {columns} {onEdit} {onDelete} only={['asignaturas']}>
     {#snippet cellSnippet({ item, column })}
       {#if column.key === 'planes_count'}
         {@const count = item.planes_count ?? 0}

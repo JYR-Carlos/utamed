@@ -4,10 +4,12 @@
    * Utiliza DataTable estandarizado con variant="accent" y paginate={false}.
    */
   import DataTable from '@/components/custom/admin/DataTable.svelte';
-  import type { Departamento, PaginatedResponse } from '@/types/admin.types';
+  import { router, page } from '@inertiajs/svelte';
+  import type { Departamento, Facultad, PaginatedResponse } from '@/types/admin.types';
 
   interface Props {
     departamentos: PaginatedResponse<Departamento>;
+    facultades?: Facultad[];
     /** Permisos del usuario; ocultan los botones de acción. */
     canEdit?: boolean;
     canDelete?: boolean;
@@ -19,11 +21,32 @@
 
   let {
     departamentos,
+    facultades = [],
     canEdit = false,
     canDelete = false,
     onEdit = () => {},
     onDelete = () => {},
   }: Props = $props();
+
+  let facultadFiltro = $derived(
+    new URL($page.url, window.location.origin).searchParams.get('id_facultad') ?? '',
+  );
+
+  function handleFacultadChange(e: Event) {
+    const val = (e.target as HTMLSelectElement).value;
+    const url = new URL($page.url, window.location.origin);
+    if (val) {
+      url.searchParams.set('id_facultad', val);
+    } else {
+      url.searchParams.delete('id_facultad');
+    }
+    url.searchParams.delete('page');
+    router.get(url.pathname, Object.fromEntries(url.searchParams), {
+      preserveState: true,
+      preserveScroll: true,
+      only: ['departamentos'],
+    });
+  }
 
   const columns = [
     { key: 'nombre', label: 'Departamento' },
@@ -38,6 +61,7 @@
   {columns}
   variant="accent"
   paginate={false}
+  only={['departamentos']}
   searchPlaceholder="Buscar departamento..."
   rowClass={(d) => (d.fecha_eliminacion ? 'opacity-60 bg-gray-50/40' : '')}
   isExpandable={(d) => !d.fecha_eliminacion && (d.carreras_count ?? 0) > 0}
@@ -50,6 +74,20 @@
   onDelete={canDelete ? (d) => onDelete(d) : undefined}
   deleteActionLabel="Eliminar"
 >
+  {#snippet filterSnippet()}
+    {#if facultades.length > 0}
+      <select
+        value={facultadFiltro}
+        onchange={handleFacultadChange}
+        class="px-2.5 py-1.5 text-sm border border-gray-300 rounded-md bg-white text-gray-700 cursor-pointer focus:outline-none focus:border-blue-400"
+      >
+        <option value="">Todas las facultades</option>
+        {#each facultades as fac (fac.id_facultad)}
+          <option value={String(fac.id_facultad)}>{fac.nombre}</option>
+        {/each}
+      </select>
+    {/if}
+  {/snippet}
   {#snippet cellSnippet({ item, column })}
     {#if column.key === 'nombre'}
       <span

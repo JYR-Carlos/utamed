@@ -38,6 +38,8 @@ use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\IntranetService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
+use Tests\TestCase;
+
 uses(DatabaseTransactions::class);
 
 function gcfUsuario(string $rut, string $username): Usuario
