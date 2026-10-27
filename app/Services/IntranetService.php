@@ -646,9 +646,12 @@ class IntranetService
             }
         }
 
-        $idPrincipal = collect($componentes)
+        $componentes = collect($componentes)
             ->sortBy(fn(ComponenteDetectada $c) => TipoComponente::PRIORIDAD[$this->normalizarNombreTipo($c->tipo)] ?? 99)
-            ->first()?->id_tipo_componente;
+            ->values()
+            ->all();
+
+        $idPrincipal = $componentes[0]?->id_tipo_componente ?? null;
 
         return new ResultadoPreviewComponentes(
             origen: $origen,

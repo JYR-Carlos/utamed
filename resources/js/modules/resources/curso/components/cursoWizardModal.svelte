@@ -213,6 +213,14 @@
       .sort((a, b) => (a.prioridad ?? 99) - (b.prioridad ?? 99));
   });
 
+  const previewComponentesOrdered = $derived.by(() => {
+    return [...previewComponentes].sort((a, b) => {
+      const prioA = tiposComponente.find((tc) => tc.id_tipo_componente === a.id_tipo_componente)?.prioridad ?? 99;
+      const prioB = tiposComponente.find((tc) => tc.id_tipo_componente === b.id_tipo_componente)?.prioridad ?? 99;
+      return prioA - prioB;
+    });
+  });
+
   const principalTipo = $derived.by(() => selectedTiposOrdered[0] ?? null);
 
   // Colegiado no es una opción manual: un curso es colegiado cuando algún
@@ -1081,14 +1089,14 @@
 
                 {#if loadingPreview}
                   <div class="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin my-2"></div>
-                {:else if previewComponentes.length === 0}
+                {:else if previewComponentesOrdered.length === 0}
                   <p class="text-sm text-gray-400 m-0">
                     No se detectó ninguna componente. Revisa el Plan de Estudios de esta
                     asignatura antes de continuar.
                   </p>
                 {:else}
                   <div class="flex flex-wrap gap-2">
-                    {#each previewComponentes as pc (pc.id_tipo_componente)}
+                    {#each previewComponentesOrdered as pc (pc.id_tipo_componente)}
                       {@const isPrincipal = principalTipo?.id_tipo_componente === pc.id_tipo_componente}
                       <div class="flex items-center gap-2 px-3.5 py-2 border-2 border-indigo-200 rounded-lg bg-indigo-50/50 text-indigo-900 text-sm font-medium">
                         <span class="leading-none font-semibold">{pc.tipo}</span>
