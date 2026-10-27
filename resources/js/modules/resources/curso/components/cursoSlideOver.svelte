@@ -1,15 +1,16 @@
 <script lang="ts">
   /**
-   * Componente: Slide-over de Gestión de Curso
+   * Componente: Modal de Gestión de Curso
    *
-   * Panel lateral derecho (40% pantalla) que muestra detalles del curso
-   * con Progressive Disclosure en tres pestañas:
-   *   1. Secciones — sub-tabla de componentes + acción "+ Añadir Sección"
-   *   2. Equipo Docente — info del docente titular + botón "Gestionar equipo"
-   *   3. Configuración — datos de período, créditos y acceso al programa/syllabus
+   * Diálogo modal centrado en pantalla que muestra detalles del curso
+   * con Progressive Disclosure en cuatro pestañas:
+   *   1. Componentes — sub-tabla de componentes + acción "+ Añadir componente"
+   *   2. Equipo Docente — info del docente titular + botón "Ver equipo completo"
+   *   3. Inscritos — lista de alumnos inscritos con búsqueda y enlace a perfil
+   *   4. Configuración — datos de período, créditos y acceso al programa/syllabus
    *
    * Se activa haciendo clic en cualquier fila de la tabla principal.
-   * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
+   * La tabla de fondo queda oscurecida (backdrop) con blur mínimo.
    */
   import { ordenarComponentesCTL } from '@/lib/componentes';
   import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy, UserPlus, Search, Loader2, ArrowUpRight } from 'lucide-svelte';
@@ -322,24 +323,29 @@
   ];
 </script>
 
+<svelte:window onkeydown={(e) => { if (isOpen && e.key === 'Escape') handleClose(); }} />
+
 {#if isOpen && curso}
   <!-- Backdrop -->
   <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div
-    class="fixed inset-0 z-40 bg-gray-900/25 backdrop-blur-[1px]"
+    class="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[1px] transition-opacity"
     role="button"
-    aria-label="Cerrar panel"
+    aria-label="Cerrar modal"
     onclick={handleClose}
     onkeydown={handleBackdropKey}
   ></div>
 
-  <!-- Panel lateral -->
+  <!-- Modal centrado -->
   <div
-    class="fixed top-0 right-0 z-50 h-full w-full max-w-[560px] bg-white shadow-2xl flex flex-col border-l border-gray-200 slideover-panel"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="slideover-title"
+    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 pointer-events-none"
   >
+    <div
+      class="pointer-events-auto w-full max-w-4xl h-full sm:h-[85dvh] bg-white rounded-2xl shadow-2xl flex flex-col border border-gray-200 overflow-hidden modal-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="slideover-title"
+    >
     <!-- ── Header ──────────────────────────────────────────────────────────── -->
     <div class="flex items-start gap-4 px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
       <div class="flex-1 min-w-0">
@@ -450,7 +456,7 @@
               </p>
             </div>
           {:else}
-            <div class="rounded-xl border border-gray-200 overflow-hidden">
+            <div class="rounded-xl border border-gray-200 overflow-hidden bg-white">
               <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -461,6 +467,10 @@
                     <th
                       class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
                       >Docente</th
+                    >
+                    <th
+                      class="px-4 py-2.5 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                      >Cód. Intranet</th
                     >
                     <th
                       class="px-4 py-2.5 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
@@ -480,6 +490,18 @@
                       </td>
                       <td class="px-4 py-3 text-gray-500 text-xs">
                         {getDocenteName(comp)}
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        {#if comp.intranet_cur_codigo}
+                          <span
+                            class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-200"
+                            title="Código oficial en Intranet (CUR_CODIGO)"
+                          >
+                            {comp.intranet_cur_codigo}
+                          </span>
+                        {:else}
+                          <span class="text-gray-300 text-xs" title="Sin código Intranet asociado">—</span>
+                        {/if}
                       </td>
                       <td class="px-4 py-3 text-center">
                         {#if comp.genera_acta}
@@ -870,13 +892,10 @@
 
     <!-- ── Footer ──────────────────────────────────────────────────────────── -->
     <div
-      class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0"
+      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0"
     >
-      <button onclick={handleClose} class="btn btn-ghost"> Cerrar </button>
-      <!-- Cuatro acciones con cuatro tratamientos distintos (texto, contorno
-           verde, contorno violeta, sólido azul) no dejaban ver cuál es la
-           principal. Ahora sólo «Editar curso» va destacada. -->
-      <div class="flex items-center gap-2">
+      <button onclick={handleClose} class="btn btn-ghost order-2 sm:order-1 self-start sm:self-auto"> Cerrar </button>
+      <div class="flex flex-wrap items-center gap-2 order-1 sm:order-2 justify-end">
         <button
           onclick={() => onSincronizarIntranet(curso!)}
           class="btn btn-neutral"
@@ -901,21 +920,22 @@
       </div>
     </div>
   </div>
+</div>
 {/if}
 
 <style>
-  @keyframes slide-in {
+  @keyframes modal-scale {
     from {
-      transform: translateX(100%);
-      opacity: 0.8;
+      transform: scale(0.96) translateY(6px);
+      opacity: 0;
     }
     to {
-      transform: translateX(0);
+      transform: scale(1) translateY(0);
       opacity: 1;
     }
   }
 
-  .slideover-panel {
-    animation: slide-in 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  .modal-panel {
+    animation: modal-scale 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   }
 </style>

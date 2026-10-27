@@ -290,6 +290,8 @@ export interface Componente {
   genera_acta?: boolean;
   /** Minimum attendance percentage */
   porcentaje_asistencia_obligatoria?: number;
+  /** Código oficial del componente en Intranet (Oracle CUR_CODIGO) */
+  intranet_cur_codigo?: number | null;
 }
 
 /** @deprecated Use Componente instead */
