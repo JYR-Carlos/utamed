@@ -16,6 +16,8 @@
     cursoDisplayName,
     formatInsId,
   } from '../types/inscripcion.types';
+  import Toast from '@/components/admin/Toast.svelte';
+  import { Copy } from 'lucide-svelte';
 
   interface Props {
     roster: RosterItem[];
@@ -116,6 +118,32 @@
     { key: 'estado', label: 'Estado' },
     { key: 'acciones', label: '', sortable: false, class: 'text-right w-1 whitespace-nowrap' },
   ];
+
+/**
+ * ===============================================
+ *  COPY PASTE DEL CODIGO DE INSCRIPCIÓN
+ * ===============================================
+ * */
+  let toastMessage = $state<string | null>(null);
+  let toastType = $state<'success' | 'error'>('success');
+
+  async function copyInsId(insId: string | number) {
+    try {
+      await navigator.clipboard.writeText(String(insId));
+
+      toastType = 'success';
+      toastMessage = 'Código de inscripción copiado al portapapeles';
+    } catch (error) {
+      toastType = 'error';
+      toastMessage = 'No se pudo copiar el ID';
+      console.error('Error al copiar:', error);
+    }
+  }
+
+  function closeToast() {
+    toastMessage = null;
+  }
+
 </script>
 
 <svelte:window
@@ -345,9 +373,17 @@
           </div>
         {:else if column.key === 'ins_id'}
           {#if formatInsId(item.ins_id) !== '—'}
-            <span class="font-mono text-xs text-gray-600">
+            <button
+              type="button"
+              class="flex group cursor-pointer justify-center items-center gap-3 text-center font-mono text-xs text-gray-600"
+              onclick={() => copyInsId(item.ins_id)}
+            >
               {formatInsId(item.ins_id)}
-            </span>
+              <Copy
+                size={18}
+                class="cursor-pointer relative z-10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              />  
+            </button>
           {:else}
             <span class="text-gray-300 text-sm" title="No especificado">—</span>
           {/if}
@@ -458,3 +494,12 @@
     {/if}
   {/if}
 {/if}
+
+
+<Toast
+  type={toastType}
+  message={toastMessage}
+  variant="pill"
+  duration={2500}
+  onClose={closeToast}
+/>
