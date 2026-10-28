@@ -13,6 +13,7 @@ class InscripcionCursoResource extends JsonResource
             'id_inscripcion_curso' => $this->id_inscripcion_curso,
             'id_curso' => $this->id_curso,
             'id_estudiante' => $this->id_estudiante,
+            'ins_id' => $this->ins_id,
             'cod_inscripcion_uta' => $this->cod_inscripcion_uta,
             'fecha_inscripcion' => $this->fecha_inscripcion,
             'estado_inscripcion' => $this->estado_inscripcion,

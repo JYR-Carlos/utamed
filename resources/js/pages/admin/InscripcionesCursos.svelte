@@ -254,7 +254,7 @@
           disabled={sincronizando}
           class="shrink-0 rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
-          {sincronizando ? 'Sincronizando…' : 'Sincronizar roster'}
+          {sincronizando ? 'Sincronizando…' : 'Sincronizar con Intranet'}
         </button>
       {/if}
     </div>

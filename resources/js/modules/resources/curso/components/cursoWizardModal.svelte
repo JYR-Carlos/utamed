@@ -102,7 +102,15 @@
   let porcentajeAsistenciaPorComponente = $state<Record<number, number>>({});
   let inscribirAutomaticamente = $state(false);
   
+  let excedeSumaAprobacionPorComponentes = $derived.by(() =>
+    selectedTiposOrdered.reduce(
+      (total, tc) =>
+        total + (porcentajeAprobacionPorComponente[tc.id_tipo_componente] ?? 60),
+      0
+    ) > 100
+  );
 
+  
 
   // ── Letra de grupo (indice_grupo) ──────────────────────────────────────────
   let indiceGrupo = $state<number | null>(null);
@@ -1516,6 +1524,10 @@
                     </div>
                   </div>
                 {/each}
+                <!-- ACÁ VA LO DE MOSTRAR QUE EL TOTAL DEBE SER 100% -->
+                {#if excedeSumaAprobacionPorComponentes}
+                  <span class="text-sm text-red-500">La suma de las aprobaciones no puede ser mayor a 100%</span>
+                {/if}
               </div>
 
               <div class="flex flex-col gap-1.5 mt-3">

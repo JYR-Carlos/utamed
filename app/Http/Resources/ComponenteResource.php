@@ -13,6 +13,7 @@ class ComponenteResource extends JsonResource
             'id_componente'                    => $this->id_componente,
             'id_curso'                         => $this->id_curso,
             'id_tipo_componente'               => $this->id_tipo_componente,
+            'intranet_cur_codigo'              => $this->intranet_cur_codigo,
             'genera_acta'                      => $this->genera_acta,
             'porcentaje_aprobacion'            => $this->porcentaje_aprobacion,
             'aprobacion_obligatoria'           => $this->aprobacion_obligatoria,

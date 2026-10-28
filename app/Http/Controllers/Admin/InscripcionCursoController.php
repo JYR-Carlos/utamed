@@ -78,6 +78,8 @@ class InscripcionCursoController extends Controller
             $cursos = $this->inscripcionService->getCursosByDocente($idDocente);
         } elseif ($request->filled('id_curso')) {
             // Modo Roster: solo necesitamos el curso activo seleccionado
+            $estadosActivos = ['INSCRITO', 'SUSPENDIDO', 'APROBADO', 'REPROBADO'];
+
             $selected = Curso::select([
                 'id_curso',
                 'cod_curso',
@@ -92,7 +94,7 @@ class InscripcionCursoController extends Controller
                 'asignacionPlan.plan.carrera:id_carrera,nombre',
             ])
             ->withCount([
-                'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
+                'inscripcionCursos as inscritos_count' => fn($q) => $q->whereIn('estado_inscripcion', $estadosActivos),
             ])
             ->where('es_plantilla', false)
             ->find($request->id_curso);
@@ -110,6 +112,8 @@ class InscripcionCursoController extends Controller
             ]] : [];
         } else {
             // Modo Selector: cursos paginados con búsqueda y filtro de carrera en BD
+            $estadosActivos = ['INSCRITO', 'SUSPENDIDO', 'APROBADO', 'REPROBADO'];
+
             $query = Curso::select([
                 'id_curso',
                 'cod_curso',
@@ -125,7 +129,7 @@ class InscripcionCursoController extends Controller
                 'asignacionPlan.plan.carrera:id_carrera,nombre',
             ])
             ->withCount([
-                'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
+                'inscripcionCursos as inscritos_count' => fn($q) => $q->whereIn('estado_inscripcion', $estadosActivos),
             ])
             ->whereNull('fecha_eliminacion')
             ->where('es_plantilla', false);

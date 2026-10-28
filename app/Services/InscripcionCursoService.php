@@ -182,7 +182,13 @@ class InscripcionCursoService
     public function getInscripcionesByCurso(int $idCurso): Collection
     {
         return InscripcionCurso::where('id_curso', $idCurso)
-            ->with(['estudiante.usuario', 'curso'])
+            ->with([
+                'estudiante.usuario',
+                'estudiante.inscripcionComponentes' => function ($q) use ($idCurso) {
+                    $q->whereHas('componente', fn($cq) => $cq->where('id_curso', $idCurso));
+                },
+                'curso',
+            ])
             ->orderBy('fecha_inscripcion', 'desc')
             ->get();
     }

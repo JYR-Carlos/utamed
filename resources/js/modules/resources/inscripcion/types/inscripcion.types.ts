@@ -34,6 +34,7 @@ export interface RosterItem {
   id_inscripcion_curso: number;
   id_curso: number;
   id_estudiante: number;
+  ins_id?: number | string | null;
   cod_inscripcion_uta: string | null;
   fecha_inscripcion: string;
   estado_inscripcion: EstadoInscripcion;
@@ -138,4 +139,16 @@ export function disponibleName(e: EstudianteDisponible): string {
 
 export function cursoDisplayName(c: CursoItem): string {
   return c.nombre || c.asignatura_nombre || c.cod_curso;
+}
+
+/**
+ * Formatea el código de inscripción Intranet (INS_ID) agrupando dígitos
+ * de a 3 separados por espacio desde la derecha (ej: "467 083", "1 234 567").
+ * Si no existe, es 0 o está vacío, devuelve '—'.
+ */
+export function formatInsId(id: number | string | null | undefined): string {
+  if (id == null || id === '' || id === 0 || id === '0') return '—';
+  const s = String(id).replace(/\D/g, '');
+  if (!s || s === '0') return '—';
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
