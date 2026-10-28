@@ -115,9 +115,28 @@ class DelegacionPermisosController extends Controller
      *  - grupos         : matriz agrupada de permisos delegables (definiciones)
      *  - id_contexto    : id_contexto del curso (para debug/referencia frontend)
      */
-    public function index(Curso $curso): Response
+    public function index(Request $request, Curso $curso): Response
     {
         $this->authorize('manageTeam', $curso);
+
+        $componentes = $curso->componentes()
+            ->with('tipoComponente')
+            ->get()
+            ->map(fn ($c) => [
+                'id_componente' => $c->id_componente,
+                'tipo'          => $c->tipoComponente?->tipo ?? 'Componente',
+                'id_contexto'   => $c->id_contexto,
+            ]);
+
+        $validContextos = array_merge(
+            [$curso->id_contexto],
+            $componentes->pluck('id_contexto')->filter()->values()->all()
+        );
+
+        $requestedContexto = $request->integer('contexto');
+        $contextoActivo = in_array($requestedContexto, $validContextos, true)
+            ? $requestedContexto
+            : $curso->id_contexto;
 
         $allSlugs   = $this->allDelegableSlugs();
         $permisosDb = Permiso::whereIn('slug', $allSlugs)
@@ -127,11 +146,11 @@ class DelegacionPermisosController extends Controller
 
         $miembros = $this->permisosService->miembrosDelCurso($curso);
 
-        $miembrosConPermisos = $miembros->map(function (array $miembro) use ($curso, $permisosDb) {
+        $miembrosConPermisos = $miembros->map(function (array $miembro) use ($contextoActivo, $permisosDb) {
             return array_merge($miembro, [
                 'permisos' => $this->permisosService->mapaPermisosPorSlug(
                     $miembro['id_usuario'],
-                    $curso->id_contexto,
+                    $contextoActivo,
                     $permisosDb
                 ),
             ]);
@@ -140,11 +159,14 @@ class DelegacionPermisosController extends Controller
         $grupos = $this->buildGruposDefinicion($permisosDb);
 
         return Inertia::render('docente/DelegacionPermisosCurso', [
-            'curso'       => $curso->only(['id_curso', 'cod_curso', 'nombre', 'letra_grupo', 'semestre_real', 'agno_real'])
+            'curso'             => $curso->only(['id_curso', 'cod_curso', 'nombre', 'letra_grupo', 'semestre_real', 'agno_real'])
                 + ['etiqueta' => $curso->etiqueta()],
-            'miembros'    => $miembrosConPermisos,
-            'grupos'      => $grupos,
-            'id_contexto' => $curso->id_contexto,
+            'componentes'       => $componentes,
+            'contexto_activo'   => $contextoActivo,
+            'id_contexto_curso' => $curso->id_contexto,
+            'miembros'          => $miembrosConPermisos,
+            'grupos'            => $grupos,
+            'id_contexto'       => $contextoActivo,
         ]);
     }
 
@@ -154,7 +176,7 @@ class DelegacionPermisosController extends Controller
      * Otorga o revoca un permiso individual para un miembro del curso.
      *
      * Request body:
-     *   { id_usuario: int, slug: string, otorgar: bool }
+     *   { id_usuario: int, slug: string, otorgar: bool, id_contexto?: int }
      *
      * Response:
      *   redirect()->back() con flash 'success' o errores de validación
@@ -166,10 +188,20 @@ class DelegacionPermisosController extends Controller
         $allSlugs = $this->allDelegableSlugs();
 
         $validated = $request->validate([
-            'id_usuario' => ['required', 'integer', 'exists:usuario,id_usuario'],
-            'slug'       => ['required', 'string', 'in:' . implode(',', $allSlugs)],
-            'otorgar'    => ['required', 'boolean'],
+            'id_usuario'  => ['required', 'integer', 'exists:usuario,id_usuario'],
+            'slug'        => ['required', 'string', 'in:' . implode(',', $allSlugs)],
+            'otorgar'     => ['required', 'boolean'],
+            'id_contexto' => ['nullable', 'integer'],
         ]);
+
+        $validContextos = array_merge(
+            [$curso->id_contexto],
+            $curso->componentes()->pluck('id_contexto')->filter()->values()->all()
+        );
+
+        $targetContexto = in_array($validated['id_contexto'] ?? null, $validContextos, true)
+            ? $validated['id_contexto']
+            : $curso->id_contexto;
 
         // IDOR guard: target user must belong to the course team, not be the DT
         $this->assertIsMiembroCurso($curso, $validated['id_usuario']);
@@ -177,7 +209,7 @@ class DelegacionPermisosController extends Controller
         $this->permisosService->syncPermiso(
             idUsuario:  $validated['id_usuario'],
             slugOrId:   $validated['slug'],
-            idContexto: $curso->id_contexto,
+            idContexto: $targetContexto,
             otorgar:    $validated['otorgar'],
             origen:     'DelegacionPermisos',
         );
@@ -191,7 +223,7 @@ class DelegacionPermisosController extends Controller
      * Otorga o revoca un conjunto de permisos para un miembro del curso en una sola transacción.
      *
      * Request body:
-     *   { id_usuario: int, slugs: array<string>, otorgar: bool }
+     *   { id_usuario: int, slugs: array<string>, otorgar: bool, id_contexto?: int }
      */
     public function batch(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
     {
@@ -200,18 +232,28 @@ class DelegacionPermisosController extends Controller
         $allSlugs = $this->allDelegableSlugs();
 
         $validated = $request->validate([
-            'id_usuario' => ['required', 'integer', 'exists:usuario,id_usuario'],
-            'slugs'      => ['required', 'array', 'min:1'],
-            'slugs.*'    => ['required', 'string', 'in:' . implode(',', $allSlugs)],
-            'otorgar'    => ['required', 'boolean'],
+            'id_usuario'  => ['required', 'integer', 'exists:usuario,id_usuario'],
+            'slugs'       => ['required', 'array', 'min:1'],
+            'slugs.*'     => ['required', 'string', 'in:' . implode(',', $allSlugs)],
+            'otorgar'     => ['required', 'boolean'],
+            'id_contexto' => ['nullable', 'integer'],
         ]);
+
+        $validContextos = array_merge(
+            [$curso->id_contexto],
+            $curso->componentes()->pluck('id_contexto')->filter()->values()->all()
+        );
+
+        $targetContexto = in_array($validated['id_contexto'] ?? null, $validContextos, true)
+            ? $validated['id_contexto']
+            : $curso->id_contexto;
 
         $this->assertIsMiembroCurso($curso, $validated['id_usuario']);
 
         $this->permisosService->syncPermisosBatch(
             idUsuario:  $validated['id_usuario'],
             slugsOrIds: $validated['slugs'],
-            idContexto: $curso->id_contexto,
+            idContexto: $targetContexto,
             otorgar:    $validated['otorgar'],
             origen:     'DelegacionPermisos',
         );

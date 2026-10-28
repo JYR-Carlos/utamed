@@ -133,6 +133,7 @@ class DelegacionPermisosCursoTest extends TestCase
             'aprobacion_obligatoria' => true,
             'porcentaje_asistencia_obligatoria' => 75,
         ]);
+        $this->componente->refresh();
 
         DocenteComponente::create([
             'id_componente' => $this->componente->id_componente,
@@ -504,6 +505,82 @@ class DelegacionPermisosCursoTest extends TestCase
         $responseAjenaConPermiso->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
             $page->component('docente/Activities/Index')
                 ->where('puede_editar_rubrica', true)
+        );
+    }
+
+    /**
+     * Test 9: Delegación dirigida a un contexto específico de Componente
+     */
+    public function test_docente_titular_puede_delegar_permisos_en_contexto_de_componente_especifico(): void
+    {
+        $permisoDb = Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_EVALUAR->value],
+            ['nombre' => 'Evaluar Actividades', 'modulo' => 'Actividades']
+        );
+
+        $idContextoComponente = $this->componente->id_contexto;
+        $this->assertNotNull($idContextoComponente, 'El componente debe tener id_contexto');
+
+        // Otorgar permiso en el contexto del componente
+        $response = $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_EVALUAR->value,
+                'otorgar'     => true,
+                'id_contexto' => $idContextoComponente,
+            ]);
+
+        $response->assertSessionHas('success');
+
+        // Verificar existencia en BD con id_contexto del componente
+        $this->assertDatabaseHas('usuario.usuario_permiso_especial', [
+            'id_usuario'     => $this->colegiado->id_usuario,
+            'id_permiso'     => $permisoDb->id_permiso,
+            'id_contexto'    => $idContextoComponente,
+            'esta_activo'    => true,
+            'fue_borrado'    => false,
+            'esta_permitido' => true,
+        ]);
+
+        // Revocar en el mismo contexto
+        $responseRevocar = $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_EVALUAR->value,
+                'otorgar'     => false,
+                'id_contexto' => $idContextoComponente,
+            ]);
+
+        $responseRevocar->assertSessionHas('success');
+
+        $this->assertDatabaseHas('usuario.usuario_permiso_especial', [
+            'id_usuario'     => $this->colegiado->id_usuario,
+            'id_permiso'     => $permisoDb->id_permiso,
+            'id_contexto'    => $idContextoComponente,
+            'esta_activo'    => false,
+            'fue_borrado'    => true,
+        ]);
+    }
+
+    /**
+     * Test 10: Index con filtro de contexto específico de componente
+     */
+    public function test_index_permite_filtrar_por_contexto_de_componente(): void
+    {
+        $idContextoComponente = $this->componente->id_contexto;
+
+        $response = $this->actingAs($this->titular)
+            ->get(route('docente.cursos.delegacion-permisos.index', [
+                'curso'    => $this->curso,
+                'contexto' => $idContextoComponente,
+            ]));
+
+        $response->assertOk();
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
+            $page->component('docente/DelegacionPermisosCurso')
+                ->where('contexto_activo', $idContextoComponente)
+                ->where('id_contexto_curso', $this->curso->id_contexto)
+                ->has('componentes', 1)
         );
     }
 }

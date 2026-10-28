@@ -16,7 +16,8 @@
   import { router } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { ShieldCheck, Users, ChevronsDownUp, ChevronsUpDown, CheckCircle2, AlertTriangle } from 'lucide-svelte';
+  import { ShieldCheck, Users, ChevronsDownUp, ChevronsUpDown, Layers } from 'lucide-svelte';
+  import { Toaster, toast } from 'svelte-sonner';
   import GrupoPermisosMatriz from '@/components/docente/permisos/GrupoPermisosMatriz.svelte';
   import { formatSlugAction } from '@/utils/permisos';
 
@@ -41,6 +42,12 @@
     permisos: Record<string, boolean>;
   }
 
+  interface ComponenteItem {
+    id_componente: number;
+    tipo: string;
+    id_contexto: number;
+  }
+
   interface Curso {
     etiqueta?: string;
     id_curso: number;
@@ -49,22 +56,44 @@
     letra_grupo?: string | null;
     semestre_real?: number | null;
     agno_real?: number | null;
+    id_contexto?: number;
   }
 
   interface Props {
     curso: Curso;
+    componentes?: ComponenteItem[];
+    contexto_activo?: number;
+    id_contexto_curso?: number;
     miembros: Miembro[];
     grupos: Grupo[];
     id_contexto: number;
   }
 
-  let { curso, miembros, grupos }: Props = $props();
+  let {
+    curso,
+    componentes = [],
+    contexto_activo,
+    id_contexto_curso = curso.id_contexto ?? id_contexto,
+    miembros,
+    grupos,
+    id_contexto,
+  }: Props = $props();
 
   // ── Estado local ────────────────────────────────────────────────────────
+
+  let contextoSeleccionado = $state<number>(contexto_activo ?? id_contexto_curso ?? id_contexto);
 
   let permisosLocales = $state<Record<number, Record<string, boolean>>>(
     Object.fromEntries(miembros.map((m) => [m.id_usuario, { ...m.permisos }])),
   );
+
+  $effect(() => {
+    contextoSeleccionado = contexto_activo ?? id_contexto_curso ?? id_contexto;
+  });
+
+  $effect(() => {
+    permisosLocales = Object.fromEntries(miembros.map((m) => [m.id_usuario, { ...m.permisos }]));
+  });
 
   /** Estado visual transitorio por celda. Ausente = 'reposo'. */
   let estadosCelda = $state<Record<string, Estado>>({});
@@ -73,13 +102,31 @@
     Object.fromEntries(grupos.map((g) => [g.grupo, true])),
   );
 
-  let banner = $state<{ tipo: 'success' | 'error'; texto: string } | null>(null);
+  const etiquetaContexto = $derived(
+    contextoSeleccionado === id_contexto_curso
+      ? 'Curso Completo'
+      : (componentes.find((c) => c.id_contexto === contextoSeleccionado)?.tipo ?? 'Componente'),
+  );
 
   const toggleUrl = $derived(`/docente/cursos/${curso.id_curso}/delegacion-permisos/toggle`);
   const batchUrl = $derived(`/docente/cursos/${curso.id_curso}/delegacion-permisos/batch`);
   const todosExpandidos = $derived(grupos.every((g) => expandido[g.grupo]));
   const todosLosSlugs = $derived(grupos.flatMap((g) => g.permisos.map((p) => p.slug)));
   const totalPermisosDisponibles = $derived(todosLosSlugs.length);
+
+  function cambiarContexto(nuevoContexto: number) {
+    if (nuevoContexto === contextoSeleccionado) return;
+    contextoSeleccionado = nuevoContexto;
+    router.get(
+      window.location.pathname,
+      { contexto: nuevoContexto },
+      {
+        preserveState: true,
+        preserveScroll: true,
+        only: ['miembros', 'contexto_activo', 'id_contexto'],
+      },
+    );
+  }
 
   function totalActivosMiembro(idUsuario: number): number {
     const usuarioPerms = permisosLocales[idUsuario] ?? {};
@@ -117,16 +164,13 @@
 
     router.post(
       toggleUrl,
-      { id_usuario: idUsuario, slug, otorgar },
+      { id_usuario: idUsuario, slug, otorgar, id_contexto: contextoSeleccionado },
       {
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
           estadosCelda[key] = 'confirmado';
-          banner = {
-            tipo: 'success',
-            texto: `Permiso actualizado — "${accion}" ${otorgar ? 'concedido a' : 'revocado a'} ${persona}.`,
-          };
+          toast.success(`"${accion}" ${otorgar ? 'concedido a' : 'revocado a'} ${persona} (${etiquetaContexto}).`);
           setTimeout(() => {
             if (estadosCelda[key] === 'confirmado') estadosCelda[key] = 'reposo';
           }, 1500);
@@ -134,7 +178,7 @@
         onError: (errs) => {
           permisosLocales[idUsuario][slug] = !otorgar;
           estadosCelda[key] = 'error';
-          banner = { tipo: 'error', texto: Object.values(errs)[0] || 'No se pudo actualizar el permiso.' };
+          toast.error(Object.values(errs)[0] || 'No se pudo actualizar el permiso.');
           setTimeout(() => {
             if (estadosCelda[key] === 'error') estadosCelda[key] = 'reposo';
           }, 2500);
@@ -162,7 +206,7 @@
 
     router.post(
       batchUrl,
-      { id_usuario: idUsuario, slugs, otorgar },
+      { id_usuario: idUsuario, slugs, otorgar, id_contexto: contextoSeleccionado },
       {
         preserveScroll: true,
         preserveState: true,
@@ -170,10 +214,9 @@
           for (const slug of slugs) {
             estadosCelda[claveCelda(idUsuario, slug)] = 'confirmado';
           }
-          banner = {
-            tipo: 'success',
-            texto: `Permisos actualizados — ${slugs.length} permisos ${otorgar ? 'otorgados' : 'revocados'}${nombreSeccion ? ' (' + nombreSeccion + ')' : ''} a ${persona}.`,
-          };
+          toast.success(
+            `${slugs.length} permisos ${otorgar ? 'otorgados' : 'revocados'}${nombreSeccion ? ' (' + nombreSeccion + ')' : ''} a ${persona} (${etiquetaContexto}).`,
+          );
           setTimeout(() => {
             for (const slug of slugs) {
               if (estadosCelda[claveCelda(idUsuario, slug)] === 'confirmado') {
@@ -187,10 +230,7 @@
           for (const slug of slugs) {
             estadosCelda[claveCelda(idUsuario, slug)] = 'error';
           }
-          banner = {
-            tipo: 'error',
-            texto: Object.values(errs)[0] || 'No se pudieron actualizar los permisos en lote.',
-          };
+          toast.error(Object.values(errs)[0] || 'No se pudieron actualizar los permisos en lote.');
           setTimeout(() => {
             for (const slug of slugs) {
               if (estadosCelda[claveCelda(idUsuario, slug)] === 'error') {
@@ -222,6 +262,7 @@
 </script>
 
 <DocenteLayout {breadcrumbs}>
+  <Toaster richColors position="bottom-right" />
   <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-4 bg-white p-4 md:p-6">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div class="flex flex-col gap-1.5">
@@ -236,24 +277,41 @@
       </div>
     </header>
 
-    {#if banner}
-      <div
-        class="flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm {banner.tipo === 'success'
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-          : 'border-red-200 bg-red-50 text-red-800'}"
-      >
-        {#if banner.tipo === 'success'}
-          <CheckCircle2 class="h-4 w-4 shrink-0 text-emerald-600" />
-        {:else}
-          <AlertTriangle class="h-4 w-4 shrink-0 text-red-600" />
-        {/if}
-        <span class="min-w-0 flex-1">{banner.texto}</span>
-        <button
-          class="shrink-0 {banner.tipo === 'success' ? 'text-emerald-700' : 'text-red-700'} text-xs font-semibold"
-          onclick={() => (banner = null)}
-        >
-          Cerrar
-        </button>
+    {#if componentes.length > 0}
+      <div class="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <Layers class="h-4 w-4 text-uta-blue" />
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Ámbito de delegación</span>
+          </div>
+          <span class="text-xs font-medium text-slate-500">
+            {contextoSeleccionado === id_contexto_curso
+              ? 'Permisos delegados a nivel de Curso (afectan transversalmente)'
+              : `Permisos delegados específicamente para el componente ${etiquetaContexto}`}
+          </span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all {contextoSeleccionado === id_contexto_curso
+              ? 'bg-navy text-white shadow-xs'
+              : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}"
+            onclick={() => cambiarContexto(id_contexto_curso)}
+          >
+            Todo el Curso (General)
+          </button>
+          {#each componentes as comp (comp.id_componente)}
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all {contextoSeleccionado === comp.id_contexto
+                ? 'bg-navy text-white shadow-xs'
+                : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}"
+              onclick={() => cambiarContexto(comp.id_contexto)}
+            >
+              {comp.tipo}
+            </button>
+          {/each}
+        </div>
       </div>
     {/if}
 
@@ -296,7 +354,7 @@
             <ShieldCheck class="h-4 w-4 text-uta-blue" />
             <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Acciones rápidas globales por integrante</span>
           </div>
-          <span class="text-xs text-slate-500">Aplica a todas las {grupos.length} secciones ({totalPermisosDisponibles} permisos)</span>
+          <span class="text-xs text-slate-500">Aplica a todas las {grupos.length} secciones ({totalPermisosDisponibles} permisos) en {etiquetaContexto}</span>
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {#each miembros as miembro (miembro.id_usuario)}
