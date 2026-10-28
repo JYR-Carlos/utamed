@@ -119,6 +119,11 @@ class DocenteActivityController extends Controller
 
         $actividad->loadMissing('componente');
 
+        // Si el titular le delegó explícitamente el permiso de evaluar en el contexto del componente:
+        if ($actividad->componente && $user->can(Permissions::ACTIVIDADES_EVALUAR, $actividad->componente)) {
+            return;
+        }
+
         $esDocenteDelComponente = $actividad->componente
             && $actividad->componente->docenteComponentes()
                 ->where('id_docente', $docente->id_docente)
@@ -1006,7 +1011,7 @@ class DocenteActivityController extends Controller
 
         $esAdmin = $user->isSuperAdmin() || $user->hasAnyRoleGlobally(Usuario::ROLES_ADMINISTRATIVOS);
         $tieneEvaluaciones = $actividad->hanComenzadoEvaluaciones();
-        $puedeEditarRubrica = ($esAdmin || $esTitular || $esDocenteComponente || $user->can(Permissions::ACTIVIDADES_EVALUAR, $curso)) && !$tieneEvaluaciones;
+        $puedeEditarRubrica = ($esAdmin || $esTitular || $esDocenteComponente || $user->can(Permissions::ACTIVIDADES_EVALUAR, $curso) || ($actividad->componente && $user->can(Permissions::ACTIVIDADES_EVALUAR, $actividad->componente))) && !$tieneEvaluaciones;
 
         // Estudiantes inscritos en el curso (para asignación de grupos)
         $estudiantesInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
