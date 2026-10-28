@@ -781,8 +781,20 @@
                 {#if puedeEditar}
                   <button type="button" onclick={abrirEdicion} class={BTN_OUTLINE}>
                     <Pencil size={15} class="text-ink-2" aria-hidden="true" />
-                    Editar
+                    {tipoSyllabus === 'BASICO' && programa?.estado === 'BASICO_COMPLETO'
+                      ? 'Editar sección básica'
+                      : 'Editar'}
                   </button>
+                  {#if tipoSyllabus === 'BASICO'}
+                    <button
+                      type="button"
+                      onclick={() => irAlAsistente('COMPLETO')}
+                      class={BTN_PRIMARY}
+                    >
+                      <FileText size={15} aria-hidden="true" />
+                      Completar syllabus
+                    </button>
+                  {/if}
                 {/if}
                 {#if canApprove}
                   <button
