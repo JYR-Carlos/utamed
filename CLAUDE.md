@@ -28,3 +28,10 @@ Antes de iniciar cualquier tarea, corrección de bug, ajuste de interfaz o nueva
 
 ### 3. Tareas no Catalogadas
 * Si la petición del usuario no corresponde a ninguna tarjeta previa, informar al usuario y ofrecer crearla en el tablero siguiendo el formato estándar de estimación Fibonacci y DoD.
+
+## Arquitectura de Controladores: Single-Action Controllers (Solo Módulo API)
+
+Exclusivamente para el desarrollo de controladores y endpoints en el módulo de la **API** (`app/Http/Controllers/Api/*` y `routes/api.php`):
+1. **Controladores Invocables Exclusivos**: Cada controlador de la API debe ser un **Single-Action Controller** que implemente únicamente el método `__invoke`. Prohibido el uso de controladores multi-acción en la API (los controladores web existentes quedan exentos).
+2. **Definición de Rutas**: Las rutas de la API deben apuntar directamente a la clase del controlador (ej.: `Route::get('cursos/{curso}', ShowCourseController::class)`).
+3. **Responsabilidad Única y Delegación**: La validación se delega a `FormRequest` dedicados y la lógica de negocio pesada a servicios de dominio.

@@ -28,3 +28,10 @@ Before addressing any development request, bug fix, refactor, or visual adjustme
 
 4. **New Requirements**:
    - If no card exists for the request, alert the user and coordinate creating it on the board following the standard format with Fibonacci estimation and Acceptance Criteria (DoD), self-assigning the user.
+
+## Single-Action Controllers Architecture (API Module Only)
+
+Exclusively for backend development in the API module (`app/Http/Controllers/Api/*` and `routes/api.php`) consumed by the mobile application and external clients:
+1. **Strict Invokable Controllers**: Every controller in the API module must be a **Single-Action Controller** implementing solely the `__invoke` magic method. Traditional multi-action resource controllers are prohibited in the API. (Web controllers serving Inertia/Blade are exempt).
+2. **Clean Route Declarations**: API routes must reference the controller class directly without array syntax (e.g., `Route::get('cursos/{curso}', ShowCourseController::class)`).
+3. **Single Responsibility & Delegation**: Keep API controllers lean. Isolate validation inside dedicated `FormRequest` classes, and delegate heavy business logic and file processing to specialized domain services.
