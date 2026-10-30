@@ -85,6 +85,24 @@ final class Rut
     }
 
     /**
+     * Formatea el RUT con separadores de miles y guion ("12.345.678-9", "9.123.456-K").
+     */
+    public static function formatearConPuntos(int|string|null $valor): ?string
+    {
+        $canonico = self::normalizar($valor);
+
+        if ($canonico === null) {
+            return null;
+        }
+
+        if (preg_match('/^(\d{7,8})-([0-9K])$/', $canonico, $partes) === 1) {
+            return number_format((int) $partes[1], 0, '', '.') . '-' . $partes[2];
+        }
+
+        return $canonico;
+    }
+
+    /**
      * Sólo dígitos y la K, sin separadores. Para comparar contra datos antiguos
      * que todavía puedan tener otro formato (búsquedas, login).
      */

@@ -3,15 +3,26 @@
 use App\Api\V1\Controllers\Auth\LoginController;
 use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
+use App\Api\V1\Controllers\Student\GetProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    // Autenticación móvil y ciclo de vida de tokens Bearer
     Route::prefix('auth')->group(function () {
+        // Iniciar sesión con RUT y contraseña; emite Bearer token
         Route::post('login', LoginController::class)->middleware('throttle:10,1')->name('api.v1.auth.login');
 
         Route::middleware(['auth:sanctum', 'is_student_api'])->group(function () {
+            // Revocar token Bearer de la sesión actual
             Route::post('logout', LogoutController::class)->name('api.v1.auth.logout');
+            // Identidad y verificación de expiración de clave del usuario actual
             Route::get('me', MeController::class)->name('api.v1.auth.me');
         });
+    });
+
+    // Portal móvil del estudiante (acceso exclusivo a alumnos activos)
+    Route::middleware(['auth:sanctum', 'is_student_api'])->prefix('estudiante')->group(function () {
+        // Ficha oficial de perfil, cohorte, matrícula y foto de credencial Intranet (solo lectura)
+        Route::get('perfil', GetProfileController::class)->name('api.v1.estudiante.perfil');
     });
 });

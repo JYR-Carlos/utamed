@@ -57,3 +57,14 @@ it('normalizar es idempotente: aplicarlo dos veces no cambia el resultado', func
 
     expect(Rut::normalizar($unaVez))->toBe($unaVez);
 });
+
+it('formatea con puntos y guion a partir de cualquier representación', function (mixed $entrada, ?string $esperado) {
+    expect(Rut::formatearConPuntos($entrada))->toBe($esperado);
+})->with([
+    'cuerpo 8 dígitos'    => ['23671848-4', '23.671.848-4'],
+    'cuerpo 7 dígitos'    => ['9123456-K', '9.123.456-K'],
+    'con puntos previos'  => ['23.671.848-4', '23.671.848-4'],
+    'sin separador'       => ['236718484', '23.671.848-4'],
+    'valor nulo'          => [null, null],
+    'valor inválido'      => ['sin-rut', 'sin-rut'],
+]);
