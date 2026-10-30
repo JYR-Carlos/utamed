@@ -35,3 +35,7 @@ Exclusively for backend development in the API module (`app/Http/Controllers/Api
 1. **Strict Invokable Controllers**: Every controller in the API module must be a **Single-Action Controller** implementing solely the `__invoke` magic method. Traditional multi-action resource controllers are prohibited in the API. (Web controllers serving Inertia/Blade are exempt).
 2. **Clean Route Declarations**: API routes must reference the controller class directly without array syntax (e.g., `Route::get('cursos/{curso}', ShowCourseController::class)`).
 3. **Single Responsibility & Delegation**: Keep API controllers lean. Isolate validation inside dedicated `FormRequest` classes, and delegate heavy business logic and file processing to specialized domain services.
+
+## Mobile App Plans Location
+
+All implementation plans associated with the mobile app development (APP-XX cards, API module for the mobile client) must be saved in `docs/implementacion-plan/app-movil/`, inside the repository and not only in the agent artifact directory.
