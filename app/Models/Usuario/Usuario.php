@@ -21,6 +21,7 @@ use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
 use App\Traits\AssignsPermissions;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * Modelo Usuario
@@ -45,7 +46,7 @@ use App\Traits\AssignsPermissions;
  */
 class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract, CanResetPasswordContract
 {
-    use AuthenticatableTrait, HasFactory;
+    use AuthenticatableTrait, HasFactory, HasApiTokens;
     use CanResetPassword, Notifiable;
     use AssignsPermissions;
     use Authorizable {
