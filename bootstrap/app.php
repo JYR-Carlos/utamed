@@ -59,6 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'is_estudiante' => \App\Http\Middleware\IsStudent::class,
             'is_ayudante' => \App\Http\Middleware\IsAyudante::class,
             'is_student_api' => \App\Api\V1\Middleware\IsStudentApi::class,
+            'force_password_change_api' => \App\Api\V1\Middleware\ForcePasswordChangeApi::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

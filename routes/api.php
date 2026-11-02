@@ -25,8 +25,8 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Portal móvil del estudiante (acceso exclusivo a alumnos activos)
-    Route::middleware(['auth:sanctum', 'is_student_api'])->prefix('estudiante')->group(function () {
+    // Portal móvil del estudiante (acceso exclusivo a alumnos activos con clave vigente)
+    Route::middleware(['auth:sanctum', 'is_student_api', 'force_password_change_api'])->prefix('estudiante')->group(function () {
         // Ficha oficial de perfil, cohorte, matrícula y foto de credencial Intranet (solo lectura)
         Route::get('perfil', GetProfileController::class)->name('api.v1.estudiante.perfil');
     });
