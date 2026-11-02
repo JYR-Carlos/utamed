@@ -4,6 +4,7 @@ use App\Api\V1\Controllers\Auth\ChangeExpiredPasswordController;
 use App\Api\V1\Controllers\Auth\LoginController;
 use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
+use App\Api\V1\Controllers\Student\GetDashboardController;
 use App\Api\V1\Controllers\Student\GetProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,13 +14,14 @@ Route::prefix('v1')->group(function () {
         // Iniciar sesión con RUT y contraseña; emite Bearer token
         Route::post('login', LoginController::class)->middleware('throttle:10,1')->name('api.v1.auth.login');
 
+        // RUTAS DESPROTEGIDAS, sólo necesita ser estudiante para continuar...
         Route::middleware(['auth:sanctum', 'is_student_api'])->group(function () {
             // Revocar token Bearer de la sesión actual
-            Route::post('logout', LogoutController::class)->name('api.v1.auth.logout');
+            Route::post('logout',                       LogoutController::class)->name('api.v1.auth.logout');
             // Identidad y verificación de expiración de clave del usuario actual
-            Route::get('me', MeController::class)->name('api.v1.auth.me');
+            Route::get( 'me',                           MeController::class)->name('api.v1.auth.me');
             // Cambio de clave solo si venció o es primer ingreso (sin cambio voluntario en la app)
-            Route::post('cambio-password-obligatorio', ChangeExpiredPasswordController::class)
+            Route::post('cambio-password-obligatorio',  ChangeExpiredPasswordController::class)
                 ->middleware('throttle:10,1')
                 ->name('api.v1.auth.cambio-password-obligatorio');
         });
@@ -29,5 +31,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'is_student_api', 'force_password_change_api'])->prefix('estudiante')->group(function () {
         // Ficha oficial de perfil, cohorte, matrícula y foto de credencial Intranet (solo lectura)
         Route::get('perfil', GetProfileController::class)->name('api.v1.estudiante.perfil');
+        // Inicio: cursos del período, entregas próximas, notas recientes y no leídos del Mensajero
+        Route::get('dashboard', GetDashboardController::class)->name('api.v1.estudiante.dashboard');
     });
 });
