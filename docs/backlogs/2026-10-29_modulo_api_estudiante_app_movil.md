@@ -142,19 +142,24 @@ Para prevenir desajustes entre el servidor UTC y los dispositivos móviles de lo
 *Rama sugerida:* `feature/app-api-cursos-rendimiento-syllabus`
 *Puntos estimados:* 17 pts
 
-* ### `[APP-05]` [3 pts] [R2] [P1] Catálogo de Cursos Inscritos por Período
-  * **Historia de Usuario**: Como estudiante, quiero explorar la lista de cursos en los que estoy o he estado inscrito, filtrando por año y semestre, para revisar mis asignaturas.
+* ### `[APP-05]` [3 pts] [R2] [P1] Catálogo de Cursos Inscritos del Período Actual
+  * **Historia de Usuario**: Como estudiante, quiero consultar la lista de mis asignaturas inscritas en el período académico actual para revisar mis cursos activos y acceder a sus detalles y syllabus sin ver historiales pasados.
   * **Rutas / Endpoints**:
-    * `GET /api/v1/estudiante/cursos` (Query params: `semestre`, `agno`)
+    * `GET /api/v1/estudiante/cursos` (Query params opcionales: `semestre`, `agno`)
   * **Archivos**:
-    * `app/Http/Controllers/Api/V1/Student/CourseApiController.php`
-    * `app/Http/Resources/Api/Student/CursoResource.php`
+    * `app/Api/V1/Controllers/Student/GetCoursesController.php`
+    * `app/Api/V1/Resources/Student/CourseListResource.php`
+    * `app/Services/Student/DashboardEstudiante.php`
     * `app/Http/Controllers/Student/CourseController.php`
-  * **Problema & Causa**: Exponer las asignaturas con estado `INSCRITO`, formateando código de curso, código de asignatura, nombre, carrera, grupo y disponibilidad de programa.
+  * **Problema & Causa**: La aplicación móvil debe proveer una pantalla dedicada y ligera para "Mis Cursos" limitada al período académico actual. Se excluye deliberadamente la navegación y archivo de semestres anteriores en la interfaz móvil. Para evitar el sobrecosto de recalcular entregas y notas del Dashboard, se expone un endpoint independiente con las asignaturas en estado `INSCRITO`, docente de sección, imágenes y badge de mensajes no leídos.
   * **Criterios de Aceptación (DoD)**:
-    * [ ] Por defecto responde el semestre y año vigente si no se envían parámetros.
-    * [ ] Filtra por año y semestre especificado.
-    * [ ] Incluye flag `tiene_programa` indicando si existe syllabus aprobado o completo.
+    * [x] Retorna por defecto los cursos del semestre y año vigente calculados con `DashboardEstudiante::periodoActual()`.
+    * [x] Soporte opcional de parámetros `semestre` y `agno` en backend para compatibilidad técnica y testing.
+    * [x] Retorna estructura JSON con bloque `periodo` y array `cursos` (`{ "data": { "periodo": { ... }, "cursos": [ ... ] } }`).
+    * [x] Ordena los cursos alfabéticamente de forma ascendente por nombre de asignatura.
+    * [x] Incluye datos completos del curso: `id_curso`, `nombre`, `cod_curso`, `cod_asignatura`, `asignatura_nombre`, `carrera_nombre`, `letra_grupo`, `fecha_inicio`, `fecha_fin`, `semestre_real`, `agno_real`, `docente` (titular de la sección) e `imagen_url`.
+    * [x] Incluye conteo de `mensajes_no_leidos` del módulo Mensajero (`curso.mensaje`) por curso.
+    * [x] Excluye explícitamente historial de semestres previos de la interfaz móvil.
 
 * ### `[APP-06]` [3 pts] [R2] [P1] Ficha Detallada del Curso y Componentes Asignados
   * **Historia de Usuario**: Como estudiante, quiero ver los detalles de un curso inscrito, sus componentes y unidades para conocer la organización docente de la asignatura.

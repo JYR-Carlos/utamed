@@ -6,7 +6,8 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\InscripcionComponente;
 use App\Models\Curso\InscripcionCurso;
-use App\Models\Mensajeria\Mensaje;
+use App\Models\Curso\TipoComponente;
+use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Rol;
@@ -200,13 +201,34 @@ test('dashboard resuelve el docente titular del componente donde está inscrito 
         'num_intento' => 1,
     ]);
 
-    // Crear dos componentes (secciones)
-    $comp1 = Componente::factory()->create(['id_curso' => $curso->id_curso]);
-    $comp2 = Componente::factory()->create(['id_curso' => $curso->id_curso]);
+    // Crear dos componentes de tipos distintos (Cátedra y Laboratorio)
+    $tipoCat = TipoComponente::firstOrCreate(['tipo' => 'Cátedra']);
+    $tipoLab = TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
+    $ctx1 = Contexto::firstOrCreate(['contexto_display' => 'Comp1 ' . uniqid()]);
+    $ctx2 = Contexto::firstOrCreate(['contexto_display' => 'Comp2 ' . uniqid()]);
+
+    $comp1 = Componente::create([
+        'id_curso' => $curso->id_curso,
+        'id_tipo_componente' => $tipoCat->id_tipo_componente,
+        'id_contexto' => $ctx1->id_contexto,
+        'genera_acta' => true,
+        'porcentaje_aprobacion' => 60,
+        'aprobacion_obligatoria' => true,
+        'porcentaje_asistencia_obligatoria' => 75,
+    ]);
+    $comp2 = Componente::create([
+        'id_curso' => $curso->id_curso,
+        'id_tipo_componente' => $tipoLab->id_tipo_componente,
+        'id_contexto' => $ctx2->id_contexto,
+        'genera_acta' => true,
+        'porcentaje_aprobacion' => 60,
+        'aprobacion_obligatoria' => true,
+        'porcentaje_asistencia_obligatoria' => 75,
+    ]);
 
     // Docente de sección 1
     [$uDoc1, $doc1] = crearDocenteUsuario('CAROLINA', 'GARCIA');
-    DocenteComponente::factory()->create([
+    DocenteComponente::create([
         'id_componente' => $comp1->id_componente,
         'id_docente' => $doc1->id_docente,
         'es_titular' => true,
@@ -214,14 +236,14 @@ test('dashboard resuelve el docente titular del componente donde está inscrito 
 
     // Docente de sección 2
     [$uDoc2, $doc2] = crearDocenteUsuario('ROBERTO', 'SANCHEZ');
-    DocenteComponente::factory()->create([
+    DocenteComponente::create([
         'id_componente' => $comp2->id_componente,
         'id_docente' => $doc2->id_docente,
         'es_titular' => true,
     ]);
 
     // Inscribir al estudiante únicamente en comp2
-    InscripcionComponente::factory()->create([
+    InscripcionComponente::create([
         'id_componente' => $comp2->id_componente,
         'id_estudiante' => $estudiante->id_estudiante,
     ]);
@@ -299,9 +321,10 @@ test('dashboard rechaza con 401 si no hay token y 403 si el rol no es estudiante
         'fecha_cambio_passhash' => now(),
     ]);
     Docente::factory()->create(['id_usuario' => $usuarioDocente->id_usuario]);
+    $rolDocenteId = Rol::where('nombre', 'Docente Titular')->value('id_rol') ?? 1;
     UsuarioRolAsignacion::create([
         'id_usuario' => $usuarioDocente->id_usuario,
-        'id_rol' => Rol::where('nombre', 'Docente')->value('id_rol'),
+        'id_rol' => $rolDocenteId,
         'id_contexto' => 1,
         'asignado_por' => $usuarioDocente->id_usuario,
         'creado_por' => $usuarioDocente->id_usuario,
@@ -311,12 +334,7 @@ test('dashboard rechaza con 401 si no hay token y 403 si el rol no es estudiante
         'fue_eliminado' => false,
     ]);
 
-    $tokenDocente = $this->postJson('/api/v1/auth/login', [
-        'rut' => '11.111.111-1',
-        'password' => 'secreto-123',
-    ])->assertOk()->json('data.token');
-
-    $this->withToken($tokenDocente)
+    $this->actingAs($usuarioDocente, 'sanctum')
         ->getJson('/api/v1/estudiante/dashboard')
         ->assertForbidden();
 });

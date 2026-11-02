@@ -6,12 +6,15 @@ use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Estudiante;
 use App\Services\MensajeriaService;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Datos del inicio del estudiante compartidos por el portal web y la API móvil.
  */
 class DashboardEstudiante
 {
+    public const DEFAULT_COURSE_IMAGE = '/img/utamed.webp';
+
     public function __construct(private readonly MensajeriaService $mensajeria) {}
 
     /** Período vigente: mismo criterio que el portal web. */
@@ -24,7 +27,7 @@ class DashboardEstudiante
      * Cursos INSCRITO del alumno con el docente titular de su sección.
      * Sin período = todos los cursos inscritos (comportamiento del portal web).
      *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
     public function cursos(Estudiante $estudiante, ?int $semestre = null, ?int $agno = null)
     {
@@ -35,6 +38,9 @@ class DashboardEstudiante
             ->with([
                 'curso.asignacionPlan.asignatura',
                 'curso.asignacionPlan.plan.carrera',
+                // Programas de estudio vigentes para conocer si tiene syllabus aprobado
+                'curso.programas' => fn ($q) => $q->where('es_actual', true)
+                    ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO']),
                 // Docentes de cada componente, con es_titular para poder priorizar.
                 'curso.componentes.docenteComponentes.docente.usuario',
                 // Marca qué componentes son la sección del alumno.
@@ -58,6 +64,10 @@ class DashboardEstudiante
                     ->sortBy(fn ($dc) => [!$dc->es_titular, $dc->id_docente_componente]))
                 ->first()?->docente?->usuario;
 
+            $tienePrograma = $curso->relationLoaded('programas')
+                ? $curso->programas->isNotEmpty()
+                : false;
+
             return [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
@@ -65,11 +75,14 @@ class DashboardEstudiante
                 'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
+                'letra_grupo' => $curso->letra_grupo,
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
                 'semestre_real' => $curso->semestre_real,
                 'agno_real' => $curso->agno_real,
                 'profesor' => $primerDocente ? trim("{$primerDocente->nombre1} {$primerDocente->apellido1}") : null,
+                'tiene_programa' => $tienePrograma,
+                'imagen_url' => $curso->imagen_url ?? self::DEFAULT_COURSE_IMAGE,
             ];
         });
     }
@@ -97,8 +110,8 @@ class DashboardEstudiante
 
         $cursos = $componentes
             ->map(fn($componente) => [
-                'id_curso'  => (int) $componente->id_curso,
-                'nombre'    => $componente->curso_nombre,
+                'id_curso' => (int) $componente->id_curso,
+                'nombre' => $componente->curso_nombre,
                 'cod_curso' => $componente->cod_curso,
                 'cod_asignatura' => $componente->cod_asignatura,
                 'no_leidos' => $noLeidos[(int) $componente->id_componente] ?? 0,
@@ -106,8 +119,8 @@ class DashboardEstudiante
             ->filter(fn(array $fila) => $fila['no_leidos'] > 0)
             ->groupBy('id_curso')
             ->map(fn($delCurso) => [
-                'id_curso'  => $delCurso->first()['id_curso'],
-                'nombre'    => $delCurso->first()['nombre'],
+                'id_curso' => $delCurso->first()['id_curso'],
+                'nombre' => $delCurso->first()['nombre'],
                 'cod_curso' => $delCurso->first()['cod_curso'],
                 'cod_asignatura' => $delCurso->first()['cod_asignatura'],
                 'no_leidos' => $delCurso->sum('no_leidos'),
@@ -117,7 +130,7 @@ class DashboardEstudiante
 
         return [
             'no_leidos' => (int) $cursos->sum('no_leidos'),
-            'cursos'    => $cursos->all(),
+            'cursos' => $cursos->all(),
         ];
     }
 }
