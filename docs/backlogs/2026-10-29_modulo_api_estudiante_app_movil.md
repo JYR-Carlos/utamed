@@ -23,7 +23,7 @@
 * **Elemento / Contexto**: `routes/web.php:588`, `App\Models\Usuario\Usuario`, `App\Support\Rut`.
 * **Problema reportado**: La app móvil no debe utilizar el flujo de sesión web basado en cookies de navegador ni admitir inicio de sesión con correo electrónico. Debe validar credenciales de forma determinista usando el RUT normalizado del alumno (`Rut::normalizar()`) junto a su contraseña cifrada en `passhash`.
 * **Evidencia en código**:
-  * `Usuario::debeCambiarPassword()` y `motivoCambioPasswordObligatorio()`: La API detecta si la clave superó los 6 meses de vigencia o si es primer ingreso, emitiendo un flag `requiere_cambio_password` para forzar la actualización de clave antes de liberar el resto de rutas.
+  * `Usuario::debeCambiarPassword()` y `motivoCambioPasswordObligatorio()`: La API detecta si la clave superó los 6 meses de vigencia o si es primer ingreso, emitiendo un flag `requiere_cambio_password` como aviso a la app; la API no bloquea el resto de rutas (decisión 2026-11-02).
 
 ### [Perfil e Inmutabilidad] Credencial Oficial de Solo Lectura
 * **Elemento / Contexto**: `app/Http/Controllers/Student/PerfilController.php`, `App\Services\FotoIntranetService.php`.

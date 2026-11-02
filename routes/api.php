@@ -1,5 +1,6 @@
 <?php
 
+use App\Api\V1\Controllers\Auth\ChangeExpiredPasswordController;
 use App\Api\V1\Controllers\Auth\LoginController;
 use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
@@ -17,6 +18,10 @@ Route::prefix('v1')->group(function () {
             Route::post('logout', LogoutController::class)->name('api.v1.auth.logout');
             // Identidad y verificación de expiración de clave del usuario actual
             Route::get('me', MeController::class)->name('api.v1.auth.me');
+            // Cambio de clave solo si venció o es primer ingreso (sin cambio voluntario en la app)
+            Route::post('cambio-password-obligatorio', ChangeExpiredPasswordController::class)
+                ->middleware('throttle:10,1')
+                ->name('api.v1.auth.cambio-password-obligatorio');
         });
     });
 
