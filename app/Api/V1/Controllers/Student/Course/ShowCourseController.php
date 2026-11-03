@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Controllers\Student;
+namespace App\Api\V1\Controllers\Student\Course;
 
 use App\Api\V1\Resources\Student\CourseDetailResource;
 use App\Models\Curso\Curso;

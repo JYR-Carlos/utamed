@@ -4,10 +4,10 @@ use App\Api\V1\Controllers\Auth\ChangeExpiredPasswordController;
 use App\Api\V1\Controllers\Auth\LoginController;
 use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
-use App\Api\V1\Controllers\Student\GetCoursesController;
-use App\Api\V1\Controllers\Student\GetDashboardController;
-use App\Api\V1\Controllers\Student\GetProfileController;
-use App\Api\V1\Controllers\Student\ShowCourseController;
+use App\Api\V1\Controllers\Student\Course\GetCoursesController;
+use App\Api\V1\Controllers\Student\Course\ShowCourseController;
+use App\Api\V1\Controllers\Student\Dashboard\GetDashboardController;
+use App\Api\V1\Controllers\Student\Profile\GetProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {

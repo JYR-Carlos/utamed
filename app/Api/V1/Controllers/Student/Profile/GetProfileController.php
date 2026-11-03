@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Controllers\Student;
+namespace App\Api\V1\Controllers\Student\Profile;
 
 use App\Api\V1\Resources\Student\PerfilResource;
 use App\Http\Controllers\Controller;

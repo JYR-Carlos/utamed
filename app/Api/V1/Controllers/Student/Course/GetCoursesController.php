@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Controllers\Student;
+namespace App\Api\V1\Controllers\Student\Course;
 
 use App\Api\V1\Resources\Student\CourseListResource;
 use App\Models\Usuario\Usuario;

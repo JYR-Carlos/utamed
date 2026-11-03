@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Controllers\Student;
+namespace App\Api\V1\Controllers\Student\Dashboard;
 
 use App\Api\V1\Resources\Student\DashboardResource;
 use App\Models\Usuario\Usuario;
