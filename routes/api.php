@@ -4,6 +4,9 @@ use App\Api\V1\Controllers\Auth\ChangeExpiredPasswordController;
 use App\Api\V1\Controllers\Auth\LoginController;
 use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
+use App\Api\V1\Controllers\Student\Activity\DownloadActivityStatementController;
+use App\Api\V1\Controllers\Student\Activity\GetCourseActivitiesController;
+use App\Api\V1\Controllers\Student\Activity\ShowActivityController;
 use App\Api\V1\Controllers\Student\Course\GetCoursesController;
 use App\Api\V1\Controllers\Student\Course\ShowCourseController;
 use App\Api\V1\Controllers\Student\Course\ShowCoursePerformanceController;
@@ -46,5 +49,16 @@ Route::prefix('v1')->group(function () {
         Route::get('cursos/{curso}/rendimiento', ShowCoursePerformanceController::class)
             ->middleware('is_enrolled_in_course')
             ->name('api.v1.estudiante.cursos.rendimiento');
+
+        // Actividades del curso, detalle con rúbrica y descarga de enunciado (APP-10)
+        Route::get('cursos/{curso}/actividades', GetCourseActivitiesController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.actividades.index');
+        Route::get('cursos/{curso}/actividades/{actividad}', ShowActivityController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.actividades.show');
+        Route::get('cursos/{curso}/actividades/{actividad}/enunciado', DownloadActivityStatementController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.actividades.enunciado');
     });
 });
