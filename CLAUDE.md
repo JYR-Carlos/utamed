@@ -31,7 +31,8 @@ Antes de iniciar cualquier tarea, corrección de bug, ajuste de interfaz o nueva
 
 ## Arquitectura de Controladores: Single-Action Controllers (Solo Módulo API)
 
-Exclusivamente para el desarrollo de controladores y endpoints en el módulo de la **API** (`app/Http/Controllers/Api/*` y `routes/api.php`):
+Exclusivamente para el desarrollo de controladores y endpoints en el módulo de la **API** (`app/Api/V1/Controllers/*` y `routes/api.php`):
 1. **Controladores Invocables Exclusivos**: Cada controlador de la API debe ser un **Single-Action Controller** que implemente únicamente el método `__invoke`. Prohibido el uso de controladores multi-acción en la API (los controladores web existentes quedan exentos).
-2. **Definición de Rutas**: Las rutas de la API deben apuntar directamente a la clase del controlador (ej.: `Route::get('cursos/{curso}', ShowCourseController::class)`).
-3. **Responsabilidad Única y Delegación**: La validación se delega a `FormRequest` dedicados y la lógica de negocio pesada a servicios de dominio.
+2. **Organización por Dominio en Student**: Dentro de `Student` (`App\Api\V1\Controllers\Student\`), los controladores deben organizarse obligatoriamente en subdirectorios por Dominio (ej.: `Student/Course/ShowCourseController`, `Student/Profile/GetProfileController`, `Student/Dashboard/GetDashboardController`).
+3. **Definición de Rutas Desacoplada**: Las rutas en `routes/api.php` deben apuntar directamente a la clase del controlador (ej.: `Route::get('cursos/{curso}', ShowCourseController::class)`). La organización interna por dominio en `Student/` **no debe modificar las rutas, URIs, prefijos ni nombres de ruta en `routes/api.php`**.
+4. **Responsabilidad Única y Delegación**: La validación se delega a `FormRequest` dedicados y la lógica de negocio pesada a servicios de dominio.

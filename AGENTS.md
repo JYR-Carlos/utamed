@@ -31,10 +31,11 @@ Before addressing any development request, bug fix, refactor, or visual adjustme
 
 ## Single-Action Controllers Architecture (API Module Only)
 
-Exclusively for backend development in the API module (`app/Http/Controllers/Api/*` and `routes/api.php`) consumed by the mobile application and external clients:
+Exclusively for backend development in the API module (`app/Api/V1/Controllers/*` and `routes/api.php`) consumed by the mobile application and external clients:
 1. **Strict Invokable Controllers**: Every controller in the API module must be a **Single-Action Controller** implementing solely the `__invoke` magic method. Traditional multi-action resource controllers are prohibited in the API. (Web controllers serving Inertia/Blade are exempt).
-2. **Clean Route Declarations**: API routes must reference the controller class directly without array syntax (e.g., `Route::get('cursos/{curso}', ShowCourseController::class)`).
-3. **Single Responsibility & Delegation**: Keep API controllers lean. Isolate validation inside dedicated `FormRequest` classes, and delegate heavy business logic and file processing to specialized domain services.
+2. **Domain Organization in Student**: Within `Student/` (namespace `App\Api\V1\Controllers\Student\`), controllers must be organized into subdirectories by Domain (e.g., `Student/Course/ShowCourseController`, `Student/Profile/GetProfileController`, `Student/Dashboard/GetDashboardController`, `Student/Activity/ShowActivityController`).
+3. **Clean Route Declarations Decoupled from Folders**: API routes in `routes/api.php` must reference the controller class directly without array syntax (e.g., `Route::get('cursos/{curso}', ShowCourseController::class)`). Organizing controllers by domain must **never modify or alter the route endpoints, HTTP URIs, route names, or route definitions in `routes/api.php`** (the routing structure remains independent and decoupled from internal controller domain folders).
+4. **Single Responsibility & Delegation**: Keep API controllers lean. Isolate validation inside dedicated `FormRequest` classes, and delegate heavy business logic and file processing to specialized domain services.
 
 ## Mobile App Plans Location
 
