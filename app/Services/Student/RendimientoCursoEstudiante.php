@@ -183,4 +183,192 @@ class RendimientoCursoEstudiante
 
         return round($valor, 1);
     }
+
+    /**
+     * Calcula el resumen de rendimiento individual y asistencia del alumno para la API móvil.
+     *
+     * @param  array<int, array{componente: string, porcentaje: int|float|string, aprobacion_obligatoria?: bool}>|null  $componentesSyllabus
+     */
+    public function calcularIndividual(Curso $curso, Estudiante $estudiante, ?array $componentesSyllabus = null): array
+    {
+        $this->asegurarInscripcionActiva($curso, $estudiante);
+
+        // Si no se pasaron las ponderaciones del syllabus, obtenerlas vía presenter
+        if ($componentesSyllabus === null) {
+            $syllabus = StudentSyllabusPresenter::build($curso, $estudiante);
+            $componentesSyllabus = $syllabus['datos']['componentes'] ?? [];
+        }
+
+        $componentes = Componente::where('id_curso', $curso->id_curso)
+            ->whereHas('inscripcionComponentes', fn ($q) => $q->where('id_estudiante', $estudiante->id_estudiante))
+            ->with('tipoComponente')
+            ->get();
+
+        // Fallback resiliente: si no tiene inscripción por componente, evaluar componentes del curso
+        if ($componentes->isEmpty()) {
+            $componentes = Componente::where('id_curso', $curso->id_curso)
+                ->with('tipoComponente')
+                ->get();
+        }
+
+        $componentes = TipoComponente::ordenarCTL($componentes);
+
+        $syllabusPorTipo = collect($componentesSyllabus)
+            ->keyBy(fn ($c) => mb_strtoupper(trim((string) ($c['componente'] ?? ''))));
+
+        $totalPresentes = 0;
+        $totalClases = 0;
+        $totalActividadesSumativas = 0;
+        $totalActividadesEvaluadas = 0;
+
+        $filas = $componentes->map(function (Componente $componente) use (
+            $estudiante,
+            $syllabusPorTipo,
+            &$totalPresentes,
+            &$totalClases,
+            &$totalActividadesSumativas,
+            &$totalActividadesEvaluadas
+        ) {
+            $tipo = $componente->tipoComponente?->tipo ?? 'Componente';
+            $syllabus = $syllabusPorTipo->get(mb_strtoupper(trim($tipo)));
+
+            $sumativas = Actividad::where('id_componente', $componente->id_componente)
+                ->where('visible', true)
+                ->where('tipo_actividad', TipoActividad::SUMATIVA->value)
+                ->orderBy('fecha_limite', 'asc')
+                ->get(['id_actividad', 'nombre', 'ponderacion', 'fecha_limite']);
+
+            $notas = $this->notasIndividualesEstudiante($estudiante->id_estudiante, $sumativas->pluck('id_actividad'));
+            $ponderaciones = $sumativas->pluck('ponderacion', 'id_actividad')->map(fn ($p) => (float) $p);
+
+            $miPromedio = $this->promedioPonderado($notas, $ponderaciones);
+
+            $ponderacionTotal = $ponderaciones->sum();
+            $ponderacionEvaluada = $ponderaciones->only($notas->keys()->all())->sum();
+
+            $asistencia = $this->asistencia($componente, $estudiante);
+            $totalPresentes += $asistencia['presentes'];
+            $totalClases += $asistencia['total'];
+            $totalActividadesSumativas += $sumativas->count();
+            $totalActividadesEvaluadas += $notas->count();
+
+            $actividades = $sumativas->map(function ($act) use ($notas) {
+                $tieneNota = $notas->has($act->id_actividad);
+
+                return [
+                    'id_actividad' => (int) $act->id_actividad,
+                    'nombre' => $act->nombre,
+                    'ponderacion' => $act->ponderacion !== null ? (float) $act->ponderacion : null,
+                    'nota' => $tieneNota ? (float) $notas->get($act->id_actividad) : null,
+                    'es_evaluada' => $tieneNota,
+                    'fecha_limite' => $act->fecha_limite?->format('Y-m-d'),
+                ];
+            })->values()->all();
+
+            $alertaAsistencia = $asistencia['porcentaje'] !== null && $asistencia['porcentaje'] < self::ASISTENCIA_MINIMA;
+
+            return [
+                'id_componente' => (int) $componente->id_componente,
+                'tipo' => $tipo,
+                'mi_promedio' => $miPromedio,
+                'actividades_sumativas' => $sumativas->count(),
+                'actividades_evaluadas' => $notas->count(),
+                'ponderacion_evaluada' => $ponderacionTotal > 0 ? round($ponderacionEvaluada / $ponderacionTotal * 100) : null,
+                'syllabus' => [
+                    'porcentaje' => isset($syllabus['porcentaje']) ? (float) $syllabus['porcentaje'] : null,
+                    'aprobacion_obligatoria' => (bool) ($syllabus['aprobacion_obligatoria'] ?? false),
+                ],
+                'exigencia' => $componente->porcentaje_aprobacion !== null ? (float) $componente->porcentaje_aprobacion : null,
+                'asistencia' => array_merge($asistencia, [
+                    'minimo_exigido' => self::ASISTENCIA_MINIMA,
+                    'alerta_asistencia' => $alertaAsistencia,
+                ]),
+                'actividades' => $actividades,
+            ];
+        })->values();
+
+        $pctGlobal = $totalClases > 0 ? (int) round($totalPresentes / $totalClases * 100) : null;
+        $asignatura = $curso->asignacionPlan?->asignatura;
+
+        return [
+            'curso' => [
+                'id_curso' => (int) $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
+                'asignatura_nombre' => $asignatura?->nombre ?? 'N/A',
+            ],
+            'mi_promedio' => $this->combinar($filas, 'mi_promedio'),
+            'asistencia_minima' => self::ASISTENCIA_MINIMA,
+            'asistencia_global' => [
+                'presentes' => $totalPresentes,
+                'total' => $totalClases,
+                'porcentaje' => $pctGlobal,
+                'alerta_asistencia' => $pctGlobal !== null && $pctGlobal < self::ASISTENCIA_MINIMA,
+            ],
+            'totales' => [
+                'actividades_sumativas' => $totalActividadesSumativas,
+                'actividades_evaluadas' => $totalActividadesEvaluadas,
+                'ponderacion_evaluada' => $this->calcularPonderacionEvaluadaTotal($filas),
+            ],
+            'componentes' => $filas->all(),
+        ];
+    }
+
+    /**
+     * Calcula la ponderación evaluada combinada en base al syllabus de los componentes.
+     *
+     * @param  Collection<int, array>  $filas
+     */
+    private function calcularPonderacionEvaluadaTotal(Collection $filas): ?float
+    {
+        $conPonderacion = $filas->filter(fn ($f) => $f['ponderacion_evaluada'] !== null);
+        if ($conPonderacion->isEmpty()) {
+            return null;
+        }
+
+        $pesos = $conPonderacion->map(fn ($f) => $f['syllabus']['porcentaje'] ?? 0);
+        $sumaPesos = $pesos->sum();
+
+        $valor = $sumaPesos > 0
+            ? $conPonderacion->map(fn ($f, $i) => $f['ponderacion_evaluada'] * $pesos[$i])->sum() / $sumaPesos
+            : $conPonderacion->avg('ponderacion_evaluada');
+
+        return round($valor);
+    }
+
+    /**
+     * Obtiene las notas individuales del estudiante para las actividades indicadas.
+     *
+     * @param  Collection<int, int>  $idsActividad
+     * @return Collection<int, float>  id_actividad => nota
+     */
+    private function notasIndividualesEstudiante(int $idEstudiante, Collection $idsActividad): Collection
+    {
+        if ($idsActividad->isEmpty()) {
+            return collect();
+        }
+
+        return IntegranteGrupo::query()
+            ->join('agenda.actividad_asignada_grupo as g', 'g.id_actividad_asignada_grupo', '=', 'integrante_grupo.id_actividad_asignada_grupo')
+            ->whereIn('g.id_actividad', $idsActividad)
+            ->where('integrante_grupo.id_estudiante', $idEstudiante)
+            ->where(fn ($q) => $q->whereNotNull('integrante_grupo.nota_individual')->orWhereNotNull('g.nota'))
+            ->get([
+                'g.id_actividad',
+                DB::raw('COALESCE(integrante_grupo.nota_individual, g.nota) AS nota'),
+            ])
+            ->mapWithKeys(fn ($f) => [(int) $f->id_actividad => (float) $f->nota]);
+    }
+
+    private function asegurarInscripcionActiva(Curso $curso, Estudiante $estudiante): void
+    {
+        $inscrito = $estudiante->inscripcionCursos()
+            ->where('id_curso', $curso->id_curso)
+            ->where('estado_inscripcion', 'INSCRITO')
+            ->exists();
+
+        if (!$inscrito) {
+            abort(403, 'No estás inscrito en este curso.');
+        }
+    }
 }

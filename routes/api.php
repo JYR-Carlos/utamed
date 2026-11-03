@@ -6,6 +6,7 @@ use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
 use App\Api\V1\Controllers\Student\Course\GetCoursesController;
 use App\Api\V1\Controllers\Student\Course\ShowCourseController;
+use App\Api\V1\Controllers\Student\Course\ShowCoursePerformanceController;
 use App\Api\V1\Controllers\Student\Dashboard\GetDashboardController;
 use App\Api\V1\Controllers\Student\Profile\GetProfileController;
 use Illuminate\Support\Facades\Route;
@@ -41,5 +42,9 @@ Route::prefix('v1')->group(function () {
         Route::get('cursos/{curso}', ShowCourseController::class)
             ->middleware('is_enrolled_in_course')
             ->name('api.v1.estudiante.cursos.show');
+        // Rendimiento académico individual y asistencia acumulada por curso (APP-07)
+        Route::get('cursos/{curso}/rendimiento', ShowCoursePerformanceController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.rendimiento');
     });
 });
