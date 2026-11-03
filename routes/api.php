@@ -7,6 +7,7 @@ use App\Api\V1\Controllers\Auth\MeController;
 use App\Api\V1\Controllers\Student\GetCoursesController;
 use App\Api\V1\Controllers\Student\GetDashboardController;
 use App\Api\V1\Controllers\Student\GetProfileController;
+use App\Api\V1\Controllers\Student\ShowCourseController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -36,5 +37,7 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard', GetDashboardController::class)->name('api.v1.estudiante.dashboard');
         // Catálogo de asignaturas inscritas del período actual (u opcionalmente solicitado)
         Route::get('cursos', GetCoursesController::class)->name('api.v1.estudiante.cursos');
+        // Ficha detallada del curso, asignatura, componentes asignados y unidades
+        Route::get('cursos/{curso}', ShowCourseController::class)->name('api.v1.estudiante.cursos.show');
     });
 });
