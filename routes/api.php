@@ -38,6 +38,8 @@ Route::prefix('v1')->group(function () {
         // Catálogo de asignaturas inscritas del período actual (u opcionalmente solicitado)
         Route::get('cursos', GetCoursesController::class)->name('api.v1.estudiante.cursos');
         // Ficha detallada del curso, asignatura, componentes asignados y unidades
-        Route::get('cursos/{curso}', ShowCourseController::class)->name('api.v1.estudiante.cursos.show');
+        Route::get('cursos/{curso}', ShowCourseController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.show');
     });
 });
