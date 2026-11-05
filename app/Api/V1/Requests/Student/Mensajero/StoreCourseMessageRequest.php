@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Requests\Student\Messaging;
+namespace App\Api\V1\Requests\Student\Mensajero;
 
 use Illuminate\Foundation\Http\FormRequest;
 

@@ -2,7 +2,7 @@
 
 namespace App\Api\V1\Controllers\Student\Mensajero;
 
-use App\Api\V1\Resources\Student\Messaging\CourseMessagingResource;
+use App\Api\V1\Resources\Student\Mensajero\CourseMessagingResource;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Services\Student\MensajeriaCursoEstudiante;

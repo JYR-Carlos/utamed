@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Resources\Student\Messaging;
+namespace App\Api\V1\Resources\Student\Mensajero;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

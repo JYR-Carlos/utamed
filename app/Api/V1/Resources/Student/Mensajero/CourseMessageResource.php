@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Resources\Student\Messaging;
+namespace App\Api\V1\Resources\Student\Mensajero;
 
 use App\Models\Curso\Mensaje;
 use Illuminate\Http\Request;
