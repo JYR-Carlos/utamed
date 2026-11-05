@@ -164,6 +164,19 @@ return array (
       array (
         0 => 
         array (
+          'target' => 'Rubrica',
+          'method' => 'rubrica',
+        ),
+        1 => 
+        array (
+          'target' => 'Actividad',
+          'method' => 'actividad',
+        ),
+      ),
+      1 => 
+      array (
+        0 => 
+        array (
           'target' => 'Agenda',
           'method' => 'agenda',
         ),
@@ -189,6 +202,19 @@ return array (
       array (
         0 => 
         array (
+          'target' => 'Estudiante',
+          'method' => 'estudiante',
+        ),
+        1 => 
+        array (
+          'target' => 'Carrera',
+          'method' => 'carrera',
+        ),
+      ),
+      1 => 
+      array (
+        0 => 
+        array (
           'target' => 'ActividadAsignadaGrupo',
           'method' => 'actividadAsignadaGrupo',
         ),
@@ -198,17 +224,44 @@ return array (
           'method' => 'actividad',
         ),
       ),
-      1 => 
+    ),
+  ),
+  'Agenda\\LecturaAgenda' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
       array (
         0 => 
         array (
-          'target' => 'Estudiante',
-          'method' => 'estudiante',
+          'target' => 'Agenda',
+          'method' => 'agenda',
         ),
         1 => 
         array (
-          'target' => 'Carrera',
-          'method' => 'carrera',
+          'target' => 'ActividadAsignadaGrupo',
+          'method' => 'actividadAsignadaGrupo',
+        ),
+        2 => 
+        array (
+          'target' => 'Actividad',
+          'method' => 'actividad',
+        ),
+      ),
+    ),
+  ),
+  'Agenda\\Rubrica' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Actividad',
+          'method' => 'actividad',
         ),
       ),
     ),
@@ -235,6 +288,19 @@ return array (
       array (
         0 => 
         array (
+          'target' => 'Clase',
+          'method' => 'clase',
+        ),
+        1 => 
+        array (
+          'target' => 'Componente',
+          'method' => 'componente',
+        ),
+      ),
+      2 => 
+      array (
+        0 => 
+        array (
           'target' => 'InscripcionComponente',
           'method' => 'inscripcionComponente',
         ),
@@ -247,6 +313,54 @@ return array (
         array (
           'target' => 'Carrera',
           'method' => 'carrera',
+        ),
+      ),
+    ),
+  ),
+  'Curso\\Bibliografia' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Programa',
+          'method' => 'programa',
+        ),
+        1 => 
+        array (
+          'target' => 'Curso',
+          'method' => 'curso',
+        ),
+      ),
+      1 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Unidad',
+          'method' => 'unidad',
+        ),
+        1 => 
+        array (
+          'target' => 'Curso',
+          'method' => 'curso',
+        ),
+      ),
+    ),
+  ),
+  'Curso\\Clase' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Componente',
+          'method' => 'componente',
         ),
       ),
     ),
@@ -318,6 +432,56 @@ return array (
         array (
           'target' => 'Carrera',
           'method' => 'carrera',
+        ),
+      ),
+    ),
+  ),
+  'Curso\\InteraccionMensaje' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Mensaje',
+          'method' => 'mensaje',
+        ),
+        1 => 
+        array (
+          'target' => 'Componente',
+          'method' => 'componente',
+        ),
+      ),
+    ),
+  ),
+  'Curso\\IntranetSincronizacionLog' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Curso',
+          'method' => 'curso',
+        ),
+      ),
+    ),
+  ),
+  'Curso\\Mensaje' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Componente',
+          'method' => 'componente',
         ),
       ),
     ),

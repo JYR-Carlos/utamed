@@ -5,14 +5,19 @@ namespace App\Models\Base\Curso;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
+use App\Contracts\HasOwnedContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseBibliografia extends CustomBaseModel
+abstract class BaseBibliografia extends CustomBaseModel implements HasOwnedContext
 {
     use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = null;
     protected $connection = 'pgsql';

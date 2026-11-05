@@ -25,11 +25,9 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasOwnedContext
     public $incrementing = true;
 
     protected $fillable = [
-        'dia',
-        'hora_inicio',
-        'hora_fin',
         'esta_presente',
-        'id_inscripcion_componente'
+        'id_inscripcion_componente',
+        'id_clase'
     ];
 
     protected $casts = [
@@ -42,6 +40,12 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasOwnedContext
     {
         $instance = new \App\Models\Curso\InscripcionComponente();
         return new BelongsTo($instance->newQuery(), $this, 'id_inscripcion_componente', 'id_inscripcion_componente', 'inscripcionComponente');
+    }
+
+    public function clase()
+    {
+        $instance = new \App\Models\Curso\Clase();
+        return new BelongsTo($instance->newQuery(), $this, 'id_clase', 'id_clase', 'clase');
     }
 
     /**

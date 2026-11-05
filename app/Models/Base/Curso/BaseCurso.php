@@ -46,7 +46,8 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         'id_docente_titular',
         'id_curso_padre',
         'version_plantilla',
-        'letra_grupo'
+        'letra_grupo',
+        'fecha_ultima_sincronizacion'
     ];
 
     protected $casts = [
@@ -95,6 +96,11 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
     public function inscripcionCursos()
     {
         return $this->hasMany(\App\Models\Curso\InscripcionCurso::class, 'id_curso', 'id_curso');
+    }
+
+    public function intranetSincronizacionLoges()
+    {
+        return $this->hasMany(\App\Models\Curso\IntranetSincronizacionLog::class, 'id_curso', 'id_curso');
     }
 
     public function programas()

@@ -5,15 +5,20 @@ namespace App\Models\Base\Agenda;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
+use App\Contracts\HasOwnedContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 use App\Enums\DB\EstadoRubrica;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseRubrica extends CustomBaseModel
+abstract class BaseRubrica extends CustomBaseModel implements HasOwnedContext
 {
     use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
     public $timestamps = false;
     public EstadoRubrica $estadoRubrica;
 

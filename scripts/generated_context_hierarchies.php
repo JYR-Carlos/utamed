@@ -63,15 +63,30 @@ return [
             ['agenda.actividad_asignada_grupo', 'agenda.actividad']
         ],
         'agenda.evaluacion' => [
+            ['agenda.rubrica', 'agenda.actividad'],
             ['agenda.agenda', 'agenda.actividad_asignada_grupo', 'agenda.actividad']
         ],
         'agenda.integrante_grupo' => [
-            ['agenda.actividad_asignada_grupo', 'agenda.actividad'],
-            ['usuario.estudiante', 'administrativo.carrera']
+            ['usuario.estudiante', 'administrativo.carrera'],
+            ['agenda.actividad_asignada_grupo', 'agenda.actividad']
+        ],
+        'agenda.lectura_agenda' => [
+            ['agenda.agenda', 'agenda.actividad_asignada_grupo', 'agenda.actividad']
+        ],
+        'agenda.rubrica' => [
+            ['agenda.actividad']
         ],
         'curso.asistencia' => [
             ['curso.inscripcion_componente', 'curso.componente'],
+            ['curso.clase', 'curso.componente'],
             ['curso.inscripcion_componente', 'usuario.estudiante', 'administrativo.carrera']
+        ],
+        'curso.bibliografia' => [
+            ['curso.programa', 'curso.curso'],
+            ['curso.unidad', 'curso.curso']
+        ],
+        'curso.clase' => [
+            ['curso.componente']
         ],
         'curso.docente_componente' => [
             ['curso.componente']
@@ -84,6 +99,15 @@ return [
             ['curso.curso'],
             ['usuario.estudiante', 'administrativo.carrera']
         ],
+        'curso.interaccion_mensaje' => [
+            ['curso.mensaje', 'curso.componente']
+        ],
+        'curso.intranet_sincronizacion_log' => [
+            ['curso.curso']
+        ],
+        'curso.mensaje' => [
+            ['curso.componente']
+        ],
         'curso.programa' => [
             ['curso.curso']
         ],
@@ -93,16 +117,13 @@ return [
     ],
 
     'complex' => [
-        // 'agenda.rubrica', // TODO: revisar manualmente
+
     ],
 ];
 
 /*
 // TABLAS FILTRADAS (Excluidas por prefijo o configuración):
 // - administrativo.vw_usuarios_completo: Prefijo filtrado
-// - agenda.estado_actividad: Prefijo filtrado
-// - agenda.estado_rubrica: Prefijo filtrado
-// - agenda.tipo_registro_agenda: Prefijo filtrado
 // - auditoria.programa_historial: Tabla filtrada
 // - curso.tipo_componente: Prefijo filtrado
 // - usuario.asignacion_rol_permiso: Tabla filtrada
