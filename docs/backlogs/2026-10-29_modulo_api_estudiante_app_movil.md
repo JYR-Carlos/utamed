@@ -140,7 +140,7 @@ Para prevenir desajustes entre el servidor UTC y los dispositivos móviles de lo
 
 ### Release 2: Cursos, Syllabus, Rendimiento y Calendario (R2)
 *Rama sugerida:* `feature/app-api-cursos-rendimiento-syllabus`
-*Puntos estimados:* 17 pts
+*Puntos estimados:* 19 pts
 
 * ### `[APP-05]` [3 pts] [R2] [P1] Catálogo de Cursos Inscritos del Período Actual
   * **Historia de Usuario**: Como estudiante, quiero consultar la lista de mis asignaturas inscritas en el período académico actual para revisar mis cursos activos y acceder a sus detalles y syllabus sin ver historiales pasados.
@@ -201,18 +201,39 @@ Para prevenir desajustes entre el servidor UTC y los dispositivos móviles de lo
     * [ ] Serializa identificación, competencias, unidades, recursos bibliográficos y metodología.
     * [ ] Solo expone programas autorizados para visualización estudiantil.
 
-* ### `[APP-09]` [3 pts] [R2] [P1] Calendario Académico Integrado de Entregas
-  * **Historia de Usuario**: Como estudiante, quiero revisar en un calendario cronológico las fechas límites de entregas del semestre para planificar con tiempo mis tareas.
+* ### `[APP-09]` [5 pts] [R2] [P1] Calendario Académico Integrado y Flexible de Entregas
+  * **Historia de Usuario**: Como estudiante, quiero consultar en un calendario cronológico las fechas límites de entregas del período actual, del historial completo o de un curso en particular, con la opción de visualizar concurrentemente las demás actividades en un grupo separado, para planificar y balancear con claridad mi carga académica.
   * **Rutas / Endpoints**:
-    * `GET /api/v1/estudiante/calendario` (Query params: `semestre`, `agno`, `id_curso` opcional)
+    * `GET /api/v1/estudiante/calendario`
+      * Query params:
+        * `periodo`: `'todos'` para historial completo sin filtro temporal. Por defecto toma el período vigente (`DashboardEstudiante::periodoActual()`).
+        * `semestre`: Entero opcional (1 o 2) para especificar semestre puntual.
+        * `agno`: Entero opcional de 4 dígitos para especificar año puntual.
+        * `id_curso`: ID del curso para aislar actividades de una asignatura específica.
+        * `incluir_otros`: Booleano opcional (`true`/`false`). Cuando `id_curso` está presente e `incluir_otros=true`, entrega dos grupos separados: las actividades de dicho curso en `actividades` y las de las demás asignaturas en `otras_actividades`.
+  * **Modos de Consulta Soportados**:
+    1. **Modo 1 (Historial completo no agrupado):** `GET /calendario?periodo=todos` -> Todas las actividades visibles con fecha límite de toda la trayectoria del estudiante.
+    2. **Modo 2 (Período actual no agrupado):** `GET /calendario` (o con `semestre` y `agno`) -> Todas las actividades visibles con fecha límite del semestre vigente.
+    3. **Modo 3 (Curso aislado no agrupado):** `GET /calendario?id_curso=123` -> Exclusivamente las actividades del curso indicado.
+    4. **Modo 4 (Curso agrupado con concurrencia de otros cursos):** `GET /calendario?id_curso=123&incluir_otros=true` -> Las actividades del curso en `actividades` y las entregas de los demás cursos concurrentes del mismo período en `otras_actividades`.
+  * **Estructura de Respuesta Uniforme (JSON)**:
+    * `{ "data": { "periodo": { "semestre": 2, "agno": 2026, "es_historico": false }, "agrupado": true, "actividades": [ ... ], "otras_actividades": [ ... ] } }`
   * **Archivos**:
-    * `app/Http/Controllers/Api/V1/Student/CalendarioApiController.php`
+    * `app/Api/V1/Controllers/Student/Calendar/GetAcademicCalendarController.php`
+    * `app/Api/V1/Requests/Student/Calendar/GetAcademicCalendarRequest.php`
+    * `app/Api/V1/Resources/Student/Calendar/CalendarResource.php`
     * `app/Services/Student/ResumenActividadesEstudiante.php`
-  * **Problema & Causa**: Exponer `ResumenActividadesEstudiante::calendarioDelPeriodo` asegurando formato de fecha sin desfases horarios (`Y-m-d`), con estado de la actividad y grupo.
+    * `app/Api/V1/Middleware/IsEnrolledInCourse.php`
+  * **Problema & Causa**: Exponer un endpoint invokable único (`GetAcademicCalendarController`) desacoplado de las vistas web, resolviendo la consulta de fechas límite según los 4 modos requeridos por la app móvil, normalizando fechas en formato `'Y-m-d'`, protegiendo accesos IDOR sobre cursos ajenos y entregando un contrato tipado uniforme (`actividades` y `otras_actividades`).
   * **Criterios de Aceptación (DoD)**:
-    * [ ] Retorna eventos ordenados cronológicamente de todos los cursos inscritos del período.
-    * [ ] Permite filtrar por un curso específico.
-    * [ ] Serializa fechas en formato `'Y-m-d'` para prevenir desajustes horarios entre UTC y Chile.
+    * [x] Implementa Single-Action Controller `GetAcademicCalendarController` en `app/Api/V1/Controllers/Student/Calendar/`.
+    * [x] Soporta Modo 1: `periodo=todos` devuelve todas las actividades visibles con fecha límite de la trayectoria del estudiante sin filtrar por semestre/año.
+    * [x] Soporta Modo 2: Sin parámetros de período, consulta y retorna automáticamente las actividades del período vigente (`DashboardEstudiante::periodoActual()`).
+    * [x] Soporta Modo 3: Con `id_curso`, filtra únicamente las actividades de dicho curso. Valida que el estudiante tenga matrícula activa (`INSCRITO`) mediante guardrail IDOR (403 Forbidden si no está inscrito, 404 si el curso no existe).
+    * [x] Soporta Modo 4: Con `id_curso` e `incluir_otros=true`, retorna las actividades del curso en `actividades` y las de las demás asignaturas en `otras_actividades`, alineando el período de las demás asignaturas al período del curso seleccionado.
+    * [x] Serializa fechas estrictamente en formato `'Y-m-d'` para prevenir desajustes horarios entre UTC y huso horario de Chile.
+    * [x] Filtra exclusivamente actividades visibles (`visible = true`) y con fecha límite definida (`whereNotNull('fecha_limite')`), ordenadas cronológicamente por `fecha_limite` ascendente.
+    * [x] Respuesta tipada y consistente: el payload siempre contiene `periodo`, `agrupado` (bool), `actividades` (array) y `otras_actividades` (array vacío en modos 1, 2 y 3).
 
 ---
 

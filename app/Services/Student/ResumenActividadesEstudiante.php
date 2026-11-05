@@ -122,9 +122,13 @@ class ResumenActividadesEstudiante
      *
      * @return array<int, array<string, mixed>>
      */
-    public function calendarioDelPeriodo(Estudiante $estudiante, ?int $semestre, ?int $agno): array
-    {
-        $componentes = $this->componentesDelEstudiante($estudiante, $semestre, $agno);
+    public function calendarioDelPeriodo(
+        Estudiante $estudiante,
+        ?int $semestre = null,
+        ?int $agno = null,
+        ?int $idCurso = null
+    ): array {
+        $componentes = $this->componentesDelEstudiante($estudiante, $semestre, $agno, $idCurso);
 
         if ($componentes->isEmpty()) {
             return [];
@@ -135,6 +139,7 @@ class ResumenActividadesEstudiante
             ->whereNotNull('fecha_limite')
             ->with('componente.tipoComponente')
             ->orderBy('fecha_limite')
+            ->orderBy('id_actividad')
             ->get();
 
         return $this->paraAlumno($estudiante, $actividades)
@@ -297,8 +302,12 @@ class ResumenActividadesEstudiante
      *
      * @return Collection<int, object> id_componente => {id_curso, cod_curso, cod_asignatura, asignatura}
      */
-    private function componentesDelEstudiante(Estudiante $estudiante, ?int $semestre = null, ?int $agno = null): Collection
-    {
+    private function componentesDelEstudiante(
+        Estudiante $estudiante,
+        ?int $semestre = null,
+        ?int $agno = null,
+        ?int $idCurso = null
+    ): Collection {
         $queryCursos = DB::table('curso.inscripcion_curso as ic')
             ->join('curso.curso as c', 'c.id_curso', '=', 'ic.id_curso')
             ->leftJoin('administrativo.asignacion_plan as ap', 'ap.id_asignacion_plan', '=', 'c.id_asignacion_plan')
@@ -306,6 +315,9 @@ class ResumenActividadesEstudiante
             ->where('ic.id_estudiante', $estudiante->id_estudiante)
             ->where('ic.estado_inscripcion', 'INSCRITO');
 
+        if ($idCurso !== null) {
+            $queryCursos->where('c.id_curso', $idCurso);
+        }
         if ($semestre !== null) {
             $queryCursos->where('c.semestre_real', $semestre);
         }

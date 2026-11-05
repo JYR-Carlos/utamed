@@ -4,6 +4,7 @@ use App\Api\V1\Controllers\Auth\ChangeExpiredPasswordController;
 use App\Api\V1\Controllers\Auth\LoginController;
 use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
+use App\Api\V1\Controllers\Student\Calendar\GetAcademicCalendarController;
 use App\Api\V1\Controllers\Student\Activity\DownloadActivityStatementController;
 use App\Api\V1\Controllers\Student\Activity\DownloadActivitySubmissionController;
 use App\Api\V1\Controllers\Student\Activity\GetCourseActivitiesController;
@@ -50,6 +51,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Perfil y dashboard
             Route::get('perfil', GetProfileController::class)->name('perfil');
             Route::get('dashboard', GetDashboardController::class)->name('dashboard');
+            Route::get('calendario', GetAcademicCalendarController::class)->name('calendario');
 
             // Cursos
             Route::prefix('cursos')->name('cursos.')->group(function () {
