@@ -18,6 +18,8 @@ use App\Api\V1\Controllers\Student\Course\GetCoursesController;
 use App\Api\V1\Controllers\Student\Course\ShowCourseController;
 use App\Api\V1\Controllers\Student\Course\ShowCoursePerformanceController;
 use App\Api\V1\Controllers\Student\Dashboard\GetDashboardController;
+use App\Api\V1\Controllers\Student\Messaging\GetCourseMessagingController;
+use App\Api\V1\Controllers\Student\Messaging\StoreCourseMessageController;
 use App\Api\V1\Controllers\Student\Profile\GetProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -82,5 +84,14 @@ Route::prefix('v1')->group(function () {
             Route::post('entregas', StoreActivitySubmissionController::class)->name('api.v1.estudiante.cursos.actividades.entregas.store');
             Route::delete('entregas/{agenda}', CancelActivitySubmissionController::class)->name('api.v1.estudiante.cursos.actividades.entregas.cancel');
         });
+
+        // Mensajero: Canales y Avisos por Componente de Curso (APP-13)
+        Route::get('cursos/{curso}/mensajero', GetCourseMessagingController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.mensajero.show');
+
+        Route::post('cursos/{curso}/mensajero/componentes/{componente}/mensaje', StoreCourseMessageController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.mensajero.componentes.mensaje.store');
     });
 });

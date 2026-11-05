@@ -3,6 +3,7 @@
 namespace App\Services\Student;
 
 use App\Models\Curso\Curso;
+use App\Models\Curso\Mensaje;
 use App\Services\MensajeriaService;
 use Illuminate\Support\Collection;
 
@@ -108,5 +109,110 @@ class MensajeriaCursoEstudiante
             'mensajes'      => $mensajes->values(),
             'docentes'      => $this->mensajeria->docentesDeComponente($idComponente)->values(),
         ];
+    }
+
+    /**
+     * Consolida la mensajería completa de todos los componentes del curso para la app móvil.
+     *
+     * @return array<string, mixed>
+     */
+    public function consolidarMensajeria(Curso $curso, int $idUsuario, bool $marcarLeidos = true): array
+    {
+        $componentes = $this->componentesDelCurso($curso, $idUsuario);
+
+        $cursoData = [
+            'id_curso'       => (int) $curso->id_curso,
+            'nombre'         => $curso->nombre,
+            'cod_curso'      => $curso->cod_curso,
+            'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
+        ];
+
+        if ($componentes->isEmpty()) {
+            return [
+                'curso'       => $cursoData,
+                'componentes' => [],
+            ];
+        }
+
+        $componenteIds = $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all();
+
+        // Contadores de no leídos previos al marcado
+        $noLeidos = $this->mensajeria->noLeidosPorComponente($componenteIds, $idUsuario, esStaff: false);
+
+        $todosMensajesParaMarcar = [];
+        $componentesData = [];
+
+        foreach ($componentes as $c) {
+            $idComponente = (int) $c->id_componente;
+            $difusiones = $this->mensajeria->difusionesDeComponente($idComponente, $idUsuario);
+            $mensajes = $this->mensajeria->mensajesDelCanal($idComponente, $idUsuario, $idUsuario);
+            $docentes = $this->mensajeria->docentesDeComponente($idComponente);
+
+            if ($marcarLeidos) {
+                $todosMensajesParaMarcar = array_merge(
+                    $todosMensajesParaMarcar,
+                    $difusiones->pluck('id_mensaje')->all(),
+                    $mensajes->pluck('id_mensaje')->all()
+                );
+            }
+
+            $componentesData[] = [
+                'id_componente' => $idComponente,
+                'tipo'          => $c->tipo_componente,
+                'no_leidos'     => $noLeidos[$idComponente] ?? 0,
+                'docentes'      => $docentes->values()->all(),
+                'difusiones'    => $difusiones->values()->all(),
+                'mensajes'      => $mensajes->values()->all(),
+            ];
+        }
+
+        if ($marcarLeidos && !empty($todosMensajesParaMarcar)) {
+            $this->mensajeria->marcarLeidos(array_unique($todosMensajesParaMarcar), $idUsuario);
+        }
+
+        return [
+            'curso'       => $cursoData,
+            'componentes' => $componentesData,
+        ];
+    }
+
+    /**
+     * Envía un mensaje del estudiante al equipo docente de un componente.
+     */
+    public function enviarMensajeEstudiante(
+        Curso $curso,
+        int $idComponente,
+        int $idUsuario,
+        string $mensaje,
+        ?string $tema = null,
+        ?int $idReceptor = null,
+    ): Mensaje {
+        $componentes = $this->componentesDelCurso($curso, $idUsuario);
+        $componente = $componentes->firstWhere('id_componente', $idComponente);
+
+        if (!$componente) {
+            abort(403, 'No estás inscrito en este componente.');
+        }
+
+        $docentes = $this->mensajeria->docentesDeComponente($idComponente);
+
+        if ($docentes->isEmpty()) {
+            abort(422, 'Este componente todavía no tiene docentes asignados.');
+        }
+
+        $receptor = $docentes->firstWhere('id_usuario', $idReceptor)
+            ?? $docentes->firstWhere('es_titular', true)
+            ?? $docentes->first();
+
+        $idMensaje = $this->mensajeria->enviarIndividual(
+            idComponente: $idComponente,
+            idUsuarioEmisor: $idUsuario,
+            idUsuarioReceptor: (int) $receptor['id_usuario'],
+            idUsuarioAlumno: $idUsuario,
+            mensaje: $mensaje,
+            tema: $tema,
+        );
+
+        return Mensaje::with(['emisor', 'receptor', 'componente'])->findOrFail($idMensaje);
     }
 }
