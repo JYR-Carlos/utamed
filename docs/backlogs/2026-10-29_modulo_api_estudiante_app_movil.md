@@ -252,26 +252,32 @@ Para prevenir desajustes entre el servidor UTC y los dispositivos móviles de lo
     * [ ] Descarga de archivo de entrega restringida exclusivamente a integrantes del grupo correspondiente.
 
 * ### `[APP-12]` [8 pts] [R3] [P0] Gestión de Entregas de Tareas y Mensajes de Agenda por Actividad
-  * **Historia de Usuario**: Como estudiante, quiero interactuar en la agenda de mi actividad enviando mensajes y dudas al profesor, subiendo mi archivo de entrega dentro del plazo con validación de holgura, y cancelando mi última entrega no evaluada si necesito rectificarla.
+  * **Historia de Usuario**: Como estudiante, quiero interactuar en la agenda de mi actividad enviando mensajes y dudas al docente, subiendo mi archivo de entrega dentro del plazo con validación de holgura, consultando el estado y lecturas del hilo, y cancelando mi última entrega no evaluada si necesito rectificarla.
   * **Rutas / Endpoints**:
-    * `GET /api/v1/estudiante/grupos-asignados/{grupo}/agenda`
-    * `POST /api/v1/estudiante/grupos-asignados/{grupo}/agenda` (Mensaje de duda de actividad)
-    * `POST /api/v1/estudiante/grupos-asignados/{grupo}/entregas` (Subir archivo entrega)
-    * `DELETE /api/v1/estudiante/grupos-asignados/{grupo}/entregas/{agenda}` (Cancelar entrega)
-    * `POST /api/v1/estudiante/grupos-asignados/{grupo}/agenda/leida` (Marcar agenda leída)
+    * `GET /api/v1/estudiante/cursos/{curso}/actividades/{actividad}/agenda` (Listado cronológico de interacciones, estado y lectura automática)
+    * `POST /api/v1/estudiante/cursos/{curso}/actividades/{actividad}/agenda` (Mensaje al docente sobre la actividad)
+    * `POST /api/v1/estudiante/cursos/{curso}/actividades/{actividad}/entregas` (Subir archivo de entrega)
+    * `DELETE /api/v1/estudiante/cursos/{curso}/actividades/{actividad}/entregas/{agenda}` (Cancelar última entrega no evaluada)
+    * `POST /api/v1/estudiante/cursos/{curso}/actividades/{actividad}/agenda/leida` (Confirmación explícita de lectura)
   * **Archivos**:
-    * `app/Http/Controllers/Api/V1/Student/AgendaApiController.php`
+    * `app/Api/V1/Controllers/Student/Agenda/GetActivityAgendaController.php`
+    * `app/Api/V1/Controllers/Student/Agenda/StoreActivityMessageController.php`
+    * `app/Api/V1/Controllers/Student/Agenda/StoreActivitySubmissionController.php`
+    * `app/Api/V1/Controllers/Student/Agenda/CancelActivitySubmissionController.php`
+    * `app/Api/V1/Controllers/Student/Agenda/MarkActivityAgendaReadController.php`
+    * `app/Services/Student/AgendaCursoEstudiante.php`
     * `app/Services/Archive/Handlers/AgendaArchiveHandler.php`
-    * `app/Http/Requests/Archive/AgendaFileRequest.php`
     * `app/Services/Agenda/LecturaAgendaService.php`
-    * `app/Http/Controllers/Student/AgendaController.php`
-  * **Problema & Causa**: Flujo crítico de entrega en `agenda.agenda`: no debe confundirse con el módulo **Mensajero**. Procesa archivos con `AgendaArchiveHandler` fuera de transacción DB; aplica `lockForUpdate()` con verificación de fecha límite + holguras (base y personal) y bloqueo si ya fue evaluado (`yaFueEvaluado()`); previene doble envío idempotente en ventana de 10s; y en cancelación, aplica soft delete con `pendiente_de_borrado = true` y auditoría en agenda.
+    * `app/Services/Agenda/GrupoIndividualService.php`
+  * **Problema & Causa**: Flujo crítico de interacción y entrega en `agenda.agenda` (desacoplado del Mensajero por componentes). Las rutas deben originarse desde el estudiante pasando jerárquicamente por `cursos/{curso}/actividades/{actividad}` sin requerir que la app conozca o seleccione grupos asignados, ya que el estudiante pertenece a un único grupo por actividad. En actividades grupales sin grupo asignado aún, deniega con 404/403. Al subir entregas procesa archivos con `AgendaArchiveHandler` fuera de transacción DB; aplica `lockForUpdate()` con verificación de fecha límite + holguras (base y personal) y bloqueo si ya fue evaluado (`yaFueEvaluado()`); previene doble envío idempotente en ventana de 10s; y en cancelación, valida que sea la entrega más reciente no evaluada, aplicando soft delete con `pendiente_de_borrado = true` y auditoría en agenda.
   * **Criterios de Aceptación (DoD):**
-    * [ ] Valida pertenencia del estudiante al grupo asignado (`IntegranteGrupo`).
-    * [ ] Deniega subidas si el grupo ya fue evaluado o el plazo real con holgura venció.
-    * [ ] Manejo de doble envío repetido sin duplicar filas en base de datos.
-    * [ ] Cancelación restringida a la última entrega activa no evaluada.
-    * [ ] Endpoint `leida` registra confirmación de lectura en `agenda.lectura_agenda`.
+    * [ ] Rutas desacopladas del ID de grupo: acceden vía `/api/v1/estudiante/cursos/{curso}/actividades/{actividad}/...` y resuelven automáticamente el grupo asignado del estudiante.
+    * [ ] Validación de pertenencia e inscripción activa en curso y actividad; deniega con 403/404 si la actividad es grupal y el alumno aún no tiene grupo asignado.
+    * [ ] Lectura de agenda: GET lista interacciones en orden cronológico ascendente con recibos `visto_por` y registra automáticamente confirmación de lectura en `agenda.lectura_agenda` (manteniendo endpoint `POST .../agenda/leida` para marcado explícito).
+    * [ ] Envío de mensajes al docente: POST agenda registra `tipo_mensaje = 'Mensaje al profesor'` de forma coherente con el modelo de base de datos sin tipos arbitrarios frontend.
+    * [ ] Subida de entregas con blindajes: deniega si la actividad no admite entrega (`SIN_ENTREGA`), si el grupo ya fue evaluado o si el plazo real con holguras (base + personal) expiró.
+    * [ ] Procesamiento seguro de archivos y concurrencia: almacenamiento fuera de transacción, bloqueo `lockForUpdate()` de base de datos y control de doble envío idempotente sin duplicados.
+    * [ ] Cancelación segura: restringida a la entrega más reciente no evaluada y con plazo vigente, marcando el archivo físico como `pendiente_de_borrado = true` y registrando evento de auditoría `Cancelación de entrega`.
 
 * ### `[APP-13]` [5 pts] [R3] [P1] Mensajero: Canales y Avisos por Componente de Curso
   * **Historia de Usuario**: Como estudiante, quiero usar el **Mensajero** para leer los anuncios oficiales de mi sección y enviar mensajes a mis profesores por componente (Cátedra, Taller, Laboratorio) manteniendo una comunicación directa con el equipo docente.
