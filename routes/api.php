@@ -23,75 +23,76 @@ use App\Api\V1\Controllers\Student\Mensajero\StoreCourseMessageController;
 use App\Api\V1\Controllers\Student\Profile\GetProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->group(function () {
-    // Autenticación móvil y ciclo de vida de tokens Bearer
-    Route::prefix('auth')->group(function () {
-        // Iniciar sesión con RUT y contraseña; emite Bearer token
-        Route::post('login', LoginController::class)->middleware('throttle:10,1')->name('api.v1.auth.login');
+Route::prefix('v1')->name('api.v1.')->group(function () {
 
-        // RUTAS DESPROTEGIDAS, sólo necesita ser estudiante para continuar...
+    // Autenticación
+    Route::prefix('auth')->name('auth.')->group(function () {
+        Route::post('login', LoginController::class)
+            ->middleware('throttle:10,1')
+            ->name('login');
+
         Route::middleware(['auth:sanctum', 'is_student_api'])->group(function () {
-            // Revocar token Bearer de la sesión actual
-            Route::post('logout', LogoutController::class)->name('api.v1.auth.logout');
-            // Identidad y verificación de expiración de clave del usuario actual
-            Route::get('me', MeController::class)->name('api.v1.auth.me');
-            // Cambio de clave solo si venció o es primer ingreso (sin cambio voluntario en la app)
+            Route::post('logout', LogoutController::class)->name('logout');
+            Route::get('me', MeController::class)->name('me');
+
             Route::post('cambio-password-obligatorio', ChangeExpiredPasswordController::class)
                 ->middleware('throttle:10,1')
-                ->name('api.v1.auth.cambio-password-obligatorio');
+                ->name('cambio-password-obligatorio');
         });
     });
 
-    // Portal móvil del estudiante (acceso exclusivo a alumnos activos con clave vigente)
-    Route::middleware(['auth:sanctum', 'is_student_api', 'force_password_change_api'])->prefix('estudiante')->group(function () {
-        // Ficha oficial de perfil, cohorte, matrícula y foto de credencial Intranet (solo lectura)
-        Route::get('perfil', GetProfileController::class)->name('api.v1.estudiante.perfil');
-        // Inicio: cursos del período, entregas próximas, notas recientes y no leídos del Mensajero
-        Route::get('dashboard', GetDashboardController::class)->name('api.v1.estudiante.dashboard');
-        // Catálogo de asignaturas inscritas del período actual (u opcionalmente solicitado)
-        Route::get('cursos', GetCoursesController::class)->name('api.v1.estudiante.cursos');
-        // Ficha detallada del curso, asignatura, componentes asignados y unidades
-        Route::get('cursos/{curso}', ShowCourseController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.show');
-        // Rendimiento académico individual y asistencia acumulada por curso (APP-07)
-        Route::get('cursos/{curso}/rendimiento', ShowCoursePerformanceController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.rendimiento');
+    // Portal del estudiante
+    Route::prefix('estudiante')
+        ->name('estudiante.')
+        ->middleware(['auth:sanctum', 'is_student_api', 'force_password_change_api'])
+        ->group(function () {
 
-        // Actividades del curso, detalle con rúbrica y descarga de enunciado (APP-10)
-        Route::get('cursos/{curso}/actividades', GetCourseActivitiesController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.actividades.index');
-        Route::get('cursos/{curso}/actividades/{actividad}', ShowActivityController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.actividades.show');
-        Route::get('cursos/{curso}/actividades/{actividad}/enunciado', DownloadActivityStatementController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.actividades.enunciado');
-        Route::get('cursos/{curso}/actividades/{actividad}/evaluacion', ShowActivityEvaluationController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.actividades.evaluacion');
-        Route::get('cursos/{curso}/actividades/{actividad}/entregas/{agenda}/descargar', DownloadActivitySubmissionController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.actividades.entregas.descargar');
+            // Perfil y dashboard
+            Route::get('perfil', GetProfileController::class)->name('perfil');
+            Route::get('dashboard', GetDashboardController::class)->name('dashboard');
 
-        // Agenda de actividad, interacciones y entregas de tareas (APP-12)
-        Route::prefix('cursos/{curso}/actividades/{actividad}')->middleware('is_enrolled_in_course')->group(function () {
-            Route::get('agenda', GetActivityAgendaController::class)->name('api.v1.estudiante.cursos.actividades.agenda.show');
-            Route::post('agenda', StoreActivityMessageController::class)->name('api.v1.estudiante.cursos.actividades.agenda.store');
-            Route::post('agenda/leida', MarkActivityAgendaReadController::class)->name('api.v1.estudiante.cursos.actividades.agenda.leida');
-            Route::post('entregas', StoreActivitySubmissionController::class)->name('api.v1.estudiante.cursos.actividades.entregas.store');
-            Route::delete('entregas/{agenda}', CancelActivitySubmissionController::class)->name('api.v1.estudiante.cursos.actividades.entregas.cancel');
+            // Cursos
+            Route::prefix('cursos')->name('cursos.')->group(function () {
+                Route::get('/', GetCoursesController::class)->name('index');
+
+                Route::middleware('is_enrolled_in_course')->group(function () {
+                    Route::get('{curso}', ShowCourseController::class)->name('show');
+                    Route::get('{curso}/rendimiento', ShowCoursePerformanceController::class)
+                        ->name('rendimiento');
+
+                    // Actividades
+                    Route::prefix('{curso}/actividades')->name('actividades.')->group(function () {
+                        Route::get('/', GetCourseActivitiesController::class)->name('index');
+                        Route::get('{actividad}', ShowActivityController::class)->name('show');
+                        Route::get('{actividad}/enunciado', DownloadActivityStatementController::class)
+                            ->name('enunciado');
+                        Route::get('{actividad}/evaluacion', ShowActivityEvaluationController::class)
+                            ->name('evaluacion');
+                        Route::get('{actividad}/entregas/{agenda}/descargar', DownloadActivitySubmissionController::class)
+                            ->name('entregas.descargar');
+
+                        // Agenda y entregas
+                        Route::prefix('{actividad}')->group(function () {
+                            Route::get('agenda', GetActivityAgendaController::class)
+                                ->name('agenda.show');
+                            Route::post('agenda', StoreActivityMessageController::class)
+                                ->name('agenda.store');
+                            Route::post('agenda/leida', MarkActivityAgendaReadController::class)
+                                ->name('agenda.leida');
+
+                            Route::post('entregas', StoreActivitySubmissionController::class)
+                                ->name('entregas.store');
+                            Route::delete('entregas/{agenda}', CancelActivitySubmissionController::class)
+                                ->name('entregas.cancel');
+                        });
+                    });
+
+                    // Mensajero
+                    Route::get('{curso}/mensajero', GetCourseMessagingController::class)
+                        ->name('mensajero.show');
+                    Route::post('{curso}/mensajero/componentes/{componente}/mensaje', StoreCourseMessageController::class)
+                        ->name('mensajero.componentes.mensaje.store');
+                });
+            });
         });
-
-        // Mensajero: Canales y Avisos por Componente de Curso (APP-13)
-        Route::get('cursos/{curso}/mensajero', GetCourseMessagingController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.mensajero.show');
-
-        Route::post('cursos/{curso}/mensajero/componentes/{componente}/mensaje', StoreCourseMessageController::class)
-            ->middleware('is_enrolled_in_course')
-            ->name('api.v1.estudiante.cursos.mensajero.componentes.mensaje.store');
-    });
 });
