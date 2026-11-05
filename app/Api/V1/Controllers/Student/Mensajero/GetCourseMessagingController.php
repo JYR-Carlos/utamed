@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Api\V1\Controllers\Student\Messaging;
+namespace App\Api\V1\Controllers\Student\Mensajero;
 
 use App\Api\V1\Resources\Student\Messaging\CourseMessagingResource;
 use App\Models\Curso\Curso;

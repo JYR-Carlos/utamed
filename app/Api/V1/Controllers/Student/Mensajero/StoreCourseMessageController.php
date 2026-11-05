@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Api\V1\Controllers\Student\Messaging;
+namespace App\Api\V1\Controllers\Student\Mensajero;
 
-use App\Api\V1\Requests\Student\Messaging\StoreCourseMessageRequest;
-use App\Api\V1\Resources\Student\Messaging\CourseMessageResource;
+use App\Api\V1\Requests\Student\Mensajero\StoreCourseMessageRequest;
+use App\Api\V1\Resources\Student\Mensajero\CourseMessageResource;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Services\Student\MensajeriaCursoEstudiante;

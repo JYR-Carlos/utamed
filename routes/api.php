@@ -18,8 +18,8 @@ use App\Api\V1\Controllers\Student\Course\GetCoursesController;
 use App\Api\V1\Controllers\Student\Course\ShowCourseController;
 use App\Api\V1\Controllers\Student\Course\ShowCoursePerformanceController;
 use App\Api\V1\Controllers\Student\Dashboard\GetDashboardController;
-use App\Api\V1\Controllers\Student\Messaging\GetCourseMessagingController;
-use App\Api\V1\Controllers\Student\Messaging\StoreCourseMessageController;
+use App\Api\V1\Controllers\Student\Mensajero\GetCourseMessagingController;
+use App\Api\V1\Controllers\Student\Mensajero\StoreCourseMessageController;
 use App\Api\V1\Controllers\Student\Profile\GetProfileController;
 use Illuminate\Support\Facades\Route;
 
