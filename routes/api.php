@@ -9,6 +9,11 @@ use App\Api\V1\Controllers\Student\Activity\DownloadActivitySubmissionController
 use App\Api\V1\Controllers\Student\Activity\GetCourseActivitiesController;
 use App\Api\V1\Controllers\Student\Activity\ShowActivityController;
 use App\Api\V1\Controllers\Student\Activity\ShowActivityEvaluationController;
+use App\Api\V1\Controllers\Student\Agenda\CancelActivitySubmissionController;
+use App\Api\V1\Controllers\Student\Agenda\GetActivityAgendaController;
+use App\Api\V1\Controllers\Student\Agenda\MarkActivityAgendaReadController;
+use App\Api\V1\Controllers\Student\Agenda\StoreActivityMessageController;
+use App\Api\V1\Controllers\Student\Agenda\StoreActivitySubmissionController;
 use App\Api\V1\Controllers\Student\Course\GetCoursesController;
 use App\Api\V1\Controllers\Student\Course\ShowCourseController;
 use App\Api\V1\Controllers\Student\Course\ShowCoursePerformanceController;
@@ -68,5 +73,14 @@ Route::prefix('v1')->group(function () {
         Route::get('cursos/{curso}/actividades/{actividad}/entregas/{agenda}/descargar', DownloadActivitySubmissionController::class)
             ->middleware('is_enrolled_in_course')
             ->name('api.v1.estudiante.cursos.actividades.entregas.descargar');
+
+        // Agenda de actividad, interacciones y entregas de tareas (APP-12)
+        Route::prefix('cursos/{curso}/actividades/{actividad}')->middleware('is_enrolled_in_course')->group(function () {
+            Route::get('agenda', GetActivityAgendaController::class)->name('api.v1.estudiante.cursos.actividades.agenda.show');
+            Route::post('agenda', StoreActivityMessageController::class)->name('api.v1.estudiante.cursos.actividades.agenda.store');
+            Route::post('agenda/leida', MarkActivityAgendaReadController::class)->name('api.v1.estudiante.cursos.actividades.agenda.leida');
+            Route::post('entregas', StoreActivitySubmissionController::class)->name('api.v1.estudiante.cursos.actividades.entregas.store');
+            Route::delete('entregas/{agenda}', CancelActivitySubmissionController::class)->name('api.v1.estudiante.cursos.actividades.entregas.cancel');
+        });
     });
 });

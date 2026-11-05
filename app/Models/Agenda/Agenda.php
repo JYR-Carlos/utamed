@@ -13,6 +13,11 @@ use App\Models\Base\Agenda\BaseAgenda;
  */
 class Agenda extends BaseAgenda
 {
+    protected $casts = [
+        'tipo_mensaje' => TipoMensaje::class,
+        'fecha_envio' => 'datetime',
+    ];
+
     /**
      * Obtiene el archivo asociado con la entrega
      */
