@@ -5,8 +5,10 @@ use App\Api\V1\Controllers\Auth\LoginController;
 use App\Api\V1\Controllers\Auth\LogoutController;
 use App\Api\V1\Controllers\Auth\MeController;
 use App\Api\V1\Controllers\Student\Activity\DownloadActivityStatementController;
+use App\Api\V1\Controllers\Student\Activity\DownloadActivitySubmissionController;
 use App\Api\V1\Controllers\Student\Activity\GetCourseActivitiesController;
 use App\Api\V1\Controllers\Student\Activity\ShowActivityController;
+use App\Api\V1\Controllers\Student\Activity\ShowActivityEvaluationController;
 use App\Api\V1\Controllers\Student\Course\GetCoursesController;
 use App\Api\V1\Controllers\Student\Course\ShowCourseController;
 use App\Api\V1\Controllers\Student\Course\ShowCoursePerformanceController;
@@ -60,5 +62,11 @@ Route::prefix('v1')->group(function () {
         Route::get('cursos/{curso}/actividades/{actividad}/enunciado', DownloadActivityStatementController::class)
             ->middleware('is_enrolled_in_course')
             ->name('api.v1.estudiante.cursos.actividades.enunciado');
+        Route::get('cursos/{curso}/actividades/{actividad}/evaluacion', ShowActivityEvaluationController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.actividades.evaluacion');
+        Route::get('cursos/{curso}/actividades/{actividad}/entregas/{agenda}/descargar', DownloadActivitySubmissionController::class)
+            ->middleware('is_enrolled_in_course')
+            ->name('api.v1.estudiante.cursos.actividades.entregas.descargar');
     });
 });

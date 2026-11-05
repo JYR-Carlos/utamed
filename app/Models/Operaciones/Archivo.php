@@ -65,6 +65,7 @@ class Archivo extends BaseArchivo
 
         return response()->download($rutaAbsoluta, $this->nombre_original, [
             'Content-Type' => $this->mime_type,
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 }

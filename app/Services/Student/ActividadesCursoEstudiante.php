@@ -3,9 +3,11 @@
 namespace App\Services\Student;
 
 use App\Enums\DB\TipoActividad;
+use App\Enums\DB\TipoMensaje;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Agenda\Agenda;
+use App\Models\Agenda\Evaluacion;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Componente;
@@ -383,6 +385,291 @@ class ActividadesCursoEstudiante
         }
 
         return $actividad->archivo->respuestaHttp($rutaAbsoluta, $enLinea);
+    }
+
+    /**
+     * Consulta las calificaciones, ajuste por décimas, feedback docente,
+     * rúbrica evaluada y entrega vinculada de una actividad calificada.
+     *
+     * @return array<string, mixed>
+     */
+    public function obtenerEvaluacion(Curso $curso, Actividad $actividad, Estudiante $estudiante): array
+    {
+        $this->validarAccesoActividad($curso, $actividad);
+
+        // 1. Obtener el grupo asignado al estudiante
+        $integranteGrupo = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
+            ->whereHas('actividadAsignadaGrupo', fn ($q) => $q->where('id_actividad', $actividad->id_actividad))
+            ->with(['actividadAsignadaGrupo'])
+            ->first();
+
+        if (! $integranteGrupo || ! $integranteGrupo->actividadAsignadaGrupo) {
+            abort(404, 'No tienes un grupo asignado para esta actividad.');
+        }
+
+        $grupo = $integranteGrupo->actividadAsignadaGrupo;
+
+        // 2. Buscar mensajes de evaluación en agenda para este grupo
+        $agendaEvaluacion = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
+            ->where('tipo_mensaje', TipoMensaje::EVALUACIÓN)
+            ->whereHas('evaluacion')
+            ->with(['evaluacion.rubrica', 'evaluacion.usuario', 'archivo'])
+            ->orderByDesc('id_agenda')
+            ->first();
+
+        if (! $agendaEvaluacion || ! $agendaEvaluacion->evaluacion) {
+            abort(404, 'Esta actividad aún no ha sido evaluada.');
+        }
+
+        $evaluacion = $agendaEvaluacion->evaluacion;
+
+        // 3. Calificaciones y décimas
+        $notaGrupal = $grupo->nota !== null ? (float) $grupo->nota : null;
+        $diferenciaDecimas = (float) ($integranteGrupo->diferencia_decimas ?? 0.0);
+
+        $notaIndividual = null;
+        $esAprobatoria = true;
+        $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
+
+        if ($esSumativa && $notaGrupal !== null) {
+            $notaCalc = round(max(1.0, min(7.0, $notaGrupal + $diferenciaDecimas)), 1);
+            $notaIndividual = $integranteGrupo->nota_individual !== null
+                ? (float) $integranteGrupo->nota_individual
+                : $notaCalc;
+            $esAprobatoria = $notaIndividual >= 4.0;
+        }
+
+        $evaluacionCualitativa = ! $esSumativa ? $evaluacion->evaluacion_obtenida : null;
+        if (! $esSumativa && $evaluacionCualitativa !== null) {
+            $esAprobatoria = strtolower($evaluacionCualitativa) !== 'malo' && strtolower($evaluacionCualitativa) !== 'insuficiente';
+        }
+
+        // 4. Feedback docente
+        $docenteEvaluador = null;
+        if ($evaluacion->usuario) {
+            $docenteEvaluador = trim("{$evaluacion->usuario->nombre1} {$evaluacion->usuario->apellido1}");
+        }
+
+        $fechaEvaluacion = $evaluacion->fecha_evaluacion
+            ? Carbon::parse($evaluacion->fecha_evaluacion)->format('Y-m-d H:i:s')
+            : ($agendaEvaluacion->fecha_envio ? Carbon::parse($agendaEvaluacion->fecha_envio)->format('Y-m-d H:i:s') : null);
+
+        // 5. Desglose de Rúbrica
+        $desgloseRubrica = $this->desglosarRubricaEvaluada(
+            $evaluacion->rubrica,
+            $evaluacion->resultado,
+            $evaluacion->puntaje_obtenido !== null ? (float) $evaluacion->puntaje_obtenido : null
+        );
+
+        // 6. Entrega evaluada asociada
+        $entregaEvaluada = null;
+        if ($agendaEvaluacion->uuid_archivo_subido && $agendaEvaluacion->archivo) {
+            $archivoEntrega = $agendaEvaluacion->archivo;
+            $entregaEvaluada = [
+                'id_agenda' => (int) $agendaEvaluacion->id_agenda,
+                'uuid_archivo' => (string) $archivoEntrega->uuid_archivo,
+                'nombre_original' => $archivoEntrega->nombre_original,
+                'mime_type' => $archivoEntrega->mime_type,
+                'peso_bytes' => $archivoEntrega->peso_bytes ? (int) $archivoEntrega->peso_bytes : null,
+                'fecha_envio' => $agendaEvaluacion->fecha_envio ? Carbon::parse($agendaEvaluacion->fecha_envio)->format('Y-m-d H:i:s') : null,
+                'url_descarga' => route('api.v1.estudiante.cursos.actividades.entregas.descargar', [
+                    'curso' => $curso->id_curso,
+                    'actividad' => $actividad->id_actividad,
+                    'agenda' => $agendaEvaluacion->id_agenda,
+                ]),
+            ];
+        }
+
+        $puntajeObtenido = $evaluacion->puntaje_obtenido !== null ? (float) $evaluacion->puntaje_obtenido : null;
+        $puntajeMaximo = $desgloseRubrica ? $desgloseRubrica['puntaje_maximo'] : null;
+        $porcentajeLogro = $desgloseRubrica ? $desgloseRubrica['porcentaje_logro'] : null;
+
+        return [
+            'curso' => [
+                'id_curso' => (int) $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
+            ],
+            'actividad' => [
+                'id_actividad' => (int) $actividad->id_actividad,
+                'nombre' => $actividad->nombre,
+                'tipo_actividad' => $actividad->tipo_actividad instanceof TipoActividad ? $actividad->tipo_actividad->value : (string) $actividad->tipo_actividad,
+                'es_sumativa' => $esSumativa,
+                'es_grupal' => (bool) $actividad->es_grupal,
+                'ponderacion' => $actividad->ponderacion !== null ? (float) $actividad->ponderacion : null,
+                'exigencia' => $actividad->exigencia !== null ? (float) $actividad->exigencia : null,
+            ],
+            'grupo' => [
+                'id_actividad_asignada_grupo' => (int) $grupo->id_actividad_asignada_grupo,
+                'nombre_grupo' => $grupo->nombre_grupo,
+                'es_individual' => ! (bool) $actividad->es_grupal,
+            ],
+            'calificacion' => [
+                'nota_grupal' => $notaGrupal,
+                'diferencia_decimas' => $diferenciaDecimas,
+                'nota_individual' => $notaIndividual,
+                'es_aprobatoria' => $esAprobatoria,
+                'evaluacion_cualitativa' => $evaluacionCualitativa,
+                'puntaje_obtenido' => $puntajeObtenido,
+                'puntaje_maximo' => $puntajeMaximo,
+                'porcentaje_logro' => $porcentajeLogro,
+            ],
+            'feedback' => [
+                'id_evaluacion' => (int) $evaluacion->id_evaluacion,
+                'fecha_evaluacion' => $fechaEvaluacion,
+                'docente_evaluador' => $docenteEvaluador,
+                'retroalimentacion' => $agendaEvaluacion->mensaje ?? '',
+            ],
+            'rubrica' => $desgloseRubrica,
+            'entrega_evaluada' => $entregaEvaluada,
+        ];
+    }
+
+    /**
+     * Valida y sirve la descarga segura binaria del archivo entregado y calificado.
+     */
+    public function descargarEntrega(Curso $curso, Actividad $actividad, Agenda $agenda, Estudiante $estudiante, bool $enLinea = false): BinaryFileResponse
+    {
+        $this->validarAccesoActividad($curso, $actividad);
+
+        $agenda->loadMissing(['actividadAsignadaGrupo', 'archivo']);
+
+        if ((int) $agenda->actividadAsignadaGrupo?->id_actividad !== (int) $actividad->id_actividad) {
+            abort(404, 'Entrega no encontrada en esta actividad.');
+        }
+
+        // Validar que el estudiante pertenezca al grupo de la entrega (Anti-IDOR)
+        $esMiembro = IntegranteGrupo::where('id_actividad_asignada_grupo', $agenda->id_actividad_asignada_grupo)
+            ->where('id_estudiante', $estudiante->id_estudiante)
+            ->exists();
+
+        if (! $esMiembro) {
+            abort(403, 'Esta entrega no te pertenece.');
+        }
+
+        if (! $agenda->uuid_archivo_subido || ! $agenda->archivo) {
+            abort(404, 'No hay archivo asociado a esta entrega.');
+        }
+
+        $disk = config('files.storage.disk', 'local_archives');
+        $rutaFisica = $agenda->archivo->ruta_fisica;
+
+        if (! Storage::disk($disk)->exists($rutaFisica)) {
+            abort(404, 'El archivo no existe en el servidor.');
+        }
+
+        $rutaAbsoluta = Storage::disk($disk)->path($rutaFisica);
+
+        if ($enLinea && $agenda->archivo->esVisualizableEnNavegador()) {
+            return response()->file($rutaAbsoluta, [
+                'Content-Type' => $agenda->archivo->mime_type,
+                'Content-Disposition' => 'inline; filename="' . $agenda->archivo->nombre_original . '"',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
+        return $agenda->archivo->respuestaHttp($rutaAbsoluta, $enLinea);
+    }
+
+    /**
+     * Helper para desglosar la matriz de la rúbrica evaluada cruzando la definición con la selección docente.
+     *
+     * @param  array<string, mixed>|null  $resultado
+     * @return array<string, mixed>|null
+     */
+    private function desglosarRubricaEvaluada(?Rubrica $rubrica, ?array $resultado, ?float $puntajeObtenido): ?array
+    {
+        if (! $rubrica || empty($rubrica->rubrica)) {
+            return null;
+        }
+
+        $datos = $rubrica->rubrica;
+        $nivelesRaw = $datos['niveles'] ?? [];
+        if (empty($nivelesRaw)) {
+            return null;
+        }
+
+        $criteriosEvaluados = [];
+        $puntajeMaximoTotal = 0.0;
+        $puntajeObtenidoCalculado = 0.0;
+
+        foreach ($nivelesRaw as $index => $nivel) {
+            $idCriterio = (string) ($nivel['id_nivel'] ?? $nivel['id'] ?? "criterio_{$index}");
+            $nombre = $nivel['nombre'] ?? '';
+            $descripcion = $nivel['descripcion'] ?? '';
+            $ponderacion = isset($nivel['ponderacion']) ? (float) $nivel['ponderacion'] : null;
+
+            $escalasRaw = $nivel['escalas'] ?? [];
+            $escalasProcesadas = [];
+            $escalaSeleccionadaProcesada = null;
+            $puntajeMaximoCriterio = 0.0;
+
+            // id de escala seleccionada por el docente para este nivel
+            $idEscalaSeleccionada = $resultado[$idCriterio] ?? $resultado[(string) ($index + 1)] ?? null;
+
+            foreach ($escalasRaw as $eIndex => $esc) {
+                $idEscala = (string) ($esc['id_escala'] ?? $esc['id'] ?? "escala_{$eIndex}");
+                $nombreNivel = $esc['nombre_nivel'] ?? $esc['nombre'] ?? '';
+                $puntos = (float) ($esc['puntos'] ?? 0.0);
+                $criterioTexto = $esc['criterio'] ?? $esc['descripcion'] ?? '';
+                $estaSeleccionada = ($idEscalaSeleccionada !== null && (string) $idEscalaSeleccionada === $idEscala);
+
+                if ($puntos > $puntajeMaximoCriterio) {
+                    $puntajeMaximoCriterio = $puntos;
+                }
+
+                $escalasProcesadas[] = [
+                    'id_escala' => $idEscala,
+                    'nombre_nivel' => $nombreNivel,
+                    'puntos' => $puntos,
+                    'criterio' => $criterioTexto,
+                    'seleccionada' => $estaSeleccionada,
+                ];
+
+                if ($estaSeleccionada) {
+                    $escalaSeleccionadaProcesada = [
+                        'id_escala' => $idEscala,
+                        'nombre_nivel' => $nombreNivel,
+                        'puntos' => $puntos,
+                        'criterio' => $criterioTexto,
+                    ];
+                }
+            }
+
+            $puntosObtenidosCriterio = $escalaSeleccionadaProcesada ? $escalaSeleccionadaProcesada['puntos'] : 0.0;
+            $puntajeMaximoTotal += $puntajeMaximoCriterio;
+            $puntajeObtenidoCalculado += $puntosObtenidosCriterio;
+
+            $criteriosEvaluados[] = [
+                'id_criterio' => $idCriterio,
+                'nombre' => $nombre,
+                'descripcion' => $descripcion,
+                'ponderacion' => $ponderacion,
+                'puntaje_maximo' => $puntajeMaximoCriterio,
+                'puntaje_obtenido' => $puntosObtenidosCriterio,
+                'escala_seleccionada' => $escalaSeleccionadaProcesada,
+                'escalas' => $escalasProcesadas,
+            ];
+        }
+
+        $puntajeFinal = $puntajeObtenido !== null ? $puntajeObtenido : $puntajeObtenidoCalculado;
+        $porcentajeLogro = $puntajeMaximoTotal > 0
+            ? round(($puntajeFinal / $puntajeMaximoTotal) * 100, 1)
+            : 0.0;
+
+        $estadoRubrica = $rubrica->estado_rubrica instanceof \BackedEnum
+            ? $rubrica->estado_rubrica->value
+            : (string) $rubrica->estado_rubrica;
+
+        return [
+            'id_rubrica' => (int) $rubrica->id_rubrica,
+            'estado_rubrica' => $estadoRubrica,
+            'total_criterios' => count($criteriosEvaluados),
+            'puntaje_maximo' => $puntajeMaximoTotal,
+            'puntaje_obtenido' => $puntajeFinal,
+            'porcentaje_logro' => $porcentajeLogro,
+            'criterios_evaluados' => $criteriosEvaluados,
+        ];
     }
 
     /**
