@@ -9,6 +9,7 @@ REMOTE_HASH=$(git ls-tree HEAD $SUBMODULE_PATH | awk '{print $3}')
 echo "🔍 Validando integridad de $SUBMODULE_PATH..." >&2
 
 cd "$SUBMODULE_PATH" || exit 1
+unset GIT_DIR GIT_WORK_TREE
 
 if ! git merge-base --is-ancestor "$REMOTE_HASH" origin/main 2>/dev/null; then
     # 3.A. Bloque de error de alto impacto visual
