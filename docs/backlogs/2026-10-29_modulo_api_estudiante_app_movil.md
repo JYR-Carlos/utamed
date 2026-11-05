@@ -282,20 +282,23 @@ Para prevenir desajustes entre el servidor UTC y los dispositivos móviles de lo
 * ### `[APP-13]` [5 pts] [R3] [P1] Mensajero: Canales y Avisos por Componente de Curso
   * **Historia de Usuario**: Como estudiante, quiero usar el **Mensajero** para leer los anuncios oficiales de mi sección y enviar mensajes a mis profesores por componente (Cátedra, Taller, Laboratorio) manteniendo una comunicación directa con el equipo docente.
   * **Rutas / Endpoints**:
-    * `GET /api/v1/estudiante/cursos/{curso}/mensajero`
-    * `GET /api/v1/estudiante/cursos/{curso}/mensajero/componentes/{componente}`
+    * `GET /api/v1/estudiante/cursos/{curso}/mensajero` (Endpoint único GET: retorna la estructura consolidada de mensajería con todos los componentes inscritos, difusiones y mensajes para filtrado visual directo en la vista cliente)
     * `POST /api/v1/estudiante/cursos/{curso}/mensajero/componentes/{componente}/mensaje`
   * **Archivos**:
-    * `app/Http/Controllers/Api/V1/Student/MensajeriaApiController.php`
+    * `app/Api/V1/Controllers/Student/Messaging/GetCourseMessagingController.php`
+    * `app/Api/V1/Controllers/Student/Messaging/StoreCourseMessageController.php`
+    * `app/Http/Resources/Api/Student/CourseMessagingResource.php`
+    * `app/Http/Requests/Api/V1/Student/StoreCourseMessageRequest.php`
     * `app/Services/Student/MensajeriaCursoEstudiante.php`
     * `app/Services/MensajeriaService.php`
-    * `app/Http/Controllers/Student/MensajeriaController.php`
-  * **Problema & Causa**: Exponer la lógica del módulo **Mensajero** (`curso.mensaje`), el cual opera a nivel de componente del curso (no confundir con los mensajes de agenda por actividad en `agenda.agenda`): bandeja con pestañas por componente (Cátedra, Taller, Laboratorio), conteo de mensajes sin leer, panel de conversación con difusiones generales del docente e intercambios privados, envío de mensajes al equipo docente con fallback al titular, y auto-marcado de lectura al abrir el canal.
+  * **Problema & Causa**: Exponer la lógica del módulo **Mensajero** (`curso.mensaje`) mediante un único endpoint GET `/api/v1/estudiante/cursos/{curso}/mensajero`, consolidando en una sola respuesta la información de mensajería de cada componente (Cátedra, Taller, Laboratorio) en el que el alumno esté inscrito. Esto simplifica la navegación en la app móvil: la vista cliente consume un único recurso estructurado y realiza el filtrado visual por pestañas o componentes localmente, eliminando llamadas HTTP innecesarias e poco intuitivas por componente individual. El recurso incluye conteo de mensajes no leídos, avisos generales de difusión, conversación privada con el equipo docente y lista de docentes por componente.
   * **Criterios de Aceptación (DoD):**
-    * [ ] Valida inscripción activa del alumno en el componente del curso.
-    * [ ] Lista avisos generales de difusión y la conversación privada sostenida con el equipo docente.
-    * [ ] El envío asigna automáticamente al docente titular o al docente seleccionado del componente.
-    * [ ] Marca automáticamente como leídos los mensajes del canal al abrir el componente en el **Mensajero**.
+    * [x] Valida inscripción activa del alumno en el curso y sus componentes.
+    * [x] Endpoint único `GET /api/v1/estudiante/cursos/{curso}/mensajero` serializado mediante un `Resource` (`CourseMessagingResource`) que consolida todos los componentes inscritos.
+    * [x] La respuesta de cada componente contiene: metadatos (`id_componente`, `tipo`), contador de no leídos (`no_leidos`), lista de docentes (`docentes`), avisos generales de difusión (`difusiones`) e historial de conversación privada del estudiante con el equipo docente (`mensajes`).
+    * [x] La vista móvil puede alternar y filtrar visualmente entre componentes sin requerir peticiones HTTP adicionales.
+    * [x] El envío (`POST`) valida el contenido del mensaje y asigna automáticamente al docente titular o seleccionado del componente.
+    * [x] Marca automáticamente como leídos los mensajes/difusiones del canal al consultar la mensajería del curso.
 
 ---
 
