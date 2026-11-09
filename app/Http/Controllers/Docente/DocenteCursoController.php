@@ -223,15 +223,13 @@ class DocenteCursoController extends Controller
             return $e;
         });
 
-        // Nº de sesiones registradas por componente (mismo criterio de sesión
-        // implícita que usa AsistenciaController).
+        // Nº de sesiones registradas por componente (conteo directo sobre curso.clase).
         $sesionesPorComponente = $misComponentes->isEmpty()
             ? collect()
-            : DB::table('curso.asistencia as a')
-                ->join('curso.inscripcion_componente as ic', 'ic.id_inscripcion_componente', '=', 'a.id_inscripcion_componente')
-                ->whereIn('ic.id_componente', $misComponentes->pluck('id_componente'))
-                ->groupBy('ic.id_componente')
-                ->selectRaw('ic.id_componente, COUNT(DISTINCT (a.dia, a.hora_inicio, a.hora_fin)) AS sesiones')
+            : DB::table('curso.clase')
+                ->whereIn('id_componente', $misComponentes->pluck('id_componente'))
+                ->groupBy('id_componente')
+                ->selectRaw('id_componente, COUNT(*) AS sesiones')
                 ->pluck('sesiones', 'id_componente');
 
         $misComponentesData = $misComponentes->map(fn ($c) => [

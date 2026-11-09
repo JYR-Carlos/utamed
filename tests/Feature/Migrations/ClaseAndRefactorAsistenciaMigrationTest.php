@@ -5,7 +5,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-uses(Tests\TestCase::class, DatabaseTransactions::class);
+uses(DatabaseTransactions::class);
 
 function migracionClaseYRefactorAsistencia(): object
 {
@@ -30,11 +30,16 @@ test('la migracion 21 crea clase, backfillea asistencias preexistentes y es comp
     $horaInicio = '08:00:00';
     $horaFin = '09:30:00';
 
+    // Si la migración ya está aplicada en la BD, ejecutamos primero down() para probar el ciclo completo up() y down()
+    if (Schema::hasColumn('curso.asistencia', 'id_clase')) {
+        $migration->down();
+    }
+
     // Asegurar que las columnas legacy dia/hora existan antes de insertar (por si la tabla ya está en formato previo)
     if (!Schema::hasColumn('curso.asistencia', 'dia')) {
-        DB::statement('ALTER TABLE curso.asistencia ADD COLUMN dia date NOT NULL DEFAULT CURRENT_DATE;');
-        DB::statement('ALTER TABLE curso.asistencia ADD COLUMN hora_inicio time NOT NULL DEFAULT "08:00:00";');
-        DB::statement('ALTER TABLE curso.asistencia ADD COLUMN hora_fin time NOT NULL DEFAULT "09:30:00";');
+        DB::statement("ALTER TABLE curso.asistencia ADD COLUMN dia date NOT NULL DEFAULT CURRENT_DATE;");
+        DB::statement("ALTER TABLE curso.asistencia ADD COLUMN hora_inicio time NOT NULL DEFAULT '08:00:00';");
+        DB::statement("ALTER TABLE curso.asistencia ADD COLUMN hora_fin time NOT NULL DEFAULT '09:30:00';");
     }
 
     // Insertar registros previos simulando el modelo antiguo

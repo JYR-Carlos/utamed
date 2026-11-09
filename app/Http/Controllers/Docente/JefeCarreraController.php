@@ -303,7 +303,7 @@ class JefeCarreraController extends Controller
         // ── Asistencia por curso ──
         $asistenciaRows = empty($cursoIds) ? collect() : collect(DB::connection('pgsql')->select(
             'SELECT c.id_curso,
-                    COUNT(DISTINCT (a.dia, a.hora_inicio, a.hora_fin)) AS sesiones,
+                    COUNT(DISTINCT a.id_clase) AS sesiones,
                     AVG(CASE WHEN a.esta_presente THEN 1.0 ELSE 0.0 END) * 100 AS porcentaje
              FROM curso.asistencia a
              JOIN curso.inscripcion_componente ic ON ic.id_inscripcion_componente = a.id_inscripcion_componente

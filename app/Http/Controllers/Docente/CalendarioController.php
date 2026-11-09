@@ -228,23 +228,19 @@ class CalendarioController extends Controller
             return [];
         }
 
-        $filas = DB::table('curso.asistencia as a')
-            ->join(
-                'curso.inscripcion_componente as ic',
-                'ic.id_inscripcion_componente',
-                '=',
-                'a.id_inscripcion_componente'
-            )
-            ->whereIn('ic.id_componente', $idsComponentes)
-            ->groupBy('ic.id_componente', 'a.dia', 'a.hora_inicio', 'a.hora_fin')
-            ->orderBy('a.dia')
-            ->orderBy('a.hora_inicio')
+        $filas = DB::table('curso.clase as c')
+            ->leftJoin('curso.asistencia as a', 'a.id_clase', '=', 'c.id_clase')
+            ->whereIn('c.id_componente', $idsComponentes)
+            ->groupBy('c.id_componente', 'c.id_clase', 'c.dia', 'c.hora_inicio', 'c.hora_fin')
+            ->orderBy('c.dia')
+            ->orderBy('c.hora_inicio')
             ->selectRaw(
-                'ic.id_componente,'
-                . ' a.dia,'
-                . ' a.hora_inicio,'
-                . ' a.hora_fin,'
-                . ' count(*) as total,'
+                'c.id_componente,'
+                . ' c.id_clase,'
+                . ' c.dia,'
+                . ' c.hora_inicio,'
+                . ' c.hora_fin,'
+                . ' count(a.id_asistencia) as total,'
                 . ' sum(case when a.esta_presente then 1 else 0 end) as presentes'
             )
             ->get();
@@ -255,6 +251,7 @@ class CalendarioController extends Controller
             $idComponente = (int) $fila->id_componente;
 
             $sesiones[] = [
+                'id_clase'      => (int) $fila->id_clase,
                 'id_curso'      => $cursoPorComponente[$idComponente],
                 'id_componente' => $idComponente,
                 'componente'    => $tipoPorComponente[$idComponente] ?? 'General',
