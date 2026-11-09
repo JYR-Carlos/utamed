@@ -6,15 +6,20 @@ use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Contracts\HasOwnedContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseInteraccionMensaje extends CustomBaseModel
+abstract class BaseInteraccionMensaje extends CustomBaseModel implements HasOwnedContext
 {
     use SoftDeletes;
     use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
     const DELETED_AT = 'fecha_eliminacion';
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = null;
@@ -42,4 +47,21 @@ abstract class BaseInteraccionMensaje extends CustomBaseModel
         return new BelongsTo($instance->newQuery(), $this, 'id_usuario_lector', 'id_usuario', 'lector');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: mensaje
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('mensaje', function ($q) use ($contextIds) {
+                $q->whereHas('componente', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            });
+    }
 }

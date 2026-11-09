@@ -25,11 +25,9 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasOwnedContext
     public $incrementing = true;
 
     protected $fillable = [
-        'dia',
-        'hora_inicio',
-        'hora_fin',
         'esta_presente',
-        'id_inscripcion_componente'
+        'id_inscripcion_componente',
+        'id_clase'
     ];
 
     protected $casts = [
@@ -44,6 +42,12 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasOwnedContext
         return new BelongsTo($instance->newQuery(), $this, 'id_inscripcion_componente', 'id_inscripcion_componente', 'inscripcionComponente');
     }
 
+    public function clase()
+    {
+        $instance = new \App\Models\Curso\Clase();
+        return new BelongsTo($instance->newQuery(), $this, 'id_clase', 'id_clase', 'clase');
+    }
+
     /**
      * Scope para filtrar por contexto jerárquico.
      * 
@@ -56,6 +60,11 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasOwnedContext
         }
 
         return $query->whereHas('inscripcionComponente', function ($q) use ($contextIds) {
+                $q->whereHas('componente', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            })
+            ->orWhereHas('clase', function ($q) use ($contextIds) {
                 $q->whereHas('componente', function ($q) use ($contextIds) {
                 $q->whereIn('id_contexto', $contextIds);
             });

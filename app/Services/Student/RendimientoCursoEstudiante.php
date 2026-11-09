@@ -146,6 +146,8 @@ class RendimientoCursoEstudiante
     /** @return array{presentes: int, total: int, porcentaje: ?int} */
     private function asistencia(Componente $componente, Estudiante $estudiante): array
     {
+        $totalClases = $componente->clases()->count();
+
         $fila = DB::table('curso.asistencia as a')
             ->join('curso.inscripcion_componente as ic', 'ic.id_inscripcion_componente', '=', 'a.id_inscripcion_componente')
             ->where('ic.id_componente', $componente->id_componente)
@@ -153,7 +155,8 @@ class RendimientoCursoEstudiante
             ->selectRaw('COUNT(*) AS total, COUNT(*) FILTER (WHERE a.esta_presente) AS presentes')
             ->first();
 
-        $total = (int) ($fila->total ?? 0);
+        $totalRegistrado = (int) ($fila->total ?? 0);
+        $total = $totalClases > 0 ? $totalClases : $totalRegistrado;
         $presentes = (int) ($fila->presentes ?? 0);
 
         return [

@@ -476,14 +476,14 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::get('asistencia', [AsistenciaController::class, 'centro'])
         ->name('asistencia.centro');
 
-    // ── Asistencia por componente (sesión implícita: dia + hora_inicio + hora_fin)
+    // ── Asistencia por componente (sobre curso.clase)
     Route::get('cursos/{curso}/componentes/{componente}/asistencia', [AsistenciaController::class, 'index'])
         ->name('cursos.componentes.asistencia.index');
     Route::post('cursos/{curso}/componentes/{componente}/asistencia', [AsistenciaController::class, 'store'])
         ->name('cursos.componentes.asistencia.store');
-    Route::put('cursos/{curso}/componentes/{componente}/asistencia', [AsistenciaController::class, 'update'])
+    Route::put('cursos/{curso}/componentes/{componente}/asistencia/{clase?}', [AsistenciaController::class, 'update'])
         ->name('cursos.componentes.asistencia.update');
-    Route::delete('cursos/{curso}/componentes/{componente}/asistencia', [AsistenciaController::class, 'destroy'])
+    Route::delete('cursos/{curso}/componentes/{componente}/asistencia/{clase?}', [AsistenciaController::class, 'destroy'])
         ->name('cursos.componentes.asistencia.destroy');
 
     // Course detail view

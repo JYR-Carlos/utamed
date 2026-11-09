@@ -68,6 +68,10 @@ class ComponenteController extends Controller
             return 'tiene mensajes del curso';
         }
 
+        if ($componente->clases()->exists()) {
+            return 'tiene clases registradas';
+        }
+
         $conAsistencia = $componente->inscripcionComponentes()->whereHas('asistencias')->exists();
         if ($conAsistencia) {
             return 'tiene asistencia registrada';

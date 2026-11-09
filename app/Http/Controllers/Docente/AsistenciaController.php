@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
+use App\Models\Curso\Clase;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionComponente;
@@ -15,13 +16,10 @@ use Inertia\Inertia;
  * Registro de asistencia por componente (perspectiva del docente).
  *
  * Modelo de datos:
- * - La asistencia se registra por `curso.inscripcion_componente` (la matrícula
- *   de un estudiante en un componente concreto: teoría, práctica, etc.), no por
- *   curso global.
- * - No existe una entidad "sesión": cada fila de `curso.asistencia` lleva su
- *   propio `dia` + `hora_inicio` + `hora_fin`. Una "sesión de clase" es, por
- *   tanto, IMPLÍCITA: el conjunto de filas de las inscripciones de un componente
- *   que comparten exactamente ese trío (dia, hora_inicio, hora_fin).
+ * - Cada sesión de clases es una entidad de primer nivel en `curso.clase` (dia,
+ *   hora_inicio, hora_fin, id_componente).
+ * - La asistencia se registra por `curso.asistencia` vinculada a cada
+ *   `curso.clase` y `curso.inscripcion_componente`.
  *
  * Acceso:
  * - El docente titular del curso, o un docente asignado al componente
@@ -117,33 +115,39 @@ class AsistenciaController extends Controller
         $estudiantes = $this->estudiantesDelComponente($componente);
         $inscripcionIds = array_column($estudiantes, 'id_inscripcion_componente');
 
-        // Todas las filas de asistencia de las inscripciones del componente.
-        $filas = empty($inscripcionIds) ? collect() : DB::table('curso.asistencia')
-            ->whereIn('id_inscripcion_componente', $inscripcionIds)
+        // Clases del componente ordenadas descendentemente con sus registros de asistencia
+        $clases = Clase::where('id_componente', $componente->id_componente)
+            ->with(['asistencias' => function ($q) use ($inscripcionIds) {
+                if (!empty($inscripcionIds)) {
+                    $q->whereIn('id_inscripcion_componente', $inscripcionIds);
+                }
+            }])
             ->orderByDesc('dia')
             ->orderByDesc('hora_inicio')
             ->get();
 
-        // Agrupa por (dia, hora_inicio, hora_fin) → sesión implícita.
-        $sesiones = $filas
-            ->groupBy(fn ($r) => $r->dia . '|' . $r->hora_inicio . '|' . $r->hora_fin)
-            ->map(function ($registros) {
-                $primero = $registros->first();
-                $presentes = $registros->where('esta_presente', true)->count();
+        $totalClases = $clases->count();
 
-                return [
-                    'dia'         => $primero->dia,
-                    'hora_inicio' => substr((string) $primero->hora_inicio, 0, 5),
-                    'hora_fin'    => substr((string) $primero->hora_fin, 0, 5),
-                    'total'       => $registros->count(),
-                    'presentes'   => $presentes,
-                    'registros'   => $registros->map(fn ($r) => [
-                        'id_inscripcion_componente' => $r->id_inscripcion_componente,
-                        'esta_presente'             => (bool) $r->esta_presente,
-                    ])->values(),
-                ];
-            })
-            ->values();
+        // Calculamos correlativo cronológico (1 = clase más antigua, N = clase más reciente)
+        // Como vienen ordenadas DESC, el correlativo de la posición $idx es ($totalClases - $idx)
+        $sesiones = $clases->values()->map(function ($clase, $idx) use ($totalClases) {
+            $registros = $clase->asistencias;
+            $presentes = $registros->where('esta_presente', true)->count();
+
+            return [
+                'id_clase'    => $clase->id_clase,
+                'correlativo' => $totalClases - $idx,
+                'dia'         => $clase->dia,
+                'hora_inicio' => substr((string) $clase->hora_inicio, 0, 5),
+                'hora_fin'    => substr((string) $clase->hora_fin, 0, 5),
+                'total'       => $registros->count(),
+                'presentes'   => $presentes,
+                'registros'   => $registros->map(fn ($r) => [
+                    'id_inscripcion_componente' => $r->id_inscripcion_componente,
+                    'esta_presente'             => (bool) $r->esta_presente,
+                ])->values()->all(),
+            ];
+        })->values();
 
         return response()->json([
             'estudiantes'                        => $estudiantes,
@@ -153,7 +157,7 @@ class AsistenciaController extends Controller
     }
 
     /**
-     * Crea una nueva sesión de asistencia (inserta una fila por estudiante).
+     * Crea una nueva clase y registra la asistencia (inserta fila en curso.clase y curso.asistencia).
      *
      * POST docente/cursos/{curso}/componentes/{componente}/asistencia
      */
@@ -162,12 +166,10 @@ class AsistenciaController extends Controller
         $this->autorizarComponente($curso, $componente);
 
         $datos = $this->validarSesion($request);
-
         $inscripcionesValidas = $this->idsInscripcionValidos($componente);
 
-        // Rechaza una sesión duplicada (mismo dia + horas).
-        $existe = DB::table('curso.asistencia')
-            ->whereIn('id_inscripcion_componente', $inscripcionesValidas)
+        // Rechaza si ya existe una clase registrada para esa fecha y horario en el componente
+        $existe = Clase::where('id_componente', $componente->id_componente)
             ->where('dia', $datos['dia'])
             ->where('hora_inicio', $datos['hora_inicio'])
             ->where('hora_fin', $datos['hora_fin'])
@@ -179,64 +181,147 @@ class AsistenciaController extends Controller
             ]);
         }
 
-        $this->guardarRegistros($datos, $inscripcionesValidas);
+        DB::transaction(function () use ($componente, $datos, $inscripcionesValidas) {
+            $clase = Clase::create([
+                'id_componente' => $componente->id_componente,
+                'dia'           => $datos['dia'],
+                'hora_inicio'   => $datos['hora_inicio'],
+                'hora_fin'      => $datos['hora_fin'],
+            ]);
+
+            $this->insertarFilas($clase->id_clase, $datos['asistencias'], $inscripcionesValidas);
+        });
 
         return back()->with('success', 'Sesión de asistencia registrada.');
     }
 
     /**
-     * Actualiza una sesión existente: reemplaza las marcas presente/ausente.
+     * Actualiza una sesión existente: permite corregir dia/horas y sincroniza marcas.
      *
-     * PUT docente/cursos/{curso}/componentes/{componente}/asistencia
+     * PUT docente/cursos/{curso}/componentes/{componente}/asistencia/{clase?}
      */
-    public function update(Request $request, Curso $curso, Componente $componente)
+    public function update(Request $request, Curso $curso, Componente $componente, ?Clase $clase = null)
     {
         $this->autorizarComponente($curso, $componente);
+
+        $clase = $this->resolverClase($request, $componente, $clase);
+        $this->assertClaseDeComponente($componente, $clase);
 
         $datos = $this->validarSesion($request);
         $inscripcionesValidas = $this->idsInscripcionValidos($componente);
 
-        DB::transaction(function () use ($datos, $inscripcionesValidas) {
-            // Borra la sesión previa (mismo trío dia/horas) y reinserta.
-            DB::table('curso.asistencia')
-                ->whereIn('id_inscripcion_componente', $inscripcionesValidas)
-                ->where('dia', $datos['dia'])
-                ->where('hora_inicio', $datos['hora_inicio'])
-                ->where('hora_fin', $datos['hora_fin'])
-                ->delete();
+        // Validar que no colisione con otra clase del mismo componente
+        $colision = Clase::where('id_componente', $componente->id_componente)
+            ->where('id_clase', '!=', $clase->id_clase)
+            ->where('dia', $datos['dia'])
+            ->where('hora_inicio', $datos['hora_inicio'])
+            ->where('hora_fin', $datos['hora_fin'])
+            ->exists();
 
-            $this->insertarFilas($datos, $inscripcionesValidas);
+        if ($colision) {
+            return back()->withErrors([
+                'dia' => 'Ya existe otra sesión registrada para esa fecha y horario.',
+            ]);
+        }
+
+        DB::transaction(function () use ($clase, $datos, $inscripcionesValidas) {
+            // Actualizar datos de la clase
+            $clase->update([
+                'dia'         => $datos['dia'],
+                'hora_inicio' => $datos['hora_inicio'],
+                'hora_fin'    => $datos['hora_fin'],
+            ]);
+
+            // Sincronizar marcas de asistencia vía upsert
+            $validas = array_flip($inscripcionesValidas);
+            $upsertData = [];
+
+            foreach ($datos['asistencias'] as $a) {
+                $idIc = (int) $a['id_inscripcion_componente'];
+                if (!isset($validas[$idIc])) {
+                    continue;
+                }
+                $upsertData[] = [
+                    'id_clase'                  => $clase->id_clase,
+                    'id_inscripcion_componente' => $idIc,
+                    'esta_presente'             => (bool) $a['esta_presente'],
+                ];
+            }
+
+            if (!empty($upsertData)) {
+                DB::table('curso.asistencia')->upsert(
+                    $upsertData,
+                    ['id_clase', 'id_inscripcion_componente'],
+                    ['esta_presente']
+                );
+            }
         });
 
         return back()->with('success', 'Asistencia actualizada.');
     }
 
     /**
-     * Elimina una sesión completa.
+     * Elimina una sesión de clase completa (y sus asistencias en cascada).
      *
-     * DELETE docente/cursos/{curso}/componentes/{componente}/asistencia
+     * DELETE docente/cursos/{curso}/componentes/{componente}/asistencia/{clase?}
      */
-    public function destroy(Request $request, Curso $curso, Componente $componente)
+    public function destroy(Request $request, Curso $curso, Componente $componente, ?Clase $clase = null)
     {
         $this->autorizarComponente($curso, $componente);
 
-        $validado = $request->validate([
-            'dia'         => 'required|date',
-            'hora_inicio' => 'required|date_format:H:i',
-            'hora_fin'    => 'required|date_format:H:i',
-        ]);
+        $clase = $this->resolverClase($request, $componente, $clase);
+        $this->assertClaseDeComponente($componente, $clase);
 
-        DB::table('curso.asistencia')
-            ->whereIn('id_inscripcion_componente', $this->idsInscripcionValidos($componente))
-            ->where('dia', $validado['dia'])
-            ->where('hora_inicio', $validado['hora_inicio'])
-            ->where('hora_fin', $validado['hora_fin'])
-            ->delete();
+        $clase->delete();
 
         return back()->with('success', 'Sesión eliminada.');
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Resuelve la instancia de Clase a partir de la ruta o parámetros del request.
+     */
+    private function resolverClase(Request $request, Componente $componente, ?Clase $clase): Clase
+    {
+        if ($clase && $clase->exists) {
+            return $clase;
+        }
+
+        $idClase = $request->input('id_clase');
+        if ($idClase) {
+            return Clase::findOrFail($idClase);
+        }
+
+        // Fallback por clave temporal (dia, hora_inicio, hora_fin) para compatibilidad
+        $dia = $request->input('dia');
+        $inicio = $request->input('hora_inicio');
+        $fin = $request->input('hora_fin');
+
+        if ($dia && $inicio && $fin) {
+            $clase = Clase::where('id_componente', $componente->id_componente)
+                ->where('dia', $dia)
+                ->where('hora_inicio', $inicio)
+                ->where('hora_fin', $fin)
+                ->first();
+
+            if ($clase) {
+                return $clase;
+            }
+        }
+
+        abort(404, 'No se pudo identificar la sesión de clase.');
+    }
+
+    /**
+     * Valida que la clase pertenezca al componente.
+     */
+    public function assertClaseDeComponente(Componente $componente, Clase $clase): void
+    {
+        if ((int) $clase->id_componente !== (int) $componente->id_componente) {
+            abort(404, 'La clase no pertenece a este componente.');
+        }
+    }
 
     /**
      * Verifica que el docente autenticado pueda gestionar la asistencia del
@@ -306,26 +391,21 @@ class AsistenciaController extends Controller
         ]);
     }
 
-    /** Inserta las filas de una sesión, filtrando inscripciones ajenas al componente. */
-    private function guardarRegistros(array $datos, array $inscripcionesValidas): void
-    {
-        DB::transaction(fn () => $this->insertarFilas($datos, $inscripcionesValidas));
-    }
-
-    private function insertarFilas(array $datos, array $inscripcionesValidas): void
+    /**
+     * Inserta las filas de marcas de asistencia para una clase.
+     */
+    private function insertarFilas(int $idClase, array $asistencias, array $inscripcionesValidas): void
     {
         $validas = array_flip($inscripcionesValidas);
 
         $filas = [];
-        foreach ($datos['asistencias'] as $a) {
+        foreach ($asistencias as $a) {
             $idIc = (int) $a['id_inscripcion_componente'];
             if (!isset($validas[$idIc])) {
                 continue; // Ignora inscripciones que no son del componente.
             }
             $filas[] = [
-                'dia'                       => $datos['dia'],
-                'hora_inicio'               => $datos['hora_inicio'],
-                'hora_fin'                  => $datos['hora_fin'],
+                'id_clase'                  => $idClase,
                 'esta_presente'             => (bool) $a['esta_presente'],
                 'id_inscripcion_componente' => $idIc,
             ];

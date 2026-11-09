@@ -40,7 +40,8 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
         'esta_activo',
         'fecha_verificacion_email',
         'token_recuerdame_sesion',
-        'fecha_cambio_passhash'
+        'fecha_cambio_passhash',
+        'foto_url'
     ];
 
     protected $hidden = [
@@ -84,6 +85,16 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     public function interaccionMensajes()
     {
         return $this->hasMany(\App\Models\Curso\InteraccionMensaje::class, 'id_usuario_lector', 'id_usuario');
+    }
+
+    public function intranetSincronizacionLoges()
+    {
+        return $this->hasMany(\App\Models\Curso\IntranetSincronizacionLog::class, 'id_usuario', 'id_usuario');
+    }
+
+    public function intranetSincronizacionLoges1()
+    {
+        return $this->hasMany(\App\Models\Curso\IntranetSincronizacionLog::class, 'id_usuario_reversion', 'id_usuario');
     }
 
     public function mensajesEnviados()

@@ -30,7 +30,8 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
         'aprobacion_obligatoria',
         'porcentaje_asistencia_obligatoria',
         'id_tipo_componente',
-        'id_curso'
+        'id_curso',
+        'intranet_cur_codigo'
     ];
 
     protected $casts = [
@@ -63,6 +64,11 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
     public function actividades()
     {
         return $this->hasMany(\App\Models\Agenda\Actividad::class, 'id_componente', 'id_componente');
+    }
+
+    public function clases()
+    {
+        return $this->hasMany(\App\Models\Curso\Clase::class, 'id_componente', 'id_componente');
     }
 
     public function docenteComponentes()
