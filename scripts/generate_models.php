@@ -380,6 +380,20 @@ $relationNames = [
     ],
   ],
 
+  // curso.intranet_sincronizacion_log: usuario ejecutor, usuario que revierte y curso
+  'curso.intranet_sincronizacion_log' => [
+    '_self' => [
+      'id_usuario_reversion' => 'usuarioReversion', // belongsTo en IntranetSincronizacionLog
+    ],
+    'curso.curso' => [
+      'id_curso' => 'intranetSincronizacionLogs', // hasMany en Curso
+    ],
+    'usuario.usuario' => [
+      'id_usuario' => 'intranetSincronizacionLogs', // hasMany en Usuario: sincronizaciones ejecutadas
+      'id_usuario_reversion' => 'intranetSincronizacionLogsRevertidos', // hasMany en Usuario: sincronizaciones revertidas
+    ],
+  ],
+
 ];
 
 // ==================================================================================
