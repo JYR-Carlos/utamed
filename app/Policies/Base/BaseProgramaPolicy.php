@@ -23,41 +23,25 @@ abstract class BaseProgramaPolicy
 
     public function viewAny(Usuario $user): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'ver'))) {
-            return true;
-        }
-
+        // 'cursos/programas:ver' no existe en permissions_config.php; delega al hook/override
         return $this->customViewAny($user);
     }
 
     public function view(Usuario $user, Programa $model): bool
     {
-        $contextId = $this->resolveContextId($model);
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'ver'), $model, $contextId)) {
-            return true;
-        }
-
+        // 'cursos/programas:ver' no existe en permissions_config.php; delega al hook/override
         return $this->customView($user, $model);
     }
 
     public function create(Usuario $user, $parent = null): bool
     {
-        $contextId = $parent?->getContextId();
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'crear'), null, $contextId)) {
-            return true;
-        }
-
+        // 'cursos/programas:crear' no existe en permissions_config.php; delega al hook/override
         return $this->customCreate($user, $parent);
     }
 
     public function update(Usuario $user, Programa $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'editar'), $model)) {
-            return true;
-        }
-
+        // 'cursos/programas:editar' no existe en permissions_config.php; delega al hook/override
         return $this->customUpdate($user, $model);
     }
 

@@ -145,44 +145,47 @@ $baseModelNamespace = $extendedModelNamespace . '\\Base';
 //
 // OBJETIVO: Definir qué modelos tienen Base Policies autogeneradas
 //
-// ESTRUCTURA:
-// - namespace:  namespace completo del modelo Eloquent (para imports en la policy)
-// - class:      nombre de la clase del modelo
-// - resource:   slug del recurso para los permisos (prefijo del slug CRUD)
+// ESTRUCTURA COMPACTA:
+//   'schema.tabla' => 'recurso_permiso'
+//   - La clave 'schema.tabla' resuelve automáticamente namespace (App\Models\Schema)
+//     y clase (StudlyCase de tabla).
+//   - El valor 'recurso_permiso' es el prefijo en scripts/permissions_config.php.
+//   - Los verbos CRUD estándar (ver, crear, editar, eliminar) se contrastan contra
+//     permissions_config.php: si existen para el recurso se validan automáticamente;
+//     si no existen en el catálogo, delegan directo a customXXX() / override.
 //
 // BASE POLICIES: Se sobrescriben en cada ejecución  → app/Policies/Base/
 // EXTENDED STUBS: Solo se crean si no existen       → app/Policies/
 // ==================================================================================
 
-// Todo: mejorar formato de configuración de policies para evitar redundancia y no amigabilidad
-// (ej: inferir resource de la clase o usar un formato más compacto)
 $policyConfigs = [
   // ===== Administrativo =====
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Facultad', 'resource' => 'facultades'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Departamento', 'resource' => 'departamentos'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Carrera', 'resource' => 'carreras'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Plan', 'resource' => 'planes'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Asignatura', 'resource' => 'asignaturas'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'AsignacionPlan', 'resource' => 'asignaciones_plan'],
+  'administrativo.facultad'        => 'facultades',
+  'administrativo.departamento'    => 'departamentos',
+  'administrativo.carrera'         => 'carreras',
+  'administrativo.plan'            => 'carreras/planes',
+  'administrativo.asignatura'      => 'asignaturas',
+  'administrativo.asignacion_plan' => 'carreras/planes',
 
   // ===== Curso =====
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Programa', 'resource' => 'cursos/programas'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Curso', 'resource' => 'cursos'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Componente', 'resource' => 'cursos/componentes'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'DocenteComponente', 'resource' => 'cursos/docente_componentes'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionComponente', 'resource' => 'cursos/inscripciones_componente'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Unidad', 'resource' => 'cursos/unidades'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionCurso', 'resource' => 'inscripciones_curso'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Asistencia', 'resource' => 'cursos/asistencias'],
+  'curso.programa'               => 'cursos/programas',
+  'curso.curso'                  => 'cursos',
+  'curso.componente'             => 'componentes',
+  'curso.docente_componente'     => 'componentes/docentesColegiados',
+  'curso.inscripcion_componente' => 'componentes/inscripciones',
+  'curso.unidad'                 => 'cursos/unidades',
+  'curso.inscripcion_curso'      => 'cursos/inscripciones',
+  'curso.clase'                  => 'componentes/asistencia',
+  'curso.asistencia'             => 'componentes/asistencia',
 
   // ===== Usuario =====
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Usuario', 'resource' => 'usuarios'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Estudiante', 'resource' => 'usuarios/estudiantes'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Docente', 'resource' => 'usuarios/docentes'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Rol', 'resource' => 'roles'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'AsignacionRolPermiso', 'resource' => 'asignaciones_rol_permiso'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioRolAsignacion', 'resource' => 'usuario_rol_asignaciones'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioPermisoEspecial', 'resource' => 'usuario_permiso_especiales'],
+  'usuario.usuario'                  => 'usuarios',
+  'usuario.estudiante'               => 'usuarios',
+  'usuario.docente'                  => 'usuarios',
+  'usuario.rol'                      => 'usuarios/permisos/roles',
+  'usuario.asignacion_rol_permiso'   => 'usuarios/permisos/roles',
+  'usuario.usuario_rol_asignacion'   => 'usuarios/permisos/roles',
+  'usuario.usuario_permiso_especial' => 'usuarios/permisos/individuales',
 ];
 $policyDir = app_path('Policies');
 $basePolicyDir = $policyDir . '/Base';
@@ -3149,12 +3152,59 @@ if (!$dryRun && !is_dir($basePolicyDir)) {
   mkdir($basePolicyDir, 0755, true);
 }
 
-foreach ($policyConfigs as $pc) {
+// Normalizar $policyConfigs (soporta formato compacto 'schema.tabla' => 'resource' o array explícito)
+$normalizedPolicyConfigs = [];
+foreach ($policyConfigs as $key => $value) {
+  if (is_string($key) && is_string($value)) {
+    [$schemaPart, $tablePart] = explode('.', $key, 2);
+    $normalizedPolicyConfigs[] = [
+      'namespace' => $extendedModelNamespace . '\\' . Str::studly($schemaPart),
+      'class'     => Str::studly($tablePart),
+      'resource'  => $value,
+    ];
+  } elseif (is_array($value)) {
+    $normalizedPolicyConfigs[] = $value;
+  }
+}
+
+// Cargar catálogo de permisos para verificar qué acciones CRUD existen realmente en cada recurso
+$permissionsConfigPath = __DIR__ . '/permissions_config.php';
+$permDefs = file_exists($permissionsConfigPath) ? (include $permissionsConfigPath) : [];
+
+$flattenPerms = function (array $node, string $prefix = '') use (&$flattenPerms): array {
+  $slugs = [];
+  foreach ($node as $key => $value) {
+    if ($key === '_actions' || $key === '_parent_actions') {
+      foreach ($value as $action) {
+        $slugs[] = [$prefix, $action];
+      }
+    } elseif (str_starts_with($key, '_')) {
+      continue;
+    } elseif (is_array($value)) {
+      $child = $prefix ? "{$prefix}/{$key}" : $key;
+      $slugs = array_merge($slugs, $flattenPerms($value, $child));
+    }
+  }
+  return $slugs;
+};
+
+$allSlugs = !empty($permDefs) ? $flattenPerms($permDefs) : [];
+$slugsByResource = [];
+foreach ($allSlugs as [$res, $act]) {
+  $slugsByResource[$res][] = $act;
+}
+foreach ($slugsByResource as $res => $acts) {
+  sort($acts);
+  $slugsByResource[$res] = $acts;
+}
+
+foreach ($normalizedPolicyConfigs as $pc) {
   $className = $pc['class'];
   $modelNs = $pc['namespace'];
   $resource = $pc['resource'];
   $baseName = "Base{$className}Policy";
   $basePolicyPath = $basePolicyDir . "/{$baseName}.php";
+  $validActions = $slugsByResource[$resource] ?? [];
 
   // Evitar import duplicado si el modelo es Usuario del namespace Usuario
   $modelUseStatement = '';
@@ -3162,6 +3212,80 @@ foreach ($policyConfigs as $pc) {
   if ($modelFullPath !== 'App\\Models\\Usuario\\Usuario') {
     $modelUseStatement = "\nuse {$modelNs}\\{$className};";
   }
+
+  $hasVer = in_array('ver', $validActions, true);
+  $hasCrear = in_array('crear', $validActions, true);
+  $hasEditar = in_array('editar', $validActions, true);
+  $hasEliminar = in_array('eliminar', $validActions, true);
+
+  $viewAnyBody = $hasVer
+    ? <<<PHP
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'))) {
+            return true;
+        }
+
+        return \$this->customViewAny(\$user);
+PHP
+    : <<<PHP
+        // '{$resource}:ver' no existe en permissions_config.php; delega al hook/override
+        return \$this->customViewAny(\$user);
+PHP;
+
+  $viewBody = $hasVer
+    ? <<<PHP
+        \$contextId = \$this->resolveContextId(\$model);
+
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'), \$model, \$contextId)) {
+            return true;
+        }
+
+        return \$this->customView(\$user, \$model);
+PHP
+    : <<<PHP
+        // '{$resource}:ver' no existe en permissions_config.php; delega al hook/override
+        return \$this->customView(\$user, \$model);
+PHP;
+
+  $createBody = $hasCrear
+    ? <<<PHP
+        \$contextId = \$parent?->getContextId();
+
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'crear'), null, \$contextId)) {
+            return true;
+        }
+
+        return \$this->customCreate(\$user, \$parent);
+PHP
+    : <<<PHP
+        // '{$resource}:crear' no existe en permissions_config.php; delega al hook/override
+        return \$this->customCreate(\$user, \$parent);
+PHP;
+
+  $updateBody = $hasEditar
+    ? <<<PHP
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'editar'), \$model)) {
+            return true;
+        }
+
+        return \$this->customUpdate(\$user, \$model);
+PHP
+    : <<<PHP
+        // '{$resource}:editar' no existe en permissions_config.php; delega al hook/override
+        return \$this->customUpdate(\$user, \$model);
+PHP;
+
+  $deleteBody = $hasEliminar
+    ? <<<PHP
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'eliminar'), \$model)) {
+            return true;
+        }
+
+        return \$this->customDelete(\$user, \$model);
+PHP
+    : <<<PHP
+        // '{$resource}:eliminar' no existe en permissions_config.php; delega al hook/override
+        return \$this->customDelete(\$user, \$model);
+PHP;
 
   $content = <<<PHP
 <?php
@@ -3188,51 +3312,27 @@ abstract class {$baseName}
 
     public function viewAny(Usuario \$user): bool
     {
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'))) {
-            return true;
-        }
-
-        return \$this->customViewAny(\$user);
+{$viewAnyBody}
     }
 
     public function view(Usuario \$user, {$className} \$model): bool
     {
-        \$contextId = \$this->resolveContextId(\$model);
-
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'), \$model, \$contextId)) {
-            return true;
-        }
-
-        return \$this->customView(\$user, \$model);
+{$viewBody}
     }
 
     public function create(Usuario \$user, \$parent = null): bool
     {
-        \$contextId = \$parent?->getContextId();
-
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'crear'), null, \$contextId)) {
-            return true;
-        }
-
-        return \$this->customCreate(\$user, \$parent);
+{$createBody}
     }
 
     public function update(Usuario \$user, {$className} \$model): bool
     {
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'editar'), \$model)) {
-            return true;
-        }
-
-        return \$this->customUpdate(\$user, \$model);
+{$updateBody}
     }
 
     public function delete(Usuario \$user, {$className} \$model): bool
     {
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'eliminar'), \$model)) {
-            return true;
-        }
-
-        return \$this->customDelete(\$user, \$model);
+{$deleteBody}
     }
 }
 
@@ -3262,7 +3362,7 @@ if (!$dryRun && !is_dir($policyDir)) {
   mkdir($policyDir, 0755, true);
 }
 
-foreach ($policyConfigs as $pc) {
+foreach ($normalizedPolicyConfigs as $pc) {
   $className = $pc['class'];
   $modelNs = $pc['namespace'];
   $baseName = "Base{$className}Policy";
@@ -3328,7 +3428,7 @@ $modelImports = '';
 $policyImports = '';
 $policyArray = '';
 
-foreach ($policyConfigs as $pc) {
+foreach ($normalizedPolicyConfigs as $pc) {
   $class = $pc['class'];
   $modelNs = $pc['namespace'];
   $modelImports .= "use {$modelNs}\\{$class};\n";
@@ -3399,54 +3499,14 @@ if (!$dryRun) {
 
 echo color("Generando Permissions.php...\n", 'bold');
 
-$permissionsConfigPath = __DIR__ . '/permissions_config.php';
 $permissionsOutPath = app_path('Support/Permissions.php');
 
-if (!file_exists($permissionsConfigPath)) {
+if (empty($permDefs)) {
   echo color("  ⚠ No se encontró " . relativePath($permissionsConfigPath, $projectRoot) . " — saltando PASO 9\n", 'yellow');
 } else {
-  $permDefs = include $permissionsConfigPath;
-
-  // Aplanar el array anidado en pares [recurso, accion]
-  // Clave especial '_actions' lista las acciones en ese nivel
-  // Las demás claves son sub-recursos que se unen con '/'
-  $flattenPerms = function (array $node, string $prefix = '') use (&$flattenPerms): array {
-    $slugs = [];
-    foreach ($node as $key => $value) {
-      if ($key === '_actions' || $key === '_parent_actions') {
-        foreach ($value as $action) {
-          $slugs[] = [$prefix, $action];
-        }
-      } elseif (str_starts_with($key, '_')) {
-        // Skip other special keys (_valid_context, _valid_parent_context, etc.)
-        continue;
-      } elseif (is_array($value)) {
-        $child = $prefix ? "{$prefix}/{$key}" : $key;
-        $slugs = array_merge($slugs, $flattenPerms($value, $child));
-      }
-    }
-    return $slugs;
-  };
-
-  $allSlugs = $flattenPerms($permDefs);
   $constants = '';
 
-  // Agrupar permisos por su prefijo de recurso
-  $slugsByResource = [];
-  foreach ($allSlugs as [$resource, $action]) {
-    if (!isset($slugsByResource[$resource])) {
-      $slugsByResource[$resource] = [];
-    }
-    $slugsByResource[$resource][] = $action;
-  }
-
-  // Ordenar cada categoría alfabéticamente
-  foreach ($slugsByResource as $resource => $actions) {
-    sort($actions);
-    $slugsByResource[$resource] = $actions;
-  }
-
-  // Obtener todos los recursos únicos
+  // Obtener todos los recursos únicos (precalculados en PASO 6)
   $allResources = array_keys($slugsByResource);
 
   // Función auxiliar para procesar un prefijo y sus descendientes recursivamente

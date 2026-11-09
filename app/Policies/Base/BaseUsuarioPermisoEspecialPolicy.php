@@ -19,54 +19,35 @@ abstract class BaseUsuarioPermisoEspecialPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'usuario_permiso_especiales';
+    protected string $resource = 'usuarios/permisos/individuales';
 
     public function viewAny(Usuario $user): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'ver'))) {
-            return true;
-        }
-
+        // 'usuarios/permisos/individuales:ver' no existe en permissions_config.php; delega al hook/override
         return $this->customViewAny($user);
     }
 
     public function view(Usuario $user, UsuarioPermisoEspecial $model): bool
     {
-        $contextId = $this->resolveContextId($model);
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'ver'), $model, $contextId)) {
-            return true;
-        }
-
+        // 'usuarios/permisos/individuales:ver' no existe en permissions_config.php; delega al hook/override
         return $this->customView($user, $model);
     }
 
     public function create(Usuario $user, $parent = null): bool
     {
-        $contextId = $parent?->getContextId();
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'crear'), null, $contextId)) {
-            return true;
-        }
-
+        // 'usuarios/permisos/individuales:crear' no existe en permissions_config.php; delega al hook/override
         return $this->customCreate($user, $parent);
     }
 
     public function update(Usuario $user, UsuarioPermisoEspecial $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'editar'), $model)) {
-            return true;
-        }
-
+        // 'usuarios/permisos/individuales:editar' no existe en permissions_config.php; delega al hook/override
         return $this->customUpdate($user, $model);
     }
 
     public function delete(Usuario $user, UsuarioPermisoEspecial $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'eliminar'), $model)) {
-            return true;
-        }
-
+        // 'usuarios/permisos/individuales:eliminar' no existe en permissions_config.php; delega al hook/override
         return $this->customDelete($user, $model);
     }
 }

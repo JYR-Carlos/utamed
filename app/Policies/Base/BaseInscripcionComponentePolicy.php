@@ -19,7 +19,7 @@ abstract class BaseInscripcionComponentePolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'cursos/inscripciones_componente';
+    protected string $resource = 'componentes/inscripciones';
 
     public function viewAny(Usuario $user): bool
     {
@@ -43,30 +43,19 @@ abstract class BaseInscripcionComponentePolicy
 
     public function create(Usuario $user, $parent = null): bool
     {
-        $contextId = $parent?->getContextId();
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'crear'), null, $contextId)) {
-            return true;
-        }
-
+        // 'componentes/inscripciones:crear' no existe en permissions_config.php; delega al hook/override
         return $this->customCreate($user, $parent);
     }
 
     public function update(Usuario $user, InscripcionComponente $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'editar'), $model)) {
-            return true;
-        }
-
+        // 'componentes/inscripciones:editar' no existe en permissions_config.php; delega al hook/override
         return $this->customUpdate($user, $model);
     }
 
     public function delete(Usuario $user, InscripcionComponente $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'eliminar'), $model)) {
-            return true;
-        }
-
+        // 'componentes/inscripciones:eliminar' no existe en permissions_config.php; delega al hook/override
         return $this->customDelete($user, $model);
     }
 }
