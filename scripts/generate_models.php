@@ -720,12 +720,9 @@ foreach ($contextConfig['global'] ?? [] as $tableKey) {
   $modelsWithContext[$tableKey] = 'global';
 }
 
-// Cargar mappings generados con rutas y métodos (para scopes jerárquicos)
+// NOTA: $contextMappings se calcula en memoria tras recolectar $tableRelationMappings
+// de todas las tablas (PASO 4.13), antes de escribir los Base Models en disco.
 $contextMappings = [];
-$contextMappingsPath = config_path('generated-context-mappings.php');
-if (file_exists($contextMappingsPath)) {
-  $contextMappings = include $contextMappingsPath;
-}
 
 // ==================================================================================
 // SECCIÓN: FUNCIONES HELPER PARA DETECCIÓN Y GENERACIÓN DE ENUMs
@@ -1492,6 +1489,7 @@ $modelSummary = [];
 // Ejemplo: 'utamed.Curso.Seccion' (no 'utamed.Curso.seccion')
 // Se popula mientras se generan las relaciones
 $tableRelationMappings = [];
+$pendingBaseModels = [];
 
 foreach ($tables as $tableInfo) {
   $schema = $tableInfo->table_schema;
@@ -2731,80 +2729,13 @@ EOL;
   }
 
   // ==================================================================================
-  // PASO 4.10.5: GENERAR SCOPE JERARQUICO (SOLO SI APLICA)
-  // ==================================================================================
-  $contextScopeMethods = '';
-  if ($implementsContext) {
-    // Construir clave para buscar en contextMappings: Schema\ModelName
-    $modelKey = "{$schemaName}\\{$className}";
-    $mapping = $contextMappings[$modelKey] ?? null;
-
-    if ($verbose) {
-      if ($mapping) {
-        echo "  DEBUG: Encontrado mapping para {$modelKey}, tipo: " . ($mapping['type'] ?? 'unknown') . "\n";
-      } else {
-        echo "  DEBUG: No encontrado mapping para {$modelKey}\n";
-      }
-    }
-
-    if ($mapping && ($mapping['type'] ?? null) === 'hierarchical') {
-      $paths = [];
-      foreach ($mapping['paths'] as $path) {
-        $methods = [];
-        foreach ($path as $step) {
-          if (!empty($step['method'])) {
-            $methods[] = $step['method'];
-          }
-        }
-        if (!empty($methods)) {
-          $paths[] = $methods;
-        }
-      }
-
-      $contextColumn = $contextConfig['context_column'] ?? $contextColumn;
-      $contextScopeMethods = buildContextHierarchyScopeMethod($paths, $contextColumn);
-    }
-  }
-
-  // ==================================================================================
-  // PASO 4.11: GENERAR ARCHIVO BASE MODEL (Sobrescribible)
+  // PASO 4.11: PREPARAR PLANTILLA DE ARCHIVO BASE MODEL (Sobrescribible)
   // ==================================================================================
   //
-  // OBJETIVO: Crear clase abstracta Base con toda la configuración auto-generada
-  //
-  // ESTRUCTURA:
-  // - Namespace: App\Models\Base\{Schema}
-  // - Nombre: Base{ClassName} (ej: BaseFacultad)
-  // - Tipo: abstract class (no instanciable directamente)
-  // - Extiende: Illuminate\Database\Eloquent\Model
-  //
-  // CONTENIDO:
-  // 1. Configuración de conexión y tabla
-  // 2. Clave primaria y auto-incremento
-  // 3. Trait SoftDeletes (si tiene fecha_eliminacion)
-  // 4. Configuración de timestamps
-  // 5. Array $fillable
-  // 6. Métodos de relaciones (belongsTo, hasMany)
-  // 7. Const DELETED_AT (si tiene soft deletes)
-  //
-  // REGENERACIÓN:
-  // - Este archivo SE SOBRESCRIBE en cada ejecución
-  // - NO agregar código personalizado aquí
-  // - Advertencia clara en PHPDoc
-  //
-  // RAZÓN DE SER ABSTRACTA:
-  // - Fuerza a usar la clase extendida (Facultad.php)
-  // - Evita instanciación accidental de la clase base
-  // - Patrón de diseño Template Method
-  //
-  // SOFT DELETES (si la tabla tiene fecha_eliminacion):
-  // - Usa trait SoftDeletes de Laravel
-  // - Mapea DELETED_AT a fecha_eliminacion
-  // - Filtrado automático de registros eliminados en queries
-  //
-  // VISTAS (table_type = 'VIEW'):
-  // - NO incluyen $primaryKey, $incrementing, $fillable
-  // - Son modelos read-only, no soportan mass assignment
+  // OBJETIVO: Preparar la clase abstracta Base con toda la configuración auto-generada.
+  // La escritura en disco e inyección de scopeWhereContextHierarchy() se realiza en
+  // PASO 4.13 una vez que $tableRelationMappings y $contextMappings están completos
+  // para todas las tablas en una sola pasada.
   // ==================================================================================
 
   // Generar propiedades condicionales para vistas
@@ -2893,8 +2824,8 @@ EOL;
     ? "{$tab}protected \$hidden = [\n{$hiddenEntries}\n{$tab}];\n\n"
     : '';
 
-  // Generar Base Model
-  $baseContent = <<<PHP
+  // Plantilla Base Model (con placeholder para scope jerárquico)
+  $baseContentTemplate = <<<PHP
 <?php
 
 namespace {$baseModelNamespace}\\{$schemaName};
@@ -2910,16 +2841,17 @@ abstract class Base{$className} extends CustomBaseModel{$implementsClause}
 {$allTraitsAndConsts}{$typedPropertiesLine}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
 {$primaryKeyLine}{$incrementingLine}
-{$fillableLine}{$hiddenLine}{$castsLine}{$relations}{$contextScopeMethods}
+{$fillableLine}{$hiddenLine}{$castsLine}{$relations}{{CONTEXT_SCOPE_METHODS}}
 }
 
 PHP;
 
-  if (!$dryRun) {
-    file_put_contents($baseModelPath, $baseContent);
-  } else {
-    echo "    [DRY-RUN] Base model: " . relativePath($baseModelPath, $projectRoot) . "\n";
-  }
+  $pendingBaseModels[] = [
+    'modelKey'          => "{$schemaName}\\{$className}",
+    'implementsContext' => $implementsContext,
+    'path'              => $baseModelPath,
+    'template'          => $baseContentTemplate,
+  ];
 
   // ==================================================================================
   // PASO 4.12: GENERAR MODELO EXTENDIDO (Solo si no existe)
@@ -3006,6 +2938,196 @@ PHP;
     'class' => $className,
     'methods' => $modelMethods,
   ];
+}
+
+// ==================================================================================
+// PASO 4.13: CALCULAR CONTEXT MAPPINGS Y ESCRIBIR BASE MODELS
+// ==================================================================================
+//
+// OBJETIVO: Con $tableRelationMappings completo para todas las tablas, calcular
+// $contextMappings en una sola pasada, persistir config/generated-context-mappings.php
+// e inyectar scopeWhereContextHierarchy() en cada Base Model antes de escribirlo.
+// ==================================================================================
+
+echo "\n" . color("Generando context mappings...", 'bold') . "\n";
+
+$contextConfigPath = config_path('generated-context-mappings.php');
+
+// Construir índices para contextos jerárquicos:
+// 1. table_name -> schema.tabla (formato minúsculas para tableRelationMappings)
+// 2. ModelName -> table_name (para conversión inversa)
+$tableNameToFullKey = [];
+$modelNameToTableName = [];
+foreach ($tables as $t) {
+  $modelName = Str::studly($t->table_name);
+  $tableNameToFullKey[$t->table_name] = $t->table_schema . '.' . $t->table_name;
+  $modelNameToTableName[$modelName] = $t->table_name;
+}
+
+$contextMappings = [];
+
+// Agregar contextos 'direct'
+foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $schemaName . '\\' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+
+  $contextMappings[$modelKeyFormatted] = [
+    'type' => 'direct',
+    'paths' => []
+  ];
+}
+
+// Agregar contextos 'global' (lista indexada de schema.tabla)
+foreach ($contextConfig['global'] ?? [] as $modelKey) {
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $schemaName . '\\' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+
+  $contextMappings[$modelKeyFormatted] = [
+    'type' => 'global',
+    'paths' => []
+  ];
+}
+
+// Procesar contextos 'hierarchical'
+foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
+  $mapping = [
+    'type' => 'hierarchical',
+    'paths' => []
+  ];
+
+  $configPathsArray = is_array($configPaths) ? $configPaths : [$configPaths];
+
+  foreach ($configPathsArray as $pathConfig) {
+    $pathSteps = [];
+    $path = is_array($pathConfig) ? $pathConfig : [$pathConfig];
+
+    $currentTableKey = $modelKey;
+    $pathValid = true;
+
+    foreach ($path as $stepIdx => $targetTableName) {
+      $tableNamePart = str_contains($targetTableName, '.') ? explode('.', $targetTableName, 2)[1] : $targetTableName;
+      $foundMethodName = null;
+      $targetTableFullKey = null;
+
+      if (isset($tableRelationMappings[$currentTableKey]['methods'])) {
+        foreach ($tableRelationMappings[$currentTableKey]['methods'] as $methodName => $targetModel) {
+          $expectedModel = Str::studly($tableNamePart);
+          if ($targetModel === $expectedModel) {
+            $foundMethodName = $methodName;
+            $actualTableName = $modelNameToTableName[$targetModel] ?? $targetTableName;
+            $targetTableFullKey = $tableNameToFullKey[$actualTableName] ?? null;
+            break;
+          }
+        }
+      }
+
+      if ($foundMethodName === null) {
+        echo color("  ⚠ {$modelKey}: No encontrado método hacia {$targetTableName} desde {$currentTableKey}\n", 'yellow');
+        $pathValid = false;
+        break;
+      }
+
+      if ($targetTableFullKey === null) {
+        echo color("  ⚠ {$modelKey}: Tabla {$targetTableName} no encontrada en el esquema\n", 'yellow');
+        $pathValid = false;
+        break;
+      }
+
+      $pathSteps[] = [
+        'target' => Str::studly($tableNamePart),
+        'method' => $foundMethodName
+      ];
+
+      $currentTableKey = $targetTableFullKey;
+    }
+
+    if ($pathValid) {
+      $mapping['paths'][] = $pathSteps;
+      echo color("  ✓ {$modelKey}: Path válido → " . implode(' → ', array_column($pathSteps, 'target')) . "\n", 'green');
+    }
+  }
+
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $schemaName . '\\' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+
+  $contextMappings[$modelKeyFormatted] = $mapping;
+}
+
+// Guardar como archivo PHP en config/
+if (!$dryRun) {
+  $phpContent = "<?php\n\nreturn " . var_export($contextMappings, true) . ";\n";
+
+  if (file_put_contents($contextConfigPath, $phpContent)) {
+    echo color("✓ Context mappings guardados en: " . relativePath($contextConfigPath, $projectRoot) . "\n", 'green');
+  } else {
+    echo color("⚠ Error al guardar context mappings\n", 'red');
+  }
+} else {
+  echo "[DRY-RUN] Context mappings: " . relativePath($contextConfigPath, $projectRoot) . "\n";
+}
+
+// Escribir Base Models con los scopes jerárquicos ya resueltos en la misma pasada
+$resolvedContextColumn = $contextConfig['context_column'] ?? $contextColumn;
+foreach ($pendingBaseModels as $pending) {
+  $contextScopeMethods = '';
+  if ($pending['implementsContext']) {
+    $modelKey = $pending['modelKey'];
+    $mapping = $contextMappings[$modelKey] ?? null;
+
+    if ($verbose) {
+      if ($mapping) {
+        echo "  DEBUG: Encontrado mapping para {$modelKey}, tipo: " . ($mapping['type'] ?? 'unknown') . "\n";
+      } else {
+        echo "  DEBUG: No encontrado mapping para {$modelKey}\n";
+      }
+    }
+
+    if ($mapping && ($mapping['type'] ?? null) === 'hierarchical') {
+      $paths = [];
+      foreach ($mapping['paths'] as $path) {
+        $methods = [];
+        foreach ($path as $step) {
+          if (!empty($step['method'])) {
+            $methods[] = $step['method'];
+          }
+        }
+        if (!empty($methods)) {
+          $paths[] = $methods;
+        }
+      }
+
+      $contextScopeMethods = buildContextHierarchyScopeMethod($paths, $resolvedContextColumn);
+    }
+  }
+
+  $baseContent = str_replace('{{CONTEXT_SCOPE_METHODS}}', $contextScopeMethods, $pending['template']);
+
+  if (!$dryRun) {
+    file_put_contents($pending['path'], $baseContent);
+  } else {
+    echo "    [DRY-RUN] Base model: " . relativePath($pending['path'], $projectRoot) . "\n";
+  }
 }
 
 // ==================================================================================
@@ -3828,183 +3950,6 @@ SECTION;
     echo "    [DRY-RUN] Tipos detectados: " . implode(', ', $allContextTypes) . "\n";
   }
 }
-
-// ==================================================================================
-// GENERAR JSON DE CONTEXT MAPPINGS
-// ==================================================================================
-//
-// OBJETIVO: Procesar la configuración de contextos (config/context-hierarchies.php)
-// y cruzarla con las relaciones reales generadas en $tableRelationMappings
-//
-// RESULTADO: storage/app/context-mappings.json con las rutas de contextos
-// ==================================================================================
-
-echo "\n" . color("Generando context mappings...", 'bold') . "\n";
-
-$contextConfigPath = config_path('generated-context-mappings.php');
-$contextHierarchies = [];
-
-if (file_exists($contextConfigPath)) {
-  $contextHierarchies = include $contextConfigPath;
-  echo color("✓ Configuración de contextos cargada\n", 'green');
-} else {
-  echo color("⚠ Configuración de contextos no encontrada\n", 'yellow');
-}
-
-// Construir índices para contextos jerárquicos:
-// 1. table_name -> schema.tabla (formato minúsculas para tableRelationMappings)
-// 2. ModelName -> table_name (para conversión inversa)
-$tableNameToFullKey = [];
-$modelNameToTableName = [];
-foreach ($tables as $t) {
-  $modelName = Str::studly($t->table_name);
-  $tableNameToFullKey[$t->table_name] = $t->table_schema . '.' . $t->table_name;  // Usar formato minúsculas
-  $modelNameToTableName[$modelName] = $t->table_name;
-}
-
-// Procesar contextos jerárquicos
-$contextMappings = [];
-
-// Agregar contextos 'direct'
-foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
-  // Convertir clave a formato de modelo Laravel (Schema\ModelName)
-  // Formato entrada: 'administrativo.carrera' (2 partes)
-  $parts = explode('.', $modelKey);
-  if (count($parts) === 2) {
-    $schemaName = Str::studly($parts[0]); // administrativo -> Administrativo
-    $tableName = $parts[1];
-    $modelName = Str::studly($tableName); // carrera -> Carrera
-    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Administrativo\Carrera (var_export lo escapa)
-  } else {
-    // Fallback para formato antiguo de 3 partes
-    $modelKeyFormatted = $modelKey;
-  }
-
-  $contextMappings[$modelKeyFormatted] = [
-    'type' => 'direct',
-    'paths' => []
-  ];
-}
-
-// Agregar contextos 'global' (lista indexada de schema.tabla)
-foreach ($contextConfig['global'] ?? [] as $modelKey) {
-  $parts = explode('.', $modelKey);
-  if (count($parts) === 2) {
-    $schemaName = Str::studly($parts[0]); // usuario -> Usuario
-    $tableName = $parts[1];
-    $modelName = Str::studly($tableName); // estudiante -> Estudiante
-    $modelKeyFormatted = $schemaName . '\\' . $modelName;
-  } else {
-    $modelKeyFormatted = $modelKey;
-  }
-
-  $contextMappings[$modelKeyFormatted] = [
-    'type' => 'global',
-    'paths' => []
-  ];
-}
-
-// Procesar contextos 'hierarchical'
-foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
-  $mapping = [
-    'type' => 'hierarchical',
-    'paths' => []
-  ];
-
-  $configPathsArray = is_array($configPaths) ? $configPaths : [$configPaths];
-
-  // Por cada camino detectado...
-  foreach ($configPathsArray as $pathConfig) {
-    $pathSteps = [];
-    $path = is_array($pathConfig) ? $pathConfig : [$pathConfig];
-
-    // Seguir el path en las relaciones generadas
-    // $modelKey viene con formato schema.tabla (ej: 'administrativo.asignacion_plan')
-    // Este formato ya coincide con tableRelationMappings
-    $currentTableKey = $modelKey;
-    $pathValid = true;
-
-    // Por cada paso en el camino... (ej: ['Plan', 'Carrera', 'Departamento'])
-    foreach ($path as $stepIdx => $targetTableName) {
-      // targetTableName es schema.tabla completo (ej: 'administrativo.plan')
-      // Extraer solo el nombre de tabla para convertir a nombre de modelo
-      $tableNamePart = str_contains($targetTableName, '.') ? explode('.', $targetTableName, 2)[1] : $targetTableName;
-      $foundMethodName = null;
-      $targetTableFullKey = null;
-
-      if (isset($tableRelationMappings[$currentTableKey]['methods'])) {
-        foreach ($tableRelationMappings[$currentTableKey]['methods'] as $methodName => $targetModel) {
-          // targetModel es el nombre de modelo (ej: 'Plan')
-          $expectedModel = Str::studly($tableNamePart);
-          if ($targetModel === $expectedModel) {
-            $foundMethodName = $methodName;
-            // Convertir nombre de modelo a nombre de tabla, luego a clave completa
-            $actualTableName = $modelNameToTableName[$targetModel] ?? $targetTableName;
-            $targetTableFullKey = $tableNameToFullKey[$actualTableName] ?? null;
-            break;
-          }
-        }
-      }
-
-      if ($foundMethodName === null) {
-        // Método no encontrado, marcar path como inválido
-        echo color("  ⚠ {$modelKey}: No encontrado método hacia {$targetTableName} desde {$currentTableKey}\n", 'yellow');
-        $pathValid = false;
-        break;
-      }
-
-      if ($targetTableFullKey === null) {
-        // Tabla no encontrada en el índice, marcar path como inválido
-        echo color("  ⚠ {$modelKey}: Tabla {$targetTableName} no encontrada en el esquema\n", 'yellow');
-        $pathValid = false;
-        break;
-      }
-
-      // Agregar paso
-      $pathSteps[] = [
-        'target' => Str::studly($tableNamePart), // nombre de modelo (ej: 'Plan')
-        'method' => $foundMethodName
-      ];
-
-      // Actualizar clave para siguiente iteración
-      $currentTableKey = $targetTableFullKey;
-    }
-
-    if ($pathValid) {
-      $mapping['paths'][] = $pathSteps;
-      echo color("  ✓ {$modelKey}: Path válido → " . implode(' → ', array_column($pathSteps, 'target')) . "\n", 'green');
-    }
-  }
-
-  // Convertir clave a formato de modelo Laravel (Schema\ModelName) al guardar
-  $parts = explode('.', $modelKey);
-  if (count($parts) === 2) {
-    $schemaName = Str::studly($parts[0]); // administrativo -> Administrativo
-    $tableName = $parts[1];
-    $modelName = Str::studly($tableName); // carrera -> Carrera
-    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Administrativo\Carrera (var_export lo escapa)
-  } else {
-    // Fallback para formato antiguo de 3 partes
-    $modelKeyFormatted = $modelKey;
-  }
-
-  $contextMappings[$modelKeyFormatted] = $mapping;
-}
-
-// Guardar como archivo PHP en config/
-if (!$dryRun) {
-  $phpContent = "<?php\n\nreturn " . var_export($contextMappings, true) . ";\n";
-
-  if (file_put_contents($contextConfigPath, $phpContent)) {
-    echo color("✓ Context mappings guardados en: " . relativePath($contextConfigPath, $projectRoot) . "\n", 'green');
-  } else {
-    echo color("⚠ Error al guardar context mappings\n", 'red');
-  }
-} else {
-  echo "[DRY-RUN] Context mappings: " . relativePath($contextConfigPath, $projectRoot) . "\n";
-}
-
-echo "\n";
 
 // ==================================================================================
 // GENERAR ENUM ContextualModelType
