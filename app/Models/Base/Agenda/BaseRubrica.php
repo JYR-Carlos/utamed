@@ -53,4 +53,19 @@ abstract class BaseRubrica extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Agenda\Evaluacion::class, 'id_rubrica', 'id_rubrica');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: actividad
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('actividad', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+    }
 }

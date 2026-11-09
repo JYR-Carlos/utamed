@@ -70,4 +70,26 @@ abstract class BaseBibliografia extends CustomBaseModel implements HasOwnedConte
         return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo', 'uuid_archivo', 'archivo');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Paths múltiples detectados.
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('programa', function ($q) use ($contextIds) {
+                $q->whereHas('curso', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            })
+            ->orWhereHas('unidad', function ($q) use ($contextIds) {
+                $q->whereHas('curso', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            });
+    }
 }

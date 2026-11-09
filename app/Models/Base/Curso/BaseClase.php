@@ -28,7 +28,9 @@ abstract class BaseClase extends CustomBaseModel implements HasOwnedContext
         'dia',
         'hora_inicio',
         'hora_fin',
-        'id_componente'
+        'id_componente',
+        'asunto',
+        'descripcion'
     ];
 
     // Relaciones
@@ -46,4 +48,19 @@ abstract class BaseClase extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Curso\Asistencia::class, 'id_clase', 'id_clase');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: componente
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('componente', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+    }
 }

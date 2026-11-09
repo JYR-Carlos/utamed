@@ -47,4 +47,21 @@ abstract class BaseInteraccionMensaje extends CustomBaseModel implements HasOwne
         return new BelongsTo($instance->newQuery(), $this, 'id_usuario_lector', 'id_usuario', 'lector');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: mensaje
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('mensaje', function ($q) use ($contextIds) {
+                $q->whereHas('componente', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            });
+    }
 }

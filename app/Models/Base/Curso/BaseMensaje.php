@@ -71,4 +71,19 @@ abstract class BaseMensaje extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Curso\InteraccionMensaje::class, 'id_mensaje', 'id_mensaje');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: componente
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('componente', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+    }
 }

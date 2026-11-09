@@ -5,7 +5,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-uses(DatabaseTransactions::class);
+uses(Tests\TestCase::class, DatabaseTransactions::class);
 
 function migracionClaseYRefactorAsistencia(): object
 {

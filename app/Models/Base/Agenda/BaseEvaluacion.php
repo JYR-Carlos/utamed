@@ -61,7 +61,7 @@ abstract class BaseEvaluacion extends CustomBaseModel implements HasOwnedContext
     /**
      * Scope para filtrar por contexto jerárquico.
      * 
-     * Path: agenda
+     * Paths múltiples detectados.
      */
     public function scopeWhereContextHierarchy($query, array $contextIds)
     {
@@ -69,7 +69,12 @@ abstract class BaseEvaluacion extends CustomBaseModel implements HasOwnedContext
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereHas('agenda', function ($q) use ($contextIds) {
+        return $query->whereHas('rubrica', function ($q) use ($contextIds) {
+                $q->whereHas('actividad', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            })
+            ->orWhereHas('agenda', function ($q) use ($contextIds) {
                 $q->whereHas('actividadAsignadaGrupo', function ($q) use ($contextIds) {
                 $q->whereHas('actividad', function ($q) use ($contextIds) {
                 $q->whereIn('id_contexto', $contextIds);

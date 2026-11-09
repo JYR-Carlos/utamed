@@ -64,6 +64,11 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasOwnedContext
                 $q->whereIn('id_contexto', $contextIds);
             });
             })
+            ->orWhereHas('clase', function ($q) use ($contextIds) {
+                $q->whereHas('componente', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            })
             ->orWhereHas('inscripcionComponente', function ($q) use ($contextIds) {
                 $q->whereHas('estudiante', function ($q) use ($contextIds) {
                 $q->whereHas('carrera', function ($q) use ($contextIds) {

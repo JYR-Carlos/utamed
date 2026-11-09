@@ -60,4 +60,19 @@ abstract class BaseIntranetSincronizacionLog extends CustomBaseModel implements 
         return new BelongsTo($instance->newQuery(), $this, 'id_usuario_reversion', 'id_usuario', 'usuario1');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: curso
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('curso', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+    }
 }
