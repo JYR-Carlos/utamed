@@ -87,12 +87,12 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
         return $this->hasMany(\App\Models\Curso\InteraccionMensaje::class, 'id_usuario_lector', 'id_usuario');
     }
 
-    public function intranetSincronizacionLoges()
+    public function intranetSincronizacionLogs()
     {
         return $this->hasMany(\App\Models\Curso\IntranetSincronizacionLog::class, 'id_usuario', 'id_usuario');
     }
 
-    public function intranetSincronizacionLoges1()
+    public function intranetSincronizacionLogsRevertidos()
     {
         return $this->hasMany(\App\Models\Curso\IntranetSincronizacionLog::class, 'id_usuario_reversion', 'id_usuario');
     }

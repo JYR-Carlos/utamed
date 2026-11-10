@@ -98,7 +98,7 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Curso\InscripcionCurso::class, 'id_curso', 'id_curso');
     }
 
-    public function intranetSincronizacionLoges()
+    public function intranetSincronizacionLogs()
     {
         return $this->hasMany(\App\Models\Curso\IntranetSincronizacionLog::class, 'id_curso', 'id_curso');
     }

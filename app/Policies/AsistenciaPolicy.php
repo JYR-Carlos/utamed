@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Policies\Base\BaseAsistenciaPolicy;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\Asistencia;
+use App\Support\Permissions;
 
 /**
  * Policy personalizada para Asistencia.
@@ -17,5 +18,26 @@ use App\Models\Curso\Asistencia;
  */
 class AsistenciaPolicy extends BaseAsistenciaPolicy
 {
-    // Sobrescribir métodos customXXX() o CRUD según sea necesario
+    /**
+     * Patrón 3: Usa el verbo de dominio ':registrar' (en lugar de ':crear').
+     */
+    public function create(Usuario $user, $parent = null): bool
+    {
+        $contextId = $parent?->getContextId();
+
+        if ($this->validator()->validate($user, Permissions::COMPONENTES_ASISTENCIA_REGISTRAR, null, $contextId)) {
+            return true;
+        }
+
+        return $this->customCreate($user, $parent);
+    }
+
+    /**
+     * Patrón 3: Deshabilita el borrado individual de marcas de asistencia;
+     * la eliminación se gestiona a nivel de sesión (ClasePolicy::delete).
+     */
+    public function delete(Usuario $user, Asistencia $model): bool
+    {
+        return false;
+    }
 }

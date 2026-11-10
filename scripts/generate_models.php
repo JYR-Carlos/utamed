@@ -145,44 +145,47 @@ $baseModelNamespace = $extendedModelNamespace . '\\Base';
 //
 // OBJETIVO: Definir qué modelos tienen Base Policies autogeneradas
 //
-// ESTRUCTURA:
-// - namespace:  namespace completo del modelo Eloquent (para imports en la policy)
-// - class:      nombre de la clase del modelo
-// - resource:   slug del recurso para los permisos (prefijo del slug CRUD)
+// ESTRUCTURA COMPACTA:
+//   'schema.tabla' => 'recurso_permiso'
+//   - La clave 'schema.tabla' resuelve automáticamente namespace (App\Models\Schema)
+//     y clase (StudlyCase de tabla).
+//   - El valor 'recurso_permiso' es el prefijo en scripts/permissions_config.php.
+//   - Los verbos CRUD estándar (ver, crear, editar, eliminar) se contrastan contra
+//     permissions_config.php: si existen para el recurso se validan automáticamente;
+//     si no existen en el catálogo, delegan directo a customXXX() / override.
 //
 // BASE POLICIES: Se sobrescriben en cada ejecución  → app/Policies/Base/
 // EXTENDED STUBS: Solo se crean si no existen       → app/Policies/
 // ==================================================================================
 
-// Todo: mejorar formato de configuración de policies para evitar redundancia y no amigabilidad
-// (ej: inferir resource de la clase o usar un formato más compacto)
 $policyConfigs = [
   // ===== Administrativo =====
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Facultad', 'resource' => 'facultades'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Departamento', 'resource' => 'departamentos'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Carrera', 'resource' => 'carreras'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Plan', 'resource' => 'planes'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Asignatura', 'resource' => 'asignaturas'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'AsignacionPlan', 'resource' => 'asignaciones_plan'],
+  'administrativo.facultad'        => 'facultades',
+  'administrativo.departamento'    => 'departamentos',
+  'administrativo.carrera'         => 'carreras',
+  'administrativo.plan'            => 'carreras/planes',
+  'administrativo.asignatura'      => 'asignaturas',
+  'administrativo.asignacion_plan' => 'carreras/planes',
 
   // ===== Curso =====
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Programa', 'resource' => 'cursos/programas'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Curso', 'resource' => 'cursos'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Componente', 'resource' => 'cursos/componentes'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'DocenteComponente', 'resource' => 'cursos/docente_componentes'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionComponente', 'resource' => 'cursos/inscripciones_componente'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Unidad', 'resource' => 'cursos/unidades'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionCurso', 'resource' => 'inscripciones_curso'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Asistencia', 'resource' => 'cursos/asistencias'],
+  'curso.programa'               => 'cursos/programas',
+  'curso.curso'                  => 'cursos',
+  'curso.componente'             => 'componentes',
+  'curso.docente_componente'     => 'componentes/docentesColegiados',
+  'curso.inscripcion_componente' => 'componentes/inscripciones',
+  'curso.unidad'                 => 'cursos/unidades',
+  'curso.inscripcion_curso'      => 'cursos/inscripciones',
+  'curso.clase'                  => 'componentes/asistencia',
+  'curso.asistencia'             => 'componentes/asistencia',
 
   // ===== Usuario =====
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Usuario', 'resource' => 'usuarios'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Estudiante', 'resource' => 'usuarios/estudiantes'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Docente', 'resource' => 'usuarios/docentes'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Rol', 'resource' => 'roles'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'AsignacionRolPermiso', 'resource' => 'asignaciones_rol_permiso'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioRolAsignacion', 'resource' => 'usuario_rol_asignaciones'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioPermisoEspecial', 'resource' => 'usuario_permiso_especiales'],
+  'usuario.usuario'                  => 'usuarios',
+  'usuario.estudiante'               => 'usuarios',
+  'usuario.docente'                  => 'usuarios',
+  'usuario.rol'                      => 'usuarios/permisos/roles',
+  'usuario.asignacion_rol_permiso'   => 'usuarios/permisos/roles',
+  'usuario.usuario_rol_asignacion'   => 'usuarios/permisos/roles',
+  'usuario.usuario_permiso_especial' => 'usuarios/permisos/individuales',
 ];
 $policyDir = app_path('Policies');
 $basePolicyDir = $policyDir . '/Base';
@@ -374,6 +377,20 @@ $relationNames = [
     ],
     'usuario.docente' => [
       'agregado_por' => 'bibliografiasAgregadas', // hasMany en Docente
+    ],
+  ],
+
+  // curso.intranet_sincronizacion_log: usuario ejecutor, usuario que revierte y curso
+  'curso.intranet_sincronizacion_log' => [
+    '_self' => [
+      'id_usuario_reversion' => 'usuarioReversion', // belongsTo en IntranetSincronizacionLog
+    ],
+    'curso.curso' => [
+      'id_curso' => 'intranetSincronizacionLogs', // hasMany en Curso
+    ],
+    'usuario.usuario' => [
+      'id_usuario' => 'intranetSincronizacionLogs', // hasMany en Usuario: sincronizaciones ejecutadas
+      'id_usuario_reversion' => 'intranetSincronizacionLogsRevertidos', // hasMany en Usuario: sincronizaciones revertidas
     ],
   ],
 
@@ -717,12 +734,9 @@ foreach ($contextConfig['global'] ?? [] as $tableKey) {
   $modelsWithContext[$tableKey] = 'global';
 }
 
-// Cargar mappings generados con rutas y métodos (para scopes jerárquicos)
+// NOTA: $contextMappings se calcula en memoria tras recolectar $tableRelationMappings
+// de todas las tablas (PASO 4.13), antes de escribir los Base Models en disco.
 $contextMappings = [];
-$contextMappingsPath = config_path('generated-context-mappings.php');
-if (file_exists($contextMappingsPath)) {
-  $contextMappings = include $contextMappingsPath;
-}
 
 // ==================================================================================
 // SECCIÓN: FUNCIONES HELPER PARA DETECCIÓN Y GENERACIÓN DE ENUMs
@@ -1489,6 +1503,7 @@ $modelSummary = [];
 // Ejemplo: 'utamed.Curso.Seccion' (no 'utamed.Curso.seccion')
 // Se popula mientras se generan las relaciones
 $tableRelationMappings = [];
+$pendingBaseModels = [];
 
 foreach ($tables as $tableInfo) {
   $schema = $tableInfo->table_schema;
@@ -2728,80 +2743,13 @@ EOL;
   }
 
   // ==================================================================================
-  // PASO 4.10.5: GENERAR SCOPE JERARQUICO (SOLO SI APLICA)
-  // ==================================================================================
-  $contextScopeMethods = '';
-  if ($implementsContext) {
-    // Construir clave para buscar en contextMappings: Schema\ModelName
-    $modelKey = "{$schemaName}\\{$className}";
-    $mapping = $contextMappings[$modelKey] ?? null;
-
-    if ($verbose) {
-      if ($mapping) {
-        echo "  DEBUG: Encontrado mapping para {$modelKey}, tipo: " . ($mapping['type'] ?? 'unknown') . "\n";
-      } else {
-        echo "  DEBUG: No encontrado mapping para {$modelKey}\n";
-      }
-    }
-
-    if ($mapping && ($mapping['type'] ?? null) === 'hierarchical') {
-      $paths = [];
-      foreach ($mapping['paths'] as $path) {
-        $methods = [];
-        foreach ($path as $step) {
-          if (!empty($step['method'])) {
-            $methods[] = $step['method'];
-          }
-        }
-        if (!empty($methods)) {
-          $paths[] = $methods;
-        }
-      }
-
-      $contextColumn = $contextConfig['context_column'] ?? $contextColumn;
-      $contextScopeMethods = buildContextHierarchyScopeMethod($paths, $contextColumn);
-    }
-  }
-
-  // ==================================================================================
-  // PASO 4.11: GENERAR ARCHIVO BASE MODEL (Sobrescribible)
+  // PASO 4.11: PREPARAR PLANTILLA DE ARCHIVO BASE MODEL (Sobrescribible)
   // ==================================================================================
   //
-  // OBJETIVO: Crear clase abstracta Base con toda la configuración auto-generada
-  //
-  // ESTRUCTURA:
-  // - Namespace: App\Models\Base\{Schema}
-  // - Nombre: Base{ClassName} (ej: BaseFacultad)
-  // - Tipo: abstract class (no instanciable directamente)
-  // - Extiende: Illuminate\Database\Eloquent\Model
-  //
-  // CONTENIDO:
-  // 1. Configuración de conexión y tabla
-  // 2. Clave primaria y auto-incremento
-  // 3. Trait SoftDeletes (si tiene fecha_eliminacion)
-  // 4. Configuración de timestamps
-  // 5. Array $fillable
-  // 6. Métodos de relaciones (belongsTo, hasMany)
-  // 7. Const DELETED_AT (si tiene soft deletes)
-  //
-  // REGENERACIÓN:
-  // - Este archivo SE SOBRESCRIBE en cada ejecución
-  // - NO agregar código personalizado aquí
-  // - Advertencia clara en PHPDoc
-  //
-  // RAZÓN DE SER ABSTRACTA:
-  // - Fuerza a usar la clase extendida (Facultad.php)
-  // - Evita instanciación accidental de la clase base
-  // - Patrón de diseño Template Method
-  //
-  // SOFT DELETES (si la tabla tiene fecha_eliminacion):
-  // - Usa trait SoftDeletes de Laravel
-  // - Mapea DELETED_AT a fecha_eliminacion
-  // - Filtrado automático de registros eliminados en queries
-  //
-  // VISTAS (table_type = 'VIEW'):
-  // - NO incluyen $primaryKey, $incrementing, $fillable
-  // - Son modelos read-only, no soportan mass assignment
+  // OBJETIVO: Preparar la clase abstracta Base con toda la configuración auto-generada.
+  // La escritura en disco e inyección de scopeWhereContextHierarchy() se realiza en
+  // PASO 4.13 una vez que $tableRelationMappings y $contextMappings están completos
+  // para todas las tablas en una sola pasada.
   // ==================================================================================
 
   // Generar propiedades condicionales para vistas
@@ -2890,8 +2838,8 @@ EOL;
     ? "{$tab}protected \$hidden = [\n{$hiddenEntries}\n{$tab}];\n\n"
     : '';
 
-  // Generar Base Model
-  $baseContent = <<<PHP
+  // Plantilla Base Model (con placeholder para scope jerárquico)
+  $baseContentTemplate = <<<PHP
 <?php
 
 namespace {$baseModelNamespace}\\{$schemaName};
@@ -2907,16 +2855,17 @@ abstract class Base{$className} extends CustomBaseModel{$implementsClause}
 {$allTraitsAndConsts}{$typedPropertiesLine}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
 {$primaryKeyLine}{$incrementingLine}
-{$fillableLine}{$hiddenLine}{$castsLine}{$relations}{$contextScopeMethods}
+{$fillableLine}{$hiddenLine}{$castsLine}{$relations}{{CONTEXT_SCOPE_METHODS}}
 }
 
 PHP;
 
-  if (!$dryRun) {
-    file_put_contents($baseModelPath, $baseContent);
-  } else {
-    echo "    [DRY-RUN] Base model: " . relativePath($baseModelPath, $projectRoot) . "\n";
-  }
+  $pendingBaseModels[] = [
+    'modelKey'          => "{$schemaName}\\{$className}",
+    'implementsContext' => $implementsContext,
+    'path'              => $baseModelPath,
+    'template'          => $baseContentTemplate,
+  ];
 
   // ==================================================================================
   // PASO 4.12: GENERAR MODELO EXTENDIDO (Solo si no existe)
@@ -3003,6 +2952,196 @@ PHP;
     'class' => $className,
     'methods' => $modelMethods,
   ];
+}
+
+// ==================================================================================
+// PASO 4.13: CALCULAR CONTEXT MAPPINGS Y ESCRIBIR BASE MODELS
+// ==================================================================================
+//
+// OBJETIVO: Con $tableRelationMappings completo para todas las tablas, calcular
+// $contextMappings en una sola pasada, persistir config/generated-context-mappings.php
+// e inyectar scopeWhereContextHierarchy() en cada Base Model antes de escribirlo.
+// ==================================================================================
+
+echo "\n" . color("Generando context mappings...", 'bold') . "\n";
+
+$contextConfigPath = config_path('generated-context-mappings.php');
+
+// Construir índices para contextos jerárquicos:
+// 1. table_name -> schema.tabla (formato minúsculas para tableRelationMappings)
+// 2. ModelName -> table_name (para conversión inversa)
+$tableNameToFullKey = [];
+$modelNameToTableName = [];
+foreach ($tables as $t) {
+  $modelName = Str::studly($t->table_name);
+  $tableNameToFullKey[$t->table_name] = $t->table_schema . '.' . $t->table_name;
+  $modelNameToTableName[$modelName] = $t->table_name;
+}
+
+$contextMappings = [];
+
+// Agregar contextos 'direct'
+foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $schemaName . '\\' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+
+  $contextMappings[$modelKeyFormatted] = [
+    'type' => 'direct',
+    'paths' => []
+  ];
+}
+
+// Agregar contextos 'global' (lista indexada de schema.tabla)
+foreach ($contextConfig['global'] ?? [] as $modelKey) {
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $schemaName . '\\' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+
+  $contextMappings[$modelKeyFormatted] = [
+    'type' => 'global',
+    'paths' => []
+  ];
+}
+
+// Procesar contextos 'hierarchical'
+foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
+  $mapping = [
+    'type' => 'hierarchical',
+    'paths' => []
+  ];
+
+  $configPathsArray = is_array($configPaths) ? $configPaths : [$configPaths];
+
+  foreach ($configPathsArray as $pathConfig) {
+    $pathSteps = [];
+    $path = is_array($pathConfig) ? $pathConfig : [$pathConfig];
+
+    $currentTableKey = $modelKey;
+    $pathValid = true;
+
+    foreach ($path as $stepIdx => $targetTableName) {
+      $tableNamePart = str_contains($targetTableName, '.') ? explode('.', $targetTableName, 2)[1] : $targetTableName;
+      $foundMethodName = null;
+      $targetTableFullKey = null;
+
+      if (isset($tableRelationMappings[$currentTableKey]['methods'])) {
+        foreach ($tableRelationMappings[$currentTableKey]['methods'] as $methodName => $targetModel) {
+          $expectedModel = Str::studly($tableNamePart);
+          if ($targetModel === $expectedModel) {
+            $foundMethodName = $methodName;
+            $actualTableName = $modelNameToTableName[$targetModel] ?? $targetTableName;
+            $targetTableFullKey = $tableNameToFullKey[$actualTableName] ?? null;
+            break;
+          }
+        }
+      }
+
+      if ($foundMethodName === null) {
+        echo color("  ⚠ {$modelKey}: No encontrado método hacia {$targetTableName} desde {$currentTableKey}\n", 'yellow');
+        $pathValid = false;
+        break;
+      }
+
+      if ($targetTableFullKey === null) {
+        echo color("  ⚠ {$modelKey}: Tabla {$targetTableName} no encontrada en el esquema\n", 'yellow');
+        $pathValid = false;
+        break;
+      }
+
+      $pathSteps[] = [
+        'target' => Str::studly($tableNamePart),
+        'method' => $foundMethodName
+      ];
+
+      $currentTableKey = $targetTableFullKey;
+    }
+
+    if ($pathValid) {
+      $mapping['paths'][] = $pathSteps;
+      echo color("  ✓ {$modelKey}: Path válido → " . implode(' → ', array_column($pathSteps, 'target')) . "\n", 'green');
+    }
+  }
+
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $schemaName . '\\' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+
+  $contextMappings[$modelKeyFormatted] = $mapping;
+}
+
+// Guardar como archivo PHP en config/
+if (!$dryRun) {
+  $phpContent = "<?php\n\nreturn " . var_export($contextMappings, true) . ";\n";
+
+  if (file_put_contents($contextConfigPath, $phpContent)) {
+    echo color("✓ Context mappings guardados en: " . relativePath($contextConfigPath, $projectRoot) . "\n", 'green');
+  } else {
+    echo color("⚠ Error al guardar context mappings\n", 'red');
+  }
+} else {
+  echo "[DRY-RUN] Context mappings: " . relativePath($contextConfigPath, $projectRoot) . "\n";
+}
+
+// Escribir Base Models con los scopes jerárquicos ya resueltos en la misma pasada
+$resolvedContextColumn = $contextConfig['context_column'] ?? $contextColumn;
+foreach ($pendingBaseModels as $pending) {
+  $contextScopeMethods = '';
+  if ($pending['implementsContext']) {
+    $modelKey = $pending['modelKey'];
+    $mapping = $contextMappings[$modelKey] ?? null;
+
+    if ($verbose) {
+      if ($mapping) {
+        echo "  DEBUG: Encontrado mapping para {$modelKey}, tipo: " . ($mapping['type'] ?? 'unknown') . "\n";
+      } else {
+        echo "  DEBUG: No encontrado mapping para {$modelKey}\n";
+      }
+    }
+
+    if ($mapping && ($mapping['type'] ?? null) === 'hierarchical') {
+      $paths = [];
+      foreach ($mapping['paths'] as $path) {
+        $methods = [];
+        foreach ($path as $step) {
+          if (!empty($step['method'])) {
+            $methods[] = $step['method'];
+          }
+        }
+        if (!empty($methods)) {
+          $paths[] = $methods;
+        }
+      }
+
+      $contextScopeMethods = buildContextHierarchyScopeMethod($paths, $resolvedContextColumn);
+    }
+  }
+
+  $baseContent = str_replace('{{CONTEXT_SCOPE_METHODS}}', $contextScopeMethods, $pending['template']);
+
+  if (!$dryRun) {
+    file_put_contents($pending['path'], $baseContent);
+  } else {
+    echo "    [DRY-RUN] Base model: " . relativePath($pending['path'], $projectRoot) . "\n";
+  }
 }
 
 // ==================================================================================
@@ -3149,12 +3288,59 @@ if (!$dryRun && !is_dir($basePolicyDir)) {
   mkdir($basePolicyDir, 0755, true);
 }
 
-foreach ($policyConfigs as $pc) {
+// Normalizar $policyConfigs (soporta formato compacto 'schema.tabla' => 'resource' o array explícito)
+$normalizedPolicyConfigs = [];
+foreach ($policyConfigs as $key => $value) {
+  if (is_string($key) && is_string($value)) {
+    [$schemaPart, $tablePart] = explode('.', $key, 2);
+    $normalizedPolicyConfigs[] = [
+      'namespace' => $extendedModelNamespace . '\\' . Str::studly($schemaPart),
+      'class'     => Str::studly($tablePart),
+      'resource'  => $value,
+    ];
+  } elseif (is_array($value)) {
+    $normalizedPolicyConfigs[] = $value;
+  }
+}
+
+// Cargar catálogo de permisos para verificar qué acciones CRUD existen realmente en cada recurso
+$permissionsConfigPath = __DIR__ . '/permissions_config.php';
+$permDefs = file_exists($permissionsConfigPath) ? (include $permissionsConfigPath) : [];
+
+$flattenPerms = function (array $node, string $prefix = '') use (&$flattenPerms): array {
+  $slugs = [];
+  foreach ($node as $key => $value) {
+    if ($key === '_actions' || $key === '_parent_actions') {
+      foreach ($value as $action) {
+        $slugs[] = [$prefix, $action];
+      }
+    } elseif (str_starts_with($key, '_')) {
+      continue;
+    } elseif (is_array($value)) {
+      $child = $prefix ? "{$prefix}/{$key}" : $key;
+      $slugs = array_merge($slugs, $flattenPerms($value, $child));
+    }
+  }
+  return $slugs;
+};
+
+$allSlugs = !empty($permDefs) ? $flattenPerms($permDefs) : [];
+$slugsByResource = [];
+foreach ($allSlugs as [$res, $act]) {
+  $slugsByResource[$res][] = $act;
+}
+foreach ($slugsByResource as $res => $acts) {
+  sort($acts);
+  $slugsByResource[$res] = $acts;
+}
+
+foreach ($normalizedPolicyConfigs as $pc) {
   $className = $pc['class'];
   $modelNs = $pc['namespace'];
   $resource = $pc['resource'];
   $baseName = "Base{$className}Policy";
   $basePolicyPath = $basePolicyDir . "/{$baseName}.php";
+  $validActions = $slugsByResource[$resource] ?? [];
 
   // Evitar import duplicado si el modelo es Usuario del namespace Usuario
   $modelUseStatement = '';
@@ -3162,6 +3348,80 @@ foreach ($policyConfigs as $pc) {
   if ($modelFullPath !== 'App\\Models\\Usuario\\Usuario') {
     $modelUseStatement = "\nuse {$modelNs}\\{$className};";
   }
+
+  $hasVer = in_array('ver', $validActions, true);
+  $hasCrear = in_array('crear', $validActions, true);
+  $hasEditar = in_array('editar', $validActions, true);
+  $hasEliminar = in_array('eliminar', $validActions, true);
+
+  $viewAnyBody = $hasVer
+    ? <<<PHP
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'))) {
+            return true;
+        }
+
+        return \$this->customViewAny(\$user);
+PHP
+    : <<<PHP
+        // '{$resource}:ver' no existe en permissions_config.php; delega al hook/override
+        return \$this->customViewAny(\$user);
+PHP;
+
+  $viewBody = $hasVer
+    ? <<<PHP
+        \$contextId = \$this->resolveContextId(\$model);
+
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'), \$model, \$contextId)) {
+            return true;
+        }
+
+        return \$this->customView(\$user, \$model);
+PHP
+    : <<<PHP
+        // '{$resource}:ver' no existe en permissions_config.php; delega al hook/override
+        return \$this->customView(\$user, \$model);
+PHP;
+
+  $createBody = $hasCrear
+    ? <<<PHP
+        \$contextId = \$parent?->getContextId();
+
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'crear'), null, \$contextId)) {
+            return true;
+        }
+
+        return \$this->customCreate(\$user, \$parent);
+PHP
+    : <<<PHP
+        // '{$resource}:crear' no existe en permissions_config.php; delega al hook/override
+        return \$this->customCreate(\$user, \$parent);
+PHP;
+
+  $updateBody = $hasEditar
+    ? <<<PHP
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'editar'), \$model)) {
+            return true;
+        }
+
+        return \$this->customUpdate(\$user, \$model);
+PHP
+    : <<<PHP
+        // '{$resource}:editar' no existe en permissions_config.php; delega al hook/override
+        return \$this->customUpdate(\$user, \$model);
+PHP;
+
+  $deleteBody = $hasEliminar
+    ? <<<PHP
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'eliminar'), \$model)) {
+            return true;
+        }
+
+        return \$this->customDelete(\$user, \$model);
+PHP
+    : <<<PHP
+        // '{$resource}:eliminar' no existe en permissions_config.php; delega al hook/override
+        return \$this->customDelete(\$user, \$model);
+PHP;
 
   $content = <<<PHP
 <?php
@@ -3188,51 +3448,27 @@ abstract class {$baseName}
 
     public function viewAny(Usuario \$user): bool
     {
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'))) {
-            return true;
-        }
-
-        return \$this->customViewAny(\$user);
+{$viewAnyBody}
     }
 
     public function view(Usuario \$user, {$className} \$model): bool
     {
-        \$contextId = \$this->resolveContextId(\$model);
-
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'), \$model, \$contextId)) {
-            return true;
-        }
-
-        return \$this->customView(\$user, \$model);
+{$viewBody}
     }
 
     public function create(Usuario \$user, \$parent = null): bool
     {
-        \$contextId = \$parent?->getContextId();
-
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'crear'), null, \$contextId)) {
-            return true;
-        }
-
-        return \$this->customCreate(\$user, \$parent);
+{$createBody}
     }
 
     public function update(Usuario \$user, {$className} \$model): bool
     {
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'editar'), \$model)) {
-            return true;
-        }
-
-        return \$this->customUpdate(\$user, \$model);
+{$updateBody}
     }
 
     public function delete(Usuario \$user, {$className} \$model): bool
     {
-        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'eliminar'), \$model)) {
-            return true;
-        }
-
-        return \$this->customDelete(\$user, \$model);
+{$deleteBody}
     }
 }
 
@@ -3262,7 +3498,7 @@ if (!$dryRun && !is_dir($policyDir)) {
   mkdir($policyDir, 0755, true);
 }
 
-foreach ($policyConfigs as $pc) {
+foreach ($normalizedPolicyConfigs as $pc) {
   $className = $pc['class'];
   $modelNs = $pc['namespace'];
   $baseName = "Base{$className}Policy";
@@ -3328,7 +3564,7 @@ $modelImports = '';
 $policyImports = '';
 $policyArray = '';
 
-foreach ($policyConfigs as $pc) {
+foreach ($normalizedPolicyConfigs as $pc) {
   $class = $pc['class'];
   $modelNs = $pc['namespace'];
   $modelImports .= "use {$modelNs}\\{$class};\n";
@@ -3399,54 +3635,14 @@ if (!$dryRun) {
 
 echo color("Generando Permissions.php...\n", 'bold');
 
-$permissionsConfigPath = __DIR__ . '/permissions_config.php';
 $permissionsOutPath = app_path('Support/Permissions.php');
 
-if (!file_exists($permissionsConfigPath)) {
+if (empty($permDefs)) {
   echo color("  ⚠ No se encontró " . relativePath($permissionsConfigPath, $projectRoot) . " — saltando PASO 9\n", 'yellow');
 } else {
-  $permDefs = include $permissionsConfigPath;
-
-  // Aplanar el array anidado en pares [recurso, accion]
-  // Clave especial '_actions' lista las acciones en ese nivel
-  // Las demás claves son sub-recursos que se unen con '/'
-  $flattenPerms = function (array $node, string $prefix = '') use (&$flattenPerms): array {
-    $slugs = [];
-    foreach ($node as $key => $value) {
-      if ($key === '_actions' || $key === '_parent_actions') {
-        foreach ($value as $action) {
-          $slugs[] = [$prefix, $action];
-        }
-      } elseif (str_starts_with($key, '_')) {
-        // Skip other special keys (_valid_context, _valid_parent_context, etc.)
-        continue;
-      } elseif (is_array($value)) {
-        $child = $prefix ? "{$prefix}/{$key}" : $key;
-        $slugs = array_merge($slugs, $flattenPerms($value, $child));
-      }
-    }
-    return $slugs;
-  };
-
-  $allSlugs = $flattenPerms($permDefs);
   $constants = '';
 
-  // Agrupar permisos por su prefijo de recurso
-  $slugsByResource = [];
-  foreach ($allSlugs as [$resource, $action]) {
-    if (!isset($slugsByResource[$resource])) {
-      $slugsByResource[$resource] = [];
-    }
-    $slugsByResource[$resource][] = $action;
-  }
-
-  // Ordenar cada categoría alfabéticamente
-  foreach ($slugsByResource as $resource => $actions) {
-    sort($actions);
-    $slugsByResource[$resource] = $actions;
-  }
-
-  // Obtener todos los recursos únicos
+  // Obtener todos los recursos únicos (precalculados en PASO 6)
   $allResources = array_keys($slugsByResource);
 
   // Función auxiliar para procesar un prefijo y sus descendientes recursivamente
@@ -3768,183 +3964,6 @@ SECTION;
     echo "    [DRY-RUN] Tipos detectados: " . implode(', ', $allContextTypes) . "\n";
   }
 }
-
-// ==================================================================================
-// GENERAR JSON DE CONTEXT MAPPINGS
-// ==================================================================================
-//
-// OBJETIVO: Procesar la configuración de contextos (config/context-hierarchies.php)
-// y cruzarla con las relaciones reales generadas en $tableRelationMappings
-//
-// RESULTADO: storage/app/context-mappings.json con las rutas de contextos
-// ==================================================================================
-
-echo "\n" . color("Generando context mappings...", 'bold') . "\n";
-
-$contextConfigPath = config_path('generated-context-mappings.php');
-$contextHierarchies = [];
-
-if (file_exists($contextConfigPath)) {
-  $contextHierarchies = include $contextConfigPath;
-  echo color("✓ Configuración de contextos cargada\n", 'green');
-} else {
-  echo color("⚠ Configuración de contextos no encontrada\n", 'yellow');
-}
-
-// Construir índices para contextos jerárquicos:
-// 1. table_name -> schema.tabla (formato minúsculas para tableRelationMappings)
-// 2. ModelName -> table_name (para conversión inversa)
-$tableNameToFullKey = [];
-$modelNameToTableName = [];
-foreach ($tables as $t) {
-  $modelName = Str::studly($t->table_name);
-  $tableNameToFullKey[$t->table_name] = $t->table_schema . '.' . $t->table_name;  // Usar formato minúsculas
-  $modelNameToTableName[$modelName] = $t->table_name;
-}
-
-// Procesar contextos jerárquicos
-$contextMappings = [];
-
-// Agregar contextos 'direct'
-foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
-  // Convertir clave a formato de modelo Laravel (Schema\ModelName)
-  // Formato entrada: 'administrativo.carrera' (2 partes)
-  $parts = explode('.', $modelKey);
-  if (count($parts) === 2) {
-    $schemaName = Str::studly($parts[0]); // administrativo -> Administrativo
-    $tableName = $parts[1];
-    $modelName = Str::studly($tableName); // carrera -> Carrera
-    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Administrativo\Carrera (var_export lo escapa)
-  } else {
-    // Fallback para formato antiguo de 3 partes
-    $modelKeyFormatted = $modelKey;
-  }
-
-  $contextMappings[$modelKeyFormatted] = [
-    'type' => 'direct',
-    'paths' => []
-  ];
-}
-
-// Agregar contextos 'global' (lista indexada de schema.tabla)
-foreach ($contextConfig['global'] ?? [] as $modelKey) {
-  $parts = explode('.', $modelKey);
-  if (count($parts) === 2) {
-    $schemaName = Str::studly($parts[0]); // usuario -> Usuario
-    $tableName = $parts[1];
-    $modelName = Str::studly($tableName); // estudiante -> Estudiante
-    $modelKeyFormatted = $schemaName . '\\' . $modelName;
-  } else {
-    $modelKeyFormatted = $modelKey;
-  }
-
-  $contextMappings[$modelKeyFormatted] = [
-    'type' => 'global',
-    'paths' => []
-  ];
-}
-
-// Procesar contextos 'hierarchical'
-foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
-  $mapping = [
-    'type' => 'hierarchical',
-    'paths' => []
-  ];
-
-  $configPathsArray = is_array($configPaths) ? $configPaths : [$configPaths];
-
-  // Por cada camino detectado...
-  foreach ($configPathsArray as $pathConfig) {
-    $pathSteps = [];
-    $path = is_array($pathConfig) ? $pathConfig : [$pathConfig];
-
-    // Seguir el path en las relaciones generadas
-    // $modelKey viene con formato schema.tabla (ej: 'administrativo.asignacion_plan')
-    // Este formato ya coincide con tableRelationMappings
-    $currentTableKey = $modelKey;
-    $pathValid = true;
-
-    // Por cada paso en el camino... (ej: ['Plan', 'Carrera', 'Departamento'])
-    foreach ($path as $stepIdx => $targetTableName) {
-      // targetTableName es schema.tabla completo (ej: 'administrativo.plan')
-      // Extraer solo el nombre de tabla para convertir a nombre de modelo
-      $tableNamePart = str_contains($targetTableName, '.') ? explode('.', $targetTableName, 2)[1] : $targetTableName;
-      $foundMethodName = null;
-      $targetTableFullKey = null;
-
-      if (isset($tableRelationMappings[$currentTableKey]['methods'])) {
-        foreach ($tableRelationMappings[$currentTableKey]['methods'] as $methodName => $targetModel) {
-          // targetModel es el nombre de modelo (ej: 'Plan')
-          $expectedModel = Str::studly($tableNamePart);
-          if ($targetModel === $expectedModel) {
-            $foundMethodName = $methodName;
-            // Convertir nombre de modelo a nombre de tabla, luego a clave completa
-            $actualTableName = $modelNameToTableName[$targetModel] ?? $targetTableName;
-            $targetTableFullKey = $tableNameToFullKey[$actualTableName] ?? null;
-            break;
-          }
-        }
-      }
-
-      if ($foundMethodName === null) {
-        // Método no encontrado, marcar path como inválido
-        echo color("  ⚠ {$modelKey}: No encontrado método hacia {$targetTableName} desde {$currentTableKey}\n", 'yellow');
-        $pathValid = false;
-        break;
-      }
-
-      if ($targetTableFullKey === null) {
-        // Tabla no encontrada en el índice, marcar path como inválido
-        echo color("  ⚠ {$modelKey}: Tabla {$targetTableName} no encontrada en el esquema\n", 'yellow');
-        $pathValid = false;
-        break;
-      }
-
-      // Agregar paso
-      $pathSteps[] = [
-        'target' => Str::studly($tableNamePart), // nombre de modelo (ej: 'Plan')
-        'method' => $foundMethodName
-      ];
-
-      // Actualizar clave para siguiente iteración
-      $currentTableKey = $targetTableFullKey;
-    }
-
-    if ($pathValid) {
-      $mapping['paths'][] = $pathSteps;
-      echo color("  ✓ {$modelKey}: Path válido → " . implode(' → ', array_column($pathSteps, 'target')) . "\n", 'green');
-    }
-  }
-
-  // Convertir clave a formato de modelo Laravel (Schema\ModelName) al guardar
-  $parts = explode('.', $modelKey);
-  if (count($parts) === 2) {
-    $schemaName = Str::studly($parts[0]); // administrativo -> Administrativo
-    $tableName = $parts[1];
-    $modelName = Str::studly($tableName); // carrera -> Carrera
-    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Administrativo\Carrera (var_export lo escapa)
-  } else {
-    // Fallback para formato antiguo de 3 partes
-    $modelKeyFormatted = $modelKey;
-  }
-
-  $contextMappings[$modelKeyFormatted] = $mapping;
-}
-
-// Guardar como archivo PHP en config/
-if (!$dryRun) {
-  $phpContent = "<?php\n\nreturn " . var_export($contextMappings, true) . ";\n";
-
-  if (file_put_contents($contextConfigPath, $phpContent)) {
-    echo color("✓ Context mappings guardados en: " . relativePath($contextConfigPath, $projectRoot) . "\n", 'green');
-  } else {
-    echo color("⚠ Error al guardar context mappings\n", 'red');
-  }
-} else {
-  echo "[DRY-RUN] Context mappings: " . relativePath($contextConfigPath, $projectRoot) . "\n";
-}
-
-echo "\n";
 
 // ==================================================================================
 // GENERAR ENUM ContextualModelType

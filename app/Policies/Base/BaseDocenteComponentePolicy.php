@@ -19,7 +19,7 @@ abstract class BaseDocenteComponentePolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'cursos/docente_componentes';
+    protected string $resource = 'componentes/docentesColegiados';
 
     public function viewAny(Usuario $user): bool
     {
@@ -43,21 +43,13 @@ abstract class BaseDocenteComponentePolicy
 
     public function create(Usuario $user, $parent = null): bool
     {
-        $contextId = $parent?->getContextId();
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'crear'), null, $contextId)) {
-            return true;
-        }
-
+        // 'componentes/docentesColegiados:crear' no existe en permissions_config.php; delega al hook/override
         return $this->customCreate($user, $parent);
     }
 
     public function update(Usuario $user, DocenteComponente $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'editar'), $model)) {
-            return true;
-        }
-
+        // 'componentes/docentesColegiados:editar' no existe en permissions_config.php; delega al hook/override
         return $this->customUpdate($user, $model);
     }
 

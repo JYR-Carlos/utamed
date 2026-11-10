@@ -19,7 +19,7 @@ abstract class BaseAsistenciaPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'cursos/asistencias';
+    protected string $resource = 'componentes/asistencia';
 
     public function viewAny(Usuario $user): bool
     {
@@ -43,12 +43,7 @@ abstract class BaseAsistenciaPolicy
 
     public function create(Usuario $user, $parent = null): bool
     {
-        $contextId = $parent?->getContextId();
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'crear'), null, $contextId)) {
-            return true;
-        }
-
+        // 'componentes/asistencia:crear' no existe en permissions_config.php; delega al hook/override
         return $this->customCreate($user, $parent);
     }
 

@@ -62,10 +62,7 @@ abstract class BaseUsuarioPolicy
 
     public function delete(Usuario $user, Usuario $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'eliminar'), $model)) {
-            return true;
-        }
-
+        // 'usuarios:eliminar' no existe en permissions_config.php; delega al hook/override
         return $this->customDelete($user, $model);
     }
 }

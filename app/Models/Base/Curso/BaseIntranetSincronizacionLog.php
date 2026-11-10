@@ -54,10 +54,10 @@ abstract class BaseIntranetSincronizacionLog extends CustomBaseModel implements 
         return new BelongsTo($instance->newQuery(), $this, 'id_usuario', 'id_usuario', 'usuario');
     }
 
-    public function usuario1()
+    public function usuarioReversion()
     {
         $instance = new \App\Models\Usuario\Usuario();
-        return new BelongsTo($instance->newQuery(), $this, 'id_usuario_reversion', 'id_usuario', 'usuario1');
+        return new BelongsTo($instance->newQuery(), $this, 'id_usuario_reversion', 'id_usuario', 'usuarioReversion');
     }
 
     /**
