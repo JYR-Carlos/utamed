@@ -171,7 +171,7 @@ cambian.
 - Los componentes compartidos con el docente se ajustan con la variante `alumno:`, que sólo aplica dentro de
   `.vista-alumno` (StudentLayout).
 - Las piezas propias de la guía están en `resources/js/components/student/dm/`: `Reticula`, `EstadoVacio` y
-  `ModalAlumno` (Dialog de bits-ui con las variantes grande, centro y lateral).
+  `ModalAlumno` (Dialog de bits-ui con las variantes grande y centro; la lateral se fue con la rúbrica en ventana).
 - `RequisitosPassword` suma el tono `dm`; los tonos claro y oscuro de ingreso y ajustes no cambian.
 
 **Cambios de backend (mínimos)**
@@ -187,7 +187,6 @@ cambian.
   asunto sólo se pide al abrir una conversación nueva.
 - **Actividad:** no existe la numeración «Actividad 03» ni una columna de descripción. La rúbrica sólo aparece en las
   sumativas.
-- **Rúbrica:** no muestra la nota, porque el detalle que recibe el panel no la trae.
 - **Perfil:** la cabecera dice «N cursos inscritos» y no «este semestre», porque `total_cursos` cuenta todas las
   inscripciones vigentes.
 - **Actividad sin grupo:** «Escribir al equipo docente» lleva a la pestaña Mensajería del curso.
@@ -284,11 +283,73 @@ Portada (`Welcome.svelte`) y login (`auth/Login.svelte`) en Svelte, tarjeta RED-
 - **Riesgo que queda:** un RUT inexistente responde algo más rápido que una contraseña errónea, porque no llega a
   comparar el hash. Para cerrar esa vía habría que comparar contra un hash ficticio.
 
+## Modo oscuro «Grafito cálido»
+
+Elegido el 2026-11-10 entre las propuestas de la hoja «Modo oscuro · propuestas» del lienzo. Reemplaza al oscuro azul
+noche sólo en lo rediseñado: el alumno, la portada y el login. Docente, jefe y admin siguen con su oscuro de siempre
+(`tema-oscuro.css`) hasta tener su propio diseño.
+
+- **Dónde vive:** los valores oscuros de `resources/css/guia-dm.css`, bajo `.dark`. Las clases `dm-*` no cambian.
+- **Paleta:** superficies tibias (página #23211E, tarjeta #2C2A26, elevada #36332E), texto #EEE8DC / #C4BCAD /
+  #ABA394, líneas #433F38 y amarillo #F2C14E. La acción pasa a lavanda (#B2C0F5) con texto oscuro encima (#1D1F2E).
+  Los estados y los ocho colores de curso tienen su versión suave para fondo oscuro.
+- **Tokens nuevos** (con valor claro igual al que estaba fijo en el marcado):
+  - `dm-lat`: el menú lateral y la barra móvil. En claro es el mismo noche; en oscuro, #1C1B19, más hondo que las
+    cabeceras (#332F2A).
+  - `dm-noche-avatar`: el disco de la foto en Mi perfil.
+  - `dm-sobre-amarillo`: el texto sobre amarillo («Nivel asignado», el día de hoy en el calendario, el plazo de la
+    cabecera).
+  - `dm-reticula`: la retícula de las cabeceras, más tenue en oscuro. En el ingreso sigue blanca, porque el degradado
+    de marca no cambia con el tema.
+- **Contraste:** todos los pares de texto pasan AA. Por ejemplo, ink-3 sobre elevada da 5,03. El gris de control
+  (#8A8376) sólo se usa en bordes.
+
+## Actividad del alumno con pestañas
+
+La propuesta aprobada el 2026-10-28, implementada en la tarjeta RED-IMP-01b. El lienzo tiene los tableros «Actividad
+por entregar · pestañas» y «Actividad calificada · pestañas», a 1440 y 390 px. Las versiones anteriores quedaron en la
+página «Actividad · versiones anteriores».
+
+- **Estructura:** una sola tarjeta. La cabecera noche lleva abajo las pestañas; la elegida toma el color de la tarjeta
+  y se funde con el panel.
+  - Escritorio: Enunciado · Rúbrica · Agenda. La nota, la entrega, el grupo y los detalles quedan fijos en la
+    columna derecha.
+  - Móvil: Enunciado · Rúbrica · Entrega · Agenda. La columna derecha pasa a la pestaña Entrega.
+- **URL:** la pestaña viaja en `?seccion=`, como en la ficha del curso, sin pedir nada al servidor.
+  - Sin `seccion`, la actividad por entregar abre en Enunciado y la calificada en la rúbrica evaluada. Si no hay
+    rúbrica evaluada, abre donde está la nota.
+  - `?abrir=agenda` (el enlace del dashboard) abre la pestaña Agenda y la ventana de la conversación.
+- **Cabecera:** suma una píldora amarilla con lo más urgente: el plazo mientras falta entregar y la nota después.
+- **Rúbrica:** deja de ser un panel lateral y pasa a su pestaña (`RubricaAlumno`), igual antes y después de evaluar.
+  «Ver rúbrica» en una evaluación de la agenda cambia a esa pestaña con esa evaluación. Al elegir la pestaña a mano
+  vuelve la última evaluación.
+- **Agenda:** la pestaña muestra lo último del hilo: mensajes, entregas y evaluaciones, con «Ver en la rúbrica». Para
+  leer todo y escribir se abre la ventana de siempre, que es la que marca «Visto».
+- **Accesibilidad:** patrón ARIA de pestañas (`tablist`, `tab`, `tabpanel`). Las flechas, Inicio y Fin recorren y
+  activan las pestañas. Los botones de «siguiente paso» llevan el foco a la pestaña nueva. Las pestañas miden 64 px de
+  alto en el móvil.
+- **Diferencias con el lienzo:**
+  - No hay texto del enunciado, porque la actividad no tiene campo de descripción. La pestaña muestra el archivo
+    (Ver PDF, Descargar) o el aviso de que el docente aún no lo adjunta.
+  - Los niveles de cada criterio se ponen lado a lado sólo si la tarjeta del criterio mide 672 px o más. Junto a la
+    columna derecha van de a dos, para que «Nivel asignado» no se corte.
+  - En el móvil los criterios no son acordeón: van completos, uno debajo del otro.
+  - La pestaña Rúbrica sólo aparece en las sumativas con rúbrica, y la Agenda sólo cuando el alumno ya tiene grupo.
+- **Sin backend nuevo:** usa las mismas props de `ActivityController`.
+- **Verificación:**
+  - svelte-check da 15 errores, los mismos que la rama antes de este cambio, y ninguno en los archivos tocados. El
+    build de Vite pasa.
+  - Se tomaron capturas de Playwright a 1280, 1440 y 390 px, en claro y en grafito, con datos ficticios, de la
+    actividad por entregar, la calificada, la pestaña Entrega del móvil, la portada y el login.
+  - Se probó la navegación con teclado, el paso de la agenda a la rúbrica (desde la pestaña y desde la ventana) y el
+    historial del navegador.
+
 ## Decisiones
 
 - Las direcciones se diferencian por cuánto lenguaje dm llevan (retícula, condensada, noche), no por la paleta: todas
   respetan los roles de color de la guía (noche estructura, azul actúa, amarillo marca lo activo).
-- El menú lateral es noche en claro y en oscuro; dentro de él los colores de curso usan su versión oscura.
+- El menú lateral es oscuro en los dos temas: noche en claro y, en oscuro, un escalón más hondo que la cabecera
+  (`dm-lat`). Dentro de él, los colores de curso usan su versión oscura.
 - La Tarjeta de curso usa sólo datos que existen: código, nombre, docente y la próxima entrega (derivable de
   `proximasAVencer`). Nada de porcentaje de avance mientras el backend no lo calcule.
 - La mensajería se entra desde el curso, no desde el menú; el menú del estudiante tiene Inicio, «Mis cursos» y la lista
