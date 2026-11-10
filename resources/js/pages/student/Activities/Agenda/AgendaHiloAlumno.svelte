@@ -113,7 +113,7 @@
             {@const historica = item.fue_cancelada || item.fue_reemplazada}
             {@const archivo = item.archivo}
             <div class="flex {derecha ? 'justify-end' : 'justify-start'}">
-              <article class="w-110 max-w-full overflow-hidden rounded-xl border border-dm-linea bg-dm-tarjeta">
+              <article class="w-110 max-w-full overflow-hidden lg:w-135 rounded-xl border border-dm-linea bg-dm-tarjeta">
                 <div class="flex items-center gap-2 px-3.5 py-2 {historica ? 'bg-dm-off-s text-dm-off' : 'bg-dm-accion-suave text-dm-accion-texto'}">
                   {#if item.fue_cancelada}<FileX2 size={16} aria-hidden="true" />{:else if item.fue_reemplazada}<RotateCcw
                       size={16}
@@ -197,7 +197,7 @@
                   ? 'bg-dm-ok-s text-dm-ok'
                   : 'bg-dm-error-s text-dm-error'}
             <div class="flex {derecha ? 'justify-end' : 'justify-start'}">
-              <article class="w-135 max-w-full overflow-hidden rounded-xl border border-dm-linea bg-dm-tarjeta">
+              <article class="w-135 max-w-full overflow-hidden lg:w-170 rounded-xl border border-dm-linea bg-dm-tarjeta">
                 <div class="flex items-center gap-2 px-3.5 py-2 {cabecera}">
                   <Award size={16} aria-hidden="true" />
                   <span class="min-w-0 truncate text-[13px] leading-[18px] font-bold text-dm-ink">Evaluación · {titleCase(item.emisor)}</span>
@@ -261,7 +261,7 @@
             {@const docente = item.tipo_interaccion === 'Feedback' || item.es_de_docente}
             <div class="flex flex-col gap-1 {derecha ? 'items-end' : 'items-start'}">
               <div
-                class="max-w-[min(560px,88%)] px-3.5 py-2.5 {item.es_propio
+                class="max-w-[min(560px,88%)] px-3.5 lg:max-w-[min(720px,80%)] py-2.5 {item.es_propio
                   ? 'rounded-[14px_14px_4px_14px] bg-dm-accion-suave'
                   : docente
                     ? 'rounded-[14px_14px_14px_4px] border border-dm-linea bg-dm-tarjeta'

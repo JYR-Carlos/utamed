@@ -4,8 +4,8 @@
    * clic fuera, scroll bloqueado). Cabecera noche con el color del curso y
    * dos formatos:
    *
-   * - `grande`: agenda y enunciado. Centrada y alta; en el móvil, a pantalla
-   *   completa.
+   * - `grande`: agenda y enunciado. Centrada, alta y ancha (hasta 1200 px);
+   *   en el móvil, a pantalla completa.
    * - `centro`: entrega. Centrada al ancho de un formulario; en el móvil sube
    *   desde abajo.
    *
@@ -48,7 +48,7 @@
 
   const POSICION = {
     grande:
-      'inset-0 lg:inset-x-0 lg:top-10 lg:bottom-10 lg:mx-auto lg:w-[min(880px,calc(100vw-48px))] lg:rounded-2xl lg:shadow-[0_24px_64px_rgb(10_12_40/0.35)]',
+      'inset-0 lg:inset-x-0 lg:top-10 lg:bottom-10 lg:mx-auto lg:w-[min(1200px,calc(100vw-96px))] lg:rounded-2xl lg:shadow-[0_24px_64px_rgb(10_12_40/0.35)]',
     centro:
       'inset-x-0 bottom-0 max-h-[92svh] rounded-t-2xl shadow-[0_-12px_40px_rgb(10_12_40/0.3)] md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[calc(100svh-48px)] md:w-140 md:-translate-1/2 md:rounded-2xl md:shadow-[0_24px_64px_rgb(10_12_40/0.35)]',
   } as const;

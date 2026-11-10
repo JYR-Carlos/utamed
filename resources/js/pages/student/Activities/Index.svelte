@@ -616,7 +616,8 @@
 {/snippet}
 
 <StudentLayout {breadcrumbs}>
-  <div style={colorCurso} class="mx-auto flex w-full max-w-280 flex-col gap-4 max-lg:min-h-full lg:px-10 lg:pt-8 lg:pb-12">
+  <!-- Más ancha que el resto en pantallas grandes: la agenda y la rúbrica comparten fila con la columna derecha. -->
+  <div style={colorCurso} class="mx-auto flex w-full max-w-280 flex-col gap-4 max-lg:min-h-full lg:px-10 lg:pt-8 lg:pb-12 2xl:max-w-360">
     {#if avisoError}
       <div role="alert" class="mx-4 mt-4 flex items-start gap-2.5 rounded-xl border border-dm-error bg-dm-error-s py-1 pr-1 pl-4 text-dm-error lg:mx-0 lg:mt-0">
         <CircleAlert size={18} aria-hidden="true" class="mt-2.5 shrink-0" />
