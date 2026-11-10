@@ -50,12 +50,13 @@
       style={colorDe(n.id_curso)}
       class="flex items-start gap-3.5 border-b border-dm-linea px-4 py-3.5 text-dm-ink no-underline last:border-b-0 hover:bg-dm-sutil lg:gap-4 lg:px-5 lg:py-4"
     >
+      <!-- La nota y el visto de las formativas comparten columna y van centrados en ella. -->
       {#if n.nota !== null}
-        <span class="w-12 shrink-0 font-dm-cond text-[32px] leading-9 font-extrabold tabular-nums lg:w-14">
+        <span class="w-12 shrink-0 text-center font-dm-cond text-[32px] leading-9 font-extrabold tabular-nums lg:w-14">
           {formatNota(n.nota)}
         </span>
       {:else}
-        <span class="flex h-9 w-12 shrink-0 items-center text-dm-ok lg:w-14">
+        <span class="flex h-9 w-12 shrink-0 items-center justify-center text-dm-ok lg:w-14">
           <CircleCheck size={26} aria-hidden="true" />
         </span>
       {/if}
