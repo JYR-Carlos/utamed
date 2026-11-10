@@ -21,6 +21,9 @@ export const btnPrimario = `${boton} bg-dm-accion text-dm-sobre-accion hover:bg-
 
 export const btnSecundario = `${boton} border border-dm-control bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil hover:text-dm-ink`;
 
+/** Acción que acompaña sin competir con la primaria («Ver PDF», «Ver la rúbrica»). */
+export const btnSuave = `${boton} bg-dm-accion-suave text-dm-accion-texto hover:text-dm-accion-texto hover:underline`;
+
 /** Botón con borde sobre fondo noche (cabeceras). */
 export const btnNoche = `${boton} border border-dm-noche-texto-2 text-dm-noche-texto hover:bg-dm-noche-activo hover:text-dm-noche-texto`;
 

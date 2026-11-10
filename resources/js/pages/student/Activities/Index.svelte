@@ -1,31 +1,44 @@
 <script lang="ts">
   /**
-   * Página de una actividad para el alumno (guía dm): cabecera noche y, según
-   * el momento, por entregar (entrega, agenda, enunciado; al lado la nota que
-   * falta, el grupo y la rúbrica) o calificada (nota y retroalimentación,
-   * rúbrica evaluada, la entrega y la agenda; al lado los detalles y lo que
-   * sigue en el curso). En el móvil todo va en una columna, en el orden de
-   * lectura de cada momento.
+   * Página de una actividad para el alumno (guía dm): una tarjeta con la
+   * cabecera noche y, debajo, pestañas. En escritorio, Enunciado · Rúbrica ·
+   * Agenda, con la entrega, la nota y el grupo fijos en la columna derecha;
+   * en el móvil, Enunciado · Rúbrica · Entrega · Agenda. La pestaña viaja en
+   * ?seccion= (como en la ficha del curso). Por entregar se abre en el
+   * enunciado; calificada, en la rúbrica evaluada.
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
-  import { ChevronRight, CircleAlert, Download, FileText, X } from 'lucide-svelte';
+  import {
+    Award,
+    ChevronRight,
+    CircleAlert,
+    CircleCheck,
+    ClipboardList,
+    Clock,
+    Download,
+    Eye,
+    FileText,
+    MessagesSquare,
+    Upload,
+    X,
+  } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaAlumno from './Agenda/RubricaAlumno.svelte';
   import Entrega from './Agenda/Entrega.svelte';
   import Enunciado from './Agenda/Enunciado.svelte';
-  import ActividadEncabezado from './components/ActividadEncabezado.svelte';
+  import ActividadEncabezado, { type PestanaActividad } from './components/ActividadEncabezado.svelte';
   import ActividadEntrega from './components/ActividadEntrega.svelte';
   import ActividadNota from './components/ActividadNota.svelte';
-  import ActividadRubricaEvaluada from './components/ActividadRubricaEvaluada.svelte';
   import ActividadAgendaResumen from './components/ActividadAgendaResumen.svelte';
   import ModalAlumno from '@/components/student/dm/ModalAlumno.svelte';
   import { Link, router, page } from '@inertiajs/svelte';
-  import { onMount } from 'svelte';
-  import { etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
+  import { onMount, tick } from 'svelte';
+  import { MediaQuery } from 'svelte/reactivity';
+  import { btnSecundario, btnSuave, etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import { fechaLimiteTexto, porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
   import { criteriosDe, puntajeTotal } from '@/lib/rubricaAlumno';
@@ -130,7 +143,6 @@
     estiloCurso(numeroColorCurso(id_curso, ($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? [])),
   );
 
-  let showRubricaModal = $state(false);
   let showAgendaModal = $state(false);
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
@@ -285,24 +297,15 @@
     };
   }
 
-  // Orden de lectura en el móvil, donde las dos columnas se vuelven una.
-  const orden = $derived(
-    calificada
-      ? { nota: 'max-lg:order-1', evaluada: 'max-lg:order-2', entrega: 'max-lg:order-3', agenda: 'max-lg:order-4', detalles: 'max-lg:order-5', integrantes: 'max-lg:order-6', rubrica: 'max-lg:order-7', siguiente: 'max-lg:order-8', enunciado: 'max-lg:order-9' }
-      : { entrega: 'max-lg:order-1', agenda: 'max-lg:order-2', nota: 'max-lg:order-3', integrantes: 'max-lg:order-4', enunciado: 'max-lg:order-5', rubrica: 'max-lg:order-6', detalles: 'max-lg:order-7', siguiente: 'max-lg:order-8', evaluada: 'max-lg:order-9' },
-  );
+  // ─── Pestañas ───────────────────────────────────────────────────────────────
+  type Seccion = 'enunciado' | 'rubrica' | 'entrega' | 'agenda';
 
-  // Las ventanas se abren desde la página. La rúbrica, además, desde una
-  // evaluación de la agenda: entonces se abre encima, con esa evaluación.
+  // En escritorio la entrega va en la columna derecha y no tiene pestaña.
+  const escritorio = new MediaQuery('min-width: 64rem');
+
+  // La rúbrica que se mira: la de una evaluación elegida en la agenda o, si
+  // no, la de la última evaluación (o la vigente).
   let rubricaDeAgenda = $state<RubricaDetalleEvent | null>(null);
-  function abrirRubrica(detalle: RubricaDetalleEvent | null = null) {
-    rubricaDeAgenda = detalle;
-    showRubricaModal = true;
-  }
-  const abrirAgenda = () => (showAgendaModal = true);
-  const abrirEntrega = () => (showEntregaModal = true);
-  const abrirEnunciado = () => (showEnunciadoModal = true);
-
   const rubricaPanel = $derived<RubricaDetalleEvent>(
     rubricaDeAgenda ?? {
       rubrica: rubricaVista,
@@ -313,13 +316,108 @@
       fecha: ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision ?? undefined,
     },
   );
-  const rubricaPanelEvaluada = $derived(Object.keys(rubricaPanel.resultado ?? {}).length > 0);
+  // «Paula Fuentes · lun 19 oct», junto al título de la rúbrica evaluada.
   const subtituloRubrica = $derived.by(() => {
-    if (!rubricaPanelEvaluada) return 'Así se evaluará tu entrega';
-    const quien = rubricaPanel.evaluador ? `Evaluada por ${titleCase(rubricaPanel.evaluador)}` : 'Evaluada';
     const fecha = rubricaPanel.fecha ? new Date(rubricaPanel.fecha) : null;
-    return fecha && !isNaN(fecha.getTime()) ? `${quien} · ${formatDiaCorto(fecha)}` : quien;
+    return [
+      rubricaPanel.evaluador ? titleCase(rubricaPanel.evaluador) : '',
+      fecha && !isNaN(fecha.getTime()) ? formatDiaCorto(fecha) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
   });
+
+  const totalRubrica = $derived(puntajeTotal(rubricaVista));
+  const puntajeEvaluacion = $derived(ultima_evaluacion?.puntaje_obtenido ?? ultimaEvaluacion?.puntaje_obtenido ?? null);
+  const mensajesAgenda = $derived(
+    interaccionesCombinadas.filter((i) => i.mensaje?.trim() && i.tipo_interaccion !== 'Evaluación').length,
+  );
+  const nuevosAgenda = $derived(agendaVista ? 0 : interaccionesCombinadas.filter((i) => i.nuevo).length);
+
+  const pestanas = $derived.by(() => {
+    const lista: Array<PestanaActividad & { id: Seccion }> = [
+      { id: 'enunciado', etiqueta: 'Enunciado', detalle: detalleEnunciado || 'Sin archivo todavía', icono: FileText },
+    ];
+    if (conRubrica || rubricaDeAgenda) {
+      const n = criterios.length;
+      lista.push({
+        id: 'rubrica',
+        etiqueta: 'Rúbrica',
+        detalle:
+          rubricaEvaluada && puntajeEvaluacion != null
+            ? `${String(puntajeEvaluacion).replace('.', ',')} de ${totalRubrica} pts`
+            : `${n} ${n === 1 ? 'criterio' : 'criterios'} · ${totalRubrica} pts`,
+        icono: ClipboardList,
+      });
+    }
+    if (!escritorio.current) lista.push({ id: 'entrega', etiqueta: 'Entrega', icono: Upload });
+    if (id_actividad_asignada_grupo) {
+      lista.push({
+        id: 'agenda',
+        etiqueta: 'Agenda',
+        detalle: mensajesAgenda === 0 ? 'Sin mensajes' : `${mensajesAgenda} ${mensajesAgenda === 1 ? 'mensaje' : 'mensajes'}`,
+        nuevos: nuevosAgenda,
+        icono: MessagesSquare,
+      });
+    }
+    return lista;
+  });
+
+  const pedida = $derived.by(() => {
+    const url = new URL($page.url, 'http://x');
+    // ?abrir=agenda: enlace del dashboard a la conversación.
+    return url.searchParams.get('seccion') ?? (url.searchParams.get('abrir') === 'agenda' ? 'agenda' : null);
+  });
+  // Calificada abre en la rúbrica evaluada; sin ella, donde está la nota.
+  const porDefecto = $derived<Seccion>(
+    calificada ? (rubricaEvaluada ? 'rubrica' : escritorio.current ? 'enunciado' : 'entrega') : 'enunciado',
+  );
+  const seccion = $derived<Seccion>(pestanas.find((p) => p.id === pedida)?.id ?? porDefecto);
+
+  function cambiarSeccion(nueva: string) {
+    if (nueva === seccion) return;
+    const url = new URL($page.url, window.location.origin);
+    url.searchParams.set('seccion', nueva);
+    url.searchParams.delete('abrir');
+    // Visita sólo de cliente: cambia la URL sin pedir nada al servidor.
+    router.push({ url: `${url.pathname}${url.search}`, preserveState: true, preserveScroll: true });
+  }
+
+  // Elegir la pestaña Rúbrica muestra la última evaluación, no la de la agenda.
+  function alElegirPestana(id: string) {
+    if (id === 'rubrica') rubricaDeAgenda = null;
+    cambiarSeccion(id);
+  }
+
+  // Desde un botón de más abajo: el foco (y la vista) sube a la pestaña nueva.
+  async function irA(id: Seccion) {
+    cambiarSeccion(id);
+    await tick();
+    document.getElementById(`tab-${id}`)?.focus();
+  }
+
+  // «Ver rúbrica» en una evaluación de la agenda: esa evaluación, en su pestaña.
+  function verRubricaDesdeAgenda(detalle: RubricaDetalleEvent) {
+    rubricaDeAgenda = detalle;
+    showAgendaModal = false;
+    irA('rubrica');
+  }
+
+  const abrirAgenda = () => (showAgendaModal = true);
+  const abrirEntrega = () => (showEntregaModal = true);
+  const abrirEnunciado = () => (showEnunciadoModal = true);
+
+  // En amarillo en la cabecera: el plazo mientras falta entregar, la nota después.
+  const destacado = $derived.by(() => {
+    if (calificada) {
+      return es_sumativa && ultima_nota != null
+        ? { texto: `Nota ${ultima_nota.toFixed(1).replace('.', ',')}`, icono: Award }
+        : { texto: 'Revisada', icono: CircleCheck };
+    }
+    return estaPorEntregar && fecha_limite ? { texto: plazoDe(fecha_limite).texto, icono: Clock } : null;
+  });
+
+  const retroalimentacion = $derived(ultima_evaluacion?.retroalimentacion ?? ultimaEvaluacion?.mensaje ?? null);
 
   const subtituloAgenda = $derived(
     `${[nombre_curso, componente_tipo].filter(Boolean).join(' · ')} · ${es_grupal ? 'tu grupo' : 'tú'} y tu equipo docente`,
@@ -406,208 +504,234 @@
   <title>{nombre_actividad} | UTAmed</title>
 </svelte:head>
 
-<StudentLayout {breadcrumbs}>
-  <div style={colorCurso} class="mx-auto flex w-full max-w-280 flex-col gap-5 pb-10 lg:gap-6 lg:px-10 lg:pt-8 lg:pb-12">
-    <ActividadEncabezado
-      idCurso={id_curso}
-      codigo={cod_asignatura ?? ''}
-      nombreCurso={nombre_curso}
-      nombre={nombre_actividad}
-      {chips}
-      onVerEnunciado={archivo_enunciado ? abrirEnunciado : undefined}
-      onVerRubrica={conRubrica && !rubricaEvaluada ? () => abrirRubrica() : undefined}
+<!-- Un aviso de «siguiente paso» al pie de una pestaña. -->
+{#snippet paso(rotulo: string, texto: string, boton: string, destino: Seccion)}
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-dm-linea bg-dm-sutil p-4">
+    <span class="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
+      <span class="{etiqueta} text-dm-ink-3">{rotulo}</span>
+      <span class="text-[15px] leading-[22px] font-semibold">{texto}</span>
+    </span>
+    <button type="button" class="{btnSuave} max-sm:w-full" onclick={() => irA(destino)}>
+      {boton}<ChevronRight size={18} aria-hidden="true" />
+    </button>
+  </div>
+{/snippet}
+
+<!-- Columna derecha en escritorio; pestaña Entrega en el móvil. -->
+{#snippet lateral()}
+  {#if calificada}
+    <ActividadNota
+      esSumativa={es_sumativa}
+      esGrupal={es_grupal}
+      nota={es_sumativa ? (ultima_nota ?? null) : null}
+      evaluada
+      notaGrupo={nota_grupo}
+      ajusteDecimas={ajuste_decimas}
+      fecha={ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision ?? null}
+      evaluador={ultima_evaluacion?.emisor ?? ultimaEvaluacion?.emisor ?? null}
+      puntaje={puntajeEvaluacion}
+      puntajeTotal={puntajeTotal(rubricaDeLaEvaluacion)}
+      resultado={es_sumativa ? null : ultima_evaluacion?.evaluacion_obtenida ? String(ultima_evaluacion.evaluacion_obtenida) : null}
+      retroalimentacion={rubricaEvaluada ? null : retroalimentacion}
+      onVerRubrica={rubricaEvaluada && seccion !== 'rubrica' ? () => irA('rubrica') : undefined}
     />
+  {/if}
 
-    <div class="flex flex-col gap-4 px-4 lg:px-0">
-      {#if avisoError}
-        <div role="alert" class="flex items-start gap-2.5 rounded-xl border border-dm-error bg-dm-error-s py-1 pr-1 pl-4 text-dm-error">
-          <CircleAlert size={18} aria-hidden="true" class="mt-2.5 shrink-0" />
-          <p class="flex-1 py-2.5 text-sm leading-5 text-dm-ink">{avisoError}</p>
-          <button
-            type="button"
-            class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-dm-tarjeta"
-            aria-label="Cerrar aviso"
-            onclick={() => (avisoError = null)}
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
-        </div>
-      {/if}
+  {#if entrega_obligatoria || sinGrupo}
+    <ActividadEntrega
+      fechaLimite={fecha_limite}
+      {estado}
+      esGrupal={es_grupal}
+      {sinGrupo}
+      {yaEvaluada}
+      puedeSubir={puedeSubirArchivo}
+      entrega={ultima_entrega}
+      urlDescarga={ultima_entrega
+        ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
+        : null}
+      hrefMensajeria={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
+      onSubir={abrirEntrega}
+      onBorrar={handleBorrarEntrega}
+    />
+  {/if}
 
-      <div class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6">
-        <div class="flex min-w-0 flex-col gap-6 max-lg:contents">
-          {#if calificada}
-            <div class={orden.nota}>
-              <ActividadNota
-                esSumativa={es_sumativa}
-                esGrupal={es_grupal}
-                nota={es_sumativa ? (ultima_nota ?? null) : null}
-                evaluada
-                notaGrupo={nota_grupo}
-                ajusteDecimas={ajuste_decimas}
-                fecha={ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision ?? null}
-                evaluador={ultima_evaluacion?.emisor ?? ultimaEvaluacion?.emisor ?? null}
-                puntaje={ultima_evaluacion?.puntaje_obtenido ?? ultimaEvaluacion?.puntaje_obtenido ?? null}
-                puntajeTotal={puntajeTotal(rubricaDeLaEvaluacion)}
-                resultado={es_sumativa ? null : ultima_evaluacion?.evaluacion_obtenida ? String(ultima_evaluacion.evaluacion_obtenida) : null}
-                retroalimentacion={ultima_evaluacion?.retroalimentacion ?? ultimaEvaluacion?.mensaje ?? null}
-              />
+  {#if !calificada}
+    <ActividadNota esSumativa={es_sumativa} esGrupal={es_grupal} nota={null} evaluada={false} />
+  {/if}
+
+  {#if es_grupal && !sinGrupo}
+    <section aria-labelledby="t-grupo" class="{tarjeta} overflow-hidden">
+      <h2 id="t-grupo" class="border-b border-dm-linea px-4 py-3.5 text-base leading-[22px] font-bold lg:px-5">Integrantes</h2>
+      <ul class="px-4 lg:px-5 lg:py-1">
+        {#each integrantes as g (g.id)}
+          <li class="flex min-h-13 items-center gap-3 border-b border-dm-linea last:border-b-0 lg:min-h-12">
+            <span
+              aria-hidden="true"
+              class="flex size-8 shrink-0 items-center justify-center rounded-full bg-dm-sutil text-[13px] font-bold text-dm-ink-2"
+              >{initials(g.nombre)}</span
+            >
+            <span class="text-[15px] font-medium lg:text-sm">{g.nombre}</span>
+            {#if g.tu}<span class="text-[13px] leading-[18px] text-dm-ink-3">(tú)</span>{/if}
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  {#if calificada || !entrega_obligatoria}
+    <section aria-labelledby="t-detalles" class="{tarjeta} overflow-hidden">
+      <h2 id="t-detalles" class="border-b border-dm-linea px-4 py-3.5 text-base leading-[22px] font-bold lg:px-5">Detalles</h2>
+      <dl class="px-4 py-1 lg:px-5">
+        {#each [['Fecha límite', fechaLimiteDetalle], ['Tipo', es_sumativa ? 'Sumativa' : 'Formativa'], ['Modalidad', es_grupal ? 'Grupal' : 'Individual'], ['Componente', componente_tipo]] as [rotulo, valor] (rotulo)}
+          {#if valor}
+            <div class="flex justify-between gap-3 border-b border-dm-linea py-3 last:border-b-0">
+              <dt class="text-sm text-dm-ink-2">{rotulo}</dt>
+              <dd class="text-right text-sm font-semibold">{valor}</dd>
             </div>
           {/if}
+        {/each}
+      </dl>
+    </section>
+  {/if}
 
-          {#if rubricaEvaluada}
-            <div class={orden.evaluada}>
-              <ActividadRubricaEvaluada {criterios} onVerCompleta={() => abrirRubrica()} />
-            </div>
-          {/if}
+  {#if siguiente}
+    {@const plazo = plazoDe(siguiente.fecha_limite)}
+    <section aria-labelledby="t-siguiente" class="{tarjeta} flex flex-col gap-2.5 p-4 lg:p-5">
+      <h2 id="t-siguiente" class="{etiqueta} text-dm-ink-3">Lo que sigue en el curso</h2>
+      <Link
+        href={`/estudiante/cursos/${id_curso}/actividad/${siguiente.id_actividad}`}
+        class="flex flex-col gap-1.5 text-dm-ink no-underline hover:text-dm-ink"
+      >
+        <span class="text-base leading-[22px] font-semibold hover:underline">{siguiente.nombre}</span>
+        <span class="{pildora} {tono[plazo.tono]} self-start">{plazo.texto}</span>
+      </Link>
+      <Link
+        href={`/estudiante/cursos/${id_curso}`}
+        class="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline lg:min-h-10"
+      >
+        Ver todas las actividades<ChevronRight size={16} aria-hidden="true" />
+      </Link>
+    </section>
+  {/if}
+{/snippet}
 
-          {#if entrega_obligatoria || sinGrupo}
-            <div class={orden.entrega}>
-              <ActividadEntrega
-                fechaLimite={fecha_limite}
-                {estado}
-                esGrupal={es_grupal}
-                {sinGrupo}
-                {yaEvaluada}
-                puedeSubir={puedeSubirArchivo}
-                entrega={ultima_entrega}
-                urlDescarga={ultima_entrega
-                  ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
-                  : null}
-                hrefMensajeria={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
-                onSubir={abrirEntrega}
-                onBorrar={handleBorrarEntrega}
-              />
-            </div>
-          {/if}
+<StudentLayout {breadcrumbs}>
+  <div style={colorCurso} class="mx-auto flex w-full max-w-280 flex-col gap-4 max-lg:min-h-full lg:px-10 lg:pt-8 lg:pb-12">
+    {#if avisoError}
+      <div role="alert" class="mx-4 mt-4 flex items-start gap-2.5 rounded-xl border border-dm-error bg-dm-error-s py-1 pr-1 pl-4 text-dm-error lg:mx-0 lg:mt-0">
+        <CircleAlert size={18} aria-hidden="true" class="mt-2.5 shrink-0" />
+        <p class="flex-1 py-2.5 text-sm leading-5 text-dm-ink">{avisoError}</p>
+        <button
+          type="button"
+          class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-dm-tarjeta"
+          aria-label="Cerrar aviso"
+          onclick={() => (avisoError = null)}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+      </div>
+    {/if}
 
-          {#if id_actividad_asignada_grupo}
-            <div class={orden.agenda}>
-              <ActividadAgendaResumen
-                interacciones={interaccionesCombinadas}
-                esGrupal={es_grupal}
-                {calificada}
-                vista={agendaVista}
-                onAbrir={abrirAgenda}
-              />
-            </div>
-          {/if}
+    <article aria-labelledby="t-actividad" class="flex flex-col bg-dm-tarjeta max-lg:flex-1 lg:overflow-hidden lg:rounded-xl lg:border lg:border-dm-linea">
+      <ActividadEncabezado
+        idCurso={id_curso}
+        codigo={cod_asignatura ?? ''}
+        nombreCurso={nombre_curso}
+        nombre={nombre_actividad}
+        {chips}
+        {destacado}
+        {pestanas}
+        seleccion={seccion}
+        panel="panel-actividad"
+        onCambiar={alElegirPestana}
+      />
 
-          {#if !calificada}
-            <section aria-labelledby="t-enunciado" class="{tarjeta} flex flex-col gap-3 p-4 lg:px-6 lg:py-5 {orden.enunciado}">
-              <h2 id="t-enunciado" class="text-lg leading-6 font-semibold">Qué hay que entregar</h2>
+      <div class="flex flex-col gap-8 px-4 pt-6 pb-10 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:px-10 lg:pt-8">
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div
+          role="tabpanel"
+          id="panel-actividad"
+          aria-labelledby="tab-{seccion}"
+          tabindex="0"
+          class="flex min-w-0 flex-col gap-5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
+          {#if seccion === 'enunciado'}
+            <section aria-labelledby="t-enunciado" class="flex flex-col gap-4">
+              <h2 id="t-enunciado" class="text-xl leading-7 font-bold lg:text-[22px]">
+                {calificada ? 'Qué había que entregar' : 'Qué hay que entregar'}
+              </h2>
               {#if archivo_enunciado}
-                <a
-                  href={urlEnunciado}
-                  class="flex min-h-14 items-center gap-3 rounded-[10px] border border-dm-linea px-3 py-2 text-dm-ink no-underline hover:bg-dm-sutil hover:text-dm-ink lg:min-h-13"
-                >
-                  <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-sutil text-dm-ink-2">
-                    <FileText size={18} aria-hidden="true" />
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-dm-linea bg-dm-sutil p-4">
+                  <span class="flex min-w-0 flex-[1_1_220px] items-center gap-3.5">
+                    <span aria-hidden="true" class="flex size-12 shrink-0 items-center justify-center rounded-[10px] bg-dm-accion-suave text-dm-accion-texto">
+                      <FileText size={22} aria-hidden="true" />
+                    </span>
+                    <span class="flex min-w-0 flex-col">
+                      <span class="truncate text-[15px] leading-5 font-bold">{archivo_enunciado.nombre_original}</span>
+                      {#if detalleEnunciado}<span class="text-[13px] leading-[18px] text-dm-ink-3">{detalleEnunciado}</span>{/if}
+                    </span>
                   </span>
-                  <span class="flex min-w-0 flex-1 flex-col">
-                    <span class="truncate text-sm font-semibold">{archivo_enunciado.nombre_original}</span>
-                    {#if detalleEnunciado}<span class="text-[13px] leading-[18px] text-dm-ink-3">{detalleEnunciado}</span>{/if}
+                  <span class="flex gap-2 max-sm:w-full">
+                    {#if enunciadoEsPdf}
+                      <button type="button" class="{btnSuave} max-sm:flex-1" onclick={abrirEnunciado}>
+                        <Eye size={16} aria-hidden="true" />Ver PDF
+                      </button>
+                    {/if}
+                    <a href={urlEnunciado} download={archivo_enunciado.nombre_original} class="{btnSecundario} max-sm:flex-1">
+                      <Download size={16} aria-hidden="true" />Descargar
+                    </a>
                   </span>
-                  <span class="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-dm-enlace">
-                    <Download size={16} aria-hidden="true" /><span class="max-sm:sr-only">Descargar</span>
-                  </span>
-                </a>
+                </div>
               {:else}
-                <p class="text-sm leading-5 text-dm-ink-2">Tu docente todavía no adjunta el enunciado de esta actividad.</p>
+                <p class="text-[15px] leading-[22px] text-dm-ink-2">Tu docente todavía no adjunta el enunciado de esta actividad.</p>
               {/if}
             </section>
+            {#if pestanas.some((p) => p.id === 'rubrica')}
+              {@render paso(
+                'Siguiente paso',
+                rubricaEvaluada ? 'Revisa cómo te evaluaron' : 'Revisa cómo se evaluará la entrega',
+                rubricaEvaluada ? 'Ver la rúbrica evaluada' : 'Ver la rúbrica',
+                'rubrica',
+              )}
+            {/if}
+          {:else if seccion === 'rubrica'}
+            <RubricaAlumno
+              rubrica={rubricaPanel.rubrica}
+              resultado={rubricaPanel.resultado}
+              puntajeObtenido={rubricaPanel.puntaje_obtenido}
+              retroalimentacion={rubricaPanel.retroalimentacion}
+              subtitulo={subtituloRubrica}
+              {exigencia}
+            />
+            {#if id_actividad_asignada_grupo}
+              {@render paso(
+                calificada ? '¿Dudas sobre la nota?' : '¿Dudas sobre un criterio?',
+                calificada ? 'Escríbele a tu docente en la agenda' : 'Pregúntale a tu docente en la agenda',
+                'Ir a la agenda',
+                'agenda',
+              )}
+            {/if}
+          {:else if seccion === 'entrega'}
+            {@render lateral()}
+          {:else if seccion === 'agenda'}
+            <ActividadAgendaResumen
+              interacciones={interaccionesCombinadas}
+              esGrupal={es_grupal}
+              {calificada}
+              vista={agendaVista}
+              onAbrir={abrirAgenda}
+              onVerRubrica={verRubricaDesdeAgenda}
+            />
           {/if}
         </div>
 
-        <aside class="flex min-w-0 flex-col gap-4 max-lg:contents" aria-label="Sobre esta actividad">
-          {#if !calificada}
-            <div class={orden.nota}>
-              <ActividadNota esSumativa={es_sumativa} esGrupal={es_grupal} nota={null} evaluada={false} />
-            </div>
-          {/if}
-
-          {#if calificada || !entrega_obligatoria}
-            <section aria-labelledby="t-detalles" class="{tarjeta} overflow-hidden {orden.detalles}">
-              <h2 id="t-detalles" class="border-b border-dm-linea px-4 py-3.5 text-lg leading-6 font-semibold lg:px-5">Detalles</h2>
-              <dl class="px-4 py-1 lg:px-5">
-                {#each [['Fecha límite', fechaLimiteDetalle], ['Tipo', es_sumativa ? 'Sumativa' : 'Formativa'], ['Modalidad', es_grupal ? 'Grupal' : 'Individual'], ['Componente', componente_tipo]] as [rotulo, valor] (rotulo)}
-                  {#if valor}
-                    <div class="flex justify-between gap-3 border-b border-dm-linea py-3 last:border-b-0">
-                      <dt class="text-sm text-dm-ink-2">{rotulo}</dt>
-                      <dd class="text-right text-sm font-semibold">{valor}</dd>
-                    </div>
-                  {/if}
-                {/each}
-              </dl>
-            </section>
-          {/if}
-
-          {#if es_grupal && !sinGrupo}
-            <section aria-labelledby="t-grupo" class="{tarjeta} overflow-hidden {orden.integrantes}">
-              <h2 id="t-grupo" class="border-b border-dm-linea px-4 py-3.5 text-lg leading-6 font-semibold lg:px-5">Integrantes</h2>
-              <ul class="px-4 lg:px-5 lg:py-1">
-                {#each integrantes as g (g.id)}
-                  <li class="flex min-h-13 items-center gap-3 border-b border-dm-linea last:border-b-0 lg:min-h-12">
-                    <span
-                      aria-hidden="true"
-                      class="flex size-8 shrink-0 items-center justify-center rounded-full bg-dm-sutil text-[13px] font-bold text-dm-ink-2"
-                      >{initials(g.nombre)}</span
-                    >
-                    <span class="text-[15px] font-medium lg:text-sm">{g.nombre}</span>
-                    {#if g.tu}<span class="text-[13px] leading-[18px] text-dm-ink-3">(tú)</span>{/if}
-                  </li>
-                {/each}
-              </ul>
-            </section>
-          {/if}
-
-          {#if conRubrica && !rubricaEvaluada}
-            <section aria-labelledby="t-rubrica" class="{tarjeta} overflow-hidden {orden.rubrica}">
-              <div class="flex items-center justify-between gap-2 border-b border-dm-linea px-4 py-3.5 lg:px-5">
-                <h2 id="t-rubrica" class="text-lg leading-6 font-semibold">Rúbrica</h2>
-                <span class="text-[13px] leading-[18px] text-dm-ink-3">
-                  {criterios.length} {criterios.length === 1 ? 'criterio' : 'criterios'}
-                </span>
-              </div>
-              <ul class="px-4 lg:px-5 lg:py-1">
-                {#each criterios as c (c.id)}
-                  <li class="flex min-h-11 items-center justify-between gap-3 border-b border-dm-linea py-2 text-sm">
-                    <span>{c.nombre}</span><span class="shrink-0 font-bold tabular-nums">{c.peso}</span>
-                  </li>
-                {/each}
-              </ul>
-              <button
-                type="button"
-                class="flex min-h-12 w-full cursor-pointer items-center gap-1 px-4 text-[15px] font-semibold text-dm-enlace hover:text-dm-enlace-hover hover:underline lg:min-h-11 lg:px-5 lg:text-sm"
-                onclick={() => abrirRubrica()}
-              >
-                Ver rúbrica completa<ChevronRight size={16} aria-hidden="true" />
-              </button>
-            </section>
-          {/if}
-
-          {#if siguiente}
-            {@const plazo = plazoDe(siguiente.fecha_limite)}
-            <section aria-labelledby="t-siguiente" class="{tarjeta} flex flex-col gap-2.5 p-4 lg:p-5 {orden.siguiente}">
-              <h2 id="t-siguiente" class="{etiqueta} text-dm-ink-3">Lo que sigue en el curso</h2>
-              <Link
-                href={`/estudiante/cursos/${id_curso}/actividad/${siguiente.id_actividad}`}
-                class="flex flex-col gap-1.5 text-dm-ink no-underline hover:text-dm-ink"
-              >
-                <span class="text-base leading-[22px] font-semibold hover:underline">{siguiente.nombre}</span>
-                <span class="{pildora} {tono[plazo.tono]} self-start">{plazo.texto}</span>
-              </Link>
-              <Link
-                href={`/estudiante/cursos/${id_curso}`}
-                class="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline lg:min-h-10"
-              >
-                Ver todas las actividades<ChevronRight size={16} aria-hidden="true" />
-              </Link>
-            </section>
-          {/if}
-        </aside>
+        {#if escritorio.current}
+          <aside class="flex min-w-0 flex-col gap-4" aria-label="Tu entrega y tu nota">
+            {@render lateral()}
+          </aside>
+        {/if}
       </div>
-    </div>
+    </article>
   </div>
 </StudentLayout>
 
@@ -626,26 +750,7 @@
     esGrupal={es_grupal}
     entregaPendiente={estaPorEntregar}
     onEnviar={(mensaje) => handleGuardarEntrada({ tipo: 'Consulta', mensaje })}
-    onVerRubrica={abrirRubrica}
-  />
-</ModalAlumno>
-
-<ModalAlumno
-  bind:open={showRubricaModal}
-  variante="lateral"
-  etiqueta={rubricaPanelEvaluada ? 'Rúbrica evaluada' : 'Rúbrica de la actividad'}
-  titulo={nombre_actividad}
-  subtitulo={subtituloRubrica}
-  estilo={colorCurso}
-  rotuloCerrar="Cerrar rúbrica"
->
-  <RubricaAlumno
-    rubrica={rubricaPanel.rubrica}
-    resultado={rubricaPanel.resultado}
-    puntajeObtenido={rubricaPanel.puntaje_obtenido}
-    retroalimentacion={rubricaPanel.retroalimentacion}
-    evaluador={rubricaPanel.evaluador ? titleCase(rubricaPanel.evaluador) : null}
-    {exigencia}
+    onVerRubrica={verRubricaDesdeAgenda}
   />
 </ModalAlumno>
 

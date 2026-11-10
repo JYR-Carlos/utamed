@@ -1,13 +1,13 @@
 <script lang="ts">
   /**
-   * Cuerpo del panel «Rúbrica» del alumno (guía dm): el resumen de puntajes,
-   * la retroalimentación y, por criterio, sus niveles con el asignado
+   * Pestaña «Rúbrica» del alumno (guía dm): el resumen de puntajes, la
+   * retroalimentación y, por criterio, sus niveles con el asignado
    * destacado. Antes de la evaluación es la misma rúbrica sin marcas: así se
    * va a evaluar. La del docente (y el editor) sigue en Rubrica.svelte.
    */
   import { Check, Info } from 'lucide-svelte';
   import type { Rubrica } from '@/types/rubrica';
-  import { etiqueta, tarjeta } from '@/lib/dm';
+  import { etiqueta } from '@/lib/dm';
   import { puntajeMinimoAprobacion } from '@/lib/notas';
   import { puntajeTotal } from '@/lib/rubricaAlumno';
 
@@ -17,12 +17,13 @@
     resultado?: Record<string, string> | null;
     puntajeObtenido?: number | null;
     retroalimentacion?: string | null;
-    evaluador?: string | null;
+    /** «Paula Fuentes · lun 19 oct», junto al título de una rúbrica evaluada. */
+    subtitulo?: string | null;
     /** % del puntaje que da el 4,0. */
     exigencia?: number;
   }
 
-  let { rubrica, resultado = null, puntajeObtenido = null, retroalimentacion = null, evaluador = null, exigencia = 60 }: Props = $props();
+  let { rubrica, resultado = null, puntajeObtenido = null, retroalimentacion = null, subtitulo = null, exigencia = 60 }: Props = $props();
 
   const num = (n: number) => n.toLocaleString('es-CL', { maximumFractionDigits: 2 });
 
@@ -72,23 +73,32 @@
         ],
   );
 
-  // Con muchas columnas (hay rúbricas de 7 niveles) los niveles bajan de línea.
+  // Los niveles van lado a lado sólo si la tarjeta del criterio es ancha (al
+  // lado de la columna de la entrega puede no serlo); con muchas columnas
+  // (hay rúbricas de 7 niveles) bajan de línea.
   const columnasNiveles = (n: number) =>
     n <= 5
-      ? 'sm:grid-cols-2 lg:grid-cols-[repeat(var(--niveles),minmax(0,1fr))]'
-      : 'sm:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]';
+      ? '@sm:grid-cols-2 @2xl:grid-cols-[repeat(var(--niveles),minmax(0,1fr))]'
+      : '@sm:grid-cols-2 @2xl:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]';
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-dm-pagina px-4 pt-5 pb-8 lg:px-7">
+<section aria-labelledby="t-rubrica" class="flex flex-col gap-4">
+  <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <h2 id="t-rubrica" class="text-xl leading-7 font-bold lg:text-[22px]">
+      {evaluada ? 'Cómo te evaluaron' : 'Cómo se evaluará la entrega'}
+    </h2>
+    {#if evaluada && subtitulo}<span class="text-[13px] leading-[18px] text-dm-ink-2">{subtitulo}</span>{/if}
+  </div>
+
   {#if criterios.length === 0}
-    <p class="py-10 text-center text-sm leading-5 text-dm-ink-2">Esta actividad todavía no tiene una rúbrica publicada.</p>
+    <p class="py-6 text-sm leading-5 text-dm-ink-2">Esta actividad todavía no tiene una rúbrica publicada.</p>
   {:else}
-    <dl class="grid grid-cols-3 gap-2 lg:gap-3">
+    <dl class="grid grid-cols-3 gap-2">
       {#each resumen as t (t.dato)}
-        <div class="{tarjeta} flex flex-col gap-1 px-3 py-2.5 lg:px-4 lg:py-3.5">
+        <div class="flex flex-col gap-1 rounded-xl border border-dm-linea bg-dm-sutil px-3 py-2.5">
           <dt class="{etiqueta} text-dm-ink-3">{t.dato}</dt>
           <dd class="flex flex-wrap items-baseline gap-1">
-            <span class="font-dm-cond text-[26px] leading-none font-black tabular-nums lg:text-[32px]">{t.valor}</span>
+            <span class="font-dm-cond text-[26px] leading-none font-black tabular-nums lg:text-[28px]">{t.valor}</span>
             {#if t.unidad}<span class="text-[13px] leading-[18px] text-dm-ink-2">{t.unidad}</span>{/if}
           </dd>
         </div>
@@ -96,24 +106,24 @@
     </dl>
 
     {#if evaluada && retroalimentacion}
-      <section aria-labelledby="rubrica-retro" class="flex flex-col gap-2">
-        <h3 id="rubrica-retro" class="{etiqueta} text-dm-ink-3">Retroalimentación{evaluador ? ` de ${evaluador}` : ''}</h3>
-        <p class="rounded-r-[10px] border-l-4 border-dm-amarillo bg-dm-tarjeta px-4 py-3 text-[15px] leading-6 break-words whitespace-pre-line">
-          {retroalimentacion}
-        </p>
-      </section>
+      <blockquote class="m-0 rounded-r-[10px] border-l-4 border-dm-amarillo bg-dm-sutil px-4 py-3.5">
+        <span class="{etiqueta} mb-1 block text-dm-ink-3">Retroalimentación</span>
+        <p class="text-[15px] leading-6 break-words whitespace-pre-line">{retroalimentacion}</p>
+      </blockquote>
     {/if}
 
-    {#if !evaluada}
-      <p class="flex items-start gap-2.5 rounded-[10px] bg-dm-info-s px-3.5 py-3 text-sm leading-5">
-        <Info size={18} aria-hidden="true" class="mt-px shrink-0 text-dm-info" />
-        <span>Tu docente marcará un nivel por criterio. Los puntajes de los niveles se suman y dan tu nota.</span>
-      </p>
-    {/if}
+    <p class="flex items-start gap-2.5 rounded-[10px] bg-dm-info-s px-3.5 py-3 text-sm leading-5">
+      <Info size={18} aria-hidden="true" class="mt-px shrink-0 text-dm-info" />
+      <span>
+        {evaluada
+          ? 'El nivel marcado en cada criterio es el que asignó tu docente. La suma de esos puntos da tu nota.'
+          : 'Tu docente marcará un nivel por criterio. Los puntajes de los niveles se suman y dan tu nota.'}
+      </span>
+    </p>
 
     {#each criterios as c (c.id)}
-      <section aria-labelledby="criterio-{c.id}" class="{tarjeta} flex flex-col gap-3 px-4 py-4 lg:px-4.5">
-        <div class="flex items-start gap-3">
+      <section aria-labelledby="criterio-{c.id}" class="@container overflow-hidden rounded-xl border border-dm-linea bg-dm-tarjeta">
+        <div class="flex items-start gap-3 border-b border-dm-linea bg-dm-sutil px-4 py-3">
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             <h3 id="criterio-{c.id}" class="text-[17px] leading-[22px] font-bold">{c.nombre}</h3>
             {#if c.descripcion}<span class="text-sm leading-5 text-dm-ink-2">{c.descripcion}</span>{/if}
@@ -131,7 +141,7 @@
         <ol
           aria-label="Niveles de {c.nombre}"
           style="--niveles: {c.niveles.length}"
-          class="grid grid-cols-1 gap-2 {columnasNiveles(c.niveles.length)}"
+          class="grid grid-cols-1 gap-2 p-3 lg:p-4 {columnasNiveles(c.niveles.length)}"
         >
           {#each c.niveles as n (n.id)}
             <li
@@ -140,13 +150,13 @@
                 ? 'border-2 border-dm-amarillo bg-dm-activo-suave'
                 : 'border border-dm-linea bg-dm-tarjeta'}"
             >
-              <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 lg:flex-col lg:gap-0.5">
+              <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 @2xl:flex-col @2xl:gap-0.5">
                 <span class="text-sm leading-5 font-bold {n.marcado ? 'text-dm-activo-texto' : ''}">{n.nombre}</span>
                 <span class="text-[13px] leading-5 font-semibold text-dm-ink-2 tabular-nums">{num(n.puntos)} pts</span>
               </span>
               {#if n.texto}<span class="text-[13px] leading-[18px] text-dm-ink-2">{n.texto}</span>{/if}
               {#if n.marcado}
-                <span class="mt-0.5 inline-flex items-center gap-1 self-start rounded-full bg-dm-amarillo px-2 text-[13px] leading-5 font-extrabold text-[#161949]">
+                <span class="mt-0.5 inline-flex items-center gap-1 self-start rounded-full bg-dm-amarillo px-2 text-[13px] leading-5 font-extrabold text-dm-sobre-amarillo">
                   <Check size={13} strokeWidth={3} aria-hidden="true" />Nivel asignado
                 </span>
               {/if}
@@ -156,4 +166,4 @@
       </section>
     {/each}
   {/if}
-</div>
+</section>

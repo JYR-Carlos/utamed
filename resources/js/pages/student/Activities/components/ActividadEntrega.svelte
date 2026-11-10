@@ -4,7 +4,8 @@
    * hacer con él. El estudiante ve siempre la fecha límite original; la
    * holgura (general o personal) es del docente y no se nombra (decisión
    * 07-10). Con holgura vigente el backend sigue diciendo ACTIVA y la píldora
-   * dice «Atrasada · aún se recibe».
+   * dice «Atrasada · aún se recibe». Va en la columna lateral (en el móvil,
+   * en la pestaña Entrega), así que todo se apila.
    */
   import { Link } from '@inertiajs/svelte';
   import { CircleAlert, CircleCheck, Clock, Download, Eye, FileText, Lock, RefreshCw, Trash2, Upload, Users } from 'lucide-svelte';
@@ -54,7 +55,7 @@
   const cierre = $derived(dia ? textoCierre(dia) : null);
 
   // La píldora del plazo. Calificada gana: ya no hay nada que reemplazar.
-  const plazo = $derived.by((): { texto: string; corto?: string; tono: keyof typeof tono; icono: typeof Clock } => {
+  const plazo = $derived.by((): { texto: string; tono: keyof typeof tono; icono: typeof Clock } => {
     if (estado === 'CERRADA') {
       return { texto: dia ? `Plazo cerrado el ${formatDiaCorto(dia)}` : 'Plazo cerrado', tono: 'off', icono: Lock };
     }
@@ -62,9 +63,9 @@
     if (!dia) return { texto: 'Sin fecha límite', tono: 'off', icono: Clock };
     if (dia < hoy) return { texto: 'Atrasada · aún se recibe', tono: 'warn', icono: Clock };
     if (dia === hoy) {
-      return { texto: 'Vence hoy a las 23:59 (hora de Chile)', corto: 'Vence hoy a las 23:59', tono: 'warn', icono: Clock };
+      return { texto: 'Vence hoy a las 23:59 (hora de Chile)', tono: 'warn', icono: Clock };
     }
-    return { texto: `Vence el ${formatDiaCorto(dia)} a las 23:59 (hora de Chile)`, corto: `Vence el ${formatDiaCorto(dia)} a las 23:59`, tono: 'off', icono: Clock };
+    return { texto: `Vence el ${formatDiaCorto(dia)} a las 23:59 (hora de Chile)`, tono: 'off', icono: Clock };
   });
 
   const archivo = $derived(entrega?.archivo ?? null);
@@ -89,19 +90,18 @@
 </script>
 
 <section aria-labelledby="t-entrega" class="{tarjeta} overflow-hidden">
-  <div class="flex flex-col items-start gap-3 px-4 pt-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:border-b lg:border-dm-linea lg:px-6 lg:py-4">
-    <h2 id="t-entrega" class="text-lg leading-6 font-semibold">{esGrupal ? 'Entrega del grupo' : 'Tu entrega'}</h2>
+  <div class="flex flex-col items-start gap-2 px-4 pt-4 lg:px-5 lg:pt-5">
+    <h2 id="t-entrega" class="text-base leading-[22px] font-bold">{esGrupal ? 'Entrega del grupo' : 'Tu entrega'}</h2>
     {#if !sinGrupo}
       {@const Icono = plazo.icono}
       <span class="{pildora} {tono[plazo.tono]}">
         <Icono size={14} aria-hidden="true" />
-        {#if plazo.corto}<span class="lg:hidden">{plazo.corto}</span><span class="max-lg:hidden">{plazo.texto}</span
-          >{:else}{plazo.texto}{/if}
+        {plazo.texto}
       </span>
     {/if}
   </div>
 
-  <div class="flex flex-col gap-3.5 p-4 lg:gap-4 lg:p-6">
+  <div class="flex flex-col gap-3.5 p-4 lg:p-5">
     {#if sinGrupo}
       <div class="flex items-start gap-4">
         <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-dm-sutil text-dm-ink-3">
@@ -147,13 +147,13 @@
       </div>
 
       {#if puedeSubir}
-        <div class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+        <div class="flex flex-col gap-3">
           <span class="flex items-center gap-2 text-sm leading-5 text-dm-ink-2">
             <CircleCheck size={16} aria-hidden="true" class="shrink-0 text-dm-ok" />
             Entregada. Puedes reemplazarla mientras el plazo siga abierto.
           </span>
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="{btnSecundario} max-lg:flex-1" onclick={onSubir}>
+            <button type="button" class="{btnSecundario} flex-1" onclick={onSubir}>
               <RefreshCw size={16} aria-hidden="true" />Reemplazar entrega
             </button>
             <button
@@ -167,10 +167,10 @@
         </div>
       {/if}
     {:else if puedeSubir}
-      <div class="flex flex-col gap-3.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6">
-        <div class="flex flex-col gap-1 lg:flex-[1_1_300px] lg:flex-row lg:items-start lg:gap-4">
-          <span class="hidden size-12 shrink-0 items-center justify-center rounded-full bg-dm-sutil text-dm-ink-3 lg:flex">
-            <Upload size={22} aria-hidden="true" />
+      <div class="flex flex-col gap-3.5">
+        <div class="flex items-start gap-3">
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-dm-sutil text-dm-ink-3">
+            <Upload size={20} aria-hidden="true" />
           </span>
           <div class="flex flex-col gap-1">
             <span class="text-base leading-[22px] font-semibold">
@@ -182,7 +182,7 @@
             </span>
           </div>
         </div>
-        <button type="button" class="{btnPrimario} min-h-12 px-5 text-base lg:min-h-11 lg:text-[15px]" onclick={onSubir}>
+        <button type="button" class="{btnPrimario} min-h-12 w-full px-5 text-base lg:min-h-11 lg:text-[15px]" onclick={onSubir}>
           <Upload size={18} aria-hidden="true" />Subir entrega
         </button>
       </div>
