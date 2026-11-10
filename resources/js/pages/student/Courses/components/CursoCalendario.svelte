@@ -336,7 +336,7 @@
                       >
                         <span
                           class="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-sm tabular-nums md:self-start {dia.isToday
-                            ? 'bg-dm-amarillo font-bold text-dm-noche'
+                            ? 'bg-dm-amarillo font-bold text-dm-sobre-amarillo'
                             : dia.inMonth
                               ? 'font-semibold text-dm-ink'
                               : 'font-medium text-dm-ink-3'}"

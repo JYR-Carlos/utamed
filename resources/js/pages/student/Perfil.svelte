@@ -107,7 +107,7 @@
       <Reticula class="left-[45%] lg:left-1/2" />
       <div class="relative flex items-center gap-4 px-4 py-6 lg:gap-7 lg:px-10 lg:py-8">
         <span
-          class="flex size-18 shrink-0 items-center justify-center overflow-hidden rounded-full border-3 border-white/25 bg-[#2c3170] font-dm-cond text-[30px] leading-none font-black text-white lg:size-26 lg:text-[44px]"
+          class="flex size-18 shrink-0 items-center justify-center overflow-hidden rounded-full border-3 border-white/25 bg-dm-noche-avatar font-dm-cond text-[30px] leading-none font-black text-dm-noche-texto lg:size-26 lg:text-[44px]"
         >
           {#if urlImagenPerfil && !imagenError}
             <img src={urlImagenPerfil} alt="Tu foto de perfil" class="size-full object-cover" onerror={() => (imagenError = true)} />

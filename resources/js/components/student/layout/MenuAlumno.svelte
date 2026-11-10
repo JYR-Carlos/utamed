@@ -77,7 +77,7 @@
 
 <nav
   aria-label="Menú principal"
-  class="sobre-noche flex h-full flex-col gap-6 overflow-y-auto border-r border-dm-noche-borde bg-dm-noche px-3 py-5 font-dm"
+  class="sobre-noche flex h-full flex-col gap-6 overflow-y-auto border-r border-dm-noche-borde bg-dm-lat px-3 py-5 font-dm"
 >
   <Link href="/estudiante/dashboard" class="flex items-center gap-2.5 rounded-lg px-3 py-1 no-underline">
     <img src="/icon.png" alt="" width="32" height="32" class="size-8 shrink-0 object-contain" />
