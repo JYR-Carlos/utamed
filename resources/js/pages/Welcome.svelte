@@ -2,10 +2,10 @@
   /**
    * Portada pública de UTAMED (guía dm, dirección A · Noche).
    *
-   * Cabecera noche con el degradado profundo y la retícula, qué hace cada rol
-   * en la plataforma, los ocho principios del modelo educativo, ayuda para
-   * entrar y el pie con el isologotipo UTA y el cuadro dm. Sólo la ven
-   * visitantes: con sesión iniciada, `/` redirige al inicio de cada rol.
+   * Cabecera noche con el degradado profundo y la retícula, los ocho
+   * principios del modelo educativo, ayuda para entrar y el pie con el
+   * isologotipo UTA y el cuadro dm. Sólo la ven visitantes: con sesión
+   * iniciada, `/` redirige al inicio de cada rol.
    */
   import BotonTema from '@/components/ingreso/BotonTema.svelte';
   import LogosInstitucionales from '@/components/ingreso/LogosInstitucionales.svelte';
@@ -15,41 +15,7 @@
   import { login } from '@/routes';
   import { request } from '@/routes/password';
   import { Link } from '@inertiajs/svelte';
-  import {
-    BookOpen,
-    ChevronRight,
-    ClipboardCheck,
-    ClipboardList,
-    FileText,
-    Mail,
-    MessageSquare,
-    Upload,
-    UserCheck,
-  } from 'lucide-svelte';
-
-  // Cada ítem lleva el color de un curso (guía dm), sólo como acento del ícono.
-  const roles = [
-    {
-      titulo: 'Si estudias',
-      quien: 'Estudiantes',
-      items: [
-        { Icono: BookOpen, tono: 'bg-dm-c1-s text-dm-c1-t', titulo: 'Tus cursos', texto: 'Programa, biblioteca y calendario de cada curso del semestre.' },
-        { Icono: Upload, tono: 'bg-dm-c3-s text-dm-c3-t', titulo: 'Entregas', texto: 'Sube tu trabajo y revisa el plazo de cada actividad.' },
-        { Icono: ClipboardCheck, tono: 'bg-dm-c4-s text-dm-c4-t', titulo: 'Notas y retroalimentación', texto: 'La nota, la rúbrica y el comentario de tu docente.' },
-        { Icono: MessageSquare, tono: 'bg-dm-c2-s text-dm-c2-t', titulo: 'Mensajes', texto: 'Avisos del curso y conversación con el equipo docente.' },
-      ],
-    },
-    {
-      titulo: 'Si enseñas',
-      quien: 'Docentes y ayudantes',
-      items: [
-        { Icono: FileText, tono: 'bg-dm-c5-s text-dm-c5-t', titulo: 'Programa del curso', texto: 'Redáctalo paso a paso y envíalo a aprobación.' },
-        { Icono: ClipboardList, tono: 'bg-dm-c1-s text-dm-c1-t', titulo: 'Actividades', texto: 'Publícalas con su plazo, su rúbrica y sus grupos.' },
-        { Icono: ClipboardCheck, tono: 'bg-dm-c4-s text-dm-c4-t', titulo: 'Evaluación', texto: 'Califica con la rúbrica y deja retroalimentación a cada grupo.' },
-        { Icono: UserCheck, tono: 'bg-dm-c3-s text-dm-c3-t', titulo: 'Asistencia', texto: 'Registra cada sesión y revisa la asistencia del curso.' },
-      ],
-    },
-  ];
+  import { ChevronRight, Mail } from 'lucide-svelte';
 
   const principios = [
     ['Asíncrono', 'Aprendizaje que se adapta a tu ritmo.'],
@@ -87,7 +53,6 @@
         <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] lg:text-2xl lg:leading-7">UTAMED</span>
       </div>
       <nav aria-label="Secciones de la portada" class="flex items-center gap-1">
-        <a href="#que-es" class="{enlaceSeccion} max-lg:hidden">Qué es UTAMED</a>
         <a href="#modelo" class="{enlaceSeccion} max-lg:hidden">Modelo educativo</a>
         <a href="#ayuda" class="{enlaceSeccion} max-lg:hidden">Ayuda</a>
         <BotonTema class="text-dm-noche-texto hover:bg-dm-noche-activo lg:ms-2" />
@@ -109,39 +74,7 @@
     </div>
   </section>
 
-  <section id="que-es" aria-labelledby="t-que-es" class="{contenedor} flex flex-col gap-5 py-10 lg:gap-8 lg:pt-20 lg:pb-[72px]">
-    <div class="flex max-w-[640px] flex-col gap-2">
-      <h2 id="t-que-es" class={tituloSeccion}>Qué haces en UTAMED</h2>
-      <p class="m-0 text-base leading-6 text-dm-ink-2">
-        Cada curso de la carrera tiene su espacio, con el mismo orden en todos. Lo que ves depende de tu rol.
-      </p>
-    </div>
-    <div class="grid gap-4 lg:grid-cols-2 lg:gap-6">
-      {#each roles as rol (rol.titulo)}
-        <div class="{tarjeta} flex flex-col overflow-hidden">
-          <div class="flex items-baseline justify-between gap-3 border-b border-dm-linea px-4 py-4 lg:px-6 lg:py-5">
-            <h3 class="m-0 text-lg leading-6 font-semibold">{rol.titulo}</h3>
-            <span class="text-[13px] leading-[18px] text-dm-ink-3">{rol.quien}</span>
-          </div>
-          <ul class="m-0 flex list-none flex-col p-0 py-2">
-            {#each rol.items as item (item.titulo)}
-              <li class="flex items-start gap-4 px-4 py-3.5 lg:px-6">
-                <span aria-hidden="true" class="flex size-10 shrink-0 items-center justify-center rounded-[10px] {item.tono}">
-                  <item.Icono size={20} />
-                </span>
-                <div class="flex min-w-0 flex-col gap-0.5">
-                  <span class="text-base leading-[22px] font-semibold">{item.titulo}</span>
-                  <span class="text-sm leading-5 text-dm-ink-2">{item.texto}</span>
-                </div>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/each}
-    </div>
-  </section>
-
-  <section id="modelo" aria-labelledby="t-modelo" class="border-y border-dm-linea bg-dm-tarjeta">
+  <section id="modelo" aria-labelledby="t-modelo" class="border-b border-dm-linea bg-dm-tarjeta">
     <div class="{contenedor} flex flex-col gap-8 py-10 lg:py-[72px]">
       <div class="flex flex-wrap items-end justify-between gap-4">
         <div class="flex max-w-[640px] flex-col gap-2">
