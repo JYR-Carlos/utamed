@@ -120,3 +120,24 @@ export function textoDeSeccion(
     .filter((t) => t.trim())
     .join('\n\n');
 }
+
+export interface SegmentoTexto {
+  tipo: 'texto' | 'url' | 'archivo';
+  texto: string;
+  href?: string;
+}
+
+/** Parte un texto en tramos de texto, URLs y archivos subidos a la bibliografía. */
+export function segmentarTexto(texto: string | null | undefined): SegmentoTexto[] {
+  if (!texto) return [];
+  const partes = texto.split(/(https?:\/\/[^\s,\])>]+|\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo)/g);
+  return partes.map((parte): SegmentoTexto => {
+    if (/^\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo$/.test(parte)) {
+      return { tipo: 'archivo', texto: 'Ver archivo', href: parte };
+    }
+    if (/^https?:\/\//.test(parte)) {
+      return { tipo: 'url', texto: parte, href: parte };
+    }
+    return { tipo: 'texto', texto: parte };
+  });
+}

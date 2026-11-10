@@ -1,0 +1,211 @@
+/*
+ * Guía dm v0.1 — colores y fuentes del rediseño (rama rediseno-guia-dm).
+ *
+ * Cada variable da una clase de Tailwind: --color-dm-noche → bg-dm-noche,
+ * text-dm-noche, border-dm-noche… Van en @theme sin `inline` para que el
+ * modo oscuro las redefina abajo y las clases cambien solas, sin `dark:`.
+ *
+ * Por ahora las usan la vista del alumno (lote 1) y el ingreso (portada y
+ * login, `.vista-ingreso`). Lo que el alumno
+ * comparte con el docente se ajusta con la variante `alumno:`, que aplica
+ * dentro de `.vista-alumno` (StudentLayout) y deja igual al docente.
+ */
+
+@custom-variant alumno (&:where(.vista-alumno, .vista-alumno *));
+
+@theme static {
+    --font-dm: 'Sofia Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-dm-cond: 'Sofia Sans Condensed', 'Sofia Sans', ui-sans-serif, sans-serif;
+
+    /* Superficies */
+    --color-dm-pagina: #f0f2f6;
+    --color-dm-tarjeta: #ffffff;
+    --color-dm-elevada: #ffffff;
+    --color-dm-sutil: #f6f7fa;
+
+    /* Estructura: el menú (lat) y las cabeceras (noche) son oscuros en ambos
+       temas; en claro comparten el azul noche, en oscuro el menú queda un
+       escalón más hondo que la cabecera. */
+    --color-dm-lat: #161949;
+    --color-dm-noche: #161949;
+    --color-dm-noche-activo: #1f2360;
+    --color-dm-noche-borde: transparent;
+    --color-dm-noche-linea: #2c3170;
+    --color-dm-noche-texto: #ffffff;
+    --color-dm-noche-texto-2: #b4b8d9;
+    --color-dm-noche-chip: #4a5090;
+    --color-dm-noche-avatar: #2c3170;
+    --color-dm-amarillo: #febd02;
+    --color-dm-sobre-amarillo: #161949;
+    --color-dm-reticula: rgb(255 255 255 / 0.09);
+
+    /* Texto y bordes */
+    --color-dm-ink: #161949;
+    --color-dm-ink-2: #4a4e6e;
+    --color-dm-ink-3: #5c6080;
+    --color-dm-enlace: #2441ca;
+    --color-dm-enlace-hover: #1b33a3;
+    --color-dm-linea: #e0e5ec;
+    --color-dm-control: #7a7e9c;
+
+    /* Acción: el azul es la única acción primaria; el amarillo marca lo activo */
+    --color-dm-accion: #2441ca;
+    --color-dm-accion-hover: #1b33a3;
+    --color-dm-sobre-accion: #ffffff;
+    --color-dm-accion-suave: #e8ecfb;
+    --color-dm-accion-texto: #2441ca;
+    --color-dm-activo-suave: #fff4cc;
+    --color-dm-activo-texto: #7a5300;
+
+    /* Estado; el rojo queda sólo para errores reales */
+    --color-dm-ok: #0a7552;
+    --color-dm-ok-s: #edfdf5;
+    --color-dm-warn: #864e0e;
+    --color-dm-warn-s: #fefae6;
+    --color-dm-info: #1147bb;
+    --color-dm-info-s: #f0f6ff;
+    --color-dm-off: #5c6080;
+    --color-dm-off-s: #f3f4f6;
+    --color-dm-error: #b42318;
+    --color-dm-error-s: #fef3f2;
+    --color-dm-velo: rgb(22 25 73 / 0.55);
+
+    /* Cursos: base, suave (-s), texto (-t) y punto del menú (-m, sobre noche) */
+    --color-dm-c1: #2441ca;
+    --color-dm-c1-s: #e5e8f9;
+    --color-dm-c1-t: #2441ca;
+    --color-dm-c1-m: #8091e0;
+    --color-dm-c2: #febd02;
+    --color-dm-c2-s: #fff7e1;
+    --color-dm-c2-t: #7a5300;
+    --color-dm-c2-m: #febd02;
+    --color-dm-c3: #cc00a7;
+    --color-dm-c3-s: #f9e0f4;
+    --color-dm-c3-t: #9a007e;
+    --color-dm-c3-m: #e16bcc;
+    --color-dm-c4: #02d1ae;
+    --color-dm-c4-s: #e1f9f5;
+    --color-dm-c4-t: #00665a;
+    --color-dm-c4-m: #02d1ae;
+    --color-dm-c5: #ff4000;
+    --color-dm-c5-s: #ffe8e0;
+    --color-dm-c5-t: #a82d00;
+    --color-dm-c5-m: #ff6e3d;
+    --color-dm-c6: #a076ff;
+    --color-dm-c6-s: #f4efff;
+    --color-dm-c6-t: #5a32c0;
+    --color-dm-c6-m: #b594ff;
+    --color-dm-c7: #678fca;
+    --color-dm-c7-s: #edf2f9;
+    --color-dm-c7-t: #2f5a93;
+    --color-dm-c7-m: #88a8d6;
+    --color-dm-c8: #f80048;
+    --color-dm-c8-s: #fee0e9;
+    --color-dm-c8-t: #b0003a;
+    --color-dm-c8-m: #ff6f96;
+}
+
+@layer base {
+    /* Sólo en pantalla: al imprimir se queda el claro, como el resto de la app. */
+    @media screen {
+        .dark {
+            /* «Grafito cálido»: grises tibios en vez del azul noche. */
+            --color-dm-pagina: #23211e;
+            --color-dm-tarjeta: #2c2a26;
+            --color-dm-elevada: #36332e;
+            --color-dm-sutil: #33302b;
+
+            --color-dm-lat: #1c1b19;
+            --color-dm-noche: #332f2a;
+            --color-dm-noche-activo: #34312c;
+            --color-dm-noche-borde: #2f2c28;
+            --color-dm-noche-linea: #2f2c28;
+            --color-dm-noche-texto: #f5efe3;
+            --color-dm-noche-texto-2: #cdc4b4;
+            --color-dm-noche-chip: #5c564c;
+            --color-dm-noche-avatar: #4a453d;
+            --color-dm-amarillo: #f2c14e;
+            --color-dm-sobre-amarillo: #23211e;
+            --color-dm-reticula: rgb(255 244 225 / 0.06);
+
+            --color-dm-ink: #eee8dc;
+            --color-dm-ink-2: #c4bcad;
+            --color-dm-ink-3: #aba394;
+            --color-dm-enlace: #b2c0f5;
+            --color-dm-enlace-hover: #cdd6f8;
+            --color-dm-linea: #433f38;
+            --color-dm-control: #8a8376;
+
+            /* La acción pasa a lavanda con texto oscuro encima. */
+            --color-dm-accion: #b2c0f5;
+            --color-dm-accion-hover: #cdd6f8;
+            --color-dm-sobre-accion: #1d1f2e;
+            --color-dm-accion-suave: #393b4a;
+            --color-dm-accion-texto: #bfcaf7;
+            --color-dm-activo-suave: #433a26;
+            --color-dm-activo-texto: #f4cf71;
+
+            --color-dm-ok: #98d4aa;
+            --color-dm-ok-s: #2f3d31;
+            --color-dm-warn: #efba7e;
+            --color-dm-warn-s: #463928;
+            --color-dm-info: #aac4ea;
+            --color-dm-info-s: #333b49;
+            --color-dm-off: #b5ad9e;
+            --color-dm-off-s: #3a3631;
+            --color-dm-error: #f3a798;
+            --color-dm-error-s: #4a302c;
+            --color-dm-velo: rgb(14 13 11 / 0.72);
+
+            /* Cursos: el punto del menú (-m) es el mismo color base. */
+            --color-dm-c1: #a3aeec;
+            --color-dm-c1-s: #3a3c51;
+            --color-dm-c1-t: #b9c2f2;
+            --color-dm-c1-m: #a3aeec;
+            --color-dm-c2: #f2c14e;
+            --color-dm-c2-s: #463d29;
+            --color-dm-c2-t: #f4cf71;
+            --color-dm-c2-m: #f2c14e;
+            --color-dm-c3: #e6a0d4;
+            --color-dm-c3-s: #4a3444;
+            --color-dm-c3-t: #edb6de;
+            --color-dm-c3-m: #e6a0d4;
+            --color-dm-c4: #79d1bc;
+            --color-dm-c4-s: #2e4440;
+            --color-dm-c4-t: #97dccb;
+            --color-dm-c4-m: #79d1bc;
+            --color-dm-c5: #f5a47e;
+            --color-dm-c5-s: #4c3529;
+            --color-dm-c5-t: #f7b798;
+            --color-dm-c5-m: #f5a47e;
+            --color-dm-c6: #c2abf0;
+            --color-dm-c6-s: #3f3a50;
+            --color-dm-c6-t: #d2c2f5;
+            --color-dm-c6-m: #c2abf0;
+            --color-dm-c7: #a5bce0;
+            --color-dm-c7-s: #343b48;
+            --color-dm-c7-t: #bccdea;
+            --color-dm-c7-m: #a5bce0;
+            --color-dm-c8: #f29db1;
+            --color-dm-c8-s: #4a3238;
+            --color-dm-c8-t: #f6b6c5;
+            --color-dm-c8-m: #f29db1;
+        }
+    }
+
+    /* El degradado de la portada y del login no cambia con el tema, así que
+       su retícula sigue blanca. */
+    .vista-ingreso {
+        --color-dm-reticula: rgb(255 255 255 / 0.09);
+    }
+
+    /* Foco por teclado con el color de enlace (azul en claro, lavanda en
+       oscuro) y amarillo sobre noche, donde el azul no se distingue. */
+    :is(.vista-alumno, .vista-ingreso) :focus-visible {
+        outline-color: var(--color-dm-enlace);
+    }
+
+    :is(.vista-alumno, .vista-ingreso) .sobre-noche :focus-visible {
+        outline-color: var(--color-dm-amarillo);
+    }
+}

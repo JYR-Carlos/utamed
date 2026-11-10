@@ -213,6 +213,35 @@ export function formatFechaCorta(val: string | null | undefined): string {
 }
 
 /**
+ * Fecha corta con el día de la semana, sin año ni puntos: «jue 22 oct».
+ * Las fechas-solo-día pasan por {@link parseFechaSoloDia}.
+ */
+export function formatDiaCorto(val: string | Date): string {
+    const d = typeof val === 'string' ? parseFechaSoloDia(val) : val;
+    const dia = d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
+    const mes = d.toLocaleDateString('es-CL', { month: 'short' }).replace('.', '');
+    return `${dia} ${d.getDate()} ${mes}`;
+}
+
+/**
+ * Día con su nombre, para separar un hilo o una lista por días: «Lunes 5 de
+ * octubre» (con «de 2025» si no es del año en curso).
+ */
+export function formatDiaLargo(val: string | Date): string {
+    const d = typeof val === 'string' ? parseFechaSoloDia(val) : val;
+    const semana = d.toLocaleDateString('es-CL', { weekday: 'long' });
+    const mes = d.toLocaleDateString('es-CL', { month: 'long' });
+    const agno = d.getFullYear() !== new Date().getFullYear() ? ` de ${d.getFullYear()}` : '';
+    return `${semana.charAt(0).toUpperCase()}${semana.slice(1)} ${d.getDate()} de ${mes}${agno}`;
+}
+
+/** Fecha-solo-día (YYYY-MM-DD) de un Date en hora local. */
+export function claveDia(d: Date = new Date()): string {
+    const dos = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+}
+
+/**
  * Días que faltan para una fecha-solo-día, contados desde hoy a las 00:00.
  * @param val - Fecha ISO/string (se usan los primeros 10 caracteres).
  * @returns Negativo si ya pasó, 0 si es hoy.

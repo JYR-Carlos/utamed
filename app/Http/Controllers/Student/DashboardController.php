@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\InscripcionCurso;
-use App\Services\MensajeriaService;
 use App\Services\Student\ResumenActividadesEstudiante;
+use App\Services\Student\ResumenCursosEstudiante;
 use App\Services\Sso\SgeqSsoService;
 use Carbon\Carbon;
 use Inertia\Inertia;
@@ -21,7 +21,7 @@ class DashboardController extends Controller
      *
      * @return \Illuminate\Http\RedirectResponse|\Inertia\Response
      */
-    public function index(MensajeriaService $mensajeria, SgeqSsoService $sgeq, ResumenActividadesEstudiante $resumen)
+    public function index(ResumenCursosEstudiante $cursos, SgeqSsoService $sgeq, ResumenActividadesEstudiante $resumen)
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -38,34 +38,13 @@ class DashboardController extends Controller
             ->with([
                 'curso.asignacionPlan.asignatura',
                 'curso.asignacionPlan.plan.carrera',
-                // Docentes de cada componente, con es_titular para poder priorizar.
-                'curso.componentes.docenteComponentes.docente.usuario',
-                // Marca qué componentes son la sección del alumno.
-                'curso.componentes.inscripcionComponentes' => fn ($q) => $q->where('id_estudiante', $estudiante->id_estudiante),
+                ...ResumenCursosEstudiante::relacionesDocente($estudiante->id_estudiante),
             ])
             ->get();
 
         // Transformar datos para la vista
-        $cursosData = $inscripciones->map(function ($inscripcion) {
+        $cursosData = $inscripciones->map(function ($inscripcion) use ($cursos) {
             $curso = $inscripcion->curso;
-
-            // El profesor de la tarjeta es el titular de la sección del alumno
-            // (mismo criterio que StudentSyllabusPresenter). Si todavía no hay
-            // inscripción por componente, se cae a los componentes del curso.
-            $profesor = '(sin docente asignado)';
-            $componentes = $curso->componentes ?? collect();
-            $propios = $componentes->filter(fn ($componente) => $componente->inscripcionComponentes->isNotEmpty());
-            $relevantes = $propios->isNotEmpty() ? $propios : $componentes;
-
-            $primerDocente = $relevantes
-                ->sortBy('id_componente')
-                ->flatMap(fn ($componente) => $componente->docenteComponentes
-                    ->sortBy(fn ($dc) => [!$dc->es_titular, $dc->id_docente_componente]))
-                ->first()?->docente?->usuario;
-
-            if ($primerDocente) {
-                $profesor = trim("{$primerDocente->nombre1} {$primerDocente->apellido1}");
-            }
 
             return [
                 'id_curso' => $curso->id_curso,
@@ -78,7 +57,7 @@ class DashboardController extends Controller
                 'fecha_fin' => $curso->fecha_fin,
                 'semestre_real' => $curso->semestre_real,
                 'agno_real' => $curso->agno_real,
-                'profesor' => $profesor,
+                'profesor' => $cursos->docenteDeSeccion($curso),
             ];
         });
 
@@ -94,7 +73,7 @@ class DashboardController extends Controller
         $agnoActual = Carbon::now()->year;
 
         return Inertia::render('student/Dashboard', [
-            'mensajeria' => $this->mensajesSinLeer($mensajeria, (int) $user->id_usuario),
+            'mensajeria' => $cursos->mensajesSinLeer((int) $user->id_usuario),
             'cursos' => $cursosData,
             'proximasAVencer' => $resumen->proximasAVencer($estudiante, $semestreActual, $agnoActual),
             'notasRecientes' => $resumen->notasYRetroalimentaciones($estudiante),
@@ -113,52 +92,5 @@ class DashboardController extends Controller
             ],
 
         ]);
-    }
-
-    /**
-     * Mensajes de nivel curso (`curso.mensaje`) que el alumno todavía no abre,
-     * agrupados por curso.
-     *
-     * Va agrupado por curso y no por componente porque la bandeja se entra desde
-     * el curso: dentro, Cátedra y Laboratorio son pestañas. Los mensajes de
-     * agenda (consultas y feedback de una entrega) no entran aquí — esos cuelgan
-     * de una actividad y se ven en la actividad.
-     *
-     * @return array{no_leidos:int, cursos:array<int,array{id_curso:int, nombre:string, cod_curso:string, cod_asignatura:?string, no_leidos:int}>}
-     */
-    private function mensajesSinLeer(MensajeriaService $mensajeria, int $idUsuario): array
-    {
-        $componentes = $mensajeria->componentesDeEstudiante($idUsuario);
-
-        $noLeidos = $mensajeria->noLeidosPorComponente(
-            $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
-            $idUsuario,
-            esStaff: false,
-        );
-
-        $cursos = $componentes
-            ->map(fn($componente) => [
-                'id_curso'  => (int) $componente->id_curso,
-                'nombre'    => $componente->curso_nombre,
-                'cod_curso' => $componente->cod_curso,
-                'cod_asignatura' => $componente->cod_asignatura,
-                'no_leidos' => $noLeidos[(int) $componente->id_componente] ?? 0,
-            ])
-            ->filter(fn(array $fila) => $fila['no_leidos'] > 0)
-            ->groupBy('id_curso')
-            ->map(fn($delCurso) => [
-                'id_curso'  => $delCurso->first()['id_curso'],
-                'nombre'    => $delCurso->first()['nombre'],
-                'cod_curso' => $delCurso->first()['cod_curso'],
-                'cod_asignatura' => $delCurso->first()['cod_asignatura'],
-                'no_leidos' => $delCurso->sum('no_leidos'),
-            ])
-            ->sortByDesc('no_leidos')
-            ->values();
-
-        return [
-            'no_leidos' => (int) $cursos->sum('no_leidos'),
-            'cursos'    => $cursos->all(),
-        ];
     }
 }

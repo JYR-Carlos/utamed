@@ -42,6 +42,23 @@ class MensajeriaCursoEstudiante
     }
 
     /**
+     * Mensajes del curso que el alumno todavía no abre, sumando sus
+     * componentes. Es el contador de la pestaña; a diferencia de bandeja(),
+     * no marca nada como leído.
+     */
+    public function noLeidos(Curso $curso, int $idUsuario): int
+    {
+        $noLeidos = $this->mensajeria->noLeidosPorComponente(
+            $this->componentesDelCurso($curso, $idUsuario)
+                ->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
+            $idUsuario,
+            esStaff: false,
+        );
+
+        return (int) array_sum($noLeidos);
+    }
+
+    /**
      * Bandeja del curso: sus componentes con badges de no leídos y el panel del
      * componente activo (el pedido si es suyo; si no, el primero).
      *
@@ -96,16 +113,18 @@ class MensajeriaCursoEstudiante
         $difusiones = $this->mensajeria->difusionesDeComponente($idComponente, $idUsuario);
         $mensajes = $this->mensajeria->mensajesDelCanal($idComponente, $idUsuario, $idUsuario);
 
-        $this->mensajeria->marcarLeidos(
-            $difusiones->pluck('id_mensaje')->merge($mensajes->pluck('id_mensaje'))->all(),
-            $idUsuario,
-        );
+        // Lo que llega sin abrir se destaca como «Nuevo» en esta visita.
+        $ids = $difusiones->pluck('id_mensaje')->merge($mensajes->pluck('id_mensaje'))->all();
+        $nuevos = $this->mensajeria->sinLeer($ids, $idUsuario);
+        $this->mensajeria->marcarLeidos($ids, $idUsuario);
+
+        $conNuevo = fn(array $m) => $m + ['nuevo' => isset($nuevos[$m['id_mensaje']])];
 
         return [
             'id_componente' => $idComponente,
             'componente'    => $componente->tipo_componente,
-            'difusiones'    => $difusiones->values(),
-            'mensajes'      => $mensajes->values(),
+            'difusiones'    => $difusiones->map($conNuevo)->values(),
+            'mensajes'      => $mensajes->map($conNuevo)->values(),
             'docentes'      => $this->mensajeria->docentesDeComponente($idComponente)->values(),
         ];
     }

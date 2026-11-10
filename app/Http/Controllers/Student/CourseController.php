@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use App\Models\Agenda\Actividad;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
@@ -11,12 +10,12 @@ use App\Services\Student\BitacoraCursoEstudiante;
 use App\Services\Student\MensajeriaCursoEstudiante;
 use App\Services\Student\RendimientoCursoEstudiante;
 use App\Services\Student\ResumenActividadesEstudiante;
+use App\Services\Student\ResumenCursosEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
 use App\Traits\ParsesSyllabus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,7 +37,7 @@ class CourseController extends Controller
      *
      * GET estudiante/cursos
      */
-    public function index(Request $request): RedirectResponse|Response
+    public function index(Request $request, ResumenCursosEstudiante $resumenCursos, ResumenActividadesEstudiante $resumen): RedirectResponse|Response
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -63,12 +62,16 @@ class CourseController extends Controller
                 'curso.asignacionPlan.plan.carrera',
                 'curso.programas' => fn ($query) => $query->where('es_actual', true)
                     ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO']),
+                ...ResumenCursosEstudiante::relacionesDocente($estudiante->id_estudiante),
             ])
             ->get();
 
-        $cursosEstudiante = $inscripciones->map(function ($inscripcion) {
+        $cursosEstudiante = $inscripciones->map(function ($inscripcion) use ($resumenCursos) {
             $curso = $inscripcion->curso;
-            return $this->formatCurso($curso, 'Estudiante');
+            return $this->formatCurso($curso, 'Estudiante') + [
+                'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
+                'profesor'       => $resumenCursos->docenteDeSeccion($curso),
+            ];
         });
 
         $semestreActual = now()->month <= 6 ? 1 : 2;
@@ -76,6 +79,9 @@ class CourseController extends Controller
 
         return Inertia::render('student/Courses/Index', [
             'cursos'   => $cursosEstudiante,
+            // Lo mismo que las tarjetas del Inicio: próxima entrega y mensajes sin leer.
+            'proximasAVencer' => $resumen->proximasAVencer($estudiante, $semestreActual, $agnoActual),
+            'mensajeria' => $resumenCursos->mensajesSinLeer((int) $user->id_usuario),
             'periodoActual' => [
                 'semestre' => $semestreActual,
                 'agno' => $agnoActual,
@@ -142,29 +148,9 @@ class CourseController extends Controller
             'asignacionPlan.plan.carrera',
         ]);
 
-        // Obtener IDs de componentes en los que está inscrito el alumno
-        $componenteIds = DB::table('curso.inscripcion_componente as ic')
-            ->join('curso.componente as c', 'c.id_componente', '=', 'ic.id_componente')
-            ->where('ic.id_estudiante', $estudiante->id_estudiante)
-            ->where('c.id_curso', $curso->id_curso)
-            ->pluck('ic.id_componente');
-
-        if ($componenteIds->isEmpty()) {
-            $componenteIds = DB::table('curso.componente')
-                ->where('id_curso', $curso->id_curso)
-                ->pluck('id_componente');
-        }
-
-        // Obtener actividades visibles de los componentes del alumno
-        $actividades = Actividad::whereIn('id_componente', $componenteIds)
-            ->where('visible', true)
-            ->with(['componente.tipoComponente', 'unidad'])
-            ->orderBy('fecha_limite', 'asc')
-            ->get();
-
         // Cada actividad con el estado del grupo del alumno (entregada, evaluada).
         $resumen = app(ResumenActividadesEstudiante::class);
-        $actividadesData = $resumen->paraAlumno($estudiante, $actividades);
+        $actividadesData = $resumen->delCurso($estudiante, $curso);
 
         $syllabus = StudentSyllabusPresenter::build($curso, $estudiante);
 
@@ -188,6 +174,10 @@ class CourseController extends Controller
                 // se cargan al abrirlas. Abrir la mensajería marca como leído.
                 'mensajeria' => Inertia::lazy(fn () => app(MensajeriaCursoEstudiante::class)
                     ->bandeja($curso, (int) $user->id_usuario, request()->integer('componente_id') ?: null)),
+                // Contador de la pestaña Mensajería, sin abrirla (no marca leído).
+                // En closure para que las recargas parciales no lo recalculen.
+                'mensajes_sin_leer' => fn () => app(MensajeriaCursoEstudiante::class)
+                    ->noLeidos($curso, (int) $user->id_usuario),
                 'bitacora' => Inertia::lazy(fn () => app(BitacoraCursoEstudiante::class)
                     ->compilar($curso, $estudiante)),
                 // Vista «Ver todos» del calendario: las fechas de todos los cursos
