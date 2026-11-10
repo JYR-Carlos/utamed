@@ -2,9 +2,9 @@
   /**
    * Panel de asistencia de un componente (vista del docente).
    *
-   * Modelo: la asistencia se registra por inscripción-componente. No hay entidad
-   * "sesión": una sesión es IMPLÍCITA — el conjunto de filas que comparten
-   * (dia, hora_inicio, hora_fin). Este panel agrupa por ese trío.
+   * Modelo: cada sesión de clase es una entidad en `curso.clase` identificada
+   * unívocamente por su `id_clase`. La asistencia se registra por
+   * inscripción-componente en `curso.asistencia`.
    *
    * Layout de la lámina «Detalle de curso»: dos paneles.
    *  - Izquierda: las sesiones, agrupadas por día. Elegir una la abre a la derecha.
@@ -18,6 +18,7 @@
    */
   import { router } from '@inertiajs/svelte';
   import { formatFechaLarga } from '@/utils/formatters';
+  import ConfirmDialog from '@/components/custom/common/ConfirmDialog.svelte';
   import {
     CalendarPlus,
     Loader2,
@@ -42,6 +43,8 @@
   }
 
   interface Sesion {
+    id_clase: number;
+    correlativo?: number;
     dia: string;
     hora_inicio: string;
     hora_fin: string;
@@ -65,8 +68,9 @@
   let porcentajeObligatorio = $state<number | null>(null);
 
   // ── Pase de lista (crear / editar) ──
-  /** 'idle' = nada abierto; 'editar' = sesión existente; 'nueva' = fecha/hora editables. */
+  /** 'idle' = nada abierto; 'editar' = sesión existente; 'nueva' = sesión por crear. */
   let modo = $state<'idle' | 'nueva' | 'editar'>('idle');
+  let idClaseActiva = $state<number | null>(null);
   let guardando = $state(false);
   let formError = $state<string | null>(null);
   let fDia = $state('');
@@ -77,11 +81,10 @@
   /** Móvil: la lista de sesiones muestra sólo la última hasta pedir el resto. */
   let verTodas = $state(false);
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  // Diálogo de confirmación para eliminar sesión
+  let confirmEliminarOpen = $state(false);
 
-  /** Identidad de una sesión: el trío que la define en la BD. */
-  const claveSesion = (s: Sesion) => `${s.dia}|${s.hora_inicio}|${s.hora_fin}`;
-  const claveActiva = $derived(modo === 'editar' ? `${fDia}|${fInicio}|${fFin}` : '');
+  const hoy = new Date().toISOString().slice(0, 10);
 
   /** Sesiones agrupadas por día, respetando el orden que envía el servidor. */
   const sesionesPorDia = $derived.by(() => {
@@ -100,13 +103,11 @@
     cargar();
   });
 
-  async function cargar() {
+  async function cargar(preferirIdClase?: number | null) {
     cargando = true;
     error = null;
     modo = 'idle';
     try {
-      // GET lazy de datos del panel (no muta estado del servidor → no requiere CSRF).
-      // TODO(D-03): migrar a router.reload({ only:[...] }) cuando el controlador exponga prop lazy.
       const res = await fetch(
         `/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia`,
         { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
@@ -119,8 +120,19 @@
       );
       sesiones = data.sesiones ?? [];
       porcentajeObligatorio = data.porcentaje_asistencia_obligatoria ?? null;
-      // La sesión más reciente queda abierta: es la que el docente acaba de tomar.
-      if (sesiones.length > 0) abrirSesion(sesiones[0]);
+
+      if (sesiones.length > 0) {
+        if (preferirIdClase != null) {
+          const encontrada = sesiones.find((s) => s.id_clase === preferirIdClase);
+          if (encontrada) {
+            abrirSesion(encontrada);
+            return;
+          }
+        }
+        abrirSesion(sesiones[0]);
+      } else {
+        idClaseActiva = null;
+      }
     } catch {
       error = 'No se pudo cargar la asistencia.';
     } finally {
@@ -130,6 +142,7 @@
 
   function nuevaSesion() {
     modo = 'nueva';
+    idClaseActiva = null;
     formError = null;
     fDia = hoy;
     fInicio = '08:00';
@@ -140,6 +153,7 @@
 
   function abrirSesion(s: Sesion) {
     modo = 'editar';
+    idClaseActiva = s.id_clase;
     formError = null;
     fDia = s.dia;
     fInicio = s.hora_inicio;
@@ -179,6 +193,7 @@
     formError = null;
 
     const payload = {
+      ...(modo === 'editar' && idClaseActiva != null ? { id_clase: idClaseActiva } : {}),
       dia: fDia,
       hora_inicio: fInicio,
       hora_fin: fFin,
@@ -188,31 +203,48 @@
       })),
     };
 
-    const url = `/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia`;
-    const opts = {
-      preserveScroll: true,
-      preserveState: true,
-      onSuccess: () => {
-        guardando = false;
-        cargar();
-      },
-      onError: (errors: Record<string, string>) => {
-        formError = (Object.values(errors)[0] as string) ?? 'No se pudo guardar.';
-        guardando = false;
-      },
-    };
+    const targetClaseId = idClaseActiva;
 
-    if (modo === 'editar') router.put(url, payload, opts);
-    else router.post(url, payload, opts);
+    if (modo === 'editar' && targetClaseId != null) {
+      router.put(`/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia/${targetClaseId}`, payload, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          guardando = false;
+          cargar(targetClaseId);
+        },
+        onError: (errors: Record<string, string>) => {
+          formError = (Object.values(errors)[0] as string) ?? 'No se pudo guardar.';
+          guardando = false;
+        },
+      });
+    } else {
+      router.post(`/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia`, payload, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          guardando = false;
+          cargar();
+        },
+        onError: (errors: Record<string, string>) => {
+          formError = (Object.values(errors)[0] as string) ?? 'No se pudo guardar.';
+          guardando = false;
+        },
+      });
+    }
   }
 
-  function eliminarSesion() {
-    if (
-      !confirm(`¿Eliminar la sesión del ${formatFechaLarga(fDia)} (${fInicio}–${fFin})?`)
-    )
-      return;
-    router.delete(`/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia`, {
-      data: { dia: fDia, hora_inicio: fInicio, hora_fin: fFin },
+  function solicitarEliminarSesion() {
+    if (modo !== 'editar' || idClaseActiva == null) return;
+    confirmEliminarOpen = true;
+  }
+
+  function confirmarEliminarSesion() {
+    if (idClaseActiva == null) return;
+    const claseId = idClaseActiva;
+    confirmEliminarOpen = false;
+
+    router.delete(`/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia/${claseId}`, {
       preserveScroll: true,
       preserveState: true,
       onSuccess: () => cargar(),
@@ -260,7 +292,6 @@
 
   const CAMPO =
     'px-2.5 py-1.5 text-[13px] rounded-lg border border-line bg-white focus:outline-none focus:border-navy';
-  // Mismos botones que el detalle del curso (mockup).
   const BTN_PRIMARIO =
     'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:h-10';
   const BTN_SECUNDARIO =
@@ -307,7 +338,6 @@
             {sesiones.length}
             {sesiones.length === 1 ? 'registrada' : 'registradas'}
           </span>
-          <!-- Primario sólo mientras no hay una lista abierta: ahí manda «Guardar lista». -->
           <button type="button" onclick={nuevaSesion} class="ml-auto {modo === 'idle' ? BTN_PRIMARIO : BTN_SECUNDARIO}">
             <CalendarPlus size={16} aria-hidden="true" />
             Nueva sesión
@@ -318,7 +348,6 @@
           <p class="m-0 text-sm text-slate-600">Ésta será la primera sesión del componente.</p>
         {:else}
           {#each sesionesPorDia as grupo, g (grupo.dia)}
-            <!-- En móvil se ve sólo la última sesión; el resto, con «Ver las N sesiones». -->
             <span
               class="font-mono text-xs uppercase tracking-[0.08em] text-ink-2 pt-1.5 first:pt-0.5 {g > 0 && !verTodas
                 ? 'max-lg:hidden'
@@ -326,8 +355,8 @@
             >
               {formatFechaLarga(grupo.dia)}
             </span>
-            {#each grupo.items as s, j (claveSesion(s))}
-              {@const activa = claveSesion(s) === claveActiva}
+            {#each grupo.items as s, j (s.id_clase)}
+              {@const activa = s.id_clase === idClaseActiva}
               <button
                 onclick={() => abrirSesion(s)}
                 aria-current={activa ? 'true' : undefined}
@@ -360,9 +389,7 @@
         {/if}
       </div>
 
-      <!-- ── Panel derecho: pase de lista. En móvil, con una lista abierta, va
-           primero; sin lista abierta no se muestra (el aviso sólo sirve al lado
-           de las sesiones, en escritorio). ── -->
+      <!-- ── Panel derecho: pase de lista ── -->
       <div
         class="w-full lg:flex-1 min-w-0 rounded-xl border border-gray-200 flex flex-col {modo === 'idle'
           ? 'max-lg:hidden'
@@ -382,22 +409,16 @@
           <div
             class="flex flex-wrap items-center gap-3.5 rounded-t-xl border-b border-gray-200 bg-sand px-4 py-3"
           >
-            <div class="flex flex-col gap-0.5 min-w-0">
+            <div class="flex flex-col gap-1 min-w-0">
               <span class="text-sm font-semibold text-ink"
-                >Pase de lista · {tipoComponente}</span
+                >Pase de lista · {tipoComponente} {modo === 'editar' ? '(Editar sesión)' : '(Nueva sesión)'}</span
               >
-              {#if modo === 'editar'}
-                <span class="font-mono text-[11.5px] text-ink-2">
-                  {formatFechaLarga(fDia)} · {fInicio} – {fFin}
-                </span>
-              {:else}
-                <div class="flex flex-wrap items-center gap-2 pt-1">
-                  <input type="date" bind:value={fDia} class={CAMPO} aria-label="Fecha" />
-                  <input type="time" bind:value={fInicio} class={CAMPO} aria-label="Hora inicio" />
-                  <span class="text-muted-foreground">–</span>
-                  <input type="time" bind:value={fFin} class={CAMPO} aria-label="Hora término" />
-                </div>
-              {/if}
+              <div class="flex flex-wrap items-center gap-2 pt-1">
+                <input type="date" bind:value={fDia} class={CAMPO} aria-label="Fecha" />
+                <input type="time" bind:value={fInicio} class={CAMPO} aria-label="Hora inicio" />
+                <span class="text-muted-foreground">–</span>
+                <input type="time" bind:value={fFin} class={CAMPO} aria-label="Hora término" />
+              </div>
             </div>
 
             <div class="ml-auto flex flex-wrap items-center gap-3.5">
@@ -409,7 +430,8 @@
               </div>
               {#if modo === 'editar'}
                 <button
-                  onclick={eliminarSesion}
+                  type="button"
+                  onclick={solicitarEliminarSesion}
                   class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-700"
                   aria-label="Eliminar sesión"
                 >
@@ -448,13 +470,11 @@
                 <span class="w-[22px] shrink-0 font-mono text-[12px] tabular-nums text-ink-2"
                   >{String(i + 1).padStart(2, '0')}</span
                 >
-                <!-- Nombre completo: con truncate se cortaba justo el apellido que distingue. -->
                 <span class="min-w-0 flex-1 break-words text-[13.5px] font-medium text-ink">{e.nombre}</span>
                 <span class="ml-auto flex flex-none items-center gap-2.5">
                   <span class="text-xs font-semibold {pres ? 'text-emerald-700' : 'text-slate-600'}"
                     >{pres ? 'Presente' : 'Ausente'}</span
                   >
-                  <!-- El ::before agranda la zona táctil a 44 px sin mover el diseño. -->
                   <button
                     role="switch"
                     aria-checked={pres}
@@ -479,6 +499,7 @@
             </span>
             {#if modo === 'nueva'}
               <button
+                type="button"
                 onclick={() => (sesiones.length > 0 ? abrirSesion(sesiones[0]) : (modo = 'idle'))}
                 class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-ink-2 transition-colors hover:bg-sand"
               >
@@ -553,3 +574,15 @@
     {/if}
   {/if}
 </div>
+
+<!-- Modal de confirmación para eliminar sesión -->
+<ConfirmDialog
+  open={confirmEliminarOpen}
+  title="Eliminar sesión de asistencia"
+  body={`¿Estás seguro de eliminar la sesión del ${formatFechaLarga(fDia)} (${fInicio}–${fFin})? Esta acción no se puede deshacer.`}
+  confirmLabel="Eliminar sesión"
+  cancelLabel="Cancelar"
+  variant="danger"
+  onConfirm={confirmarEliminarSesion}
+  onCancel={() => (confirmEliminarOpen = false)}
+/>

@@ -37,6 +37,7 @@ export interface CalendarEvento {
  * hubo toma de asistencia y el calendario no puede saber que tocaba clase.
  */
 export interface CalendarSesion {
+  id_clase?: number;
   id_curso: number;
   id_componente: number;
   /** Tipo del componente (p. ej. "Cátedra"). */

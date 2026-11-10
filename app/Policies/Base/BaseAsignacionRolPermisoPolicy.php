@@ -19,7 +19,7 @@ abstract class BaseAsignacionRolPermisoPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'asignaciones_rol_permiso';
+    protected string $resource = 'usuarios/permisos/roles';
 
     public function viewAny(Usuario $user): bool
     {

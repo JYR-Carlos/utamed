@@ -19,7 +19,7 @@ abstract class BaseComponentePolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'cursos/componentes';
+    protected string $resource = 'componentes';
 
     public function viewAny(Usuario $user): bool
     {

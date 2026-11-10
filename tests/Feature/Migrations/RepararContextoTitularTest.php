@@ -12,7 +12,7 @@
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 
-uses(DatabaseTransactions::class);
+uses(Tests\TestCase::class, DatabaseTransactions::class);
 
 function migracionRepararContextoTitular(): object
 {

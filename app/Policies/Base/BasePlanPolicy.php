@@ -19,25 +19,17 @@ abstract class BasePlanPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'planes';
+    protected string $resource = 'carreras/planes';
 
     public function viewAny(Usuario $user): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'ver'))) {
-            return true;
-        }
-
+        // 'carreras/planes:ver' no existe en permissions_config.php; delega al hook/override
         return $this->customViewAny($user);
     }
 
     public function view(Usuario $user, Plan $model): bool
     {
-        $contextId = $this->resolveContextId($model);
-
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'ver'), $model, $contextId)) {
-            return true;
-        }
-
+        // 'carreras/planes:ver' no existe en permissions_config.php; delega al hook/override
         return $this->customView($user, $model);
     }
 

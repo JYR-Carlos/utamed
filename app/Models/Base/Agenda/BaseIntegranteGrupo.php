@@ -56,13 +56,13 @@ abstract class BaseIntegranteGrupo extends CustomBaseModel implements HasOwnedCo
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereHas('actividadAsignadaGrupo', function ($q) use ($contextIds) {
-                $q->whereHas('actividad', function ($q) use ($contextIds) {
+        return $query->whereHas('estudiante', function ($q) use ($contextIds) {
+                $q->whereHas('carrera', function ($q) use ($contextIds) {
                 $q->whereIn('id_contexto', $contextIds);
             });
             })
-            ->orWhereHas('estudiante', function ($q) use ($contextIds) {
-                $q->whereHas('carrera', function ($q) use ($contextIds) {
+            ->orWhereHas('actividadAsignadaGrupo', function ($q) use ($contextIds) {
+                $q->whereHas('actividad', function ($q) use ($contextIds) {
                 $q->whereIn('id_contexto', $contextIds);
             });
             });

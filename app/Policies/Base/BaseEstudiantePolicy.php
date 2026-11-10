@@ -19,7 +19,7 @@ abstract class BaseEstudiantePolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'usuarios/estudiantes';
+    protected string $resource = 'usuarios';
 
     public function viewAny(Usuario $user): bool
     {
@@ -63,10 +63,7 @@ abstract class BaseEstudiantePolicy
 
     public function delete(Usuario $user, Estudiante $model): bool
     {
-        if ($this->validator()->validate($user, $this->buildPermissionSlug($this->resource, 'eliminar'), $model)) {
-            return true;
-        }
-
+        // 'usuarios:eliminar' no existe en permissions_config.php; delega al hook/override
         return $this->customDelete($user, $model);
     }
 }

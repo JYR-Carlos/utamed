@@ -5,15 +5,20 @@ namespace App\Models\Base\Agenda;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
+use App\Contracts\HasOwnedContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 use App\Enums\DB\EstadoRubrica;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseRubrica extends CustomBaseModel
+abstract class BaseRubrica extends CustomBaseModel implements HasOwnedContext
 {
     use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
     public $timestamps = false;
     public EstadoRubrica $estadoRubrica;
 
@@ -48,4 +53,19 @@ abstract class BaseRubrica extends CustomBaseModel
         return $this->hasMany(\App\Models\Agenda\Evaluacion::class, 'id_rubrica', 'id_rubrica');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: actividad
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('actividad', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+    }
 }

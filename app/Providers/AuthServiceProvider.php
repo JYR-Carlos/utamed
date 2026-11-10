@@ -18,6 +18,7 @@ use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\InscripcionComponente;
 use App\Models\Curso\Unidad;
 use App\Models\Curso\InscripcionCurso;
+use App\Models\Curso\Clase;
 use App\Models\Curso\Asistencia;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Estudiante;
@@ -41,6 +42,7 @@ use App\Policies\DocenteComponentePolicy;
 use App\Policies\InscripcionComponentePolicy;
 use App\Policies\UnidadPolicy;
 use App\Policies\InscripcionCursoPolicy;
+use App\Policies\ClasePolicy;
 use App\Policies\AsistenciaPolicy;
 use App\Policies\UsuarioPolicy;
 use App\Policies\EstudiantePolicy;
@@ -78,6 +80,7 @@ class AuthServiceProvider extends ServiceProvider
         InscripcionComponente::class => InscripcionComponentePolicy::class,
         Unidad::class => UnidadPolicy::class,
         InscripcionCurso::class => InscripcionCursoPolicy::class,
+        Clase::class => ClasePolicy::class,
         Asistencia::class => AsistenciaPolicy::class,
         Usuario::class => UsuarioPolicy::class,
         Estudiante::class => EstudiantePolicy::class,
