@@ -344,6 +344,26 @@ página «Actividad · versiones anteriores».
   - Se probó la navegación con teclado, el paso de la agenda a la rúbrica (desde la pestaña y desde la ventana) y el
     historial del navegador.
 
+## Observaciones del frontend del alumno (2026-11-10)
+
+- **Foto de perfil:** la de la Intranet es de credencial, vertical. El marco redondo la recortaba por arriba y por
+  abajo, y la silueta genérica también salía cortada.
+  - En el perfil la foto va en un marco de credencial (3:4) y se ve entera.
+  - En el menú sigue redonda, anclada arriba para que la cabeza no se corte.
+  - La silueta genérica se muestra completa en los dos.
+  - Las dos vistas usan el mismo componente, `FotoPerfil`.
+- **Portada:** sale la sección «Qué haces en UTAMED» y su enlace de la cabecera, porque describía la plataforma con
+  términos internos. Quedan los ocho principios del modelo educativo y la ayuda para entrar.
+- **Notas recientes (inicio):** el visto de las formativas va centrado en la misma columna que las notas de las
+  sumativas.
+- **Agenda:**
+  - La ventana de la agenda pasa de 880 a 1200 px de ancho en escritorio. Los mensajes, las entregas y las
+    evaluaciones del hilo se ensanchan con ella.
+  - Desde 1536 px, la página de la actividad crece de 1120 a 1440 px. Así la pestaña Agenda y la rúbrica aprovechan
+    las pantallas grandes. El resto de las vistas del alumno sigue en 1120 px.
+- **Perfil · Cuenta:** dos accesos de una línea, «Cambiar contraseña» y «Cambiar foto de perfil». El segundo abre la
+  Intranet en otra pestaña; el lector de pantalla lo anuncia.
+
 ## Decisiones
 
 - Las direcciones se diferencian por cuánto lenguaje dm llevan (retícula, condensada, noche), no por la paleta: todas
