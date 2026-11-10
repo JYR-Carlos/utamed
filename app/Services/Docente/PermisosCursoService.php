@@ -320,33 +320,21 @@ class PermisosCursoService
         $upesPorContexto = $upes->groupBy('id_contexto')->map(fn ($g) => $g->pluck('id_permiso')->all());
         $cursoUpeIds = $upesPorContexto->get($idContextoCurso, []);
 
-        // 2. Permisos globales o por rol institucional que aplican transversalmente
-        $permisosGlobales = DB::connection('pgsql')
-            ->table('usuario.vw_permisos_usuario')
-            ->where('id_usuario', $idUsuario)
-            ->where('id_contexto', 1)
-            ->where('esta_permitido', true)
-            ->pluck('slug')
-            ->all();
-
         $map = [];
 
-        // 3. Evaluar primero el contexto PADRE (Curso Completo)
+        // 2. Evaluar primero el contexto PADRE (Curso Completo)
+        // En el nivel de curso, todos los permisos delegados provienen de asignaciones directas en el curso.
+        // No se consideran roles transversales globales para no contaminar la matriz delegable del curso.
         $map[$idContextoCurso] = [];
         foreach ($permisosDb as $slug => $permiso) {
             $esDirecto = in_array($permiso->id_permiso, $cursoUpeIds, true);
-            $esGlobal  = in_array($slug, $permisosGlobales, true);
-
-            if ($esDirecto) {
-                $map[$idContextoCurso][$slug] = ['activo' => true, 'origen' => 'directo'];
-            } elseif ($esGlobal) {
-                $map[$idContextoCurso][$slug] = ['activo' => true, 'origen' => 'heredado'];
-            } else {
-                $map[$idContextoCurso][$slug] = ['activo' => false, 'origen' => 'inactivo'];
-            }
+            $map[$idContextoCurso][$slug] = [
+                'activo' => $esDirecto,
+                'origen' => $esDirecto ? 'directo' : 'inactivo',
+            ];
         }
 
-        // 4. Evaluar los contextos HIJOS (Componentes) aplicando superseding
+        // 3. Evaluar los contextos HIJOS (Componentes) aplicando superseding
         foreach ($componentesContextos as $idCtxComp) {
             $compUpeIds = $upesPorContexto->get($idCtxComp, []);
             $map[$idCtxComp] = [];
@@ -355,7 +343,7 @@ class PermisosCursoService
                 $activoEnPadre = $map[$idContextoCurso][$slug]['activo'] ?? false;
 
                 if ($activoEnPadre) {
-                    // Superseded: Ya está asignado a nivel de Curso o Global
+                    // Superseded: Ya está asignado a nivel de Curso
                     $map[$idCtxComp][$slug] = ['activo' => true, 'origen' => 'heredado'];
                 } elseif (in_array($permiso->id_permiso, $compUpeIds, true)) {
                     // Asignado específicamente a este componente
@@ -396,7 +384,7 @@ class PermisosCursoService
             return [];
         }
 
-        // 1. UPEs directas en $idContexto
+        // UPEs directas en $idContexto
         $upesDirectas = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
             ->where('id_contexto', $idContexto)
             ->whereIn('id_permiso', array_values($permisosIds))
@@ -405,19 +393,9 @@ class PermisosCursoService
             ->pluck('id_permiso')
             ->all();
 
-        // 2. Permisos globales de la vista vw_permisos_usuario
-        $globalSlugs = DB::connection('pgsql')
-            ->table('usuario.vw_permisos_usuario')
-            ->where('id_usuario', $idUsuario)
-            ->where('id_contexto', 1)
-            ->where('esta_permitido', true)
-            ->whereIn('slug', $slugs)
-            ->pluck('slug')
-            ->all();
-
-        $activos = $globalSlugs;
+        $activos = [];
         foreach ($permisosIds as $slug => $idPermiso) {
-            if (in_array($idPermiso, $upesDirectas, true) && !in_array($slug, $activos, true)) {
+            if (in_array($idPermiso, $upesDirectas, true)) {
                 $activos[] = $slug;
             }
         }

@@ -695,4 +695,108 @@ class DelegacionPermisosCursoTest extends TestCase
             'fue_borrado' => true,
         ]);
     }
+
+    /**
+     * Test 13: En Curso general los permisos delegables no vienen heredados por defecto desde roles globales
+     */
+    public function test_permisos_curso_no_vienen_heredados_por_defecto_desde_roles_globales(): void
+    {
+        Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_VER->value],
+            ['nombre' => 'Ver Actividades', 'modulo' => 'Actividades']
+        );
+        Permiso::firstOrCreate(
+            ['slug' => Permissions::COMPONENTES_VER->value],
+            ['nombre' => 'Ver Componentes', 'modulo' => 'Cursos']
+        );
+        Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_GRUPOS_VER->value],
+            ['nombre' => 'Ver Grupos de Actividad', 'modulo' => 'Actividades']
+        );
+
+        $response = $this->actingAs($this->titular)
+            ->get(route('docente.cursos.delegacion-permisos.index', $this->curso));
+
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
+            $page->component('docente/DelegacionPermisosCurso')
+                ->where(
+                    'miembros.0.permisos_por_contexto.' . $this->curso->id_contexto . '.' . Permissions::ACTIVIDADES_VER->value . '.origen',
+                    'inactivo'
+                )
+                ->where(
+                    'miembros.0.permisos_por_contexto.' . $this->curso->id_contexto . '.' . Permissions::COMPONENTES_VER->value . '.origen',
+                    'inactivo'
+                )
+                ->where(
+                    'miembros.0.permisos_por_contexto.' . $this->curso->id_contexto . '.' . Permissions::ACTIVIDADES_GRUPOS_VER->value . '.origen',
+                    'inactivo'
+                )
+        );
+    }
+
+    /**
+     * Test 14: Otorgar en componente con prerrequisito ya activo en Curso mantiene prerrequisito como heredado
+     */
+    public function test_otorgar_en_componente_con_prerrequisito_activo_en_curso_mantiene_prerrequisito_heredado(): void
+    {
+        $permisoEvaluar = Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_EVALUAR->value],
+            ['nombre' => 'Evaluar Actividades', 'modulo' => 'Actividades']
+        );
+        $permisoVer = Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_VER->value],
+            ['nombre' => 'Ver Actividades', 'modulo' => 'Actividades']
+        );
+
+        // 1. En Curso general, se otorga ACTIVIDADES_VER al colegiado
+        $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_VER->value,
+                'otorgar'     => true,
+                'id_contexto' => $this->curso->id_contexto,
+            ])
+            ->assertSessionHas('success');
+
+        // 2. En Componente, se otorga ACTIVIDADES_EVALUAR (que requiere ACTIVIDADES_VER)
+        $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_EVALUAR->value,
+                'otorgar'     => true,
+                'id_contexto' => $this->componente->id_contexto,
+            ])
+            ->assertSessionHas('success');
+
+        // 3. Verificar que en la BD solo se creó la UPE de evaluar para el componente, NO de ver (que ya viene de curso)
+        $this->assertDatabaseHas('usuario.usuario_permiso_especial', [
+            'id_usuario'  => $this->colegiado->id_usuario,
+            'id_permiso'  => $permisoEvaluar->id_permiso,
+            'id_contexto' => $this->componente->id_contexto,
+            'esta_activo' => true,
+        ]);
+        $this->assertDatabaseMissing('usuario.usuario_permiso_especial', [
+            'id_usuario'  => $this->colegiado->id_usuario,
+            'id_permiso'  => $permisoVer->id_permiso,
+            'id_contexto' => $this->componente->id_contexto,
+            'esta_activo' => true,
+        ]);
+
+        // 4. Verificar en Inertia que en el componente ACTIVIDADES_VER se mantiene como 'heredado'
+        // y ACTIVIDADES_EVALUAR es 'directo'
+        $response = $this->actingAs($this->titular)
+            ->get(route('docente.cursos.delegacion-permisos.index', $this->curso));
+
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
+            $page->component('docente/DelegacionPermisosCurso')
+                ->where(
+                    'miembros.0.permisos_por_contexto.' . $this->componente->id_contexto . '.' . Permissions::ACTIVIDADES_VER->value . '.origen',
+                    'heredado'
+                )
+                ->where(
+                    'miembros.0.permisos_por_contexto.' . $this->componente->id_contexto . '.' . Permissions::ACTIVIDADES_EVALUAR->value . '.origen',
+                    'directo'
+                )
+        );
+    }
 }

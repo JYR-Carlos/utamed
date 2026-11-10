@@ -198,7 +198,7 @@ class DelegacionPermisosController extends Controller
         $this->assertIsMiembroCurso($curso, $validated['id_usuario']);
 
         // SUPERSEDING GUARD:
-        // Si el target es un componente pero el permiso ya está asignado a nivel de Curso (o superior),
+        // Si el target es un componente pero el permiso ya está asignado a nivel de Curso,
         // no se puede mutar desde el componente.
         if ($targetContexto !== $curso->id_contexto) {
             $activoEnPadre = $this->permisosService->tienePermisoActivoEnContexto(
@@ -209,7 +209,7 @@ class DelegacionPermisosController extends Controller
 
             if ($activoEnPadre) {
                 return back()->withErrors([
-                    'slug' => "El permiso '{$validated['slug']}' ya está otorgado a nivel de Curso o superior y prevalece sobre el componente.",
+                    'slug' => "El permiso '{$validated['slug']}' ya está otorgado a nivel de Curso y prevalece sobre el componente.",
                 ]);
             }
         }
@@ -220,6 +220,23 @@ class DelegacionPermisosController extends Controller
         $slugsToSync = $validated['otorgar']
             ? CoursePermissionGraph::resolveRequiredToGrant($validated['slug'])
             : CoursePermissionGraph::resolveCascadeToRevoke($validated['slug']);
+
+        // SUPERSEDING GUARD EN DEPENDENCIAS:
+        // En componentes, si un prerrequisito o dependiente ya está activo a nivel de Curso (padre),
+        // no se debe asignar en el componente (permanece como heredado y bloqueado con candado).
+        if ($targetContexto !== $curso->id_contexto) {
+            $activosEnCurso = $this->permisosService->slugsActivosEnContexto(
+                $validated['id_usuario'],
+                $curso->id_contexto,
+                $slugsToSync
+            );
+
+            $slugsToSync = array_values(array_diff($slugsToSync, $activosEnCurso));
+
+            if (empty($slugsToSync)) {
+                return back()->with('success', 'El permiso ya se encuentra cubierto por la herencia del Curso.');
+            }
+        }
 
         $this->permisosService->syncPermisosBatch(
             idUsuario:  $validated['id_usuario'],
@@ -285,6 +302,21 @@ class DelegacionPermisosController extends Controller
         $slugsToSync = $validated['otorgar']
             ? CoursePermissionGraph::resolveRequiredToGrant($slugs)
             : CoursePermissionGraph::resolveCascadeToRevoke($slugs);
+
+        // En componentes, asegurar que ninguna dependencia upstream o downstream toque permisos del Curso
+        if ($targetContexto !== $curso->id_contexto) {
+            $activosEnCurso = $this->permisosService->slugsActivosEnContexto(
+                $validated['id_usuario'],
+                $curso->id_contexto,
+                $slugsToSync
+            );
+
+            $slugsToSync = array_values(array_diff($slugsToSync, $activosEnCurso));
+
+            if (empty($slugsToSync)) {
+                return back()->with('success', 'Todos los permisos seleccionados ya están cubiertos por la herencia del Curso.');
+            }
+        }
 
         $this->permisosService->syncPermisosBatch(
             idUsuario:  $validated['id_usuario'],

@@ -164,7 +164,7 @@
 
   function handleToggle(idUsuario: number, slug: string, otorgar: boolean) {
     if (isHeredado(idUsuario, slug)) {
-      toast.error(`"${formatSlugAction(slug)}" está asignado a nivel de Curso o superior y prevalece sobre este componente.`);
+      toast.error(`"${formatSlugAction(slug)}" está asignado a nivel de Curso y prevalece sobre este componente.`);
       return;
     }
 
@@ -176,11 +176,19 @@
       ? resolveRequiredToGrant(slug, dependencias)
       : resolveCascadeToRevoke(slug, dependencias);
 
-    // Actualización optimista de todos los slugs afectados
-    for (const s of slugsAfectados) {
+    // Filtrar los que ya son heredados del padre (no deben mutar visualmente ni cambiar a 'directo')
+    const slugsAMutar = slugsAfectados.filter((s) => !isHeredado(idUsuario, s));
+
+    if (slugsAMutar.length === 0) {
+      toast.info('El permiso y sus dependencias ya están otorgados por herencia del Curso.');
+      return;
+    }
+
+    // Actualización optimista solo de los slugs modificables
+    for (const s of slugsAMutar) {
       if (!permisosLocales[idUsuario][s]) {
         permisosLocales[idUsuario][s] = { activo: otorgar, origen: 'directo' };
-      } else if (permisosLocales[idUsuario][s].origen !== 'heredado') {
+      } else {
         permisosLocales[idUsuario][s].activo = otorgar;
         permisosLocales[idUsuario][s].origen = otorgar ? 'directo' : 'inactivo';
       }
@@ -194,19 +202,20 @@
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
-          for (const s of slugsAfectados) {
+          for (const s of slugsAMutar) {
             estadosCelda[claveCelda(idUsuario, s)] = 'confirmado';
           }
           const accionPrincipal = formatSlugAction(slug);
-          const extra = slugsAfectados.length > 1
+          const slugsNuevos = slugsAMutar.filter((s) => s !== slug);
+          const extra = slugsNuevos.length > 0
             ? otorgar
-              ? ` (junto a ${slugsAfectados.length - 1} requisitos)`
-              : ` (y ${slugsAfectados.length - 1} dependientes en cascada)`
+              ? ` (junto a ${slugsNuevos.length} requisitos)`
+              : ` (y ${slugsNuevos.length} dependientes en cascada)`
             : '';
           toast.success(`"${accionPrincipal}"${extra} ${otorgar ? 'concedido a' : 'revocado a'} ${persona} (${etiquetaContexto}).`);
 
           setTimeout(() => {
-            for (const s of slugsAfectados) {
+            for (const s of slugsAMutar) {
               if (estadosCelda[claveCelda(idUsuario, s)] === 'confirmado') {
                 estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
               }
@@ -215,12 +224,12 @@
         },
         onError: (errs) => {
           permisosLocales[idUsuario] = prevPermisos;
-          for (const s of slugsAfectados) {
+          for (const s of slugsAMutar) {
             estadosCelda[claveCelda(idUsuario, s)] = 'error';
           }
           toast.error(Object.values(errs)[0] || 'No se pudo actualizar el permiso.');
           setTimeout(() => {
-            for (const s of slugsAfectados) {
+            for (const s of slugsAMutar) {
               if (estadosCelda[claveCelda(idUsuario, s)] === 'error') {
                 estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
               }
@@ -253,16 +262,21 @@
       ? resolveRequiredToGrant(slugsModificables, dependencias)
       : resolveCascadeToRevoke(slugsModificables, dependencias);
 
-    for (const s of slugsAfectados) {
-      if (permisosLocales[idUsuario][s]?.origen !== 'heredado') {
-        if (!permisosLocales[idUsuario][s]) {
-          permisosLocales[idUsuario][s] = { activo: otorgar, origen: 'directo' };
-        } else {
-          permisosLocales[idUsuario][s].activo = otorgar;
-          permisosLocales[idUsuario][s].origen = otorgar ? 'directo' : 'inactivo';
-        }
-        estadosCelda[claveCelda(idUsuario, s)] = 'guardando';
+    const slugsAMutar = slugsAfectados.filter((s) => !isHeredado(idUsuario, s));
+
+    if (slugsAMutar.length === 0) {
+      toast.info('Los permisos seleccionados ya están cubiertos por herencia del Curso.');
+      return;
+    }
+
+    for (const s of slugsAMutar) {
+      if (!permisosLocales[idUsuario][s]) {
+        permisosLocales[idUsuario][s] = { activo: otorgar, origen: 'directo' };
+      } else {
+        permisosLocales[idUsuario][s].activo = otorgar;
+        permisosLocales[idUsuario][s].origen = otorgar ? 'directo' : 'inactivo';
       }
+      estadosCelda[claveCelda(idUsuario, s)] = 'guardando';
     }
 
     router.post(
@@ -272,14 +286,14 @@
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
-          for (const s of slugsAfectados) {
+          for (const s of slugsAMutar) {
             estadosCelda[claveCelda(idUsuario, s)] = 'confirmado';
           }
           toast.success(
-            `${slugsAfectados.length} permisos ${otorgar ? 'otorgados' : 'revocados'}${nombreSeccion ? ' (' + nombreSeccion + ')' : ''} a ${persona} (${etiquetaContexto}).`,
+            `${slugsAMutar.length} permisos ${otorgar ? 'otorgados' : 'revocados'}${nombreSeccion ? ' (' + nombreSeccion + ')' : ''} a ${persona} (${etiquetaContexto}).`,
           );
           setTimeout(() => {
-            for (const s of slugsAfectados) {
+            for (const s of slugsAMutar) {
               if (estadosCelda[claveCelda(idUsuario, s)] === 'confirmado') {
                 estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
               }
@@ -288,12 +302,12 @@
         },
         onError: (errs) => {
           permisosLocales[idUsuario] = prevPermisos;
-          for (const s of slugsAfectados) {
+          for (const s of slugsAMutar) {
             estadosCelda[claveCelda(idUsuario, s)] = 'error';
           }
           toast.error(Object.values(errs)[0] || 'No se pudieron actualizar los permisos en lote.');
           setTimeout(() => {
-            for (const s of slugsAfectados) {
+            for (const s of slugsAMutar) {
               if (estadosCelda[claveCelda(idUsuario, s)] === 'error') {
                 estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
               }
