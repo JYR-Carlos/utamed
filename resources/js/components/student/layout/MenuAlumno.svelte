@@ -15,6 +15,7 @@
   import { AMBIENTES, ambientesDisponibles } from '@/lib/ambientes';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import type { SidebarCourse } from '@/types';
+  import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
 
   const { can } = usePermissions();
 
@@ -58,7 +59,6 @@
     ),
   );
   const foto = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
-  let fotoFallo = $state(false);
 
   function cerrarSesion() {
     router.flushAll();
@@ -148,16 +148,7 @@
         href="/estudiante/perfil"
         class="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 no-underline hover:bg-dm-noche-activo"
       >
-        <span
-          aria-hidden="true"
-          class="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-dm-noche-activo text-[13px] font-bold text-dm-noche-texto"
-        >
-          {#if foto && !fotoFallo}
-            <img src={foto} alt="" class="size-full object-cover" onerror={() => (fotoFallo = true)} />
-          {:else}
-            <img src="/img/usuarioutamed.png" alt="" class="size-full object-cover" />
-          {/if}
-        </span>
+        <FotoPerfil src={foto} decorativa class="size-8 rounded-full bg-dm-noche-activo" />
         <span class="flex min-w-0 flex-col">
           <span class="truncate text-sm font-semibold text-dm-noche-texto">{nombre}</span>
           <span class="text-[13px] leading-[18px] text-dm-noche-texto-2">Estudiante · Ver perfil</span>

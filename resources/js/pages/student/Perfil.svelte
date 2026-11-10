@@ -7,10 +7,11 @@
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
+  import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { ChevronRight, CircleAlert, CircleCheck, ExternalLink, Info, KeyRound, Lock, UserRound } from 'lucide-svelte';
   import { Link, useForm } from '@inertiajs/svelte';
-  import { btnPrimario, campo, enlace, etiqueta, tarjeta, tituloCond } from '@/lib/dm';
+  import { btnPrimario, campo, etiqueta, tarjeta, tituloCond } from '@/lib/dm';
   import { titleCase } from '@/lib/utils';
 
   type Red = 'youtube' | 'x' | 'instagram' | 'linkedin';
@@ -75,7 +76,7 @@
   ];
 
   const nombre = $derived(titleCase(perfil.nombre_completo));
-  let imagenError = $state(false);
+  const filaCuenta = 'flex min-h-14 items-center gap-3 px-4 py-2.5 text-dm-ink no-underline hover:bg-dm-sutil hover:text-dm-ink lg:px-5';
 
   const intranet = $derived([
     ['RUT', perfil.rut],
@@ -106,15 +107,7 @@
     <section aria-labelledby="t-perfil" class="sobre-noche relative overflow-hidden bg-dm-noche lg:rounded-xl lg:border lg:border-dm-noche-borde">
       <Reticula class="left-[45%] lg:left-1/2" />
       <div class="relative flex items-center gap-4 px-4 py-6 lg:gap-7 lg:px-10 lg:py-8">
-        <span
-          class="flex size-18 shrink-0 items-center justify-center overflow-hidden rounded-full border-3 border-white/25 bg-dm-noche-avatar font-dm-cond text-[30px] leading-none font-black text-dm-noche-texto lg:size-26 lg:text-[44px]"
-        >
-          {#if urlImagenPerfil && !imagenError}
-            <img src={urlImagenPerfil} alt="Tu foto de perfil" class="size-full object-cover" onerror={() => (imagenError = true)} />
-          {:else}
-            <img src="/img/usuarioutamed.png" alt="Foto de perfil genérica" class="size-full object-cover" />
-          {/if}
-        </span>
+        <FotoPerfil src={urlImagenPerfil} class="aspect-[3/4] w-18 rounded-xl border-3 border-white/25 bg-dm-noche-avatar lg:w-26" />
         <div class="flex min-w-0 flex-col gap-1.5 lg:gap-2">
           <span class="{etiqueta} text-dm-amarillo">Mi perfil</span>
           <h1 id="t-perfil" class="{tituloCond} text-[32px] leading-8 break-words text-dm-noche-texto lg:text-5xl lg:leading-12">{nombre}</h1>
@@ -129,36 +122,23 @@
     <div class="flex flex-col gap-4 px-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6 lg:px-0">
       <section aria-labelledby="t-cuenta" class="{tarjeta} overflow-hidden lg:col-start-2 lg:row-start-1">
         <h2 id="t-cuenta" class="border-b border-dm-linea px-4 py-3.5 text-base leading-[22px] font-bold lg:px-5 lg:py-4">Cuenta</h2>
-        <Link
-          href="/settings/password"
-          class="flex min-h-15 items-center gap-3 border-b border-dm-linea px-4 py-2.5 text-dm-ink no-underline hover:bg-dm-sutil hover:text-dm-ink lg:min-h-16 lg:px-5 lg:py-3"
-        >
+        <Link href="/settings/password" class="{filaCuenta} border-b border-dm-linea">
           <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-accion-suave text-dm-accion-texto">
             <KeyRound size={18} aria-hidden="true" />
           </span>
-          <span class="flex min-w-0 flex-1 flex-col">
-            <span class="text-[15px] leading-5 font-semibold text-dm-enlace">Cambiar contraseña</span>
-            <span class="text-[13px] leading-[18px] text-dm-ink-2">La que usas para entrar a UTAMED</span>
-          </span>
+          <span class="min-w-0 flex-1 text-[15px] leading-5 font-semibold text-dm-enlace">Cambiar contraseña</span>
           <ChevronRight size={18} aria-hidden="true" class="shrink-0 text-dm-ink-3" />
         </Link>
-        <div class="flex items-start gap-3 px-4 py-3.5 lg:px-5">
-          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-sutil text-dm-ink-2">
+        <!-- La foto es la de credencial: se cambia en la Intranet. -->
+        <a href="https://portal.uta.cl/" target="_blank" rel="noopener noreferrer" class={filaCuenta}>
+          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-accion-suave text-dm-accion-texto">
             <UserRound size={18} aria-hidden="true" />
           </span>
-          <span class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[15px] leading-5 font-semibold">Foto de perfil</span>
-            <span class="text-[13px] leading-[18px] text-dm-ink-2">Viene de la Intranet y se cambia allá.</span>
-            <a
-              href="https://portal.uta.cl/"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="{enlace} self-start"
-            >
-              Ir a la Intranet<ExternalLink size={14} aria-hidden="true" /><span class="sr-only">{' '}(se abre en otra pestaña)</span>
-            </a>
+          <span class="min-w-0 flex-1 text-[15px] leading-5 font-semibold text-dm-enlace">
+            Cambiar foto de perfil<span class="sr-only">{' '}(en la Intranet; se abre en otra pestaña)</span>
           </span>
-        </div>
+          <ExternalLink size={18} aria-hidden="true" class="shrink-0 text-dm-ink-3" />
+        </a>
       </section>
 
       <section aria-labelledby="t-contacto" class="{tarjeta} flex min-w-0 flex-col lg:col-start-1 lg:row-span-2 lg:row-start-1">
