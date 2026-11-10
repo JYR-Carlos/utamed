@@ -32,12 +32,13 @@
     expandido: boolean;
     onToggleExpandido: () => void;
     isChecked: (idUsuario: number, slug: string) => boolean;
+    isHeredado?: (idUsuario: number, slug: string) => boolean;
     getEstado: (idUsuario: number, slug: string) => Estado;
     onToggle: (idUsuario: number, slug: string, next: boolean) => void;
     onBatch?: (idUsuario: number, slugs: string[], otorgar: boolean, nombreGrupo: string) => void;
   }
 
-  let { numero, grupo, miembros, expandido, onToggleExpandido, isChecked, getEstado, onToggle, onBatch }: Props = $props();
+  let { numero, grupo, miembros, expandido, onToggleExpandido, isChecked, isHeredado, getEstado, onToggle, onBatch }: Props = $props();
 
   const columnas = $derived(grupo.permisos.filter((p) => !esSlugModuloPrograma(p.slug)));
   const modulosPrograma = $derived(
@@ -167,6 +168,7 @@
                 <td class="px-1.5 py-2 text-center">
                   <PermisoSwitch
                     checked={isChecked(miembro.id_usuario, permiso.slug)}
+                    isHeredado={isHeredado?.(miembro.id_usuario, permiso.slug) ?? false}
                     estado={getEstado(miembro.id_usuario, permiso.slug)}
                     onToggle={(next) => onToggle(miembro.id_usuario, permiso.slug, next)}
                     label={`${formatSlugAction(permiso.slug)} — ${miembro.nombre}`}
@@ -181,6 +183,7 @@
                       slug: mod.slug,
                       numero: mod.numero,
                       activo: isChecked(miembro.id_usuario, mod.slug),
+                      heredado: isHeredado?.(miembro.id_usuario, mod.slug) ?? false,
                       estado: getEstado(miembro.id_usuario, mod.slug),
                     }))}
                     onToggle={(slug, next) => onToggle(miembro.id_usuario, slug, next)}

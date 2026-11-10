@@ -563,24 +563,136 @@ class DelegacionPermisosCursoTest extends TestCase
     }
 
     /**
-     * Test 10: Index con filtro de contexto específico de componente
+     * Test 10: Index carga matriz completa para todos los contextos del curso sin query parameters
      */
-    public function test_index_permite_filtrar_por_contexto_de_componente(): void
+    public function test_index_carga_todos_los_contextos_sin_query_parameter(): void
     {
-        $idContextoComponente = $this->componente->id_contexto;
-
         $response = $this->actingAs($this->titular)
-            ->get(route('docente.cursos.delegacion-permisos.index', [
-                'curso'    => $this->curso,
-                'contexto' => $idContextoComponente,
-            ]));
+            ->get(route('docente.cursos.delegacion-permisos.index', $this->curso));
 
         $response->assertOk();
         $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
             $page->component('docente/DelegacionPermisosCurso')
-                ->where('contexto_activo', $idContextoComponente)
                 ->where('id_contexto_curso', $this->curso->id_contexto)
                 ->has('componentes', 1)
+                ->has('dependencias')
+                ->has('miembros.0.permisos_por_contexto.' . $this->curso->id_contexto)
+                ->has('miembros.0.permisos_por_contexto.' . $this->componente->id_contexto)
         );
+    }
+
+    /**
+     * Test 11: Superseding de contextos - permiso otorgado en Curso prevalece como 'heredado' en Componente
+     */
+    public function test_superseding_permiso_en_curso_se_hereda_y_bloquea_en_componente(): void
+    {
+        Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_EVALUAR->value],
+            ['nombre' => 'Evaluar Actividades', 'modulo' => 'Actividades']
+        );
+        Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_VER->value],
+            ['nombre' => 'Ver Actividades', 'modulo' => 'Actividades']
+        );
+
+        // 1. Titular otorga permiso en Curso general
+        $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_EVALUAR->value,
+                'otorgar'     => true,
+                'id_contexto' => $this->curso->id_contexto,
+            ])
+            ->assertSessionHas('success');
+
+        // 2. Verificar que el index reporta el permiso en el componente como 'heredado'
+        $response = $this->actingAs($this->titular)
+            ->get(route('docente.cursos.delegacion-permisos.index', $this->curso));
+
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) =>
+            $page->component('docente/DelegacionPermisosCurso')
+                ->where(
+                    'miembros.0.permisos_por_contexto.' . $this->componente->id_contexto . '.' . Permissions::ACTIVIDADES_EVALUAR->value . '.origen',
+                    'heredado'
+                )
+                ->where(
+                    'miembros.0.permisos_por_contexto.' . $this->componente->id_contexto . '.' . Permissions::ACTIVIDADES_EVALUAR->value . '.activo',
+                    true
+                )
+        );
+
+        // 3. Intento de revocar en el componente debe ser bloqueado por superseding
+        $responseBloqueo = $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_EVALUAR->value,
+                'otorgar'     => false,
+                'id_contexto' => $this->componente->id_contexto,
+            ]);
+
+        $responseBloqueo->assertSessionHasErrors(['slug']);
+    }
+
+    /**
+     * Test 12: Grafo de dependencias - otorgar evaluar otorga ver; revocar ver revoca evaluar en cascada
+     */
+    public function test_grafo_de_dependencias_resuelve_prerrequisitos_y_cascada(): void
+    {
+        $permisoEvaluar = Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_EVALUAR->value],
+            ['nombre' => 'Evaluar Actividades', 'modulo' => 'Actividades']
+        );
+        $permisoVer = Permiso::firstOrCreate(
+            ['slug' => Permissions::ACTIVIDADES_VER->value],
+            ['nombre' => 'Ver Actividades', 'modulo' => 'Actividades']
+        );
+
+        // 1. Otorgar evaluar debe otorgar automáticamente ver (upstream)
+        $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_EVALUAR->value,
+                'otorgar'     => true,
+                'id_contexto' => $this->curso->id_contexto,
+            ])
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('usuario.usuario_permiso_especial', [
+            'id_usuario'  => $this->colegiado->id_usuario,
+            'id_permiso'  => $permisoEvaluar->id_permiso,
+            'id_contexto' => $this->curso->id_contexto,
+            'esta_activo' => true,
+        ]);
+        $this->assertDatabaseHas('usuario.usuario_permiso_especial', [
+            'id_usuario'  => $this->colegiado->id_usuario,
+            'id_permiso'  => $permisoVer->id_permiso,
+            'id_contexto' => $this->curso->id_contexto,
+            'esta_activo' => true,
+        ]);
+
+        // 2. Revocar ver debe revocar en cascada evaluar (downstream)
+        $this->actingAs($this->titular)
+            ->post(route('docente.cursos.delegacion-permisos.toggle', $this->curso), [
+                'id_usuario'  => $this->colegiado->id_usuario,
+                'slug'        => Permissions::ACTIVIDADES_VER->value,
+                'otorgar'     => false,
+                'id_contexto' => $this->curso->id_contexto,
+            ])
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('usuario.usuario_permiso_especial', [
+            'id_usuario'  => $this->colegiado->id_usuario,
+            'id_permiso'  => $permisoVer->id_permiso,
+            'id_contexto' => $this->curso->id_contexto,
+            'esta_activo' => false,
+            'fue_borrado' => true,
+        ]);
+        $this->assertDatabaseHas('usuario.usuario_permiso_especial', [
+            'id_usuario'  => $this->colegiado->id_usuario,
+            'id_permiso'  => $permisoEvaluar->id_permiso,
+            'id_contexto' => $this->curso->id_contexto,
+            'esta_activo' => false,
+            'fue_borrado' => true,
+        ]);
     }
 }

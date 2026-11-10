@@ -279,6 +279,152 @@ class PermisosCursoService
         return $map;
     }
 
+    /**
+     * Devuelve el mapa completo de permisos por contexto para un miembro del curso,
+     * identificando permisos directos, heredados de un contexto padre/global (superseded),
+     * y permisos inactivos.
+     *
+     * Estructura:
+     *   [
+     *     id_contexto => [
+     *       slug => [ 'activo' => bool, 'origen' => 'directo' | 'heredado' | 'inactivo' ]
+     *     ]
+     *   ]
+     *
+     * @param int $idUsuario
+     * @param Curso $curso
+     * @param Collection $componentes
+     * @param Collection<string, Permiso> $permisosDb
+     * @return array<int, array<string, array{activo: bool, origen: string}>>
+     */
+    public function mapaPermisosPorContextosCurso(
+        int $idUsuario,
+        Curso $curso,
+        Collection $componentes,
+        Collection $permisosDb
+    ): array {
+        $idContextoCurso = $curso->id_contexto;
+        $componentesContextos = $componentes->pluck('id_contexto')->filter()->values()->all();
+        $allContextos = array_merge([$idContextoCurso], $componentesContextos);
+
+        $idPermisos = $permisosDb->pluck('id_permiso')->all();
+
+        // 1. UPEs activas en todos los contextos del curso (curso + componentes)
+        $upes = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
+            ->whereIn('id_contexto', $allContextos)
+            ->whereIn('id_permiso', $idPermisos)
+            ->where('esta_activo', true)
+            ->where('fue_borrado', false)
+            ->get();
+
+        $upesPorContexto = $upes->groupBy('id_contexto')->map(fn ($g) => $g->pluck('id_permiso')->all());
+        $cursoUpeIds = $upesPorContexto->get($idContextoCurso, []);
+
+        // 2. Permisos globales o por rol institucional que aplican transversalmente
+        $permisosGlobales = DB::connection('pgsql')
+            ->table('usuario.vw_permisos_usuario')
+            ->where('id_usuario', $idUsuario)
+            ->where('id_contexto', 1)
+            ->where('esta_permitido', true)
+            ->pluck('slug')
+            ->all();
+
+        $map = [];
+
+        // 3. Evaluar primero el contexto PADRE (Curso Completo)
+        $map[$idContextoCurso] = [];
+        foreach ($permisosDb as $slug => $permiso) {
+            $esDirecto = in_array($permiso->id_permiso, $cursoUpeIds, true);
+            $esGlobal  = in_array($slug, $permisosGlobales, true);
+
+            if ($esDirecto) {
+                $map[$idContextoCurso][$slug] = ['activo' => true, 'origen' => 'directo'];
+            } elseif ($esGlobal) {
+                $map[$idContextoCurso][$slug] = ['activo' => true, 'origen' => 'heredado'];
+            } else {
+                $map[$idContextoCurso][$slug] = ['activo' => false, 'origen' => 'inactivo'];
+            }
+        }
+
+        // 4. Evaluar los contextos HIJOS (Componentes) aplicando superseding
+        foreach ($componentesContextos as $idCtxComp) {
+            $compUpeIds = $upesPorContexto->get($idCtxComp, []);
+            $map[$idCtxComp] = [];
+
+            foreach ($permisosDb as $slug => $permiso) {
+                $activoEnPadre = $map[$idContextoCurso][$slug]['activo'] ?? false;
+
+                if ($activoEnPadre) {
+                    // Superseded: Ya está asignado a nivel de Curso o Global
+                    $map[$idCtxComp][$slug] = ['activo' => true, 'origen' => 'heredado'];
+                } elseif (in_array($permiso->id_permiso, $compUpeIds, true)) {
+                    // Asignado específicamente a este componente
+                    $map[$idCtxComp][$slug] = ['activo' => true, 'origen' => 'directo'];
+                } else {
+                    $map[$idCtxComp][$slug] = ['activo' => false, 'origen' => 'inactivo'];
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Verifica si un usuario tiene un permiso activo en un contexto dado (por UPE o global).
+     */
+    public function tienePermisoActivoEnContexto(int $idUsuario, int $idContexto, string $slug): bool
+    {
+        return !empty($this->slugsActivosEnContexto($idUsuario, $idContexto, [$slug]));
+    }
+
+    /**
+     * Retorna el subconjunto de slugs que están activos para el usuario en el contexto dado.
+     *
+     * @param int $idUsuario
+     * @param int $idContexto
+     * @param array<string> $slugs
+     * @return array<string>
+     */
+    public function slugsActivosEnContexto(int $idUsuario, int $idContexto, array $slugs): array
+    {
+        if (empty($slugs)) {
+            return [];
+        }
+
+        $permisosIds = Permiso::whereIn('slug', $slugs)->pluck('id_permiso', 'slug')->all();
+        if (empty($permisosIds)) {
+            return [];
+        }
+
+        // 1. UPEs directas en $idContexto
+        $upesDirectas = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
+            ->where('id_contexto', $idContexto)
+            ->whereIn('id_permiso', array_values($permisosIds))
+            ->where('esta_activo', true)
+            ->where('fue_borrado', false)
+            ->pluck('id_permiso')
+            ->all();
+
+        // 2. Permisos globales de la vista vw_permisos_usuario
+        $globalSlugs = DB::connection('pgsql')
+            ->table('usuario.vw_permisos_usuario')
+            ->where('id_usuario', $idUsuario)
+            ->where('id_contexto', 1)
+            ->where('esta_permitido', true)
+            ->whereIn('slug', $slugs)
+            ->pluck('slug')
+            ->all();
+
+        $activos = $globalSlugs;
+        foreach ($permisosIds as $slug => $idPermiso) {
+            if (in_array($idPermiso, $upesDirectas, true) && !in_array($slug, $activos, true)) {
+                $activos[] = $slug;
+            }
+        }
+
+        return $activos;
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // MIEMBROS DEL CURSO
     // ────────────────────────────────────────────────────────────────────────

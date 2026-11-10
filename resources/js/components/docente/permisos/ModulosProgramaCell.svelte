@@ -14,6 +14,7 @@
     slug: string;
     numero: number;
     activo: boolean;
+    heredado?: boolean;
     estado: Estado;
   }
 
@@ -70,6 +71,7 @@
             <span class="text-[12.5px] text-ink">Módulo {ROMANOS[modulo.numero - 1]}</span>
             <PermisoSwitch
               checked={modulo.activo}
+              isHeredado={modulo.heredado ?? false}
               estado={modulo.estado}
               onToggle={(next) => onToggle(modulo.slug, next)}
               label={`Módulo ${ROMANOS[modulo.numero - 1]} — ${nombrePersona}`}

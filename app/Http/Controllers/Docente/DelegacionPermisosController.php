@@ -7,6 +7,7 @@ use App\Models\Curso\Curso;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Usuario;
 use App\Services\Docente\PermisosCursoService;
+use App\Support\CoursePermissionGraph;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -108,12 +109,16 @@ class DelegacionPermisosController extends Controller
      * GET /docente/cursos/{curso}/delegacion-permisos
      *
      * Renderiza la página de delegación de permisos para el curso.
+     * Carga de una sola vez la matriz completa para todos los contextos
+     * del curso (Curso general + Componentes), eliminando query parameters en la URL.
      *
      * Props Inertia:
-     *  - curso          : datos básicos del curso
-     *  - miembros       : equipo docente (excluye al DT) con mapa de permisos activos
-     *  - grupos         : matriz agrupada de permisos delegables (definiciones)
-     *  - id_contexto    : id_contexto del curso (para debug/referencia frontend)
+     *  - curso             : datos básicos del curso
+     *  - componentes       : listado de componentes del curso con sus id_contexto
+     *  - id_contexto_curso : id_contexto del curso general
+     *  - miembros          : equipo docente con mapa de permisos por contexto (directo, heredado o inactivo)
+     *  - grupos            : matriz agrupada de permisos delegables (definiciones)
+     *  - dependencias      : grafo lean de dependencias/prerrequisitos de permisos
      */
     public function index(Request $request, Curso $curso): Response
     {
@@ -128,16 +133,6 @@ class DelegacionPermisosController extends Controller
                 'id_contexto'   => $c->id_contexto,
             ]);
 
-        $validContextos = array_merge(
-            [$curso->id_contexto],
-            $componentes->pluck('id_contexto')->filter()->values()->all()
-        );
-
-        $requestedContexto = $request->integer('contexto');
-        $contextoActivo = in_array($requestedContexto, $validContextos, true)
-            ? $requestedContexto
-            : $curso->id_contexto;
-
         $allSlugs   = $this->allDelegableSlugs();
         $permisosDb = Permiso::whereIn('slug', $allSlugs)
             ->select(['id_permiso', 'slug', 'nombre'])
@@ -146,11 +141,12 @@ class DelegacionPermisosController extends Controller
 
         $miembros = $this->permisosService->miembrosDelCurso($curso);
 
-        $miembrosConPermisos = $miembros->map(function (array $miembro) use ($contextoActivo, $permisosDb) {
+        $miembrosConPermisos = $miembros->map(function (array $miembro) use ($curso, $componentes, $permisosDb) {
             return array_merge($miembro, [
-                'permisos' => $this->permisosService->mapaPermisosPorSlug(
+                'permisos_por_contexto' => $this->permisosService->mapaPermisosPorContextosCurso(
                     $miembro['id_usuario'],
-                    $contextoActivo,
+                    $curso,
+                    $componentes,
                     $permisosDb
                 ),
             ]);
@@ -162,11 +158,10 @@ class DelegacionPermisosController extends Controller
             'curso'             => $curso->only(['id_curso', 'cod_curso', 'nombre', 'letra_grupo', 'semestre_real', 'agno_real'])
                 + ['etiqueta' => $curso->etiqueta()],
             'componentes'       => $componentes,
-            'contexto_activo'   => $contextoActivo,
             'id_contexto_curso' => $curso->id_contexto,
             'miembros'          => $miembrosConPermisos,
             'grupos'            => $grupos,
-            'id_contexto'       => $contextoActivo,
+            'dependencias'      => CoursePermissionGraph::dependencyMap(),
         ]);
     }
 
@@ -174,12 +169,8 @@ class DelegacionPermisosController extends Controller
      * POST /docente/cursos/{curso}/delegacion-permisos/toggle
      *
      * Otorga o revoca un permiso individual para un miembro del curso.
-     *
-     * Request body:
-     *   { id_usuario: int, slug: string, otorgar: bool, id_contexto?: int }
-     *
-     * Response:
-     *   redirect()->back() con flash 'success' o errores de validación
+     * Aplica resolución automática de dependencias (upstream al otorgar, downstream en cascada al revocar)
+     * y bloquea modificaciones en componentes cuando el permiso ya está activo a nivel de Curso (superseded).
      */
     public function toggle(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
     {
@@ -206,24 +197,46 @@ class DelegacionPermisosController extends Controller
         // IDOR guard: target user must belong to the course team, not be the DT
         $this->assertIsMiembroCurso($curso, $validated['id_usuario']);
 
-        $this->permisosService->syncPermiso(
+        // SUPERSEDING GUARD:
+        // Si el target es un componente pero el permiso ya está asignado a nivel de Curso (o superior),
+        // no se puede mutar desde el componente.
+        if ($targetContexto !== $curso->id_contexto) {
+            $activoEnPadre = $this->permisosService->tienePermisoActivoEnContexto(
+                $validated['id_usuario'],
+                $curso->id_contexto,
+                $validated['slug']
+            );
+
+            if ($activoEnPadre) {
+                return back()->withErrors([
+                    'slug' => "El permiso '{$validated['slug']}' ya está otorgado a nivel de Curso o superior y prevalece sobre el componente.",
+                ]);
+            }
+        }
+
+        // DEPENDENCY GRAPH RESOLUTION:
+        // Otorgar: resolver prerrequisitos obligatorios (upstream)
+        // Revocar: resolver dependientes en cascada (downstream)
+        $slugsToSync = $validated['otorgar']
+            ? CoursePermissionGraph::resolveRequiredToGrant($validated['slug'])
+            : CoursePermissionGraph::resolveCascadeToRevoke($validated['slug']);
+
+        $this->permisosService->syncPermisosBatch(
             idUsuario:  $validated['id_usuario'],
-            slugOrId:   $validated['slug'],
+            slugsOrIds: $slugsToSync,
             idContexto: $targetContexto,
             otorgar:    $validated['otorgar'],
             origen:     'DelegacionPermisos',
         );
 
-        return back()->with('success', 'Permiso actualizado');
+        return back()->with('success', 'Permiso actualizado correctamente');
     }
 
     /**
      * POST /docente/cursos/{curso}/delegacion-permisos/batch
      *
      * Otorga o revoca un conjunto de permisos para un miembro del curso en una sola transacción.
-     *
-     * Request body:
-     *   { id_usuario: int, slugs: array<string>, otorgar: bool, id_contexto?: int }
+     * Aplica resolución de dependencias y respeta el superseding del contexto padre.
      */
     public function batch(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
     {
@@ -250,16 +263,39 @@ class DelegacionPermisosController extends Controller
 
         $this->assertIsMiembroCurso($curso, $validated['id_usuario']);
 
+        $slugs = $validated['slugs'];
+
+        // SUPERSEDING GUARD:
+        // En componentes, omitir los permisos que ya vienen heredados del Curso
+        if ($targetContexto !== $curso->id_contexto) {
+            $activosEnCurso = $this->permisosService->slugsActivosEnContexto(
+                $validated['id_usuario'],
+                $curso->id_contexto,
+                $slugs
+            );
+
+            $slugs = array_values(array_diff($slugs, $activosEnCurso));
+
+            if (empty($slugs)) {
+                return back()->with('success', 'Todos los permisos seleccionados ya están otorgados por herencia del Curso.');
+            }
+        }
+
+        // DEPENDENCY GRAPH:
+        $slugsToSync = $validated['otorgar']
+            ? CoursePermissionGraph::resolveRequiredToGrant($slugs)
+            : CoursePermissionGraph::resolveCascadeToRevoke($slugs);
+
         $this->permisosService->syncPermisosBatch(
             idUsuario:  $validated['id_usuario'],
-            slugsOrIds: $validated['slugs'],
+            slugsOrIds: $slugsToSync,
             idContexto: $targetContexto,
             otorgar:    $validated['otorgar'],
             origen:     'DelegacionPermisos',
         );
 
         $accion = $validated['otorgar'] ? 'otorgados' : 'revocados';
-        $cantidad = count($validated['slugs']);
+        $cantidad = count($slugsToSync);
 
         return back()->with('success', "Se han {$accion} {$cantidad} permisos correctamente.");
     }

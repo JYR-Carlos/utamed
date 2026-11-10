@@ -5,13 +5,11 @@
    * Matriz persona × permiso agrupada en 7 bloques colapsables (una tabla
    * por bloque, así ninguna pasa de 10 columnas). Guardado optimista por
    * celda, sin botón "Guardar": el switch se mueve al tocarlo y el servidor
-   * confirma o revierte (PermisoSwitch + banner superior).
+   * confirma o revierte (PermisoSwitch + sonner toasts acumulables).
    *
-   * El titular no aparece en la matriz — conserva todos los permisos por
-   * definición — y sólo se delega a docentes del equipo (colegiados o
-   * titulares de otro componente); la delegación a ayudantes no existe hoy
-   * en el backend (assertIsMiembroCurso sólo reconoce docente_componente),
-   * así que no se fabrica esa fila aquí.
+   * Soporta selección de ámbito (Todo el Curso vs Componentes) sin query params,
+   * resolución automática de grafo de dependencias y superseding (los permisos
+   * otorgados a nivel de Curso o Global se bloquean como "heredados" en los componentes).
    */
   import { router } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
@@ -19,7 +17,11 @@
   import { ShieldCheck, Users, ChevronsDownUp, ChevronsUpDown, Layers } from 'lucide-svelte';
   import { Toaster, toast } from 'svelte-sonner';
   import GrupoPermisosMatriz from '@/components/docente/permisos/GrupoPermisosMatriz.svelte';
-  import { formatSlugAction } from '@/utils/permisos';
+  import {
+    formatSlugAction,
+    resolveRequiredToGrant,
+    resolveCascadeToRevoke,
+  } from '@/utils/permisos';
 
   type Estado = 'reposo' | 'guardando' | 'confirmado' | 'error';
 
@@ -33,13 +35,19 @@
     permisos: Permiso[];
   }
 
+  interface PermisoEstado {
+    activo: boolean;
+    origen: 'directo' | 'heredado' | 'inactivo';
+  }
+
   interface Miembro {
     id_usuario: number;
     id_docente: number;
     nombre: string;
     es_titular: boolean;
     tipo_componente?: string | null;
-    permisos: Record<string, boolean>;
+    permisos_por_contexto?: Record<number, Record<string, PermisoEstado>>;
+    permisos?: Record<string, boolean>;
   }
 
   interface ComponenteItem {
@@ -62,37 +70,43 @@
   interface Props {
     curso: Curso;
     componentes?: ComponenteItem[];
-    contexto_activo?: number;
     id_contexto_curso?: number;
     miembros: Miembro[];
     grupos: Grupo[];
-    id_contexto: number;
+    dependencias?: Record<string, string[]>;
   }
 
   let {
     curso,
     componentes = [],
-    contexto_activo,
-    id_contexto_curso = curso.id_contexto ?? id_contexto,
+    id_contexto_curso = curso.id_contexto ?? 0,
     miembros,
     grupos,
-    id_contexto,
+    dependencias = {},
   }: Props = $props();
 
   // ── Estado local ────────────────────────────────────────────────────────
 
-  let contextoSeleccionado = $state<number>(contexto_activo ?? id_contexto_curso ?? id_contexto);
+  let contextoSeleccionado = $state<number>(id_contexto_curso);
 
-  let permisosLocales = $state<Record<number, Record<string, boolean>>>(
-    Object.fromEntries(miembros.map((m) => [m.id_usuario, { ...m.permisos }])),
-  );
-
-  $effect(() => {
-    contextoSeleccionado = contexto_activo ?? id_contexto_curso ?? id_contexto;
-  });
+  // Mapa local reactivo: idUsuario => (slug => PermisoEstado)
+  let permisosLocales = $state<Record<number, Record<string, PermisoEstado>>>({});
 
   $effect(() => {
-    permisosLocales = Object.fromEntries(miembros.map((m) => [m.id_usuario, { ...m.permisos }]));
+    const map: Record<number, Record<string, PermisoEstado>> = {};
+    for (const m of miembros) {
+      if (m.permisos_por_contexto?.[contextoSeleccionado]) {
+        map[m.id_usuario] = { ...m.permisos_por_contexto[contextoSeleccionado] };
+      } else if (m.permisos) {
+        // Fallback de retrocompatibilidad
+        map[m.id_usuario] = Object.fromEntries(
+          Object.entries(m.permisos).map(([k, v]) => [k, { activo: v, origen: v ? 'directo' : 'inactivo' }]),
+        );
+      } else {
+        map[m.id_usuario] = {};
+      }
+    }
+    permisosLocales = map;
   });
 
   /** Estado visual transitorio por celda. Ausente = 'reposo'. */
@@ -115,22 +129,12 @@
   const totalPermisosDisponibles = $derived(todosLosSlugs.length);
 
   function cambiarContexto(nuevoContexto: number) {
-    if (nuevoContexto === contextoSeleccionado) return;
     contextoSeleccionado = nuevoContexto;
-    router.get(
-      window.location.pathname,
-      { contexto: nuevoContexto },
-      {
-        preserveState: true,
-        preserveScroll: true,
-        only: ['miembros', 'contexto_activo', 'id_contexto'],
-      },
-    );
   }
 
   function totalActivosMiembro(idUsuario: number): number {
     const usuarioPerms = permisosLocales[idUsuario] ?? {};
-    return todosLosSlugs.filter((slug) => usuarioPerms[slug] === true).length;
+    return todosLosSlugs.filter((slug) => usuarioPerms[slug]?.activo === true).length;
   }
 
   function subtituloMiembro(m: Miembro): string {
@@ -143,7 +147,11 @@
   }
 
   function isChecked(idUsuario: number, slug: string): boolean {
-    return permisosLocales[idUsuario]?.[slug] ?? false;
+    return permisosLocales[idUsuario]?.[slug]?.activo ?? false;
+  }
+
+  function isHeredado(idUsuario: number, slug: string): boolean {
+    return permisosLocales[idUsuario]?.[slug]?.origen === 'heredado';
   }
 
   function getEstado(idUsuario: number, slug: string): Estado {
@@ -155,12 +163,29 @@
   }
 
   function handleToggle(idUsuario: number, slug: string, otorgar: boolean) {
-    const key = claveCelda(idUsuario, slug);
-    const accion = formatSlugAction(slug);
-    const persona = nombreMiembro(idUsuario);
+    if (isHeredado(idUsuario, slug)) {
+      toast.error(`"${formatSlugAction(slug)}" está asignado a nivel de Curso o superior y prevalece sobre este componente.`);
+      return;
+    }
 
-    permisosLocales[idUsuario][slug] = otorgar;
-    estadosCelda[key] = 'guardando';
+    const persona = nombreMiembro(idUsuario);
+    const prevPermisos = JSON.parse(JSON.stringify(permisosLocales[idUsuario] ?? {}));
+
+    // Resolver grafo de dependencias automáticas (upstream al otorgar, downstream en cascada al revocar)
+    const slugsAfectados = otorgar
+      ? resolveRequiredToGrant(slug, dependencias)
+      : resolveCascadeToRevoke(slug, dependencias);
+
+    // Actualización optimista de todos los slugs afectados
+    for (const s of slugsAfectados) {
+      if (!permisosLocales[idUsuario][s]) {
+        permisosLocales[idUsuario][s] = { activo: otorgar, origen: 'directo' };
+      } else if (permisosLocales[idUsuario][s].origen !== 'heredado') {
+        permisosLocales[idUsuario][s].activo = otorgar;
+        permisosLocales[idUsuario][s].origen = otorgar ? 'directo' : 'inactivo';
+      }
+      estadosCelda[claveCelda(idUsuario, s)] = 'guardando';
+    }
 
     router.post(
       toggleUrl,
@@ -169,18 +194,37 @@
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
-          estadosCelda[key] = 'confirmado';
-          toast.success(`"${accion}" ${otorgar ? 'concedido a' : 'revocado a'} ${persona} (${etiquetaContexto}).`);
+          for (const s of slugsAfectados) {
+            estadosCelda[claveCelda(idUsuario, s)] = 'confirmado';
+          }
+          const accionPrincipal = formatSlugAction(slug);
+          const extra = slugsAfectados.length > 1
+            ? otorgar
+              ? ` (junto a ${slugsAfectados.length - 1} requisitos)`
+              : ` (y ${slugsAfectados.length - 1} dependientes en cascada)`
+            : '';
+          toast.success(`"${accionPrincipal}"${extra} ${otorgar ? 'concedido a' : 'revocado a'} ${persona} (${etiquetaContexto}).`);
+
           setTimeout(() => {
-            if (estadosCelda[key] === 'confirmado') estadosCelda[key] = 'reposo';
+            for (const s of slugsAfectados) {
+              if (estadosCelda[claveCelda(idUsuario, s)] === 'confirmado') {
+                estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
+              }
+            }
           }, 1500);
         },
         onError: (errs) => {
-          permisosLocales[idUsuario][slug] = !otorgar;
-          estadosCelda[key] = 'error';
+          permisosLocales[idUsuario] = prevPermisos;
+          for (const s of slugsAfectados) {
+            estadosCelda[claveCelda(idUsuario, s)] = 'error';
+          }
           toast.error(Object.values(errs)[0] || 'No se pudo actualizar el permiso.');
           setTimeout(() => {
-            if (estadosCelda[key] === 'error') estadosCelda[key] = 'reposo';
+            for (const s of slugsAfectados) {
+              if (estadosCelda[claveCelda(idUsuario, s)] === 'error') {
+                estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
+              }
+            }
           }, 2500);
         },
       },
@@ -195,46 +239,63 @@
   ) {
     if (slugs.length === 0) return;
 
-    const persona = nombreMiembro(idUsuario);
-    const prevPermisos = { ...permisosLocales[idUsuario] };
+    // En componentes, omitir los que son heredados
+    const slugsModificables = slugs.filter((s) => !isHeredado(idUsuario, s));
+    if (slugsModificables.length === 0) {
+      toast.info('Los permisos seleccionados ya están otorgados por herencia del Curso.');
+      return;
+    }
 
-    // Actualización optimista inmediata
-    for (const slug of slugs) {
-      permisosLocales[idUsuario][slug] = otorgar;
-      estadosCelda[claveCelda(idUsuario, slug)] = 'guardando';
+    const persona = nombreMiembro(idUsuario);
+    const prevPermisos = JSON.parse(JSON.stringify(permisosLocales[idUsuario] ?? {}));
+
+    const slugsAfectados = otorgar
+      ? resolveRequiredToGrant(slugsModificables, dependencias)
+      : resolveCascadeToRevoke(slugsModificables, dependencias);
+
+    for (const s of slugsAfectados) {
+      if (permisosLocales[idUsuario][s]?.origen !== 'heredado') {
+        if (!permisosLocales[idUsuario][s]) {
+          permisosLocales[idUsuario][s] = { activo: otorgar, origen: 'directo' };
+        } else {
+          permisosLocales[idUsuario][s].activo = otorgar;
+          permisosLocales[idUsuario][s].origen = otorgar ? 'directo' : 'inactivo';
+        }
+        estadosCelda[claveCelda(idUsuario, s)] = 'guardando';
+      }
     }
 
     router.post(
       batchUrl,
-      { id_usuario: idUsuario, slugs, otorgar, id_contexto: contextoSeleccionado },
+      { id_usuario: idUsuario, slugs: slugsModificables, otorgar, id_contexto: contextoSeleccionado },
       {
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
-          for (const slug of slugs) {
-            estadosCelda[claveCelda(idUsuario, slug)] = 'confirmado';
+          for (const s of slugsAfectados) {
+            estadosCelda[claveCelda(idUsuario, s)] = 'confirmado';
           }
           toast.success(
-            `${slugs.length} permisos ${otorgar ? 'otorgados' : 'revocados'}${nombreSeccion ? ' (' + nombreSeccion + ')' : ''} a ${persona} (${etiquetaContexto}).`,
+            `${slugsAfectados.length} permisos ${otorgar ? 'otorgados' : 'revocados'}${nombreSeccion ? ' (' + nombreSeccion + ')' : ''} a ${persona} (${etiquetaContexto}).`,
           );
           setTimeout(() => {
-            for (const slug of slugs) {
-              if (estadosCelda[claveCelda(idUsuario, slug)] === 'confirmado') {
-                estadosCelda[claveCelda(idUsuario, slug)] = 'reposo';
+            for (const s of slugsAfectados) {
+              if (estadosCelda[claveCelda(idUsuario, s)] === 'confirmado') {
+                estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
               }
             }
           }, 1500);
         },
         onError: (errs) => {
           permisosLocales[idUsuario] = prevPermisos;
-          for (const slug of slugs) {
-            estadosCelda[claveCelda(idUsuario, slug)] = 'error';
+          for (const s of slugsAfectados) {
+            estadosCelda[claveCelda(idUsuario, s)] = 'error';
           }
           toast.error(Object.values(errs)[0] || 'No se pudieron actualizar los permisos en lote.');
           setTimeout(() => {
-            for (const slug of slugs) {
-              if (estadosCelda[claveCelda(idUsuario, slug)] === 'error') {
-                estadosCelda[claveCelda(idUsuario, slug)] = 'reposo';
+            for (const s of slugsAfectados) {
+              if (estadosCelda[claveCelda(idUsuario, s)] === 'error') {
+                estadosCelda[claveCelda(idUsuario, s)] = 'reposo';
               }
             }
           }, 2500);
@@ -286,8 +347,8 @@
           </div>
           <span class="text-xs font-medium text-slate-500">
             {contextoSeleccionado === id_contexto_curso
-              ? 'Permisos delegados a nivel de Curso (afectan transversalmente)'
-              : `Permisos delegados específicamente para el componente ${etiquetaContexto}`}
+              ? 'Permisos delegados a nivel de Curso (afectan transversalmente a todos los componentes)'
+              : `Permisos delegados específicamente para ${etiquetaContexto} (los permisos de Curso se heredan con candado)`}
           </span>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -402,6 +463,7 @@
             expandido={expandido[grupo.grupo] ?? true}
             onToggleExpandido={() => (expandido[grupo.grupo] = !expandido[grupo.grupo])}
             {isChecked}
+            {isHeredado}
             {getEstado}
             onToggle={handleToggle}
             onBatch={handleBatch}
