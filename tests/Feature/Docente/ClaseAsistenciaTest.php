@@ -60,6 +60,8 @@ test('1. index: docente titular carga listado de clases y obtiene id_clase y mar
         'dia'           => '2026-11-10',
         'hora_inicio'   => '08:30:00',
         'hora_fin'      => '10:00:00',
+        'asunto'        => 'Introducción a la anatomía clínica',
+        'descripcion'   => 'Revisión del syllabus y conceptos fundamentales.',
     ]);
 
     DB::table('curso.asistencia')->insert([
@@ -78,7 +80,7 @@ test('1. index: docente titular carga listado de clases y obtiene id_clase y mar
         ->assertJsonStructure([
             'estudiantes',
             'sesiones' => [
-                '*' => ['id_clase', 'correlativo', 'dia', 'hora_inicio', 'hora_fin', 'total', 'presentes', 'registros'],
+                '*' => ['id_clase', 'correlativo', 'dia', 'hora_inicio', 'hora_fin', 'asunto', 'descripcion', 'total', 'presentes', 'registros'],
             ],
             'porcentaje_asistencia_obligatoria',
         ]);
@@ -87,6 +89,8 @@ test('1. index: docente titular carga listado de clases y obtiene id_clase y mar
     $encontrada = collect($sesiones)->firstWhere('id_clase', $clase->id_clase);
     expect($encontrada)->not->toBeNull();
     expect($encontrada['dia'])->toBe('2026-11-10');
+    expect($encontrada['asunto'])->toBe('Introducción a la anatomía clínica');
+    expect($encontrada['descripcion'])->toBe('Revisión del syllabus y conceptos fundamentales.');
     expect($encontrada['presentes'])->toBeGreaterThanOrEqual(1);
 });
 
@@ -99,11 +103,15 @@ test('2. store: crear nueva sesion crea registro en curso.clase e inserta filas 
     $dia = '2026-11-12';
     $horaInicio = '10:15';
     $horaFin = '11:45';
+    $asunto = 'Fisiología neuromuscular';
+    $descripcion = 'Práctico con simuladores y discusión grupal.';
 
     $payload = [
         'dia'         => $dia,
         'hora_inicio' => $horaInicio,
         'hora_fin'    => $horaFin,
+        'asunto'      => $asunto,
+        'descripcion' => $descripcion,
         'asistencias' => array_map(fn ($ic) => [
             'id_inscripcion_componente' => $ic->id_inscripcion_componente,
             'esta_presente'             => true,
@@ -124,6 +132,8 @@ test('2. store: crear nueva sesion crea registro en curso.clase e inserta filas 
         ->first();
 
     expect($clase)->not->toBeNull();
+    expect($clase->asunto)->toBe($asunto);
+    expect($clase->descripcion)->toBe($descripcion);
 
     $asistenciasCount = DB::table('curso.asistencia')
         ->where('id_clase', $clase->id_clase)
@@ -181,6 +191,8 @@ test('4. update: actualizar marcas de asistencia y horario persiste en curso.cla
         'dia'           => '2026-11-14',
         'hora_inicio'   => '08:00:00',
         'hora_fin'      => '09:30:00',
+        'asunto'        => 'Tema inicial',
+        'descripcion'   => 'Notas previas.',
     ]);
 
     $icId = $fix['inscripciones'][0]->id_inscripcion_componente;
@@ -196,6 +208,8 @@ test('4. update: actualizar marcas de asistencia y horario persiste en curso.cla
         'dia'         => '2026-11-14',
         'hora_inicio' => '09:00',
         'hora_fin'    => '10:30',
+        'asunto'      => 'Farmacología clínica avanzada',
+        'descripcion' => 'Revisión de casos de interacciones medicamentosas.',
         'asistencias' => [
             [
                 'id_inscripcion_componente' => $icId,
@@ -216,6 +230,8 @@ test('4. update: actualizar marcas de asistencia y horario persiste en curso.cla
     $clase->refresh();
     expect(substr((string) $clase->hora_inicio, 0, 5))->toBe('09:00');
     expect(substr((string) $clase->hora_fin, 0, 5))->toBe('10:30');
+    expect($clase->asunto)->toBe('Farmacología clínica avanzada');
+    expect($clase->descripcion)->toBe('Revisión de casos de interacciones medicamentosas.');
 
     $asistencia = DB::table('curso.asistencia')
         ->where('id_clase', $clase->id_clase)
@@ -224,6 +240,35 @@ test('4. update: actualizar marcas de asistencia y horario persiste en curso.cla
 
     expect($asistencia)->not->toBeNull();
     expect((bool) $asistencia->esta_presente)->toBeFalse();
+});
+
+test('4b. validacion asunto max 150: rechaza peticion si el asunto supera 150 caracteres', function () {
+    $fix = fixtureClaseAsistencia();
+    if (!$fix) {
+        $this->markTestSkipped('Sin fixture disponible.');
+    }
+
+    $payload = [
+        'dia'         => '2026-11-25',
+        'hora_inicio' => '10:00',
+        'hora_fin'    => '11:30',
+        'asunto'      => str_repeat('A', 151),
+        'descripcion' => 'Descripción válida',
+        'asistencias' => [
+            [
+                'id_inscripcion_componente' => $fix['inscripciones'][0]->id_inscripcion_componente,
+                'esta_presente'             => true,
+            ],
+        ],
+    ];
+
+    $response = $this->actingAs($fix['usuario'])
+        ->post(route('docente.cursos.componentes.asistencia.store', [
+            'curso'      => $fix['curso']->id_curso,
+            'componente' => $fix['componente']->id_componente,
+        ]), $payload);
+
+    $response->assertSessionHasErrors(['asunto']);
 });
 
 test('5. destroy: eliminar clase limpia en cascada las asistencias sin errores de FK', function () {
@@ -318,6 +363,8 @@ test('8. CalendarioController::index retorna sesiones agrupadas por clase con id
         'dia'           => '2026-11-18',
         'hora_inicio'   => '10:00:00',
         'hora_fin'      => '11:30:00',
+        'asunto'        => 'Seminario de bioética',
+        'descripcion'   => 'Debate sobre consentimiento informado.',
     ]);
 
     DB::table('curso.asistencia')->insert([
@@ -330,6 +377,13 @@ test('8. CalendarioController::index retorna sesiones agrupadas por clase con id
         ->get(route('docente.calendario.index'));
 
     $response->assertOk();
+
+    $sesiones = $response->viewData('page')['props']['sesiones'] ?? [];
+    $encontrada = collect($sesiones)->firstWhere('id_clase', $clase->id_clase);
+    if ($encontrada) {
+        expect($encontrada['asunto'])->toBe('Seminario de bioética');
+        expect($encontrada['descripcion'])->toBe('Debate sobre consentimiento informado.');
+    }
 });
 
 test('9. JefeCarreraController::metricas ejecuta consulta agregada de asistencia sin error SQL', function () {

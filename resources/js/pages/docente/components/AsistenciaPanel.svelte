@@ -48,6 +48,8 @@
     dia: string;
     hora_inicio: string;
     hora_fin: string;
+    asunto?: string | null;
+    descripcion?: string | null;
     total: number;
     presentes: number;
     registros: RegistroSesion[];
@@ -76,6 +78,8 @@
   let fDia = $state('');
   let fInicio = $state('08:00');
   let fFin = $state('09:30');
+  let fAsunto = $state('');
+  let fDescripcion = $state('');
   /** Mapa id_inscripcion_componente → presente. */
   let presentes = $state<Record<number, boolean>>({});
   /** Móvil: la lista de sesiones muestra sólo la última hasta pedir el resto. */
@@ -147,6 +151,8 @@
     fDia = hoy;
     fInicio = '08:00';
     fFin = '09:30';
+    fAsunto = '';
+    fDescripcion = '';
     // Por defecto todos presentes (coincide con el default de la BD).
     presentes = Object.fromEntries(estudiantes.map((e) => [e.id_inscripcion_componente, true]));
   }
@@ -158,6 +164,8 @@
     fDia = s.dia;
     fInicio = s.hora_inicio;
     fFin = s.hora_fin;
+    fAsunto = s.asunto ?? '';
+    fDescripcion = s.descripcion ?? '';
     const map: Record<number, boolean> = {};
     for (const e of estudiantes) map[e.id_inscripcion_componente] = true;
     for (const r of s.registros) map[r.id_inscripcion_componente] = r.esta_presente;
@@ -197,6 +205,8 @@
       dia: fDia,
       hora_inicio: fInicio,
       hora_fin: fFin,
+      asunto: fAsunto.trim() || null,
+      descripcion: fDescripcion.trim() || null,
       asistencias: estudiantes.map((e) => ({
         id_inscripcion_componente: e.id_inscripcion_componente,
         esta_presente: !!presentes[e.id_inscripcion_componente],
@@ -370,6 +380,9 @@
                       ? 'text-navy'
                       : 'text-ink'}">{s.hora_inicio} – {s.hora_fin}</span
                   >
+                  {#if s.asunto}
+                    <span class="truncate text-[12px] font-medium text-ink" title={s.asunto}>{s.asunto}</span>
+                  {/if}
                   <span class="text-[11.5px] text-ink-2">{tipoComponente}</span>
                 </span>
                 <span class="ml-auto flex flex-none flex-col items-end gap-0.5">
@@ -449,6 +462,40 @@
                 {/if}
                 Guardar lista
               </button>
+            </div>
+          </div>
+
+          <!-- Metadatos de la clase: Asunto y Descripción -->
+          <div class="border-b border-gray-200 bg-white px-4 py-3 flex flex-col gap-2.5">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label for="campo-asunto-clase" class="text-xs font-semibold text-ink">
+                  Asunto / Tema de la clase
+                </label>
+                <span class="font-mono text-[11px] tabular-nums text-ink-2">
+                  {fAsunto.length}/150
+                </span>
+              </div>
+              <input
+                id="campo-asunto-clase"
+                type="text"
+                maxlength="150"
+                bind:value={fAsunto}
+                placeholder="Título o contenido principal abordado"
+                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-ink placeholder:text-muted-foreground focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label for="campo-desc-clase" class="text-xs font-semibold text-ink">
+                Descripción / Notas pedagógicas
+              </label>
+              <textarea
+                id="campo-desc-clase"
+                rows="2"
+                bind:value={fDescripcion}
+                placeholder="Observaciones, acuerdos o notas sobre la sesión"
+                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-ink placeholder:text-muted-foreground focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy resize-y"
+              ></textarea>
             </div>
           </div>
 
