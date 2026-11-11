@@ -231,7 +231,7 @@ class CalendarioController extends Controller
         $filas = DB::table('curso.clase as c')
             ->leftJoin('curso.asistencia as a', 'a.id_clase', '=', 'c.id_clase')
             ->whereIn('c.id_componente', $idsComponentes)
-            ->groupBy('c.id_componente', 'c.id_clase', 'c.dia', 'c.hora_inicio', 'c.hora_fin')
+            ->groupBy('c.id_componente', 'c.id_clase', 'c.dia', 'c.hora_inicio', 'c.hora_fin', 'c.asunto', 'c.descripcion')
             ->orderBy('c.dia')
             ->orderBy('c.hora_inicio')
             ->selectRaw(
@@ -240,6 +240,8 @@ class CalendarioController extends Controller
                 . ' c.dia,'
                 . ' c.hora_inicio,'
                 . ' c.hora_fin,'
+                . ' c.asunto,'
+                . ' c.descripcion,'
                 . ' count(a.id_asistencia) as total,'
                 . ' sum(case when a.esta_presente then 1 else 0 end) as presentes'
             )
@@ -258,6 +260,8 @@ class CalendarioController extends Controller
                 'fecha'         => Carbon::parse($fila->dia)->format('Y-m-d'),
                 'hora_inicio'   => substr((string) $fila->hora_inicio, 0, 5),
                 'hora_fin'      => substr((string) $fila->hora_fin, 0, 5),
+                'asunto'        => $fila->asunto,
+                'descripcion'   => $fila->descripcion,
                 'presentes'     => (int) $fila->presentes,
                 'total'         => (int) $fila->total,
             ];

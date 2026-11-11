@@ -71,11 +71,12 @@
     if (item.familia === 'SESION') {
       const s = item.sesion;
       const prefijo = etiquetaCurso ? `${etiquetaCurso} · ` : '';
+      const detalleAsunto = s.asunto ? `${s.asunto} · ` : '';
       return {
         clase: BASE,
         estilo: `background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB);border-left:3px solid ${accent.base};color:var(--color-ink, #1A1A24)`,
         texto: `${prefijo}${s.presentes}/${s.total}`,
-        titulo: `${s.componente} · ${s.hora_inicio}–${s.hora_fin} · ${s.presentes} de ${s.total} presentes`,
+        titulo: `${detalleAsunto}${s.componente} · ${s.hora_inicio}–${s.hora_fin} · ${s.presentes} de ${s.total} presentes`,
       };
     }
 
