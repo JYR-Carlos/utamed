@@ -48,6 +48,8 @@ export interface CalendarSesion {
   hora_inicio: string;
   /** Hora 'HH:MM'. */
   hora_fin: string;
+  asunto?: string | null;
+  descripcion?: string | null;
   presentes: number;
   total: number;
 }

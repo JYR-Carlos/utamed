@@ -90,19 +90,22 @@ class Estudiante extends BaseEstudiante
             $nombre = $datos->alum_nombre;
             $paterno = $datos->alum_apellido_pat;
             $materno = $datos->alum_apellido_mat;
+            $email = $datos->alum_email;
         } elseif ($datos instanceof VwAlumno) {
             $rut = $datos->ALUM_RUT;
             $dv = $datos->ALUM_DIGITO;
             $nombre = $datos->ALUM_NOMBRE;
             $paterno = $datos->ALUM_APELLIDO_PAT;
             $materno = $datos->ALUM_APELLIDO_MAT;
+            $email = $datos->ALUM_EMAIL;
         } else {
             $rut = $datos['alum_rut'] ?? $datos['ALUM_RUT'] ?? $datos['rut'] ?? null;
             $dv = $datos['alum_digito'] ?? $datos['ALUM_DIGITO'] ?? $datos['dv'] ?? null;
             $nombre = $datos['alum_nombre'] ?? $datos['ALUM_NOMBRE'] ?? $datos['nombre'] ?? '';
             $paterno = $datos['alum_apellido_pat'] ?? $datos['ALUM_APELLIDO_PAT'] ?? $datos['apellido1'] ?? '';
             $materno = $datos['alum_apellido_mat'] ?? $datos['ALUM_APELLIDO_MAT'] ?? $datos['apellido2'] ?? null;
-        }
+            $email = $datos['alum_email'] ?? $datos['ALUM_EMAIL'] ?? $datos['email'] ?? null;
+            }
 
         if (empty($rut)) {
             throw new \InvalidArgumentException('El RUT del alumno es requerido para crear un Estudiante desde la Intranet.');
@@ -121,8 +124,12 @@ class Estudiante extends BaseEstudiante
 
         $username = (string)$rutCuerpo;
 
+        $emailLimpio = (!is_null($email) && trim((string)$email) !== '')
+            ? mb_strtolower(trim((string)$email))
+            : null;
+
         // 3. Persistencia atómica
-        return DB::transaction(function () use ($username, $rutFormateado, $nombreLimpio, $paternoLimpio, $maternoLimpio, $carrera, $agnoIngreso) {
+        return DB::transaction(function () use ($username, $rutFormateado, $nombreLimpio, $paternoLimpio, $maternoLimpio, $carrera, $emailLimpio,$agnoIngreso) {
             $usuario = Usuario::firstOrCreate(
                 ['username' => $username],
                 [
@@ -132,7 +139,7 @@ class Estudiante extends BaseEstudiante
                     'nombre2'     => null,
                     'apellido1'   => $paternoLimpio,
                     'apellido2'   => $maternoLimpio,
-                    'email'       => null,
+                    'email'       => $emailLimpio,
                     'esta_activo' => true,
                 ]
             );

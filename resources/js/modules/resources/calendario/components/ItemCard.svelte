@@ -84,7 +84,9 @@
     item.familia === 'ENTREGA'
       ? item.entrega.titulo
       : item.familia === 'SESION'
-        ? `Clase · ${item.sesion.hora_inicio} – ${item.sesion.hora_fin}`
+        ? (item.sesion.asunto
+            ? `${item.sesion.asunto} · ${item.sesion.hora_inicio} – ${item.sesion.hora_fin}`
+            : `Clase · ${item.sesion.hora_inicio} – ${item.sesion.hora_fin}`)
         : item.hito.titulo,
   );
 

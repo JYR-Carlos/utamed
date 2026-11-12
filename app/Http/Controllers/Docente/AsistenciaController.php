@@ -140,6 +140,8 @@ class AsistenciaController extends Controller
                 'dia'         => $clase->dia,
                 'hora_inicio' => substr((string) $clase->hora_inicio, 0, 5),
                 'hora_fin'    => substr((string) $clase->hora_fin, 0, 5),
+                'asunto'      => $clase->asunto,
+                'descripcion' => $clase->descripcion,
                 'total'       => $registros->count(),
                 'presentes'   => $presentes,
                 'registros'   => $registros->map(fn ($r) => [
@@ -187,6 +189,8 @@ class AsistenciaController extends Controller
                 'dia'           => $datos['dia'],
                 'hora_inicio'   => $datos['hora_inicio'],
                 'hora_fin'      => $datos['hora_fin'],
+                'asunto'        => $datos['asunto'] ?? null,
+                'descripcion'   => $datos['descripcion'] ?? null,
             ]);
 
             $this->insertarFilas($clase->id_clase, $datos['asistencias'], $inscripcionesValidas);
@@ -230,6 +234,8 @@ class AsistenciaController extends Controller
                 'dia'         => $datos['dia'],
                 'hora_inicio' => $datos['hora_inicio'],
                 'hora_fin'    => $datos['hora_fin'],
+                'asunto'      => $datos['asunto'] ?? null,
+                'descripcion' => $datos['descripcion'] ?? null,
             ]);
 
             // Sincronizar marcas de asistencia vía upsert
@@ -377,7 +383,7 @@ class AsistenciaController extends Controller
     /**
      * Valida el payload de una sesión.
      *
-     * @return array{dia:string,hora_inicio:string,hora_fin:string,asistencias:array}
+     * @return array{dia:string,hora_inicio:string,hora_fin:string,asunto:?string,descripcion:?string,asistencias:array}
      */
     private function validarSesion(Request $request): array
     {
@@ -385,6 +391,8 @@ class AsistenciaController extends Controller
             'dia'                       => 'required|date',
             'hora_inicio'               => 'required|date_format:H:i',
             'hora_fin'                  => 'required|date_format:H:i|after:hora_inicio',
+            'asunto'                    => 'nullable|string|max:150',
+            'descripcion'               => 'nullable|string',
             'asistencias'               => 'required|array|min:1',
             'asistencias.*.id_inscripcion_componente' => 'required|integer',
             'asistencias.*.esta_presente'             => 'required|boolean',

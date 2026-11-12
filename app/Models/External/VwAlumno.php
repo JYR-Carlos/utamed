@@ -28,6 +28,7 @@ class VwAlumno extends IntranetBaseModel
         'ALUM_APPATERNO_JEFE'   => 'string',   // char(0)
         'ALUM_APMATERNO_JEFE'   => 'string',   // char(0)
         'ALUM_NOMBRE_JEFE'      => 'string',   // char(0)
+        'ALUM_EMAIL'            => 'string',   // char(0)
         'ETCO_CODIGO'           => 'string',   // char(0)
     ];
 

@@ -336,6 +336,7 @@ class RunIntranetProviderCommand extends Command
                     ['ALUM_APELLIDO_PAT', $alumno->alum_apellido_pat],
                     ['ALUM_APELLIDO_MAT', $alumno->alum_apellido_mat ?? '(No registrado)'],
                     ['Nombre Completo', $nombreCompleto],
+                    ['EMAIL', $alumno->alum_email ?? 'No encontrado']
                 ]
             );
 
