@@ -9,6 +9,7 @@ class AlumnoIntranetData
         public readonly ?string $alum_digito,
         public readonly string $alum_nombre,
         public readonly string $alum_apellido_pat,
-        public readonly ?string $alum_apellido_mat = null
+        public readonly ?string $alum_apellido_mat = null,
+        public readonly ?string $alum_email = null
     ) {}
 }
