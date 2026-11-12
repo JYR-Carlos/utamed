@@ -155,8 +155,9 @@ class IntranetViewConnectionProvider extends ServiceProvider
                         alum_digito: $alumno->ALUM_DIGITO,
                         alum_nombre: trim($alumno->ALUM_NOMBRE ?? ''),
                         alum_apellido_pat: trim($alumno->ALUM_APELLIDO_PAT ?? ''),
-                        alum_apellido_mat: $alumno->ALUM_APELLIDO_MAT ? trim($alumno->ALUM_APELLIDO_MAT) : null
-                    );
+                        alum_apellido_mat: $alumno->ALUM_APELLIDO_MAT ? trim($alumno->ALUM_APELLIDO_MAT) : null,
+                        alum_email: $alumno->ALUM_EMAIL
+                        );
                 }
             };
         });
