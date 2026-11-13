@@ -30,6 +30,17 @@ export const btnNoche = `${boton} border border-dm-noche-texto-2 text-dm-noche-t
 /** Acción destacada sobre fondo noche («Préstamo de equipos»). */
 export const btnAmarillo = `${boton} border border-dm-amarillo bg-dm-amarillo text-dm-sobre-amarillo shadow-none hover:border-white hover:bg-white hover:text-dm-sobre-amarillo`;
 
+/**
+ * Acción principal a todo el ancho de las pantallas de contraseña: 48 px de
+ * alto y un peso menos que el resto de la guía (ver .tinta-suave).
+ */
+export const btnIngreso =
+    'inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-[10px] px-5 py-2.5 text-[15px] font-semibold no-underline transition-colors bg-dm-accion text-dm-sobre-accion hover:bg-dm-accion-hover hover:text-dm-sobre-accion disabled:cursor-progress';
+
+/** La misma acción en pausa (hay que esperar): gris y sin cursor de clic. */
+export const btnIngresoEnPausa =
+    'inline-flex min-h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 text-[15px] font-semibold bg-dm-linea text-dm-ink-2';
+
 /** Enlace de acción discreta («Ver todos ›»). */
 export const enlace =
     'inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline lg:min-h-9';

@@ -15,9 +15,10 @@
     /**
      * 'oscuro' para fondos oscuros (p. ej. el cambio obligatorio). 'dm' para
      * la vista del alumno: lo que falta queda neutro mientras se escribe, el
-     * rojo es sólo para el error del servidor.
+     * rojo es sólo para el error del servidor. 'ingreso' es el mismo 'dm' con
+     * un peso menos, para las pantallas de contraseña (ver .tinta-suave).
      */
-    tono?: 'claro' | 'oscuro' | 'dm';
+    tono?: 'claro' | 'oscuro' | 'dm' | 'ingreso';
   }
 
   let { password, confirmacion = undefined, tono = 'claro' }: Props = $props();
@@ -29,9 +30,10 @@
     // Fondo oscuro fijo (no cambia con el tema): hex en vez de la paleta, que el modo oscuro remapea.
     oscuro: { ok: 'text-[#5EE9B5]', falta: 'text-[#FFA2A2]', neutro: 'text-[#C4BFE0]/70' },
     dm: { ok: 'font-semibold text-dm-ink', falta: 'text-dm-ink-2', neutro: 'text-dm-ink-2' },
+    ingreso: { ok: 'font-medium text-dm-ink', falta: 'text-dm-ink-2', neutro: 'text-dm-ink-2' },
   };
   const c = $derived(COLORES[tono]);
-  const dm = $derived(tono === 'dm');
+  const dm = $derived(tono === 'dm' || tono === 'ingreso');
 
   function estado(ok: boolean, escrito: boolean): Estado {
     return ok ? 'ok' : escrito && !dm ? 'falta' : 'neutro';

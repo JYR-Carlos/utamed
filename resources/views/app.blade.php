@@ -26,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     {{-- Sofia Sans es la tipografía de la guía dm (alumno e ingreso); Mulish y
          Didact Gothic, la de la dirección institucional UTA (docente). --}}
-    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|sofia-sans:400,500,600,700,900|sofia-sans-condensed:700,800,900|mulish:400,500,600,700,800|didact-gothic:400" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|sofia-sans:400,500,600,700,900|sofia-sans-condensed:600,700,800,900|mulish:400,500,600,700,800|didact-gothic:400" rel="stylesheet" />
 
     @vite(['resources/js/app.ts'])
     @inertiaHead
