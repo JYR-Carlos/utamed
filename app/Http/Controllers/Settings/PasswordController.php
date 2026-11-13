@@ -17,6 +17,9 @@ use Inertia\Response;
  */
 class PasswordController extends Controller
 {
+    /** Clave de sesión con el motivo del cambio obligatorio recién cumplido. */
+    private const CAMBIO_OBLIGATORIO_LISTO = 'cambioObligatorioListo';
+
     /**
      * Show the user's password settings page.
      *
@@ -33,17 +36,24 @@ class PasswordController extends Controller
      * compartidos de Inertia: sólo esta pantalla lo usa, y calcularlo en cada
      * respuesta de la aplicación para que lo lea una sola vista sería trabajo
      * tirado.
+     *
+     * Justo después del cambio obligatorio el motivo ya no existe, pero la
+     * pantalla se muestra una vez más con el aviso de que la contraseña se
+     * cambió (`cambiada`); lo marca update() en la sesión con el motivo que
+     * había, y al recargar se pierde, como cualquier aviso.
      */
     public function edit(Request $request): Response
     {
         /** @var Usuario $user */
         $user = $request->user();
         $motivo = $user->motivoCambioPasswordObligatorio();
+        $motivoCumplido = $motivo === null ? $request->session()->get(self::CAMBIO_OBLIGATORIO_LISTO) : null;
 
-        if ($motivo !== null) {
+        if ($motivo !== null || $motivoCumplido !== null) {
             return Inertia::render('auth/CambioPasswordObligatorio', [
-                'motivo' => $motivo,
+                'motivo' => $motivo ?? $motivoCumplido,
                 'vigenciaMeses' => Usuario::VIGENCIA_PASSWORD_MESES,
+                'cambiada' => $motivo === null,
             ]);
         }
 
@@ -82,7 +92,7 @@ class PasswordController extends Controller
 
         // Se consulta antes de cambiar la clave, porque después del cambio el
         // motivo desaparece y ya no se sabría de qué pantalla venía el usuario.
-        $eraObligatorio = $user->debeCambiarPassword();
+        $motivo = $user->motivoCambioPasswordObligatorio();
 
         // `cambiarPassword()` y no `update(['password' => ...])`: la tabla guarda
         // el hash en `passhash`, así que 'password' no era ni columna ni campo
@@ -90,12 +100,13 @@ class PasswordController extends Controller
         // anotada la fecha, que es lo que hace que se libere la navegación.
         $user->cambiarPassword($validated['password']);
 
-        // Cuando el cambio era obligatorio el usuario no venía de ninguna parte:
-        // el middleware lo trajo desde el login. `back()` lo dejaría mirando la
-        // pantalla de cambio, ahora sin motivo; lo natural es soltarlo en el
-        // dashboard, que es adonde iba.
-        if ($eraObligatorio) {
-            return redirect()->route('dashboard');
+        // Cuando el cambio era obligatorio, el usuario vuelve a la misma
+        // pantalla para ver el aviso de que la contraseña se cambió; desde ahí
+        // entra al dashboard, que es adonde iba. La navegación ya está libre.
+        if ($motivo !== null) {
+            return redirect()
+                ->route('user-password.edit')
+                ->with(self::CAMBIO_OBLIGATORIO_LISTO, $motivo);
         }
 
         return back();

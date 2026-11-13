@@ -1,28 +1,29 @@
 <script lang="ts">
   /**
-   * Cambio de contraseña obligatorio: primer ingreso o clave vencida.
+   * Cambio de contraseña obligatorio: primer ingreso o clave vencida (guía
+   * dm, dirección A · Noche).
    *
    * Mientras la clave no cumpla la política, el middleware ForcePasswordChange
    * trae aquí al usuario desde cualquier otra ruta. Por eso la página no usa
-   * AppLayout: la barra lateral y el menú sólo ofrecerían enlaces que vuelven
-   * a esta misma pantalla. Lo único que se puede hacer es cambiar la clave o
-   * cerrar sesión, y eso es todo lo que se muestra.
+   * AppLayout ni deja salir por la marca: lo único que se puede hacer es
+   * cambiar la clave o cerrar sesión.
    *
-   * Visualmente es la continuación del Login: misma foto de fondo, misma
-   * tarjeta de cristal, mismos campos y botón. Lo que cambia es la composición:
-   * aquí la tarjeta va sola y centrada, sin el panel de marca del Login. El
-   * usuario ya entró; lo único que tiene delante es el formulario.
+   * Antes de enviar se revisa que esté la contraseña actual, que la nueva
+   * cumpla la política y que la confirmación coincida; el servidor vuelve a
+   * validar. Al guardar, el servidor trae de vuelta a esta pantalla con
+   * `cambiada` y se muestra el aviso de éxito con el botón para entrar.
    */
   import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
-  import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
-  import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
-  import { Button } from '@/components/ui/button';
-  import { Spinner } from '@/components/ui/spinner';
-  import { logout } from '@/routes';
-  import type { BaseFormSnippetProps } from '@/types/forms';
-  import { Form, page, router } from '@inertiajs/svelte';
-  import { Eye, EyeOff } from 'lucide-svelte';
-  import { onMount } from 'svelte';
+  import CampoClave from '@/components/ingreso/CampoClave.svelte';
+  import IngresoNoche from '@/components/ingreso/IngresoNoche.svelte';
+  import RequisitosClave from '@/components/ingreso/RequisitosClave.svelte';
+  import type { Escena } from '@/components/ingreso/ReticulaViva.svelte';
+  import { btnIngreso } from '@/lib/dm';
+  import { passwordCumplePolitica } from '@/lib/password';
+  import { dashboard, logout } from '@/routes';
+  import { Link, page, router, useForm } from '@inertiajs/svelte';
+  import { ArrowRight, CircleCheck, LoaderCircle, LockKeyhole } from 'lucide-svelte';
+  import { onMount, tick } from 'svelte';
 
   interface Props {
     /**
@@ -34,225 +35,224 @@
     motivo: 'primer_ingreso' | 'vencida';
     /** Meses de vigencia de la política, para no repetir el "6" en el texto. */
     vigenciaMeses: number;
+    /** La contraseña se acaba de cambiar: se muestra el aviso de éxito. */
+    cambiada?: boolean;
   }
 
-  let { motivo, vigenciaMeses }: Props = $props();
+  let { motivo, vigenciaMeses, cambiada = false }: Props = $props();
 
-  type Campo = 'current_password' | 'password' | 'password_confirmation';
+  const form = useForm({ current_password: '', password: '', password_confirmation: '' });
 
-  /** Qué campos muestran la clave en texto plano (ojo abierto). */
-  let visibles = $state<Record<Campo, boolean>>({
-    current_password: false,
-    password: false,
-    password_confirmation: false,
-  });
+  let errorLocal = $state<'actualVacia' | 'faltan' | 'noCoinciden' | null>(null);
 
-  /** Lo escrito en cada campo, para la lista reactiva de requisitos. */
-  let valores = $state<Record<Campo, string>>({
-    current_password: '',
-    password: '',
-    password_confirmation: '',
-  });
+  const usuario = $derived($page.props.auth.user);
+  const vencida = $derived(motivo === 'vencida');
 
-  let usuario = $derived($page.props.auth.user);
-
-  let descripcion = $derived(
-    motivo === 'primer_ingreso'
-      ? 'Estás usando la contraseña con la que se creó tu cuenta. Elige una nueva para entrar al portal.'
-      : `Han pasado más de ${vigenciaMeses} meses desde tu último cambio. Elige una nueva para entrar al portal.`,
+  const errorActual = $derived(
+    errorLocal === 'actualVacia'
+      ? 'Escribe la contraseña con la que acabas de ingresar.'
+      : $form.errors.current_password
+        ? 'La contraseña actual no es correcta. Escríbela de nuevo.'
+        : null,
   );
 
-  function enfocar(id: Campo) {
+  // Lo que dice el servidor sobre la clave nueva se traduce a los dos casos de
+  // la pantalla: Laravel cuelga del campo `password` también el de la confirmación.
+  const problema = $derived.by(() => {
+    if (errorLocal === 'faltan' || errorLocal === 'noCoinciden') return errorLocal;
+    if ($form.errors.password || $form.errors.password_confirmation) {
+      return passwordCumplePolitica($form.password) ? 'noCoinciden' : 'faltan';
+    }
+    return null;
+  });
+
+  const escena: Escena = $derived($form.processing ? 'trabajando' : cambiada ? 'listo' : 'reposo');
+
+  function enfocar(id: string) {
     document.getElementById(id)?.focus();
+  }
+
+  function guardar(evento: SubmitEvent) {
+    evento.preventDefault();
+    $form.clearErrors();
+    if ($form.current_password.trim() === '') {
+      errorLocal = 'actualVacia';
+      enfocar('actual');
+      return;
+    }
+    if (!passwordCumplePolitica($form.password)) {
+      errorLocal = 'faltan';
+      enfocar('nueva');
+      return;
+    }
+    if ($form.password_confirmation !== $form.password) {
+      errorLocal = 'noCoinciden';
+      enfocar('confirma');
+      return;
+    }
+    errorLocal = null;
+    $form.put(PasswordController.update.url(), {
+      preserveScroll: true,
+      onError: (errores) => {
+        // La actual equivocada se borra para escribirla de nuevo; la nueva se
+        // conserva, porque ya cumplía.
+        if (errores.current_password) {
+          $form.reset('current_password');
+          enfocar('actual');
+        } else if (errores.password || errores.password_confirmation) {
+          enfocar('nueva');
+        }
+      },
+      onSuccess: () => $form.reset(),
+    });
   }
 
   function cerrarSesion() {
     router.post(logout().url);
   }
 
-  onMount(() => enfocar('current_password'));
+  onMount(() => {
+    if (!cambiada) enfocar('actual');
+  });
+
+  // Tras guardar, el foco pasa al botón para entrar: el formulario ya no está.
+  $effect(() => {
+    if (cambiada) tick().then(() => enfocar('entrar'));
+  });
 </script>
 
 <svelte:head>
-  <title>Cambiar contraseña | UTAmed</title>
+  <title>{cambiada ? 'Contraseña cambiada' : 'Cambiar contraseña'} | UTAMED</title>
 </svelte:head>
 
-{#snippet campo(
-  nombre: Campo,
-  etiqueta: string,
-  autocomplete: 'current-password' | 'new-password',
-  error: string | undefined,
-  disabled: boolean,
-  ayuda?: string,
-)}
-  <div class="space-y-1.5">
-    <label for={nombre} class="text-[13px] font-medium text-[#C4BFE0]">{etiqueta}</label>
-    <div class="relative">
-      <input
-        id={nombre}
-        name={nombre}
-        type={visibles[nombre] ? 'text' : 'password'}
-        required
-        {autocomplete}
-        {disabled}
-        bind:value={valores[nombre]}
-        placeholder="••••••••"
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${nombre}-error` : ayuda ? `${nombre}-ayuda` : undefined}
-        class="w-full rounded-[14px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 pr-12 text-[#F5F3FF] transition-all duration-150 placeholder:text-[#C4BFE0]/60 focus:border-[#5B9BD5] focus:shadow-[0_0_0_3px_rgba(91,155,213,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-[#FF6467]/70"
-      />
-      <button
-        type="button"
-        tabindex={-1}
-        {disabled}
-        aria-label={visibles[nombre] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-        class="absolute top-1/2 right-4 -translate-y-1/2 text-[#C4BFE0] transition-colors hover:text-[#F5F3FF] disabled:cursor-not-allowed disabled:opacity-50"
-        onclick={() => (visibles[nombre] = !visibles[nombre])}
-      >
-        {#if visibles[nombre]}
-          <EyeOff size={20} aria-hidden="true" />
-        {:else}
-          <Eye size={20} aria-hidden="true" />
-        {/if}
-      </button>
-    </div>
-    {#if error}
-      <p id="{nombre}-error" class="text-xs text-[#FFA2A2]">{error}</p>
-    {:else if ayuda}
-      <p id="{nombre}-ayuda" class="text-xs text-[#C4BFE0]/70">{ayuda}</p>
-    {/if}
-  </div>
+{#snippet sesion()}
+  <p class="m-0 flex flex-wrap items-center gap-x-2 text-sm leading-5 text-dm-ink-2">
+    <span>
+      {#if usuario}
+        Sesión de <strong class="font-semibold text-dm-ink">{usuario.nombre1} {usuario.apellido1}</strong>.
+      {/if}
+      ¿No eres tú?
+    </span>
+    <button
+      type="button"
+      onclick={cerrarSesion}
+      class="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-dm-enlace hover:text-dm-enlace-hover hover:underline"
+    >
+      Cerrar sesión
+    </button>
+  </p>
 {/snippet}
 
-<div class="relative min-h-screen w-full overflow-hidden bg-[#0d1522]">
-  <!-- Fondo fotográfico full-bleed (el mismo del Login) -->
-  <div
-    class="absolute inset-0 scale-105 bg-cover bg-center blur-[2px]"
-    style="background-image: url('/img/bardesign.jpg');"
-    aria-hidden="true"
-  ></div>
+<IngresoNoche
+  titular={cambiada ? ['Acceso', 'listo'] : vencida ? ['Es hora de', 'renovarla'] : ['Tu primer', 'ingreso']}
+  bajada={cambiada
+    ? 'Desde ahora entras con tu RUT y la contraseña nueva.'
+    : vencida
+      ? `Por seguridad, la contraseña se renueva cada ${vigenciaMeses} meses.`
+      : 'Antes de entrar, cambia la contraseña con la que se creó tu cuenta por una que sólo tú conozcas.'}
+  {escena}
+  marcaEnlace={false}
+  ayuda="¿No recuerdas la contraseña con la que entraste?"
+>
+  {#snippet barra()}
+    {@render sesion()}
+  {/snippet}
 
-  <!-- Overlay nocturno violeta para legibilidad y atmósfera -->
-  <div
-    class="absolute inset-0 bg-gradient-to-br from-[#10233a]/80 via-[#0d1626]/75 to-[#070c15]/90"
-    aria-hidden="true"
-  ></div>
-
-  <!-- Resplandor ambiental detrás de la card -->
-  <div
-    class="pointer-events-none absolute top-1/2 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#5B9BD5]/10 blur-[120px]"
-    aria-hidden="true"
-  ></div>
-
-  <!-- Card centrada -->
-  <div class="relative z-10 flex min-h-screen items-center justify-center px-2 py-4 sm:px-4">
-    <div
-      class="w-full max-w-180 rounded-3xl border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] p-8 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-12"
-    >
-      <!-- Icono circular decorativo -->
+  {#if cambiada}
+    <div class="flex flex-col gap-6">
       <div
-        class="mx-auto mb-6 flex size-12 items-center justify-center rounded-full border border-dashed border-[rgba(255,255,255,0.25)]"
+        role="status"
+        class="flex animate-dm-aparece items-start gap-4 rounded-xl border border-dm-ok bg-dm-ok-s p-5 motion-reduce:animate-none"
       >
-        <AppLogoIcon class="size-6" />
+        <CircleCheck
+          size={28}
+          aria-hidden="true"
+          class="shrink-0 animate-dm-pop text-dm-ok [animation-delay:0.2s] motion-reduce:animate-none"
+        />
+        <div class="flex min-w-0 flex-col gap-1.5">
+          <h1 class="m-0 text-2xl leading-[30px] font-medium">Tu contraseña se cambió</h1>
+          <p class="m-0 text-[15px] leading-[22px] text-dm-ink-2">
+            Desde ahora entras a UTAMED con tu RUT y la contraseña nueva. La anterior ya no sirve.
+          </p>
+        </div>
+      </div>
+      <Link
+        id="entrar"
+        href={dashboard()}
+        class="{btnIngreso} animate-dm-aparece [animation-delay:0.15s] motion-reduce:animate-none"
+      >
+        Entrar a UTAMED
+        <ArrowRight size={18} aria-hidden="true" />
+      </Link>
+    </div>
+  {:else}
+    <div class="flex animate-dm-aparece flex-col gap-5 motion-reduce:animate-none lg:gap-6">
+      <div class="flex flex-col gap-1.5 lg:gap-2">
+        <h1 class="m-0 text-[28px] leading-[34px] font-medium">
+          {vencida ? 'Renueva tu contraseña' : 'Crea tu nueva contraseña'}
+        </h1>
+        <p class="m-0 text-[15px] leading-[22px] text-dm-ink-2">
+          {vencida
+            ? `Han pasado más de ${vigenciaMeses} meses desde tu último cambio.`
+            : 'Estás usando la contraseña con la que se creó tu cuenta.'}
+          Mientras no elijas una nueva, el resto de UTAMED no está disponible.
+        </p>
       </div>
 
-      <!-- Título -->
-      <h1
-        class="text-center text-[28px] leading-[1.2] font-semibold text-[#F5F3FF] sm:text-[34px]"
+      <form
+        aria-label={vencida ? 'Renueva tu contraseña' : 'Crea tu nueva contraseña'}
+        novalidate
+        onsubmit={guardar}
+        class="flex flex-col gap-5"
       >
-        {motivo === 'primer_ingreso' ? 'Crea tu nueva' : 'Renueva tu'}
-        <span class="bg-gradient-to-r from-[#FFFFFF] to-[#BFD9F2] bg-clip-text text-transparent"
-          >contraseña</span
-        >
-      </h1>
-      <p
-        class="mx-auto mt-3 max-w-[360px] text-center text-[15px] leading-[1.5] text-[#C4BFE0]"
-      >
-        {descripcion}
-      </p>
+        <CampoClave
+          id="actual"
+          name="current_password"
+          etiqueta="Contraseña actual"
+          nombreLector="contraseña actual"
+          autocomplete="current-password"
+          bind:value={$form.current_password}
+          error={errorActual}
+          ayuda="La contraseña con la que acabas de ingresar."
+          disabled={$form.processing}
+        />
+        <CampoClave
+          id="nueva"
+          name="password"
+          etiqueta="Nueva contraseña"
+          nombreLector="nueva contraseña"
+          autocomplete="new-password"
+          bind:value={$form.password}
+          error={problema === 'faltan' ? 'A la contraseña le falta lo que sigue sin marcar en la lista de abajo.' : null}
+          describe="requisitos"
+          disabled={$form.processing}
+        />
+        <CampoClave
+          id="confirma"
+          name="password_confirmation"
+          etiqueta="Confirma la nueva contraseña"
+          nombreLector="confirmación"
+          autocomplete="new-password"
+          bind:value={$form.password_confirmation}
+          error={problema === 'noCoinciden' ? 'No es igual a la contraseña nueva. Escríbela otra vez.' : null}
+          describe="requisitos"
+          disabled={$form.processing}
+        />
 
-      <Form
-        {...PasswordController.update.form()}
-        options={{ preserveScroll: true }}
-        onError={(errors) => {
-          valores = { current_password: '', password: '', password_confirmation: '' };
-          if (errors.current_password) {
-            enfocar('current_password');
-          } else if (errors.password) {
-            enfocar('password');
-          }
-        }}
-        resetOnError={['password', 'password_confirmation', 'current_password']}
-        class="mt-8 flex flex-col gap-5"
-      >
-        {#snippet children({ errors, processing }: BaseFormSnippetProps)}
-          {@render campo(
-            'current_password',
-            'Contraseña actual',
-            'current-password',
-            errors.current_password,
-            processing,
-            'La contraseña con la que acabas de ingresar.',
-          )}
+        <RequisitosClave password={$form.password} confirmacion={$form.password_confirmation} />
 
-          {@render campo(
-            'password',
-            'Nueva contraseña',
-            'new-password',
-            errors.password,
-            processing,
-          )}
-          <RequisitosPassword
-            password={valores.password}
-            confirmacion={valores.password_confirmation}
-            tono="oscuro"
-          />
-
-          {@render campo(
-            'password_confirmation',
-            'Confirmar nueva contraseña',
-            'new-password',
-            errors.password_confirmation,
-            processing,
-          )}
-
-          <!-- Submit Button -->
-          <Button
-            type="submit"
-            class="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-[#F5F4F0] py-3.5 text-[15px] font-semibold text-[#1A1625] shadow-none transition-all duration-150 hover:font-semibold hover:text-white hover:brightness-95 active:scale-[0.98] disabled:opacity-50"
-            disabled={processing}
-          >
-            {#if processing}
-              <Spinner class="h-4 w-4" />
-            {/if}
-            Guardar y entrar al Portal
-          </Button>
-
-          <!-- Info box -->
-          <div
-            class="space-y-2.5 rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] p-5 text-start"
-          >
-            <p class="text-sm font-medium text-[#F5F3FF]">Cambio obligatorio</p>
-            <p class="text-xs leading-relaxed text-[#C4BFE0]">
-              Mientras no cambies la contraseña, el resto del sistema no está disponible.
-            </p>
-            <p class="text-xs font-medium text-[#C4BFE0]">
-              {#if usuario}
-                Sesión iniciada como {usuario.nombre1} {usuario.apellido1}. ¿No eres tú?
-              {:else}
-                ¿No eres tú?
-              {/if}
-              <button
-                type="button"
-                class="cursor-pointer text-xs font-medium text-[#5B9BD5] transition-colors hover:text-[#2A66AC] hover:underline"
-                onclick={cerrarSesion}
-              >
-                Cerrar sesión
-              </button>
-            </p>
-          </div>
-        {/snippet}
-      </Form>
+        <button type="submit" disabled={$form.processing} class={btnIngreso}>
+          {#if $form.processing}
+            <LoaderCircle size={18} aria-hidden="true" class="animate-spin motion-reduce:animate-none" />
+            <span aria-live="polite">Guardando contraseña…</span>
+          {:else}
+            <LockKeyhole size={18} aria-hidden="true" />
+            Guardar contraseña
+          {/if}
+        </button>
+      </form>
     </div>
-  </div>
-</div>
+  {/if}
+
+  <div class="lg:hidden">{@render sesion()}</div>
+</IngresoNoche>
