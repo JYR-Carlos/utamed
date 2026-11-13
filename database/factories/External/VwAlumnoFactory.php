@@ -30,6 +30,7 @@ class VwAlumnoFactory extends Factory
             'ALUM_APMATERNO_JEFE'   => '',                                           // char(0)
             'ALUM_NOMBRE_JEFE'      => '',                                           // char(0)
             'ETCO_CODIGO'           => '',                                           // char(0)
+            'ALUM_EMAIL'            => $this->faker->safeEmail(),                    // varchar(100)
         ];
     }
 }
