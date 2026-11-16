@@ -8,6 +8,7 @@
    * enunciado; calificada, en la rúbrica evaluada.
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
+  import { csrfFetch } from '@/lib/csrf';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
@@ -184,12 +185,8 @@
   $effect(() => {
     if (!showAgendaModal || !id_actividad_asignada_grupo) return;
     agendaVista = true;
-    fetch(`/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda/leida`, {
+    csrfFetch(`/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda/leida`, {
       method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
     }).catch(() => {
       // Sin red no pasa nada grave: se reintenta la próxima vez que abra la agenda.
     });

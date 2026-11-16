@@ -216,6 +216,8 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),  // Props base de Inertia (errors, component, etc)
 
+            'csrf_token' => fn () => csrf_token(),
+
             'name'  => config('app.name'),  // Nombre de la aplicación (UTAMED)
 
             // Quote inspirador (opcional, para UI)

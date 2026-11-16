@@ -8,6 +8,7 @@
    */
   import { router } from '@inertiajs/svelte';
   import { Copy, X, AlertTriangle, BookOpen, Users, ClipboardList, Calendar } from 'lucide-svelte';
+  import { csrfFetch } from '@/lib/csrf';
   import type { Curso } from '../types/curso.types';
 
   interface ActividadPreview {
@@ -147,7 +148,7 @@
   async function fetchPreview(idCurso: number) {
     loading = true;
     try {
-      const res = await fetch(`/admin/cursos/${idCurso}/preview-copia`, {
+      const res = await csrfFetch(`/admin/cursos/${idCurso}/preview-copia`, {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -175,7 +176,7 @@
         agno_real: String(newAgnoReal),
         semestre_real: String(newSemestreReal),
       });
-      const res = await fetch(`/admin/cursos/proxima-letra?${params.toString()}`, {
+      const res = await csrfFetch(`/admin/cursos/proxima-letra?${params.toString()}`, {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

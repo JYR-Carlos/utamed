@@ -24,6 +24,7 @@
     isGlobalContext,
   } from '@/utils/contextType.utils';
   import { roleLabel, roleDescription } from '@/utils/rol.utils';
+  import { csrfFetch, csrfHeaders } from '@/lib/csrf';
   import { SvelteSet } from 'svelte/reactivity';
 
   // ─── Types ────────────────────────────────────────────────────────────
@@ -451,17 +452,10 @@
     flow = type;
   }
 
-  function getXsrfToken(): string {
-    return decodeURIComponent(
-      document.cookie
-        .split('; ')
-        .find((c) => c.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1] ?? '',
-    );
-  }
-
   async function apiFetch<T>(url: string): Promise<T> {
-    const response = await fetch(url);
+    const response = await csrfFetch(url, {
+      headers: { Accept: 'application/json' },
+    });
     if (!response.ok) {
       throw new Error(`Error ${response.status}: Falló la petición a ${url}`);
     }
@@ -569,14 +563,13 @@
     errorMsg = '';
     try {
       const base = `/admin/usuarios/${usuario.id_usuario}`;
-      const headers: Record<string, string> = {
+      const headers = csrfHeaders({
         'Content-Type': 'application/json',
-        'X-XSRF-TOKEN': getXsrfToken(),
         Accept: 'application/json',
-      };
+      });
 
       if (flow === 'role' && selectedRole) {
-        const res = await fetch(`${base}/assign-role`, {
+        const res = await csrfFetch(`${base}/assign-role`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -595,7 +588,7 @@
         if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
         successMsg = data.message || 'Rol asignado correctamente.';
       } else if (flow === 'permission' && selectedPermission) {
-        const res = await fetch(`${base}/assign-permission`, {
+        const res = await csrfFetch(`${base}/assign-permission`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -640,10 +633,9 @@
     isRevoking = true;
     errorMsg = '';
     try {
-      const res = await fetch(`/admin/usuarios/${usuario.id_usuario}/roles/${asignacion.id_ura}`, {
+      const res = await csrfFetch(`/admin/usuarios/${usuario.id_usuario}/roles/${asignacion.id_ura}`, {
         method: 'DELETE',
         headers: {
-          'X-XSRF-TOKEN': getXsrfToken(),
           Accept: 'application/json',
         },
       });
@@ -673,10 +665,9 @@
     isRevoking = true;
     errorMsg = '';
     try {
-      const res = await fetch(`/admin/usuarios/${usuario.id_usuario}/permissions/${perm.id_upe}`, {
+      const res = await csrfFetch(`/admin/usuarios/${usuario.id_usuario}/permissions/${perm.id_upe}`, {
         method: 'DELETE',
         headers: {
-          'X-XSRF-TOKEN': getXsrfToken(),
           Accept: 'application/json',
         },
       });

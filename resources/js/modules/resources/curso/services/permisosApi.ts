@@ -4,11 +4,7 @@
  * Consume los endpoints AJAX de CursoPermisosController (/docente/cursos/{id}/permisos-syllabus
  * y /docente/cursos/{id}/componentes/{id}/permisos).
  */
-
-function getXsrfToken(): string {
-  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : '';
-}
+import { csrfFetch } from '@/lib/csrf';
 
 export interface PermisoSlug {
   id_permiso: number;
@@ -46,10 +42,9 @@ export async function getSyllabusPermisos(
   cursoId: number,
   basePath = '/docente',
 ): Promise<SyllabusPermisosResponse> {
-  const res = await fetch(`${basePath}/cursos/${cursoId}/permisos-syllabus`, {
+  const res = await csrfFetch(`${basePath}/cursos/${cursoId}/permisos-syllabus`, {
     headers: {
       Accept: 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
     },
   });
   if (!res.ok) {
@@ -67,13 +62,11 @@ export async function syncSyllabusPermiso(
   payload: { id_usuario: number; slug: string; otorgar: boolean },
   basePath = '/docente',
 ): Promise<void> {
-  const res = await fetch(`${basePath}/cursos/${cursoId}/permisos-syllabus`, {
+  const res = await csrfFetch(`${basePath}/cursos/${cursoId}/permisos-syllabus`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-XSRF-TOKEN': getXsrfToken(),
     },
     body: JSON.stringify(payload),
   });
@@ -93,10 +86,9 @@ export async function getComponentePermisos(
   componenteId: number,
   basePath = '/docente',
 ): Promise<ComponentePermisosResponse> {
-  const res = await fetch(`${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`, {
+  const res = await csrfFetch(`${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`, {
     headers: {
       Accept: 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
     },
   });
   if (!res.ok) {
@@ -115,13 +107,11 @@ export async function syncComponentePermiso(
   payload: { id_usuario: number; slug: string; otorgar: boolean },
   basePath = '/docente',
 ): Promise<void> {
-  const res = await fetch(`${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`, {
+  const res = await csrfFetch(`${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-XSRF-TOKEN': getXsrfToken(),
     },
     body: JSON.stringify(payload),
   });

@@ -6,6 +6,7 @@
    * tocar, revisar, y sólo entonces confirmar.
    */
   import type { ResultadoPreviewComponentes } from '@/types/admin.types';
+  import { csrfFetch } from '@/lib/csrf';
 
   interface CursoPreview {
     id_curso: number;
@@ -76,13 +77,11 @@
     paso = 'ejecutando';
     errorMsg = '';
     try {
-      const res = await fetch('/admin/cursos/sincronizar-intranet-masivo', {
+      const res = await csrfFetch('/admin/cursos/sincronizar-intranet-masivo', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'X-CSRF-TOKEN':
-            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
         },
         body: JSON.stringify({ ids_curso: [...aceptados] }),
       });

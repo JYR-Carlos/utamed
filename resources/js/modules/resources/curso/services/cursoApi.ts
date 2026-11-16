@@ -6,6 +6,7 @@
  */
 
 import { router } from '@inertiajs/svelte';
+import { csrfFetch } from '@/lib/csrf';
 import type { ComponenteFormState, TipoComponente, Docente, CursoFormData, DocenteAsignadoComponente } from '../types/curso.types';
 
 /**
@@ -141,14 +142,6 @@ export function deleteComponente(cursoId: number, componenteId: number, options:
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Lee el token XSRF-TOKEN de la cookie para enviarlo como cabecera X-XSRF-TOKEN.
- */
-function getXsrfToken(): string {
-    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
-}
-
-/**
  * Resultado exitoso de addDocenteComponente.
  */
 export interface AddDocenteResult {
@@ -165,11 +158,10 @@ export async function addDocenteComponente(
     componenteId: number,
     idDocente: number,
 ): Promise<AddDocenteResult | { error: string }> {
-    const response = await fetch(`/admin/cursos/${cursoId}/componentes/${componenteId}/docentes`, {
+    const response = await csrfFetch(`/admin/cursos/${cursoId}/componentes/${componenteId}/docentes`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': getXsrfToken(),
             Accept: 'application/json',
         },
         body: JSON.stringify({ id_docente: idDocente }),
@@ -190,12 +182,11 @@ export async function removeDocenteComponente(
     componenteId: number,
     idDocenteComponente: number,
 ): Promise<{ message: string } | { error: string }> {
-    const response = await fetch(
+    const response = await csrfFetch(
         `/admin/cursos/${cursoId}/componentes/${componenteId}/docentes/${idDocenteComponente}`,
         {
             method: 'DELETE',
             headers: {
-                'X-XSRF-TOKEN': getXsrfToken(),
                 Accept: 'application/json',
             },
         },
@@ -215,13 +206,12 @@ export async function setTitularComponente(
     componenteId: number,
     idDocenteComponente: number,
 ): Promise<{ message: string } | { error: string }> {
-    const response = await fetch(
+    const response = await csrfFetch(
         `/admin/cursos/${cursoId}/componentes/${componenteId}/titular`,
         {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'X-XSRF-TOKEN': getXsrfToken(),
                 Accept: 'application/json',
             },
             body: JSON.stringify({ id_docente_componente: idDocenteComponente }),
@@ -239,13 +229,12 @@ export async function toggleGeneraActa(
     componenteId: number,
     generaActa: boolean,
 ): Promise<{ message: string; genera_acta: boolean; es_componente_principal: boolean; warning: string | null } | { error: string }> {
-    const response = await fetch(
+    const response = await csrfFetch(
         `/admin/cursos/${cursoId}/componentes/${componenteId}/genera-acta`,
         {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'X-XSRF-TOKEN': getXsrfToken(),
                 Accept: 'application/json',
             },
             body: JSON.stringify({ genera_acta: generaActa }),
