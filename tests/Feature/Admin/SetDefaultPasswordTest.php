@@ -128,9 +128,7 @@ it('resetea con éxito la contraseña al cuerpo del RUT, anula fecha_cambio_pass
         'last_activity' => time(),
     ]);
 
-    $response = $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $target), [
-        'current_password' => 'admin-pass-123',
-    ]);
+    $response = $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $target), []);
 
     $response->assertSessionHasNoErrors();
     $response->assertSessionHas('success');
@@ -153,9 +151,7 @@ it('obliga a cambiar la contraseña en el próximo inicio de sesión tras el res
 
     expect($target->debeCambiarPassword())->toBeFalse();
 
-    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $target), [
-        'current_password' => 'admin-pass-123',
-    ]);
+    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $target), []);
 
     $target->refresh();
     expect($target->fecha_cambio_passhash)->toBeNull()
@@ -163,28 +159,21 @@ it('obliga a cambiar la contraseña en el próximo inicio de sesión tras el res
         ->and($target->debeCambiarPassword())->toBeTrue();
 });
 
-it('falla con 422 si falta current_password o si es incorrecta', function () {
+it('resetea con éxito la contraseña sin requerir current_password', function () {
     $superadmin = getSuperAdminAutenticado('admin-pass-123');
     $target = crearUsuarioParaReset(['rut' => '17234567-9']);
 
-    // Sin current_password
-    $responseSinClave = $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $target), []);
-    $responseSinClave->assertSessionHasErrors('current_password');
-
-    // Con clave incorrecta
-    $responseClaveErronea = $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $target), [
-        'current_password' => 'clave-erronea-xyz',
-    ]);
-    $responseClaveErronea->assertSessionHasErrors('current_password');
+    $response = $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $target), []);
+    $response->assertSessionHasNoErrors();
+    $response->assertSessionHas('success');
+    expect(Hash::check('17234567', $target->fresh()->passhash))->toBeTrue();
 });
 
 it('rechaza con 403 si un admin no-SuperAdmin intenta resetear la contraseña de un SuperAdmin', function () {
     $adminRegular = crearAdminRegular('admin-reg-123');
     $superadmin = getSuperAdminAutenticado();
 
-    $response = $this->actingAs($adminRegular)->post(route('admin.usuarios.set-default-password', $superadmin), [
-        'current_password' => 'admin-reg-123',
-    ]);
+    $response = $this->actingAs($adminRegular)->post(route('admin.usuarios.set-default-password', $superadmin), []);
 
     $response->assertStatus(403);
 });
@@ -192,9 +181,7 @@ it('rechaza con 403 si un admin no-SuperAdmin intenta resetear la contraseña de
 it('rechaza con 302 o 401 si no hay usuario autenticado', function () {
     $target = crearUsuarioParaReset();
 
-    $response = $this->post(route('admin.usuarios.set-default-password', $target), [
-        'current_password' => 'cualquiera',
-    ]);
+    $response = $this->post(route('admin.usuarios.set-default-password', $target), []);
 
     // Como está bajo middleware 'auth', redirige a login
     $response->assertRedirect('/login');
@@ -203,9 +190,7 @@ it('rechaza con 302 o 401 si no hay usuario autenticado', function () {
 it('falla con 404 si el usuario objetivo no existe', function () {
     $superadmin = getSuperAdminAutenticado('admin-pass-123');
 
-    $response = $this->actingAs($superadmin)->post('/admin/usuarios/999999999/set-default-password', [
-        'current_password' => 'admin-pass-123',
-    ]);
+    $response = $this->actingAs($superadmin)->post('/admin/usuarios/999999999/set-default-password', []);
 
     $response->assertStatus(404);
 });
@@ -216,9 +201,7 @@ it('aborta con 422 controlado si el usuario objetivo no tiene RUT o el cuerpo qu
     // 1. RUT en BD con formato que no produce cuerpo numérico válido (ej: -sufijo)
     $sufijo = random_int(1000000, 9999999);
     $targetSinCuerpo = crearUsuarioParaReset(['rut' => "-{$sufijo}"]);
-    $response = $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetSinCuerpo), [
-        'current_password' => 'admin-pass-123',
-    ]);
+    $response = $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetSinCuerpo), []);
     $response->assertStatus(422);
 
     // 2. Modelo sin RUT (atributo nulo en memoria)
@@ -229,7 +212,7 @@ it('aborta con 422 controlado si el usuario objetivo no tiene RUT o el cuerpo qu
     $request = Request::create(
         route('admin.usuarios.set-default-password', $targetSinRut),
         'POST',
-        ['current_password' => 'admin-pass-123']
+        []
     );
     $request->setUserResolver(fn () => $superadmin);
 
@@ -248,16 +231,12 @@ it('extrae correctamente la contraseña según diferentes formatos de RUT', func
     // RUT con guion y dígito verificador K
     $cuerpoK = (string) random_int(81000000, 84999999);
     $targetK = crearUsuarioParaReset(['rut' => "{$cuerpoK}-K"]);
-    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetK), [
-        'current_password' => 'admin-pass-123',
-    ]);
+    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetK), []);
     expect(Hash::check($cuerpoK, $targetK->fresh()->passhash))->toBeTrue();
 
     // RUT con formato estándar
     $cuerpoStd = (string) random_int(85000000, 89999999);
     $targetStd = crearUsuarioParaReset(['rut' => "{$cuerpoStd}-9"]);
-    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetStd), [
-        'current_password' => 'admin-pass-123',
-    ]);
+    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetStd), []);
     expect(Hash::check($cuerpoStd, $targetStd->fresh()->passhash))->toBeTrue();
 });

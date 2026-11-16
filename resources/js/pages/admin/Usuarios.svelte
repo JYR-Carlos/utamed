@@ -231,7 +231,6 @@
   });
 
   let passwordFormData = $state({
-    current_password: '',
     password: '',
     password_confirmation: '',
   });
@@ -394,7 +393,7 @@
 
   function openPasswordModal(usuario: UsuarioItem) {
     changingPasswordUsuario = usuario;
-    passwordFormData = { current_password: '', password: '', password_confirmation: '' };
+    passwordFormData = { password: '', password_confirmation: '' };
     showPasswordModal = true;
   }
 
@@ -402,7 +401,7 @@
     showPasswordModal = false;
     showResetDialog = false;
     changingPasswordUsuario = null;
-    passwordFormData = { current_password: '', password: '', password_confirmation: '' };
+    passwordFormData = { password: '', password_confirmation: '' };
   }
 
   function handlePasswordChange() {
@@ -424,10 +423,6 @@
   }
 
   function openResetDialog() {
-    if (!passwordFormData.current_password.trim()) {
-      showToast('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.', 'warning');
-      return;
-    }
     showResetDialog = true;
   }
 
@@ -437,29 +432,21 @@
 
   function handleResetDefault() {
     if (!changingPasswordUsuario) return;
-    if (!passwordFormData.current_password.trim()) {
-      showToast('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.', 'warning');
-      return;
-    }
 
     isLoading = true;
     const id = changingPasswordUsuario.usuario.id_usuario;
 
-    setDefaultPassword(
-      id,
-      { current_password: passwordFormData.current_password },
-      {
-        onSuccess: () => {
-          closeResetDialog();
-          closePasswordModal();
-          isLoading = false;
-        },
-        onError: (errors) => {
-          handleError('reiniciar contraseña', errors);
-          isLoading = false;
-        },
+    setDefaultPassword(id, {
+      onSuccess: () => {
+        closeResetDialog();
+        closePasswordModal();
+        isLoading = false;
       },
-    );
+      onError: (errors) => {
+        handleError('reiniciar contraseña', errors);
+        isLoading = false;
+      },
+    });
   }
 
   /**

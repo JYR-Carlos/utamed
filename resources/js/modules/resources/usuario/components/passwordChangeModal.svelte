@@ -4,13 +4,10 @@
    * un usuario (mínimo 8 caracteres con una mayúscula, números y algún signo, con
    * confirmación; la lista de requisitos se actualiza mientras se escribe).
    *
-   * Cambiar la clave de una cuenta ajena es una toma de control, así que el
-   * backend exige además que el administrador reautentique con su propia
-   * contraseña.
-   *
    * Componente controlado: el formulario vive en el padre (bindeable) y el
    * POST lo hace el padre vía usuarioApi.changePassword.
    */
+  import { Eye, EyeOff } from 'lucide-svelte';
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
   import { PASSWORD_HINT, PASSWORD_MIN_LENGTH } from '@/constants/admin';
@@ -19,7 +16,6 @@
     isOpen: boolean;
     /** Estado del formulario; vive en el padre y se bindea aquí. */
     passwordFormData: {
-      current_password: string;
       password: string;
       password_confirmation: string;
     };
@@ -37,24 +33,18 @@
     onSubmit,
     onResetDefault,
   }: Props = $props();
+
+  let showPassword = $state(false);
+  let showPasswordConfirmation = $state(false);
+
+  function handleClose() {
+    showPassword = false;
+    showPasswordConfirmation = false;
+    onClose();
+  }
 </script>
 
-<FormModal {isOpen} title="Cambiar Contraseña" {onClose} {onSubmit} {isLoading}>
-  <div class="mb-4">
-    <label for="current_password" class="block text-sm font-medium text-gray-700 mb-2"
-      >Tu contraseña *</label
-    >
-    <input
-      id="current_password"
-      type="password"
-      autocomplete="current-password"
-      bind:value={passwordFormData.current_password}
-      class="field-input"
-      placeholder="Confirma tu identidad"
-      required
-    />
-  </div>
-
+<FormModal {isOpen} title="Cambiar Contraseña" onClose={handleClose} {onSubmit} {isLoading}>
   {#if onResetDefault}
     
     <div class="space-y-1.5 my-4">
@@ -74,32 +64,62 @@
     <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2"
       >Nueva Contraseña *</label
     >
-    <input
-      id="new_password"
-      type="password"
-      autocomplete="new-password"
-      bind:value={passwordFormData.password}
-      class="field-input"
-      placeholder={PASSWORD_HINT}
-      minlength={PASSWORD_MIN_LENGTH}
-      required
-    />
+    <div class="relative">
+      <input
+        id="new_password"
+        type={showPassword ? 'text' : 'password'}
+        autocomplete="new-password"
+        bind:value={passwordFormData.password}
+        class="field-input pr-10"
+        placeholder={PASSWORD_HINT}
+        minlength={PASSWORD_MIN_LENGTH}
+        required
+      />
+      <button
+        type="button"
+        aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+        aria-pressed={showPassword}
+        onclick={() => (showPassword = !showPassword)}
+        class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+      >
+        {#if showPassword}
+          <EyeOff size={18} aria-hidden="true" />
+        {:else}
+          <Eye size={18} aria-hidden="true" />
+        {/if}
+      </button>
+    </div>
   </div>
 
   <div class="mb-4">
     <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2"
       >Confirmar Contraseña *</label
     >
-    <input
-      id="password_confirmation"
-      type="password"
-      autocomplete="new-password"
-      bind:value={passwordFormData.password_confirmation}
-      class="field-input"
-      placeholder="Repita la contraseña"
-      minlength={PASSWORD_MIN_LENGTH}
-      required
-    />
+    <div class="relative">
+      <input
+        id="password_confirmation"
+        type={showPasswordConfirmation ? 'text' : 'password'}
+        autocomplete="new-password"
+        bind:value={passwordFormData.password_confirmation}
+        class="field-input pr-10"
+        placeholder="Repita la contraseña"
+        minlength={PASSWORD_MIN_LENGTH}
+        required
+      />
+      <button
+        type="button"
+        aria-label={showPasswordConfirmation ? 'Ocultar confirmación de contraseña' : 'Ver confirmación de contraseña'}
+        aria-pressed={showPasswordConfirmation}
+        onclick={() => (showPasswordConfirmation = !showPasswordConfirmation)}
+        class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+      >
+        {#if showPasswordConfirmation}
+          <EyeOff size={18} aria-hidden="true" />
+        {:else}
+          <Eye size={18} aria-hidden="true" />
+        {/if}
+      </button>
+    </div>
   </div>
 
   <div class="mb-4">

@@ -65,10 +65,9 @@ export function changePassword(
 /** POST /admin/usuarios/{id}/set-default-password — reinicia a contraseña por defecto (RUT). */
 export function setDefaultPassword(
     id: number,
-    data: { current_password: string },
     options: ApiOptions = {},
 ) {
-    router.post(`/admin/usuarios/${id}/set-default-password`, data, {
+    router.post(`/admin/usuarios/${id}/set-default-password`, {}, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });

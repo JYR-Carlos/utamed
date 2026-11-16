@@ -1152,12 +1152,10 @@ class UsuarioController extends Controller
     /**
      * Actualiza la contraseña de un usuario.
      *
-     * Cambiar la contraseña de una cuenta ajena es una toma de control: exige
-     * permiso sobre el usuario, que el administrador confirme su **propia** clave,
-     * y cierra las sesiones activas del afectado para que un atacante que ya
-     * estuviera dentro no sobreviva al cambio.
+     * Exige permiso sobre el usuario, valida la complejidad de la nueva clave
+     * y cierra las sesiones activas del afectado.
      *
-     * @param  Request  $request  Datos: current_password, password (confirmed)
+     * @param  Request  $request  Datos: password (confirmed)
      * @param  Usuario  $usuario  Usuario cuya contraseña actualizar (route-model binding)
      */
     public function changePassword(Request $request, Usuario $usuario): RedirectResponse
@@ -1178,12 +1176,7 @@ class UsuarioController extends Controller
         }
 
         $validated = $request->validate([
-            // 'current_password' valida contra la clave del usuario autenticado,
-            // no contra la del objetivo: es la reautenticación del administrador.
-            'current_password' => ['required', 'string', 'current_password'],
             'password' => ['required', 'string', 'confirmed', Password::defaults()],
-        ], [
-            'current_password.current_password' => 'La contraseña de tu propia cuenta no es correcta.',
         ]);
 
         DB::transaction(function () use ($usuario, $validated) {
@@ -1216,8 +1209,8 @@ class UsuarioController extends Controller
     /**
      * Reinicia la contraseña por defecto de un usuario (cuerpo del RUT).
      *
-     * Requiere permiso para actualizar al usuario y reautenticación del
-     * administrador. Obliga al usuario a cambiar la clave en su próximo inicio de sesión.
+     * Requiere permiso para actualizar al usuario. Obliga al usuario a cambiar
+     * la clave en su próximo inicio de sesión.
      */
     public function setDefaultPassword(Request $request, Usuario $usuario): RedirectResponse
     {
@@ -1235,14 +1228,6 @@ class UsuarioController extends Controller
             $this->logIntentoEscalada($actor, $usuario, 'CAMBIO_PASSWORD_SUPERADMIN');
             abort(403, 'Solo un SuperAdmin puede cambiar la contraseña de otro SuperAdmin.');
         }
-
-        $request->validate([
-            // 'current_password' valida contra la clave del usuario autenticado,
-            // no contra la del objetivo: es la reautenticación del administrador.
-            'current_password' => ['required', 'string', 'current_password'],
-        ], [
-            'current_password.current_password' => 'La contraseña de tu propia cuenta no es correcta.',
-        ]);
 
         if (empty($usuario->rut)) {
             abort(422, 'El usuario no tiene un RUT registrado para generar la contraseña por defecto.');
