@@ -455,3 +455,79 @@ test('endpoint buscarFuente retorna cursos filtrados por cod_asignatura o nombre
             'cod_asignatura' => $codAsig,
         ]);
 });
+
+test('al copiar un curso en el mismo periodo con copiar_fechas true conserva las fechas limite de las actividades', function () {
+    $actividad = $this->padre->componentes()->first()->actividades()->first();
+    $fechaEsperada = now()->addDays(10)->startOfDay();
+    $actividad->update(['fecha_limite' => $fechaEsperada]);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
+            'fecha_inicio'  => now()->toDateString(),
+            'agno_real'     => $this->padre->agno_real ?? 2026,
+            'semestre_real' => $this->padre->semestre_real ?? 1,
+            'copiar_fechas' => true,
+        ]);
+
+    $response->assertSessionHasNoErrors()
+        ->assertRedirect(route('admin.cursos.index'));
+
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->latest('id_curso')->first();
+    $nuevaActividad = Actividad::whereHas('componente', fn ($q) => $q->where('id_curso', $nuevo->id_curso))
+        ->where('nombre', $actividad->nombre)
+        ->first();
+
+    expect($nuevaActividad)->not->toBeNull()
+        ->and(\Carbon\Carbon::parse($nuevaActividad->fecha_limite)->toDateString())
+        ->toBe($fechaEsperada->toDateString());
+});
+
+test('al copiar un curso en el mismo periodo con copiar_fechas false resetea las fechas limite a null', function () {
+    $actividad = $this->padre->componentes()->first()->actividades()->first();
+    $actividad->update(['fecha_limite' => now()->addDays(10)]);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
+            'fecha_inicio'  => now()->toDateString(),
+            'agno_real'     => $this->padre->agno_real ?? 2026,
+            'semestre_real' => $this->padre->semestre_real ?? 1,
+            'copiar_fechas' => false,
+        ]);
+
+    $response->assertSessionHasNoErrors()
+        ->assertRedirect(route('admin.cursos.index'));
+
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->latest('id_curso')->first();
+    $nuevaActividad = Actividad::whereHas('componente', fn ($q) => $q->where('id_curso', $nuevo->id_curso))
+        ->where('nombre', $actividad->nombre)
+        ->first();
+
+    expect($nuevaActividad)->not->toBeNull()
+        ->and($nuevaActividad->fecha_limite)->toBeNull();
+});
+
+test('al copiar un curso a distinto periodo resetea las fechas limite a null aunque se envie copiar_fechas true', function () {
+    $actividad = $this->padre->componentes()->first()->actividades()->first();
+    $actividad->update(['fecha_limite' => now()->addDays(10)]);
+
+    $agnoDistinto = ($this->padre->agno_real ?? 2026) + 1;
+
+    $response = $this->actingAs($this->admin)
+        ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
+            'fecha_inicio'  => now()->addYear()->toDateString(),
+            'agno_real'     => $agnoDistinto,
+            'semestre_real' => $this->padre->semestre_real ?? 1,
+            'copiar_fechas' => true,
+        ]);
+
+    $response->assertSessionHasNoErrors()
+        ->assertRedirect(route('admin.cursos.index'));
+
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->latest('id_curso')->first();
+    $nuevaActividad = Actividad::whereHas('componente', fn ($q) => $q->where('id_curso', $nuevo->id_curso))
+        ->where('nombre', $actividad->nombre)
+        ->first();
+
+    expect($nuevaActividad)->not->toBeNull()
+        ->and($nuevaActividad->fecha_limite)->toBeNull();
+});

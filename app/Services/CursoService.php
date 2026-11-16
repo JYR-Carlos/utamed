@@ -206,10 +206,11 @@ class CursoService
 
     /**
      * Copy an existing course preserving structure, components, teachers and activities.
-     * Activity dates are reset to null. Students and responses are NOT copied.
+     * Activity dates are reset to null unless copiar_fechas is true and the target period matches.
+     * Students and responses are NOT copied.
      *
      * @param Curso $cursoPadre The source course
-     * @param array $data 'fecha_inicio' (Y-m-d string) y, opcional, 'cod_curso' (si no viene se asigna el siguiente)
+     * @param array $data 'fecha_inicio' (Y-m-d string), 'agno_real', 'semestre_real', 'copiar_fechas' (bool), and optional 'cod_curso', 'nombre'
      * @param Usuario|null $usuario Usuario que realiza la copia
      * @return Curso
      */
@@ -229,6 +230,10 @@ class CursoService
             $fechaInicio = $data['fecha_inicio'];
             $agnoReal = isset($data['agno_real']) ? (int) $data['agno_real'] : $cursoPadre->agno_real;
             $semestreReal = isset($data['semestre_real']) ? (int) $data['semestre_real'] : $cursoPadre->semestre_real;
+
+            $mismoPeriodo = ((int) $agnoReal === (int) $cursoPadre->agno_real)
+                && ((int) $semestreReal === (int) $cursoPadre->semestre_real);
+            $copiarFechas = !empty($data['copiar_fechas']) && $mismoPeriodo;
 
             $indiceGrupo = $this->nextIndiceGrupo($cursoPadre->id_asignacion_plan, $agnoReal, $semestreReal);
             $letra = LetraGrupo::fromIndice($indiceGrupo);
@@ -361,7 +366,7 @@ class CursoService
                 foreach ($comp->actividades as $act) {
                     $nuevaAct = Actividad::create([
                         'nombre'          => $act->nombre,
-                        'fecha_limite'    => null,
+                        'fecha_limite'    => $copiarFechas ? $act->fecha_limite : null,
                         'visible'         => $act->visible,
                         'ponderacion'     => $act->ponderacion,
                         'exigencia'       => $act->exigencia,

@@ -977,7 +977,8 @@ class CursoController extends Controller
 
     /**
      * Copies a course (structure, components, teachers, activities) into a new course.
-     * Activity dates are reset to null; students and responses are NOT copied.
+     * Activity dates are reset to null unless copiar_fechas is true in the same period;
+     * students and responses are NOT copied.
      */
     public function copiar(Request $request, Curso $curso)
     {
@@ -987,6 +988,7 @@ class CursoController extends Controller
             'fecha_inicio'  => 'required|date',
             'agno_real'     => 'required|integer|min:2000|max:2100',
             'semestre_real' => 'required|integer|in:1,2',
+            'copiar_fechas' => 'nullable|boolean',
         ]);
 
         try {
@@ -995,6 +997,7 @@ class CursoController extends Controller
                 'fecha_inicio'  => $validated['fecha_inicio'],
                 'agno_real'     => (int) $validated['agno_real'],
                 'semestre_real' => (int) $validated['semestre_real'],
+                'copiar_fechas' => $request->boolean('copiar_fechas'),
             ], $request->user());
 
             return redirect()
