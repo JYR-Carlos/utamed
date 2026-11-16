@@ -4,6 +4,7 @@
    * syllabus vigente (y sus actividades) de un curso a sus cursos hermanos de la misma asignatura.
    */
   import { X, Copy, CheckSquare, Square, AlertCircle, Sparkles, BookOpen, Layers } from 'lucide-svelte';
+  import { csrfFetch } from '@/lib/csrf';
 
   interface CursoDestino {
     id_curso: number;
@@ -117,12 +118,11 @@
     replicarError = '';
 
     try {
-      const res = await fetch(`/admin/cursos/${cursoId}/syllabus/replicar`, {
+      const res = await csrfFetch(`/admin/cursos/${cursoId}/syllabus/replicar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '',
         },
         body: JSON.stringify({
           destinos: selectedIds,

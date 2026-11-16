@@ -13,6 +13,7 @@
   import type { Curso } from '../types/curso.types';
   import type { ComponenteDetectada, ComponenteSobranteLocal, ResultadoSincronizacionComponentes, LogSincronizacionResumen } from '@/types/admin.types';
   import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Layers, UserPlus, RotateCcw } from 'lucide-svelte';
+  import { csrfFetch } from '@/lib/csrf';
 
   interface Props {
     isOpen: boolean;
@@ -112,13 +113,11 @@
     revirtiendo = true;
     errorMsg = '';
     try {
-      const res = await fetch(`/admin/cursos/${curso.id_curso}/sincronizar-intranet/revertir`, {
+      const res = await csrfFetch(`/admin/cursos/${curso.id_curso}/sincronizar-intranet/revertir`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'X-CSRF-TOKEN':
-            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
         },
         body: JSON.stringify({
           id_log: ultimoLog.id_log,
@@ -164,13 +163,11 @@
     paso = 'ejecutando';
     errorMsg = '';
     try {
-      const res = await fetch(`/admin/cursos/${curso.id_curso}/sincronizar-intranet`, {
+      const res = await csrfFetch(`/admin/cursos/${curso.id_curso}/sincronizar-intranet`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'X-CSRF-TOKEN':
-            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
         },
         body: JSON.stringify({
           tipos_componente_ids: [...aceptados],

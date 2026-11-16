@@ -11,6 +11,7 @@
   import { router } from '@inertiajs/svelte';
   import { Crown, Loader2, Users } from 'lucide-svelte';
   import { initials } from '@/utils/formatters';
+  import { csrfFetch } from '@/lib/csrf';
 
   interface DocenteComponente {
     id_docente_componente: number;
@@ -76,18 +77,13 @@
     error = null;
 
     try {
-      const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)
-        ?.content ?? '';
-
-      const res = await fetch(
+      const res = await csrfFetch(
         `/docente/cursos/${cursoId}/componentes/${componente.id_componente}/titular`,
         {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
-            'X-CSRF-TOKEN': csrfToken,
-            'X-Requested-With': 'XMLHttpRequest',
           },
           body: JSON.stringify({ id_docente_componente: selectedDcId }),
         },

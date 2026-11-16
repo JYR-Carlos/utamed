@@ -8,6 +8,7 @@
    */
   import { router } from '@inertiajs/svelte';
   import { Copy, X, AlertTriangle, BookOpen, Users, ClipboardList, Calendar } from 'lucide-svelte';
+  import { csrfFetch } from '@/lib/csrf';
   import type { Curso } from '../types/curso.types';
 
   interface ActividadPreview {
@@ -97,9 +98,26 @@
   let newFechaInicio = $state('');
   let customNombre = $state('');
   let nombreManual = $state(false);
+  let copiarFechas = $state(true);
+  let prevMismoPeriodo = $state<boolean | null>(null);
   let letraCalculada = $state('');
   let loadingLetra = $state(false);
   let letraRequestId = 0;
+
+  const esMismoPeriodo = $derived(
+    preview?.curso != null &&
+      Number(newAgnoReal) === Number(preview.curso.agno_real) &&
+      Number(newSemestreReal) === Number(preview.curso.semestre_real),
+  );
+
+  $effect(() => {
+    if (preview?.curso) {
+      if (esMismoPeriodo !== prevMismoPeriodo) {
+        prevMismoPeriodo = esMismoPeriodo;
+        copiarFechas = esMismoPeriodo;
+      }
+    }
+  });
 
   const totalActividades = $derived(
     preview?.componentes.reduce((sum, c) => sum + c.actividades.length, 0) ?? 0,
@@ -137,6 +155,8 @@
       newFechaInicio = '';
       customNombre = '';
       nombreManual = false;
+      copiarFechas = true;
+      prevMismoPeriodo = null;
       newAgnoReal = defaultAgno;
       newSemestreReal = defaultSemestre;
       letraCalculada = '';
@@ -147,7 +167,7 @@
   async function fetchPreview(idCurso: number) {
     loading = true;
     try {
-      const res = await fetch(`/admin/cursos/${idCurso}/preview-copia`, {
+      const res = await csrfFetch(`/admin/cursos/${idCurso}/preview-copia`, {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -175,7 +195,7 @@
         agno_real: String(newAgnoReal),
         semestre_real: String(newSemestreReal),
       });
-      const res = await fetch(`/admin/cursos/proxima-letra?${params.toString()}`, {
+      const res = await csrfFetch(`/admin/cursos/proxima-letra?${params.toString()}`, {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -216,6 +236,7 @@
         fecha_inicio: newFechaInicio,
         agno_real: newAgnoReal,
         semestre_real: newSemestreReal,
+        copiar_fechas: esMismoPeriodo ? copiarFechas : false,
       },
       {
         onSuccess: () => {
@@ -301,21 +322,37 @@
             {loadError}
           </div>
         {:else if preview}
-          <!-- Warning banner -->
+          <!-- Warning / info banner -->
           {#if actividadesConFecha > 0}
-            <div
-              class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl"
-            >
-              <AlertTriangle size={16} class="text-amber-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p class="text-sm font-semibold text-amber-800">Aviso: Fechas de actividades</p>
-                <p class="text-xs text-amber-700 mt-0.5 leading-relaxed">
-                  {actividadesConFecha} actividad{actividadesConFecha > 1 ? 'es tienen' : ' tiene'} fecha
-                  límite asignada. Al copiar el curso, <strong>todas las fechas quedarán
-                  vacías</strong> y deberás actualizarlas manualmente en el nuevo curso.
-                </p>
+            {#if esMismoPeriodo && copiarFechas}
+              <div
+                class="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl"
+              >
+                <Calendar size={16} class="text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p class="text-sm font-semibold text-emerald-800">Fechas de actividades conservadas</p>
+                  <p class="text-xs text-emerald-700 mt-0.5 leading-relaxed">
+                    {actividadesConFecha} actividad{actividadesConFecha > 1 ? 'es tienen' : ' tiene'} fecha
+                    límite asignada. Como el curso destino pertenece al mismo período académico,
+                    <strong>se conservarán sus fechas límite</strong> (puedes desmarcar esta opción abajo).
+                  </p>
+                </div>
               </div>
-            </div>
+            {:else}
+              <div
+                class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl"
+              >
+                <AlertTriangle size={16} class="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p class="text-sm font-semibold text-amber-800">Aviso: Fechas de actividades</p>
+                  <p class="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                    {actividadesConFecha} actividad{actividadesConFecha > 1 ? 'es tienen' : ' tiene'} fecha
+                    límite asignada. Al copiar el curso{esMismoPeriodo ? '' : ' a un período distinto'},
+                    <strong>todas las fechas quedarán vacías</strong> y deberás actualizarlas manualmente en el nuevo curso.
+                  </p>
+                </div>
+              </div>
+            {/if}
           {/if}
 
           <!-- Resumen del curso origen -->
@@ -459,8 +496,12 @@
                               </td>
                               <td class="px-4 py-2 text-right">
                                 {#if act.fecha_limite}
-                                  <span class="text-amber-600 line-through">{act.fecha_limite}</span>
-                                  <span class="text-gray-400 ml-1 no-underline">→ vacía</span>
+                                  {#if esMismoPeriodo && copiarFechas}
+                                    <span class="text-emerald-700 font-medium">{act.fecha_limite}</span>
+                                  {:else}
+                                    <span class="text-amber-600 line-through">{act.fecha_limite}</span>
+                                    <span class="text-gray-400 ml-1 no-underline">→ vacía</span>
+                                  {/if}
                                 {:else}
                                   <span class="text-gray-400">—</span>
                                 {/if}
@@ -573,6 +614,25 @@
                   />
                 </div>
               </div>
+
+              {#if esMismoPeriodo}
+                <div class="flex items-start gap-3 p-3 bg-white border border-blue-200 rounded-lg">
+                  <input
+                    id="copiar-fechas"
+                    type="checkbox"
+                    bind:checked={copiarFechas}
+                    class="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label for="copiar-fechas" class="cursor-pointer select-none">
+                    <span class="text-xs font-semibold text-gray-800">
+                      Copiar fechas límite de actividades{#if actividadesConFecha > 0} ({actividadesConFecha}){/if}
+                    </span>
+                    <p class="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                      El curso destino pertenece al mismo período académico ({newAgnoReal} · Semestre {newSemestreReal}). Marca esta opción para mantener las fechas originales o desmárcala para dejarlas vacías.
+                    </p>
+                  </label>
+                </div>
+              {/if}
 
               {#if copyError}
                 <p class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

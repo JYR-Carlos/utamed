@@ -13,6 +13,7 @@
    *   3. Importar   — sólo se confirma cuando no queda nada que corregir.
    */
   import { UserType } from '@/types/usuarios/tipos';
+  import { csrfFetch } from '@/lib/csrf';
 
   interface ColumnaImportacion {
     campo: string;
@@ -78,15 +79,6 @@
     resetRevision();
   }
 
-  function getXsrfToken(): string {
-    return decodeURIComponent(
-      document.cookie
-        .split('; ')
-        .find((c) => c.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1] ?? '',
-    );
-  }
-
   async function revisarArchivo() {
     if (!file || revisando) return;
 
@@ -99,9 +91,9 @@
     datos.append('tipo', tipo);
 
     try {
-      const res = await fetch('/admin/usuarios/importar/previsualizar', {
+      const res = await csrfFetch('/admin/usuarios/importar/previsualizar', {
         method: 'POST',
-        headers: { 'X-XSRF-TOKEN': getXsrfToken(), Accept: 'application/json' },
+        headers: { Accept: 'application/json' },
         body: datos,
       });
       const data = await res.json();

@@ -21,6 +21,7 @@
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
+  import { csrfFetch } from '@/lib/csrf';
   import { fly } from 'svelte/transition';
   import CursoSelector from '@/modules/resources/inscripcion/components/cursoSelector.svelte';
   import RosterTable from '@/modules/resources/inscripcion/components/rosterTable.svelte';
@@ -178,14 +179,11 @@
     resultadoSync = null;
 
     try {
-      const res = await fetch(`/admin/cursos/${activeCursoId}/sincronizar-inscripciones`, {
+      const res = await csrfFetch(`/admin/cursos/${activeCursoId}/sincronizar-inscripciones`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN':
-            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
         },
       });
       const json = await res.json();
