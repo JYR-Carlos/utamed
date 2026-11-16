@@ -67,12 +67,12 @@ class EstudianteService
     }
 
     /**
-     * Busca localmente y, si no existe, consulta la intranet para crearlo.
+     * Busca localmente y, si no existe o carece de email, consulta la intranet para crearlo o sincronizarlo.
      */
     public function obtenerOCrearDesdeIntranet(int $alumRut, Carrera $carrera): ?Estudiante
     {
         $estudiante = $this->buscarPorRut($alumRut);
-        if ($estudiante) {
+        if ($estudiante && !empty($estudiante->usuario?->email)) {
             return $estudiante;
         }
 
@@ -85,10 +85,13 @@ class EstudianteService
                 'alum_rut' => $alumRut,
                 'error'    => $e->getMessage(),
             ]);
-            return null;
+            return $estudiante ?: null;
         }
 
         if (!$datosIntranet) {
+            if ($estudiante) {
+                return $estudiante;
+            }
             Log::warning('No se encontraron datos del alumno en la Intranet', ['alum_rut' => $alumRut]);
             return null;
         }

@@ -1,5 +1,6 @@
 <?php
 
+use App\DTOs\External\AlumnoIntranetData;
 use App\Models\External\VwAlumno;
 use App\Models\External\VwCarreraCurso;
 use App\Models\External\VwInscripcion;
@@ -98,5 +99,74 @@ describe('Transformaciones y Accesores de Modelos de Intranet (Oracle)', functio
         expect($inscripcion->ASIG_CODIGO)->toBe('DI021');
         expect($inscripcion->CURSO_TIPO_ASIG)->toBe('C');
         expect($inscripcion->CURSO_GRUPO_ASIG)->toBe('A');
+    });
+
+    test('VwAlumno normaliza ALUM_EMAIL con espacios y mayúsculas a minúsculas limpias', function () {
+        $alumno = new VwAlumno([
+            'ALUM_RUT'   => 18401835,
+            'ALUM_EMAIL' => '  Alumno.Test@UTA.CL  ',
+        ]);
+
+        expect($alumno->ALUM_EMAIL)->toBe('alumno.test@uta.cl');
+        expect($alumno->alum_email)->toBe('alumno.test@uta.cl');
+    });
+
+    test('VwAlumno maneja ALUM_EMAIL vacío o nulo retornando null', function () {
+        $alumno1 = new VwAlumno([
+            'ALUM_RUT'   => 18401835,
+            'ALUM_EMAIL' => '   ',
+        ]);
+        expect($alumno1->ALUM_EMAIL)->toBeNull();
+        expect($alumno1->alum_email)->toBeNull();
+
+        $alumno2 = new VwAlumno([
+            'ALUM_RUT'   => 18401836,
+            'ALUM_EMAIL' => null,
+        ]);
+        expect($alumno2->ALUM_EMAIL)->toBeNull();
+        expect($alumno2->alum_email)->toBeNull();
+    });
+
+    test('VwAlumno acepta alias alternativo ALUM_CORREO', function () {
+        $alumno = new VwAlumno([
+            'ALUM_RUT'    => 18401835,
+            'ALUM_CORREO' => '  OTRO.CORREO@ALUMNOS.UTA.CL  ',
+        ]);
+
+        expect($alumno->alum_email)->toBe('otro.correo@alumnos.uta.cl');
+    });
+
+    test('AlumnoIntranetData normaliza email a minúsculas limpias y maneja null', function () {
+        $dto1 = new AlumnoIntranetData(
+            alum_rut: 18401835,
+            alum_digito: 'K',
+            alum_nombre: 'JUAN',
+            alum_apellido_pat: 'PÉREZ',
+            alum_email: '  JUAN.PEREZ@ALUMNOS.UTA.CL  '
+        );
+        expect($dto1->alum_email)->toBe('juan.perez@alumnos.uta.cl');
+        expect($dto1->email)->toBe('juan.perez@alumnos.uta.cl');
+
+        $dto2 = new AlumnoIntranetData(
+            alum_rut: 18401835,
+            alum_digito: 'K',
+            alum_nombre: 'JUAN',
+            alum_apellido_pat: 'PÉREZ',
+            alum_email: '   '
+        );
+        expect($dto2->alum_email)->toBeNull();
+        expect($dto2->email)->toBeNull();
+    });
+
+    test('AlumnoIntranetData acepta alias email en el constructor', function () {
+        $dto = new AlumnoIntranetData(
+            alum_rut: 18401835,
+            alum_digito: 'K',
+            alum_nombre: 'JUAN',
+            alum_apellido_pat: 'PÉREZ',
+            email: 'JUAN.ALIAS@UTA.CL'
+        );
+        expect($dto->alum_email)->toBe('juan.alias@uta.cl');
+        expect($dto->email)->toBe('juan.alias@uta.cl');
     });
 });

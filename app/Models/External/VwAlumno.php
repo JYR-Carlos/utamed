@@ -28,9 +28,27 @@ class VwAlumno extends IntranetBaseModel
         'ALUM_APPATERNO_JEFE'   => 'string',   // char(0)
         'ALUM_APMATERNO_JEFE'   => 'string',   // char(0)
         'ALUM_NOMBRE_JEFE'      => 'string',   // char(0)
-        'ALUM_EMAIL'            => 'string',   // char(0)
+        'ALUM_EMAIL'            => 'string',   // varchar/varchar2 correo institucional
+        'ALUM_CORREO'           => 'string',   // varchar/varchar2 alias alternativo
         'ETCO_CODIGO'           => 'string',   // char(0)
     ];
+
+    /**
+     * Limpia y normaliza el correo electrónico a minúsculas o null si está vacío.
+     */
+    protected function alumEmail(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value) {
+                $raw = $value ?? $this->attributes['ALUM_EMAIL'] ?? $this->attributes['alum_email'] ?? $this->attributes['ALUM_CORREO'] ?? $this->attributes['alum_correo'] ?? $this->attributes['email'] ?? null;
+                if (is_null($raw)) {
+                    return null;
+                }
+                $trimmed = mb_strtolower(trim((string)$raw));
+                return $trimmed !== '' ? $trimmed : null;
+            }
+        );
+    }
 
     /**
      * Normaliza el dígito verificador a mayúscula ('K') y sin espacios.
