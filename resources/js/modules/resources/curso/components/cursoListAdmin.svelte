@@ -59,7 +59,7 @@
     { key: 'nombre', label: 'Asignatura' },
     { key: 'carrera_nombre', label: 'Carrera' },
     { key: 'periodo', label: 'Período' },
-    { key: 'secciones', label: 'Secciones' },
+    { key: 'componentes', label: 'Componentes' },
     { key: 'programa_estado', label: 'Programa' },
   ];
 
@@ -165,16 +165,16 @@
       {:else}
         <span class="text-gray-400">—</span>
       {/if}
-    {:else if column.key === 'secciones'}
+    {:else if column.key === 'componentes'}
       {@const count = item.componentes?.length ?? 0}
       {#if count > 0}
         <span
           class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200"
         >
-          {count === 1 ? '1 Sección' : `${count} Secciones`}
+          {count === 1 ? '1 Componente' : `${count} Componentes`}
         </span>
       {:else}
-        <span class="text-xs text-gray-400">Sin secciones</span>
+        <span class="text-xs text-gray-400">Sin componentes</span>
       {/if}
     {:else if column.key === 'programa_estado'}
       {@const badge = PROGRAMA_BADGES[item.programa_estado]}
