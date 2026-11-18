@@ -226,7 +226,7 @@
       />
       {#if errors.fecha_limite}<p class="mt-1 text-xs text-red-600">{errors.fecha_limite}</p>{/if}
     </div>
-
+    <!--
     <div class="mb-4">
       <label for="tipo_entrega" class="block font-medium text-gray-700 mb-2 text-sm"
         >Tipo de Entrega *</label
@@ -243,6 +243,7 @@
         <option value="hibrido">Híbrido</option>
       </select>
     </div>
+    -->
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
