@@ -62,6 +62,15 @@ export function seccionesParaLeer(secciones: SeccionPrograma[]): SeccionPrograma
     ];
 }
 
+/**
+ * Título de la sección para el alumno. Las Unidades (VI) van primero y se
+ * llaman «Lo que aprenderás»: el título oficial es largo y técnico para quien
+ * recién empieza (OBS-44). La versión para imprimir conserva el oficial.
+ */
+export function tituloParaAlumno(seccion: Pick<SeccionPrograma, 'numeral_romano' | 'nombre_seccion'>): string {
+    return seccion.numeral_romano === 'VI' ? 'Lo que aprenderás' : seccion.nombre_seccion;
+}
+
 /** «60 %»; guion si no hay dato. */
 export function porcentaje(v: number | string | null | undefined): string {
     return v === null || v === undefined || v === '' ? '—' : `${Number(v).toLocaleString('es-CL')} %`;

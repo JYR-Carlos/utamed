@@ -79,7 +79,7 @@
         {/each}
       </ul>
       <p class="px-5 pt-3 pb-4 text-[13px] leading-[18px] text-dm-ink-2">
-        Sale de la sección VIII del programa. Si un enlace no abre, avísale a tu docente por Mensajería.
+        Sale de «Recursos para el aprendizaje» del programa. Si un enlace no abre, avísale a tu docente por Mensajería.
       </p>
     </aside>
   </div>
