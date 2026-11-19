@@ -156,7 +156,7 @@ class ComponenteController extends Controller
                     'genera_acta'                       => false,
                     'porcentaje_aprobacion'             => 60,
                     'aprobacion_obligatoria'            => false,
-                    'porcentaje_asistencia_obligatoria' => 0,
+                    'porcentaje_asistencia_obligatoria' => Componente::ASISTENCIA_MINIMA_POR_DEFECTO,
                     // id_contexto es asignado automáticamente por trigger tr_componente_pre_insert
                 ]);
 
