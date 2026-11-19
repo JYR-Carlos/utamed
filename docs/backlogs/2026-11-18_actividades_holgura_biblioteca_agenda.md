@@ -102,20 +102,19 @@ git checkout -b feature/feedback-decimas-y-biblioteca-docente
 
 ### Tablero Kanban
 
-* ### `FEAT-07` [5 pts] [R1] [ALTA] Unificar estados y gestión de actividades en la vista del curso docente
-  * **Ruta**: `/docente/cursos/{curso}` (y compatibilidad en `/docente/cursos/{curso}/actividades`)
+* ### `FEAT-07` [3 pts] [R1] [ALTA] Unificar estados y gestión de actividades dentro de la vista Actividades (sin alterar controlador de curso)
+  * **Ruta**: `/docente/cursos/{curso}/actividades` (y limpieza de vista separada en `/docente/cursos/{curso}`)
   * **Archivos**:
-    * `app/Http/Controllers/Docente/DocenteCursoController.php`
-    * `resources/js/pages/docente/CursoDetalle.svelte`
     * `resources/js/pages/docente/Actividades.svelte`
+    * `resources/js/pages/docente/CursoDetalle.svelte`
     * `resources/js/components/docente/ActividadesTabla.svelte`
     * `resources/js/pages/docente/components/ActividadesPorEstado.svelte`
-  * **Problema & Causa**: En `CursoDetalle.svelte`, la pestaña `actividades` solo renderiza `<ActividadesPorEstado>` (Planificadas, Activas, Cerradas) y delega la creación, edición, eliminación, visibilidad y vista lista a una página separada (`/docente/cursos/{curso}/actividades`), fragmentando el flujo docente. Además, `DocenteCursoController::show` no entrega `unidades`, `nro_dias_adicionales_para_bloqueo` ni permisos completos de gestión de actividades.
+  * **Problema & Causa**: En `CursoDetalle.svelte`, la pestaña `actividades` renderiza `<ActividadesPorEstado>` (Planificadas, Activas, Cerradas) de forma aislada respecto a la gestión CRUD en `/docente/cursos/{curso}/actividades` (`Actividades.svelte`). Se define consolidar toda la experiencia de estados y gestión dentro de `Actividades.svelte` sin modificar el payload ni las consultas de `DocenteCursoController::show`.
   * **Criterios de Aceptación (DoD)**:
-    * [ ] La pestaña `Actividades` dentro de `CursoDetalle.svelte` integra el selector de vista (`Lista` / `Estados`: Planificadas, Activas, Cerradas), filtros y acciones de gestión (crear, editar, eliminar, cambiar visibilidad, copiar actividades y ver enunciado) en la misma pantalla sin salir de la ficha del curso.
-    * [ ] `DocenteCursoController::show` entrega los datos y permisos necesarios (`unidades`, `componentes`, `canCreate`, `canEdit`, `canDelete`, `nro_dias_adicionales_para_bloqueo`) respetando las políticas por componente del docente.
-    * [ ] Se mantiene compatibilidad con la ruta `/docente/cursos/{curso}/actividades` (redirigiendo a la pestaña unificada o reutilizando el mismo componente compartido sin duplicar lógica).
-    * [ ] Las acciones CRUD y toggles de visibilidad actualizan el estado reactivo de ambas vistas (`Lista` y `Estados`) preservando la pestaña activa.
+    * [ ] `DocenteCursoController::show` permanece intacto: no se agregan nuevas consultas ni props (`unidades`, permisos de actividades, etc.) al controlador del curso.
+    * [ ] Toda la visualización por estados (`Planificadas`, `Activas`, `Cerradas` vía `<ActividadesPorEstado>`) y las acciones de gestión (`Lista`, filtros, crear, editar, eliminar, cambiar visibilidad, copiar actividades y ver enunciado) quedan unificadas en `Actividades.svelte` (`/docente/cursos/{curso}/actividades`).
+    * [ ] En `CursoDetalle.svelte`, la sección/pestaña de actividades se mantiene en el código como componente desconectado, pero queda oculta provisoriamente (sin mostrarse en la interfaz), dejando un acceso directo claro hacia la vista unificada de `Actividades` mientras se define si se elimina definitivamente.
+    * [ ] Desde la vista de `Actividades`, el docente puede alternar entre estados y gestión/lista sin perder filtros ni estado reactivo tras operaciones CRUD o toggles de visibilidad.
 
 * ### `FEAT-08` [3 pts] [R2] [MEDIA] Calcular días de holgura seleccionando la fecha límite extendida (actividad, grupal e individual)
   * **Ruta**: `/docente/cursos/{curso}` y `/docente/cursos/{curso}/actividades/{actividad}`
@@ -126,9 +125,11 @@ git checkout -b feature/feedback-decimas-y-biblioteca-docente
     * `resources/js/utils/plazo.ts`
   * **Problema & Causa**: Actualmente tanto la holgura general (`nro_dias_adicionales_para_bloqueo` en `actividadForm.svelte`) como la holgura personal grupal/individual (`nro_dias_adicionales_para_bloqueo_personal` en `GrupoCard.svelte` y `EstudiantesTabla.svelte`) se ingresan como un número entero manual de días, obligando al docente a calcular mentalmente las fechas.
   * **Criterios de Aceptación (DoD)**:
-    * [ ] En `actividadForm.svelte`, el campo de holgura permite seleccionar una fecha extendida mediante selector de fecha (con mínimo igual a `fecha_limite`) y calcula automáticamente `nro_dias_adicionales_para_bloqueo` en días enteros usando zona horaria `America/Santiago`.
-    * [ ] Si la actividad no tiene `fecha_limite` definida, el selector de fecha de holgura indica claramente que requiere fecha límite previa (o mantiene `0` días).
-    * [ ] En `GrupoCard.svelte` (actividades grupales) y `EstudiantesTabla.svelte` (actividades individuales), la edición de holgura personal permite seleccionar la nueva fecha límite para ese grupo/estudiante y calcula automáticamente `nro_dias_adicionales_para_bloqueo_personal` respecto a la fecha efectiva de la actividad (`fecha_limite + nro_dias_adicionales_para_bloqueo`), mostrando los días resultantes antes de guardar.
+    * [ ] `resources/js/utils/plazo.ts` centraliza helpers de calendario puros (`YYYY-MM-DD`, sin desfases UTC/DST) para sumar días a una fecha y calcular la diferencia en días enteros entre dos fechas.
+    * [ ] En `actividadForm.svelte`, el input numérico de holgura se reemplaza por un `<input type="date">` (con `min={formData.fecha_limite}`) que calcula automáticamente `nro_dias_adicionales_para_bloqueo`; si no hay `fecha_limite` definida, queda deshabilitado con `0` días.
+    * [ ] En `GrupoCard.svelte` (grupal) y `EstudiantesTabla.svelte` (individual), el input numérico de holgura personal se reemplaza por un `<input type="date">` cuyo mínimo y base de cálculo es la fecha límite efectiva de la actividad (`fecha_limite + nro_dias_adicionales_para_bloqueo`), calculando automáticamente `nro_dias_adicionales_para_bloqueo_personal`.
+    * [ ] La fecha de holgura seleccionada no puede ser menor a la fecha límite correspondiente (`fecha_limite` en actividad; `fecha_limite + nro_dias_adicionales_para_bloqueo` en holgura personal): se restringe con `min` en el selector y se valida/clampea el cálculo para que nunca resulte en días negativos (`>= 0`), incluso ante edición manual o cambios posteriores en `fecha_limite`.
+    * [ ] La UI se mantiene sobria y concisa: sin textos verbosos, cards ni pastillas innecesarias; el número de días que se guardará en BD se muestra de forma discreta junto al selector (ej. `+N días`).
     * [ ] Los endpoints backend (`store`, `update`, `updateGrupo`) siguen recibiendo y validando los enteros `>= 0` sin romper el cálculo de plazos en alumno ni docente.
 
 * ### `FEAT-09` [5 pts] [R2] [MEDIA] Agregar TipoMensaje::HOLGURA para registrar ampliaciones de plazo desde agenda
@@ -180,7 +181,7 @@ git checkout -b feature/feedback-decimas-y-biblioteca-docente
 
 * **Total de tarjetas**: 5
 * **Puntos por release**:
-  * **R1**: 5 pts (`FEAT-07`)
+  * **R1**: 3 pts (`FEAT-07`)
   * **R2**: 8 pts (`FEAT-08`, `FEAT-09`)
   * **R3**: 8 pts (`FEAT-10`, `FEAT-11`)
-* **Total de puntos de historia estimados**: 21 pts
+* **Total de puntos de historia estimados**: 19 pts
