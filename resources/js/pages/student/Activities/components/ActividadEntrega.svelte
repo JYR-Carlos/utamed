@@ -5,11 +5,12 @@
    * holgura (general o personal) es del docente y no se nombra (decisión
    * 07-10). Con holgura vigente el backend sigue diciendo ACTIVA y la píldora
    * dice «Atrasada · aún se recibe». Va en la columna lateral (en el móvil,
-   * en la pestaña Entrega), así que todo se apila.
+   * en la pestaña Entrega), así que todo se apila; es la segunda parte de la
+   * tarjeta que abre ActividadNota, por eso no trae tarjeta propia.
    */
   import { Link } from '@inertiajs/svelte';
   import { CircleAlert, CircleCheck, Clock, Download, Eye, FileText, Lock, PenLine, RefreshCw, Trash2, Upload, Users } from 'lucide-svelte';
-  import { btnPrimario, btnSecundario, pildora, tarjeta, tono } from '@/lib/dm';
+  import { btnPrimario, btnSecundario, btnSuave, pildora, tono } from '@/lib/dm';
   import { claveDia, formatBytes, formatDiaCorto } from '@/utils/formatters';
   import { textoCierre } from '@/utils/plazo';
 
@@ -92,9 +93,9 @@
   const quien = $derived(esGrupal ? 'tu grupo' : 'tú');
 </script>
 
-<section aria-labelledby="t-entrega" class="{tarjeta} overflow-hidden">
+<section aria-labelledby="t-entrega" class="border-t border-dm-linea">
   <div class="flex flex-col items-start gap-2 px-4 pt-4 lg:px-5 lg:pt-5">
-    <h2 id="t-entrega" class="text-base leading-[22px] font-bold">{esGrupal ? 'Entrega del grupo' : 'Tu entrega'}</h2>
+    <h3 id="t-entrega" class="text-base leading-[22px] font-bold">{esGrupal ? 'Entrega del grupo' : 'Tu entrega'}</h3>
     {#if !sinGrupo}
       {@const Icono = plazo.icono}
       <span class="{pildora} {tono[plazo.tono]}">
@@ -125,27 +126,30 @@
         </div>
       </div>
     {:else if entrega}
-      <div class="flex min-h-14 items-center gap-3 rounded-[10px] border border-dm-linea px-3 py-2">
-        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-(--curso-s) text-(--curso-t)">
-          <FileText size={20} aria-hidden="true" />
-        </span>
-        <span class="flex min-w-0 flex-1 flex-col">
-          <span class="truncate text-[15px] font-semibold">{archivo?.nombre_original ?? 'Archivo entregado'}</span>
-          <span class="text-[13px] leading-[18px] text-dm-ink-3">{detalleArchivo}</span>
+      <div class="flex flex-col gap-3 rounded-[10px] border border-dm-linea p-3">
+        <span class="flex min-w-0 items-center gap-3">
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-(--curso-s) text-(--curso-t)">
+            <FileText size={20} aria-hidden="true" />
+          </span>
+          <span class="flex min-w-0 flex-1 flex-col">
+            <span class="truncate text-[15px] font-semibold">{archivo?.nombre_original ?? 'Archivo entregado'}</span>
+            <span class="text-[13px] leading-[18px] text-dm-ink-3">{detalleArchivo}</span>
+          </span>
         </span>
         {#if urlDescarga}
-          <a
-            href={visualizable ? `${urlDescarga}?ver=1` : urlDescarga}
-            target={visualizable ? '_blank' : undefined}
-            rel={visualizable ? 'noopener noreferrer' : undefined}
-            class="inline-flex min-h-11 shrink-0 items-center gap-1.5 px-1 text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline"
-          >
+          <!-- Ver y descargar, los dos a la vista (OBS-38). -->
+          <span class="flex flex-wrap gap-2">
             {#if visualizable}
-              <Eye size={16} aria-hidden="true" /><span class="max-sm:sr-only">Ver</span><span class="sr-only">{' '}la entrega (se abre en otra pestaña)</span>
-            {:else}
-              <Download size={16} aria-hidden="true" /><span class="max-sm:sr-only">Descargar</span><span class="sr-only">{' '}la entrega</span>
+              <a href={`${urlDescarga}?ver=1`} target="_blank" rel="noopener noreferrer" class="{btnSuave} min-h-10 flex-1 px-3! whitespace-nowrap">
+                <Eye size={16} aria-hidden="true" />{archivo?.mime_type === 'application/pdf' ? 'Ver PDF' : 'Ver'}<span class="sr-only"
+                  >{' '}(se abre en otra pestaña)</span
+                >
+              </a>
             {/if}
-          </a>
+            <a href={urlDescarga} class="{btnSecundario} min-h-10 flex-1 px-3! whitespace-nowrap">
+              <Download size={16} aria-hidden="true" />Descargar
+            </a>
+          </span>
         {/if}
       </div>
 

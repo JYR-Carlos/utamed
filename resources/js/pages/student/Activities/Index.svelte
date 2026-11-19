@@ -534,12 +534,16 @@
 
 <!-- Columna derecha en escritorio; pestaña Entrega en el móvil. -->
 {#snippet lateral()}
-  {#if calificada}
+  <!-- Una sola tarjeta: la nota o el estado arriba y en grande, la entrega debajo (OBS-38, OBS-43). -->
+  <section aria-labelledby="t-nota" class="{tarjeta} overflow-hidden">
     <ActividadNota
       esSumativa={es_sumativa}
       esGrupal={es_grupal}
       nota={es_sumativa ? (ultima_nota ?? null) : null}
-      evaluada
+      evaluada={calificada}
+      entregada={tieneEntregaRegistrada}
+      cerrada={estado === 'CERRADA'}
+      conEntrega={entrega_obligatoria}
       notaGrupo={nota_grupo}
       ajusteDecimas={ajuste_decimas}
       fecha={ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision ?? null}
@@ -550,10 +554,9 @@
       retroalimentacion={rubricaEvaluada ? null : retroalimentacion}
       onVerRubrica={rubricaEvaluada && seccion !== 'rubrica' ? () => irA('rubrica') : undefined}
     />
-  {/if}
 
-  {#if entrega_obligatoria || sinGrupo}
-    <ActividadEntrega
+    {#if entrega_obligatoria || sinGrupo}
+      <ActividadEntrega
       fechaLimite={fecha_limite}
       {estado}
       esGrupal={es_grupal}
@@ -569,11 +572,8 @@
       onBorrar={handleBorrarEntrega}
       onEscribirDocente={id_actividad_asignada_grupo ? escribirADocente : undefined}
     />
-  {/if}
-
-  {#if !calificada}
-    <ActividadNota esSumativa={es_sumativa} esGrupal={es_grupal} nota={null} evaluada={false} />
-  {/if}
+    {/if}
+  </section>
 
   {#if es_grupal && !sinGrupo}
     <section aria-labelledby="t-grupo" class="{tarjeta} overflow-hidden">
