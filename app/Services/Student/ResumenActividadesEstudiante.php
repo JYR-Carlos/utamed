@@ -238,6 +238,7 @@ class ResumenActividadesEstudiante
                     'id_actividad'    => $actividad->id_actividad,
                     'nombre'          => $actividad->nombre,
                     'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                    'id_componente'   => $actividad->id_componente,
                     // «Cómo se evalúa» cuenta las actividades de cada componente.
                     'componente_tipo' => $actividad->componente?->tipoComponente?->tipo,
                     'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
