@@ -164,12 +164,17 @@
           {/if}
         </section>
 
-        {#if anteriores.length > 0}
-          <section aria-labelledby="t-anteriores" class="flex flex-col gap-3">
-            <div class="flex items-baseline gap-3">
-              <h2 id="t-anteriores" class="text-[22px] leading-7 font-bold">Semestres anteriores</h2>
-              <span class="text-[13px] leading-[18px] text-dm-ink-3">Sólo lectura</span>
-            </div>
+        <!-- Siempre a la vista: aunque esté vacía, el alumno sabe que aquí quedarán sus cursos al terminar el semestre. -->
+        <section aria-labelledby="t-anteriores" class="flex flex-col gap-3">
+          <div class="flex items-baseline gap-3">
+            <h2 id="t-anteriores" class="text-[22px] leading-7 font-bold">Semestres anteriores</h2>
+            {#if anteriores.length > 0}<span class="text-[13px] leading-[18px] text-dm-ink-3">Sólo lectura</span>{/if}
+          </div>
+          {#if anteriores.length === 0}
+            <p class="text-sm text-dm-ink-2">
+              Aquí quedarán tus cursos de semestres anteriores, con sus notas y su material, cuando termine el semestre.
+            </p>
+          {:else}
             <div class="overflow-hidden {tarjeta}">
               {#each anteriores as grupo (grupo.titulo)}
                 <div class="{etiqueta} border-b border-dm-linea bg-dm-sutil px-4 py-3 text-dm-ink-3 lg:px-5">{grupo.titulo}</div>
@@ -189,8 +194,8 @@
                 {/each}
               {/each}
             </div>
-          </section>
-        {/if}
+          {/if}
+        </section>
       {/if}
     </div>
   </div>
