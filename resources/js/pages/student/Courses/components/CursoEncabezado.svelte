@@ -41,9 +41,7 @@
     seccion: SeccionCurso;
     /** «Paula Fuentes · docente titular»; vacío si el curso no tiene docente. */
     docente?: string;
-    totalActividades?: number;
-    /** Recursos de la Biblioteca; si es 0 la pestaña no lleva contador. */
-    totalRecursos?: number;
+    /** Único contador de las pestañas: es un aviso que pide acción. */
     mensajesSinLeer?: number;
     onCambiarSeccion: (seccion: SeccionCurso) => void;
   }
@@ -52,8 +50,6 @@
     curso = null,
     seccion,
     docente = '',
-    totalActividades = 0,
-    totalRecursos = 0,
     mensajesSinLeer = 0,
     onCambiarSeccion,
   }: Props = $props();
@@ -86,12 +82,9 @@
     { id: 'bitacora', etiqueta: 'Bitácora' },
   ];
 
-  function cuenta(id: SeccionCurso): { texto: string; aviso: boolean } | null {
-    if (id === 'actividades' && totalActividades > 0) return { texto: String(totalActividades), aviso: false };
-    if (id === 'biblioteca' && totalRecursos > 0) return { texto: String(totalRecursos), aviso: false };
-    if (id === 'mensajeria' && mensajesSinLeer > 0) return { texto: `${mensajesSinLeer} sin leer`, aviso: true };
-    return null;
-  }
+  // Sin totales en Actividades ni Biblioteca (OBS-35): una burbuja con número se
+  // leía como «sin leer». El total va en el título de cada sección.
+  const sinLeer = (id: SeccionCurso) => (id === 'mensajeria' && mensajesSinLeer > 0 ? `${mensajesSinLeer} sin leer` : null);
 
   // ─── Fila deslizable ────────────────────────────────────────────────────────
   let fila = $state<HTMLElement | null>(null);
@@ -153,7 +146,7 @@
     >
       {#each PESTANAS as pestana (pestana.id)}
         {@const activa = seccion === pestana.id}
-        {@const n = cuenta(pestana.id)}
+        {@const aviso = sinLeer(pestana.id)}
         <button
           type="button"
           aria-current={activa ? 'page' : undefined}
@@ -163,11 +156,9 @@
             : 'border-transparent font-medium text-dm-ink-2 hover:text-dm-ink'}"
         >
           {pestana.etiqueta}
-          {#if n}
-            <span
-              class="rounded-full px-1.5 text-[13px] leading-[18px] font-bold {n.aviso
-                ? 'bg-dm-accion-suave text-dm-accion-texto'
-                : 'bg-dm-sutil text-dm-ink-2'}">{n.texto}</span
+          {#if aviso}
+            <span class="rounded-full bg-dm-accion-suave px-1.5 text-[13px] leading-[18px] font-bold text-dm-accion-texto"
+              >{aviso}</span
             >
           {/if}
         </button>

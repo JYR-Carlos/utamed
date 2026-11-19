@@ -203,7 +203,7 @@
   <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
     <h2 {id} class="text-[22px] leading-7 font-bold">{texto}</h2>
     {#if detalle}
-      <p class="text-[13px] leading-[18px] text-dm-ink-3">{detalle}</p>
+      <p class="text-sm leading-5 text-dm-ink-2">{detalle}</p>
     {/if}
   </div>
 {/snippet}
@@ -214,8 +214,6 @@
       {curso}
       {seccion}
       {docente}
-      totalActividades={actividades.length}
-      {totalRecursos}
       {mensajesSinLeer}
       onCambiarSeccion={cambiarSeccion}
     />
