@@ -14,9 +14,12 @@
    * punto del color de su curso y su código o nombre.
    *
    * Es de solo lectura y sólo dibuja lo que el alumno puede actuar: la fecha
-   * límite de cada actividad visible, con su estado (vencida, cierra pronto,
-   * entregada, sumativa, formativa, sin entrega). El estado nunca va sólo en
-   * el color: cada marca lleva ícono y el detalle lo dice en palabras.
+   * límite de cada actividad visible, con su estado de entrega en semáforo
+   * (OBS-25): rojo vencida, ámbar cierra pronto, verde entregada; el resto,
+   * con plazo abierto o sin entrega, en gris. Un color dice una sola cosa: el
+   * tipo (sumativa, formativa) va en palabras en el detalle, no en el color.
+   * El estado nunca va sólo en el color: cada marca lleva ícono y el detalle
+   * lo dice en palabras.
    *
    * - Escritorio: grilla del mes (o agenda) y, al lado, el detalle del día
    *   elegido y la leyenda. Las flechas mueven el foco entre días.
@@ -85,7 +88,7 @@
   const fuente = $derived(esSemestre ? (semestre ?? []) : actividades);
 
   // ─── Estados ────────────────────────────────────────────────────────────────
-  type Estado = 'vencida' | 'urgente' | 'entregada' | 'sumativa' | 'formativa' | 'informativa';
+  type Estado = 'vencida' | 'urgente' | 'entregada' | 'abierta' | 'informativa';
 
   function estadoDe(a: Actividad): Estado {
     if (a.ya_entregada || a.ya_evaluada) return 'entregada';
@@ -93,24 +96,19 @@
     const dias = diasHasta(a.fecha_limite);
     if (dias < 0) return 'vencida';
     if (dias <= 3) return 'urgente';
-    return a.es_sumativa ? 'sumativa' : 'formativa';
+    return 'abierta';
   }
 
   /** `marca`: relleno, texto y borde izquierdo de la marca del día. */
   const ESTILOS: Record<Estado, { etiqueta: string; marca: string; punto: string; icono: typeof Clock }> = {
-    vencida: { etiqueta: 'Vencida', marca: 'bg-dm-warn text-dm-tarjeta border-dm-warn', punto: 'bg-dm-warn', icono: CircleAlert },
+    vencida: { etiqueta: 'Vencida', marca: 'bg-dm-error-s text-dm-error border-dm-error', punto: 'bg-dm-error', icono: CircleAlert },
     urgente: { etiqueta: 'Cierra pronto', marca: 'bg-dm-warn-s text-dm-warn border-dm-warn', punto: 'bg-dm-warn', icono: Clock },
     entregada: { etiqueta: 'Entregada', marca: 'bg-dm-ok-s text-dm-ok border-dm-ok', punto: 'bg-dm-ok', icono: CircleCheck },
-    sumativa: {
-      etiqueta: 'Sumativa',
-      marca: 'bg-dm-accion-suave text-dm-accion-texto border-dm-accion',
-      punto: 'bg-dm-accion',
-      icono: Clock,
-    },
-    formativa: { etiqueta: 'Formativa', marca: 'bg-dm-info-s text-dm-info border-dm-info', punto: 'bg-dm-info', icono: Clock },
-    informativa: { etiqueta: 'Sin entrega', marca: 'bg-dm-off-s text-dm-off border-dm-off', punto: 'bg-dm-off', icono: Clock },
+    abierta: { etiqueta: 'Por entregar', marca: 'bg-dm-off-s text-dm-ink-2 border-dm-control', punto: 'bg-dm-control', icono: Clock },
+    informativa: { etiqueta: 'Sin entrega', marca: 'bg-dm-off-s text-dm-ink-2 border-dm-control', punto: 'bg-dm-control', icono: Clock },
   };
-  const LEYENDA: Estado[] = ['vencida', 'urgente', 'entregada', 'sumativa', 'formativa', 'informativa'];
+  // Sólo los tres colores del semáforo: lo gris se explica en una línea.
+  const LEYENDA: Estado[] = ['vencida', 'urgente', 'entregada'];
 
   /** «Vencida» si ya no se recibe; «Atrasada» si la holgura todavía la recibe. */
   function etiquetaDe(a: Actividad): string {
@@ -463,12 +461,14 @@
         </section>
 
         <section aria-labelledby="t-leyenda" class="{tarjeta} order-4 flex flex-col gap-2.5 px-4 py-4 xl:px-5">
-          <h3 id="t-leyenda" class="{etiqueta} text-dm-ink-3">Leyenda</h3>
+          <h3 id="t-leyenda" class="text-base leading-[22px] font-bold">Estado de entregas</h3>
           <ul class="flex flex-wrap gap-2">
             {#each LEYENDA as e (e)}
-              <li class="{pildora} {ESTILOS[e].marca}">{ESTILOS[e].etiqueta}</li>
+              {@const Icono = ESTILOS[e].icono}
+              <li class="{pildora} {ESTILOS[e].marca}"><Icono size={14} aria-hidden="true" />{ESTILOS[e].etiqueta}</li>
             {/each}
           </ul>
+          <p class="text-[13px] leading-[18px] text-dm-ink-2">En gris, las que siguen con plazo abierto o no llevan entrega.</p>
         </section>
       </aside>
     </div>
