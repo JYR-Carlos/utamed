@@ -214,7 +214,6 @@
                 required
                 maxlength="10"
                 autocomplete="username"
-                placeholder="12345678-5"
                 aria-invalid={rutError ? true : undefined}
                 aria-describedby="rut-ayuda"
                 disabled={deshabilitado}
@@ -235,8 +234,9 @@
                   {rutError}
                 </span>
               {:else}
+                <!-- El ejemplo va aquí y no dentro de la casilla: escrito adentro parecía un RUT ya ingresado. -->
                 <span id="rut-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">
-                  Sin puntos; el guion antes del dígito verificador se agrega solo.
+                  Ej.: 12345678-5. Sin puntos; el guion antes del dígito verificador se agrega solo.
                 </span>
               {/if}
             </div>
