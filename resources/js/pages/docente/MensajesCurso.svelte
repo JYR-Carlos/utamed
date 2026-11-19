@@ -21,8 +21,8 @@
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import { Link } from '@inertiajs/svelte';
   import { ArrowLeft, MessageSquare, Send, Loader2, Search, Inbox } from 'lucide-svelte';
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
   import type { MensajeEstudiante } from '@/types/actividad';
-  import { initials } from '@/utils/formatters';
 
   // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -39,6 +39,7 @@
     id_usuario: number;
     nombre: string;
     email: string;
+    url_foto?: string | null;
     total_mensajes: number;
     ultima_fecha: string | null;
   }
@@ -276,14 +277,13 @@
                   ? 'bg-brand-light border-r-2 border-brand'
                   : ''}"
               >
-                <div
-                  class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                    {selectedEstudiante?.id_estudiante === e.id_estudiante
+                <AvatarAlumno
+                  src={e.url_foto ?? null}
+                  nombre={e.nombre}
+                  class="size-9 text-xs font-bold {selectedEstudiante?.id_estudiante === e.id_estudiante
                     ? 'bg-brand text-white'
                     : 'bg-slate-200 text-slate-600'}"
-                >
-                  {initials(e.nombre)}
-                </div>
+                />
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-sm font-semibold text-slate-800 truncate">{e.nombre}</span>
@@ -369,11 +369,11 @@
           <div
             class="bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-3 sticky top-0 z-10"
           >
-            <div
-              class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center text-xs font-bold shrink-0"
-            >
-              {initials(selectedEstudiante.nombre)}
-            </div>
+            <AvatarAlumno
+              src={selectedEstudiante.url_foto ?? null}
+              nombre={selectedEstudiante.nombre}
+              class="size-8 bg-brand text-xs font-bold text-white"
+            />
             <div>
               <p class="text-sm font-bold text-slate-900">{selectedEstudiante.nombre}</p>
               <p class="text-xs text-muted-foreground">

@@ -36,8 +36,8 @@
     MessageSquare,
     Search,
     Send,
-    User,
   } from 'lucide-svelte';
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
 
   // ── Types ──────────────────────────────────────────────────────────────────
   interface CursoInfo {
@@ -65,6 +65,7 @@
     id_alumno: number;
     alumno: string;
     rut: string;
+    url_foto?: string | null;
     ultimo_mensaje: string | null;
     ultima_fecha: string | null;
     es_mio: boolean;
@@ -484,11 +485,11 @@
                       ? 'bg-white ring-1 ring-brand/30'
                       : 'hover:bg-white'}"
                   >
-                    <div
-                      class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center shrink-0"
-                    >
-                      <User size={15} />
-                    </div>
+                    <AvatarAlumno
+                      src={k.url_foto ?? null}
+                      nombre={k.alumno}
+                      class="size-8 bg-slate-200 text-slate-600"
+                    />
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-2">
                         <span class="text-sm font-bold text-slate-800 truncate">{k.alumno}</span>
@@ -547,7 +548,11 @@
                 >
                   <ChevronLeft size={18} />
                 </button>
-                <User size={15} class="text-brand shrink-0" />
+                <AvatarAlumno
+                  src={panel.canales.find((c) => c.id_alumno === panel.canal?.id_alumno)?.url_foto ?? null}
+                  nombre={panel.canal.alumno}
+                  class="size-7 bg-slate-200 text-slate-600"
+                />
                 <span class="text-sm font-bold text-slate-800 truncate">{panel.canal.alumno}</span>
               </div>
 

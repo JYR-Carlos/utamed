@@ -3,6 +3,7 @@
     id_asignado_actividad: number;
     nombre_completo: string;
     diferencia_decimas: number | null;
+    url_foto?: string | null;
   };
 
   /** Lo que la agenda pide guardar; el padre hace las peticiones. */
@@ -55,7 +56,8 @@
     titulo as claseTitulo,
     tono,
   } from '@/lib/inst';
-  import { iniciales, textosEntrega, type EstadoEntrega } from '@/lib/estadoEntrega';
+  import { textosEntrega, type EstadoEntrega } from '@/lib/estadoEntrega';
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
 
   interface Props {
     /** Estudiante (o grupo) dueño de la agenda. */
@@ -108,6 +110,7 @@
   }: Props = $props();
 
   const corto = $derived(nombre.split(/\s+/)[0] ?? nombre);
+  const fotoCabecera = $derived(!esGrupal ? (integrantes[0]?.url_foto ?? null) : null);
   const textos = $derived(textosEntrega(esSumativa));
   const pasos = $derived(
     (['no', 'pend', 'ok'] as EstadoEntrega[]).map((e, i, xs) => ({
@@ -262,12 +265,11 @@
   >
     <!-- Cabecera: nombre con avatar; curso · actividad · tipo -->
     <div class="flex items-center gap-3.5 border-b border-inst-linea px-5 py-4">
-      <span
-        aria-hidden="true"
-        class="flex size-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#678FCA] to-[#303880] text-lg font-extrabold text-white shadow-[0_0_0_3px_var(--color-inst-tarjeta),0_0_0_4px_var(--color-inst-linea)]"
-      >
-        {iniciales(nombre)}
-      </span>
+      <AvatarAlumno
+        src={fotoCabecera}
+        {nombre}
+        class="size-14 bg-gradient-to-br from-[#678FCA] to-[#303880] text-lg font-extrabold text-white shadow-[0_0_0_3px_var(--color-inst-tarjeta),0_0_0_4px_var(--color-inst-linea)]"
+      />
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
         <h2 id="t-agenda-docente" class="{claseTitulo} m-0 text-[21px] leading-[26px] break-words">
           {`Agenda del estudiante · ${nombre}`}
@@ -478,9 +480,7 @@
                       {@const n = notaDe(d)}
                       {@const nombreCorto = i.nombre_completo.split(/\s+/)[0]}
                       <li class="flex items-center gap-2.5 border-b border-inst-linea py-2 last:border-b-0">
-                        <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-inst-sel text-xs font-extrabold text-inst-ink">
-                          {iniciales(i.nombre_completo)}
-                        </span>
+                        <AvatarAlumno src={i.url_foto ?? null} nombre={i.nombre_completo} class="size-8 bg-inst-sel text-xs font-extrabold text-inst-ink" />
                         <span class="min-w-0 flex-1">{i.nombre_completo}</span>
                         {#if diferenciar}
                           <span class="inline-flex items-center overflow-hidden rounded-md border border-inst-control" role="group" aria-label="Décimas de {i.nombre_completo}">

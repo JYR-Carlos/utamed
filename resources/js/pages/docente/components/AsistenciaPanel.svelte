@@ -22,7 +22,7 @@
   import { router } from '@inertiajs/svelte';
   import { formatFechaLarga } from '@/utils/formatters';
   import ConfirmDialog from '@/components/custom/common/ConfirmDialog.svelte';
-  import { getInitials } from '@/hooks/useInitials';
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
   import { titleCase } from '@/lib/utils';
   import {
     aviso,
@@ -46,6 +46,7 @@
     id_estudiante: number;
     nombre: string;
     username: string;
+    url_foto?: string | null;
   }
 
   interface RegistroSesion {
@@ -447,12 +448,11 @@
             {#each estudiantes as e (e.id_inscripcion_componente)}
               {@const pres = !!presentes[e.id_inscripcion_componente]}
               <li class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-inst-linea px-4.5 py-2.5 last:border-b-0">
-                <span
-                  aria-hidden="true"
-                  class="flex size-8 shrink-0 items-center justify-center rounded-full bg-inst-sutil text-xs font-extrabold text-inst-ink-2"
-                >
-                  {getInitials(e.nombre)}
-                </span>
+                <AvatarAlumno
+                  src={e.url_foto ?? null}
+                  nombre={e.nombre}
+                  class="size-8 bg-inst-sutil text-xs font-extrabold text-inst-ink-2"
+                />
                 <span class="min-w-0 flex-1 font-bold break-words">{titleCase(e.nombre)}</span>
                 <span
                   role="group"

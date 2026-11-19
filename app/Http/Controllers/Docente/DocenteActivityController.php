@@ -31,6 +31,7 @@ use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
+use App\Services\FotoIntranetService;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -1000,8 +1001,10 @@ class DocenteActivityController extends Controller
             $idsGrupo->mapWithKeys(fn ($id) => [$id => $actividad->id_actividad]),
         );
 
+        $fotoIntranet = app(FotoIntranetService::class);
+
         $grupos = $gruposActividad
-            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback) {
+            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback, $fotoIntranet) {
                 $estadoCalculado = $g->calcularEstadoGrupo($actividad);
 
                 $integrantes = $g->integranteGrupos
@@ -1013,6 +1016,9 @@ class DocenteActivityController extends Controller
                         'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
                         'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
                         'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                        'url_foto' => $m->estudiante?->usuario?->rut
+                            ? $fotoIntranet->getImagenPerfilURL($m->estudiante->usuario->rut)
+                            : null,
                     ])->values();
 
                 return [
@@ -2001,6 +2007,7 @@ class DocenteActivityController extends Controller
                 'u.id_usuario',
                 NombreUsuario::sqlConcat('u', 'nombre'),
                 'u.email',
+                'u.rut',
                 // Postgres exige que lo que ordena un SELECT DISTINCT esté en el
                 // SELECT. No altera las filas: depende de id_usuario, que ya está.
                 'u.apellido1',
@@ -2035,9 +2042,11 @@ class DocenteActivityController extends Controller
             ->groupBy('e.id_estudiante')
             ->pluck('ultima_fecha', 'id_estudiante');
 
+        $fotoIntranet = app(FotoIntranetService::class);
         $estudiantesConMeta = $estudiantes->map(fn($e) => array_merge((array) $e, [
             'total_mensajes' => $mensajesCount[$e->id_estudiante] ?? 0,
             'ultima_fecha' => $ultimasFechas[$e->id_estudiante] ?? null,
+            'url_foto' => !empty($e->rut) ? $fotoIntranet->getImagenPerfilURL($e->rut) : null,
         ]));
 
         return Inertia::render('docente/MensajesCurso', [

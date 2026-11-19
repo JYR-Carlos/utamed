@@ -11,13 +11,14 @@
    * Muestra las primeras `inicial` filas; el pie dice cuántas se ven y abre
    * el resto.
    */
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
   import { btnSecundario, chico, chip, tono } from '@/lib/inst';
-  import { formatNota, initials } from '@/utils/formatters';
+  import { formatNota } from '@/utils/formatters';
 
   interface EstudianteItem {
     id_inscripcion_componente: number;
     nota_componente: number | null;
-    estudiante: { nombre: string; username: string };
+    estudiante: { nombre: string; username: string; url_foto?: string | null };
     asistencia?: { presentes: number; total: number };
     pendientes?: { por_revisar: number; no_entrego: number };
   }
@@ -71,11 +72,11 @@
       <tr>
         <td data-l="Estudiante">
           <span class="flex items-center gap-2.5">
-            <span
-              aria-hidden="true"
-              class="flex size-8 shrink-0 items-center justify-center rounded-full bg-inst-cabecera text-xs font-extrabold text-inst-ink-2"
-              >{initials(item.estudiante.nombre)}</span
-            >
+            <AvatarAlumno
+              src={item.estudiante.url_foto ?? null}
+              nombre={item.estudiante.nombre}
+              class="size-8 bg-inst-cabecera text-xs font-extrabold text-inst-ink-2"
+            />
             <span class="font-bold">{item.estudiante.nombre}</span>
           </span>
         </td>

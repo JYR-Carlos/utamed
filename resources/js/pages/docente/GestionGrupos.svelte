@@ -32,9 +32,9 @@
     titulo,
     tono,
   } from '@/lib/inst';
-  import { iniciales } from '@/lib/estadoEntrega';
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
 
-  type Estudiante = { id_estudiante: number; nombre_completo: string };
+  type Estudiante = { id_estudiante: number; nombre_completo: string; url_foto?: string | null };
   type Grupo = { grupo: number; nombre_grupo: string | null; etiqueta: string; integrantes: Estudiante[] };
   type ActividadGrupal = {
     id_actividad: number;
@@ -287,7 +287,7 @@
                       checked={seleccion.has(e.id_estudiante)}
                       onchange={() => alternar(e.id_estudiante)}
                     />
-                    <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-inst-sel text-xs font-extrabold">{iniciales(e.nombre_completo)}</span>
+                    <AvatarAlumno src={e.url_foto ?? null} nombre={e.nombre_completo} class="size-8 bg-inst-sel text-xs font-extrabold" />
                     <span class="min-w-0 flex-1 {g ? '' : 'font-bold'}">{e.nombre_completo}</span>
                     {#if g}<span class="{chip} {tono.off}">{g.etiqueta}</span>{:else}<span class="{chip} {tono.warn}">Sin grupo</span>{/if}
                   </label>
@@ -346,7 +346,7 @@
                 <ul class="m-0 list-none px-3.5 py-1">
                   {#each g.integrantes as i (i.id_estudiante)}
                     <li class="flex items-center gap-2.5 py-1.5">
-                      <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-inst-sel text-xs font-extrabold">{iniciales(i.nombre_completo)}</span>
+                      <AvatarAlumno src={i.url_foto ?? null} nombre={i.nombre_completo} class="size-8 bg-inst-sel text-xs font-extrabold" />
                       <span class="min-w-0 flex-1">{i.nombre_completo}</span>
                       <button type="button" class="{btnFantasma} {chico} px-0! size-11 lg:size-9" aria-label="Quitar a {i.nombre_completo} del {g.etiqueta}" disabled={ocupado} onclick={() => quitar(g, i)}>
                         <X size={16} aria-hidden="true" />

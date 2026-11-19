@@ -289,10 +289,13 @@ class MensajeriaService
             'id_actor2'     => $idUsuarioActor,
         ]);
 
+        $fotoIntranet = app(FotoIntranetService::class);
+
         return collect($filas)->map(fn($f) => [
             'id_alumno'      => (int) $f->id_alumno,
             'alumno'         => $f->alumno,
             'rut'            => $f->rut,
+            'url_foto'       => $f->rut ? $fotoIntranet->getImagenPerfilURL($f->rut) : null,
             'ultimo_mensaje' => $f->ultimo_mensaje,
             'ultima_fecha'   => $f->ultima_fecha,
             'es_mio'         => $f->ultimo_emisor !== null && (int) $f->ultimo_emisor === $idUsuarioActor,

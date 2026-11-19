@@ -5,6 +5,7 @@
     nombre_completo: string;
     nota_individual: number | null;
     diferencia_decimas: number | null;
+    url_foto?: string | null;
   };
 
   export type GrupoData = {
@@ -72,7 +73,8 @@
     titulo,
     tono,
   } from '@/lib/inst';
-  import { estadoEntrega, iniciales, textosEntrega, TONO_ENTREGA, type EstadoEntrega } from '@/lib/estadoEntrega';
+  import { estadoEntrega, textosEntrega, TONO_ENTREGA, type EstadoEntrega } from '@/lib/estadoEntrega';
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
   import { formatNota } from '@/utils/formatters';
 
   interface Props {
@@ -245,10 +247,26 @@
   }
 
   // ── Acciones personales ──────────────────────────────────────────────────
-  let menuAbierto = $state<string | null>(null);
+  let menuAbierto = $state<{ fila: Fila; top: number; bottom: number; right: number; openUpwards: boolean } | null>(null);
   let entregasDe = $state<{ grupo: GrupoData; nombre: string } | null>(null);
   let holguraDe = $state<{ grupo: GrupoData; nombre: string } | null>(null);
   let guardandoHolgura = $state(false);
+
+  function toggleMenuPersonal(f: Fila, e: MouseEvent) {
+    if (menuAbierto?.fila.clave === f.clave) {
+      menuAbierto = null;
+      return;
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const openUpwards = rect.bottom + 120 > window.innerHeight && rect.top > 120;
+    menuAbierto = {
+      fila: f,
+      top: rect.bottom + 4,
+      bottom: window.innerHeight - rect.top + 4,
+      right: window.innerWidth - rect.right,
+      openUpwards,
+    };
+  }
 
   function calificar(f: Fila) {
     menuAbierto = null;
@@ -315,6 +333,12 @@
 <svelte:window
   onclick={(e) => {
     if (menuAbierto && !(e.target as HTMLElement).closest('[data-menu-personal]')) menuAbierto = null;
+  }}
+  onscroll={() => {
+    if (menuAbierto) menuAbierto = null;
+  }}
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && menuAbierto) menuAbierto = null;
   }}
 />
 
@@ -418,7 +442,7 @@
       </div>
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto" onscroll={() => (menuAbierto = null)}>
       <table class="w-full border-collapse text-sm">
         <thead class="bg-inst-sutil">
           <tr>
@@ -439,7 +463,7 @@
             <tr class="border-t border-inst-linea align-middle">
               <td class="px-4 py-2.5">
                 <span class="flex items-center gap-2.5">
-                  <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-inst-sel text-xs font-extrabold text-inst-ink">{iniciales(f.nombre)}</span>
+                  <AvatarAlumno src={f.integrante?.url_foto ?? null} nombre={f.nombre} class="size-8 bg-inst-sel text-xs font-extrabold text-inst-ink" />
                   <span class="flex min-w-0 flex-col">
                     <span class="font-bold">{f.nombre}</span>
                     {#if f.grupo.nro_dias_adicionales_para_bloqueo_personal > 0 && holguraHasta(f.grupo)}
@@ -475,33 +499,16 @@
                 </button>
               </td>
               <td class="px-4 py-2.5 text-right">
-                <span class="relative inline-flex" data-menu-personal>
+                <span class="inline-flex" data-menu-personal>
                   <button
                     type="button"
                     class="{btnSecundario} {chico} whitespace-nowrap"
                     aria-haspopup="menu"
-                    aria-expanded={menuAbierto === f.clave}
-                    onclick={() => (menuAbierto = menuAbierto === f.clave ? null : f.clave)}
+                    aria-expanded={menuAbierto?.fila.clave === f.clave}
+                    onclick={(e) => toggleMenuPersonal(f, e)}
                   >
                     Acciones personales<ChevronDown size={16} aria-hidden="true" />
                   </button>
-                  {#if menuAbierto === f.clave}
-                    <div role="menu" aria-label="Acciones personales de {f.nombre}" class="absolute top-full right-0 z-20 mt-1 flex min-w-[200px] flex-col rounded-md border border-inst-linea bg-inst-tarjeta py-1 text-left shadow-lg">
-                      <button type="button" role="menuitem" class="flex min-h-11 items-center gap-2.5 border-0 bg-transparent px-3.5 text-sm font-bold text-inst-ink hover:bg-inst-sutil lg:min-h-10" onclick={() => calificar(f)}>
-                        <ClipboardCheck size={16} aria-hidden="true" />{actividad.es_sumativa ? 'Calificar' : 'Revisar'}
-                      </button>
-                      {#if actividad.fecha_limite}
-                        <button
-                          type="button"
-                          role="menuitem"
-                          class="flex min-h-11 items-center gap-2.5 border-0 bg-transparent px-3.5 text-sm font-bold text-inst-ink hover:bg-inst-sutil lg:min-h-10"
-                          onclick={() => ((menuAbierto = null), (holguraDe = { grupo: f.grupo, nombre: f.nombre }))}
-                        >
-                          <Clock size={16} aria-hidden="true" />Holgura
-                        </button>
-                      {/if}
-                    </div>
-                  {/if}
                 </span>
               </td>
             </tr>
@@ -521,6 +528,31 @@
       {/if}
     </div>
   </section>
+
+  {#if menuAbierto}
+    {@const f = menuAbierto.fila}
+    <div
+      role="menu"
+      data-menu-personal
+      aria-label="Acciones personales de {f.nombre}"
+      class="fixed z-50 flex min-w-[200px] flex-col rounded-md border border-inst-linea bg-inst-tarjeta py-1 text-left shadow-lg"
+      style="right: {menuAbierto.right}px; {menuAbierto.openUpwards ? `bottom: ${menuAbierto.bottom}px;` : `top: ${menuAbierto.top}px;`}"
+    >
+      <button type="button" role="menuitem" class="flex min-h-11 items-center gap-2.5 border-0 bg-transparent px-3.5 text-sm font-bold text-inst-ink hover:bg-inst-sutil lg:min-h-10" onclick={() => calificar(f)}>
+        <ClipboardCheck size={16} aria-hidden="true" />{actividad.es_sumativa ? 'Calificar' : 'Revisar'}
+      </button>
+      {#if actividad.fecha_limite}
+        <button
+          type="button"
+          role="menuitem"
+          class="flex min-h-11 items-center gap-2.5 border-0 bg-transparent px-3.5 text-sm font-bold text-inst-ink hover:bg-inst-sutil lg:min-h-10"
+          onclick={() => ((menuAbierto = null), (holguraDe = { grupo: f.grupo, nombre: f.nombre }))}
+        >
+          <Clock size={16} aria-hidden="true" />Holgura
+        </button>
+      {/if}
+    </div>
+  {/if}
 {/if}
 
 {#if agenda && grupoAgenda}
@@ -541,7 +573,7 @@
     isLoading={cargandoHilo}
     errorMensaje={errorHilo}
     pestanaInicial={agenda.pestana}
-    pieCerrar="Al cerrar vuelves a Actividades, con la actividad desplegada."
+    pieCerrar=""
     {guardando}
     onEnviar={enviarDesdeAgenda}
     onCerrar={cerrarAgenda}

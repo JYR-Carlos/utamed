@@ -15,6 +15,7 @@ use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Services\Authorization\GlobalContextService;
+use App\Services\FotoIntranetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -180,6 +181,8 @@ class DocenteCursoController extends Controller
             ->get();
         $misComponentes = \App\Models\Curso\TipoComponente::ordenarCTL($misComponentes);
 
+        $fotoIntranet = app(FotoIntranetService::class);
+
         // Estudiantes inscritos en esos componentes
         $misEstudiantes = \App\Models\Curso\InscripcionComponente::whereIn(
                 'id_componente',
@@ -199,6 +202,9 @@ class DocenteCursoController extends Controller
                     'username'      => $ic->estudiante->usuario->username ?? '',
                     'rut'           => $ic->estudiante->usuario->rut ?? null,
                     'email'         => $ic->estudiante->usuario->email ?? null,
+                    'url_foto'      => $ic->estudiante->usuario?->rut
+                        ? $fotoIntranet->getImagenPerfilURL($ic->estudiante->usuario->rut)
+                        : null,
                     // Contacto personal (T10): sólo lo ve el equipo docente,
                     // en modo lectura, desde la ficha del estudiante.
                     'contacto'      => $ic->estudiante->contacto(),
@@ -764,6 +770,7 @@ class DocenteCursoController extends Controller
 
         $elegida = $actividades->firstWhere('id_actividad', $request->integer('actividad')) ?? $actividades->first();
 
+        $fotoIntranet = app(FotoIntranetService::class);
         $grupos = collect();
         if ($elegida) {
             $grupos = \App\Models\Agenda\ActividadAsignadaGrupo::where('id_actividad', $elegida->id_actividad)
@@ -779,6 +786,9 @@ class DocenteCursoController extends Controller
                         ->map(fn ($m) => [
                             'id_estudiante' => $m->id_estudiante,
                             'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                            'url_foto' => $m->estudiante?->usuario?->rut
+                                ? $fotoIntranet->getImagenPerfilURL($m->estudiante->usuario->rut)
+                                : null,
                         ])
                         ->sortBy('nombre_completo')
                         ->values(),
@@ -791,6 +801,9 @@ class DocenteCursoController extends Controller
             ->map(fn ($i) => [
                 'id_estudiante' => $i->id_estudiante,
                 'nombre_completo' => $i->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                'url_foto' => $i->estudiante?->usuario?->rut
+                    ? $fotoIntranet->getImagenPerfilURL($i->estudiante->usuario->rut)
+                    : null,
             ])
             ->sortBy('nombre_completo')
             ->values();
