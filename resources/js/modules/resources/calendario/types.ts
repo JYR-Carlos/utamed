@@ -77,6 +77,8 @@ export interface CalendarCurso {
   nombre: string;
   asignatura: string;
   cod_curso: string | null;
+  /** Código visible de la asignatura (DM069); cod_curso es interno. */
+  cod_asignatura?: string | null;
   /** Letra del grupo del curso (curso.letra_grupo), puede faltar. */
   letra_grupo: string | null;
   agno_real: number | null;

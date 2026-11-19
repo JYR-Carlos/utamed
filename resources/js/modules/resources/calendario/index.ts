@@ -11,12 +11,9 @@ export {
   CalendarMonth,
   CalendarWeek,
   CalendarioVacio,
-  CourseFilter,
   DayEventsDialog,
   EventPill,
   ItemCard,
-  ResumenPeriodo,
-  TipoEventoFilter,
 } from './components';
 export type {
   CalendarCurso,

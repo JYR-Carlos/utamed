@@ -18,6 +18,7 @@
     Users,
   } from 'lucide-svelte';
   import type { CalendarCurso, CalendarItem, CursoAccent } from '../types';
+  import { codigoCurso } from '../utils/calendar';
 
   interface Props {
     item: CalendarItem;
@@ -27,36 +28,32 @@
 
   let { item, curso, accent }: Props = $props();
 
-  /** "MED-2101 · A" o el nombre de la asignatura si no hay código. */
-  const nombreCurso = $derived.by(() => {
-    if (!curso) return 'Curso';
-    const base = curso.cod_curso ? `${curso.cod_curso} · ${curso.asignatura}` : curso.asignatura;
-    return curso.letra_grupo ? `${base} · ${curso.letra_grupo}` : base;
-  });
+  /** «DM069 · A · Taller de Multimedia II». */
+  const nombreCurso = $derived(curso ? `${codigoCurso(curso)} · ${curso.asignatura}` : 'Curso');
 
   /** Contorno de la ficha según familia, tipo y visibilidad. */
   const contorno = $derived.by(() => {
     if (item.familia === 'ENTREGA') {
       if (!item.entrega.visible) {
-        return `background:var(--background-color-zinc-100, #F4F4F5);border:1px dashed var(--color-zinc-400, #A1A1AA);border-left:3px solid ${accent.base}`;
+        return `background:var(--color-inst-off-s);border:1px dashed var(--color-inst-control);border-left:3px solid ${accent.base}`;
       }
       if (item.entrega.tipo_actividad === 'FORMATIVA') {
-        return `background:var(--background-color-white, #FFFFFF);border:1px dashed ${accent.base};border-left:3px solid ${accent.base}`;
+        return `background:var(--color-inst-tarjeta);border:1px dashed ${accent.base};border-left:3px solid ${accent.base}`;
       }
-      return `background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB);border-left:3px solid ${accent.base}`;
+      return `background:var(--color-inst-tarjeta);border:1px solid var(--color-inst-linea);border-left:3px solid ${accent.base}`;
     }
 
     if (item.familia === 'SESION') {
-      return `background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB);border-left:3px solid ${accent.base}`;
+      return `background:var(--color-inst-tarjeta);border:1px solid var(--color-inst-linea);border-left:3px solid ${accent.base}`;
     }
 
     if (item.hito.tipo === 'RECHAZO') {
-      return 'background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-red-200, #FECACA)';
+      return 'background:var(--color-inst-tarjeta);border:1px solid var(--color-inst-error)';
     }
     if (item.hito.tipo === 'APROBACION') {
-      return 'background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-green-200, #BBE0CB)';
+      return 'background:var(--color-inst-tarjeta);border:1px solid var(--color-inst-ok)';
     }
-    return 'background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB)';
+    return 'background:var(--color-inst-tarjeta);border:1px solid var(--color-inst-linea)';
   });
 
   /** Segunda línea: de qué curso es y qué es exactamente. */
@@ -109,20 +106,20 @@
   <span class="flex shrink-0 items-center">
     {#if item.familia === 'ENTREGA'}
       {#if !item.entrega.visible}
-        <EyeOff size={15} class="text-zinc-500" />
+        <EyeOff size={15} class="text-inst-ink-3" />
       {:else if item.entrega.tipo_actividad === 'SUMATIVA'}
         <ClipboardCheck size={15} style="color:{accent.base}" />
       {:else}
         <PencilLine size={15} style="color:{accent.base}" />
       {/if}
     {:else if item.familia === 'SESION'}
-      <Clock size={15} class="text-ink-2" />
+      <Clock size={15} class="text-inst-ink-2" />
     {:else if item.hito.tipo === 'RECHAZO'}
-      <CircleX size={15} class="text-red-700" />
+      <CircleX size={15} class="text-inst-error" />
     {:else if item.hito.tipo === 'APROBACION'}
-      <CircleCheck size={15} class="text-emerald-700" />
+      <CircleCheck size={15} class="text-inst-ok" />
     {:else}
-      <ClipboardList size={15} class="text-ink-2" />
+      <ClipboardList size={15} class="text-inst-ink-2" />
     {/if}
   </span>
 
@@ -130,47 +127,47 @@
     <span class="flex items-center gap-1.5">
       <span
         class="truncate text-[13.5px] font-semibold leading-[1.25]"
-        style="color:{item.familia === 'ENTREGA' && !item.entrega.visible ? 'var(--color-zinc-700, #3F3F46)' : 'var(--color-ink, #1A1A24)'}"
+        style="color:{item.familia === 'ENTREGA' && !item.entrega.visible ? 'var(--color-inst-ink-2)' : 'var(--color-inst-ink)'}"
       >
         {titulo}
       </span>
       {#if item.familia === 'ENTREGA' && !item.entrega.visible}
         <span
-          class="shrink-0 rounded-full bg-zinc-200 px-1.5 text-[9.5px] font-bold tracking-[0.06em] text-zinc-600"
+          class="shrink-0 rounded-full bg-inst-linea px-1.5 text-[9.5px] font-bold tracking-[0.06em] text-inst-ink-2"
         >
           OCULTA
         </span>
       {/if}
       {#if item.familia === 'ENTREGA' && item.entrega.es_grupal}
-        <Users size={12} class="text-ink-2 shrink-0" />
+        <Users size={12} class="text-inst-ink-2 shrink-0" />
       {/if}
     </span>
 
-    <span class="truncate text-[11.5px] text-ink-2">{meta}</span>
+    <span class="truncate text-[11.5px] text-inst-ink-2">{meta}</span>
 
     {#if item.familia === 'SESION'}
-      <span class="text-[11.5px] font-semibold text-emerald-700">
+      <span class="text-[11.5px] font-semibold text-inst-ok">
         {item.sesion.presentes} de {item.sesion.total} presentes
       </span>
     {/if}
 
     {#if item.familia === 'ENTREGA' && item.entrega.grupos_total > 0}
-      <span class="text-[11.5px] text-ink-2">
+      <span class="text-[11.5px] text-inst-ink-2">
         {item.entrega.grupos_sin_nota} de {item.entrega.grupos_total}
         {item.entrega.grupos_total === 1 ? 'grupo' : 'grupos'} sin nota
       </span>
     {/if}
 
     {#if item.familia === 'HITO' && item.hito.detalle}
-      <span class="text-[11.5px] leading-[1.4] text-red-900">{item.hito.detalle}</span>
+      <span class="text-[11.5px] leading-[1.4] text-inst-error">{item.hito.detalle}</span>
     {/if}
   </div>
 
   <Link
     href={salida.href}
-    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-2 text-[11.5px] font-semibold text-ink no-underline transition-colors hover:bg-sand"
+    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-inst-linea bg-inst-tarjeta px-2.5 py-2 text-[11.5px] font-semibold text-inst-ink no-underline transition-colors hover:bg-inst-sutil"
   >
     {salida.texto}
-    <ArrowUpRight size={12} class="text-ink-2" />
+    <ArrowUpRight size={12} class="text-inst-ink-2" />
   </Link>
 </div>

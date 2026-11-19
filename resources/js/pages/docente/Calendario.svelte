@@ -21,19 +21,18 @@
    * No crea, edita ni elimina nada: desde el detalle del día se sale al curso.
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import { btnFantasma, btnSecundario, campo, chico, cuerpo, tarjeta, titulo as tituloInst } from '@/lib/inst';
   import type { BreadcrumbItem } from '@/types';
   import {
     CalendarAgenda,
     CalendarMonth,
     CalendarWeek,
     CalendarioVacio,
-    CourseFilter,
     DayEventsDialog,
-    ResumenPeriodo,
-    TipoEventoFilter,
     accentFor,
     buildWeekDays,
     calcularSobrecargas,
+    codigoCurso,
     formatRangoSemana,
     inicioSemana,
     minutosDeHora,
@@ -41,8 +40,7 @@
     todayKey,
     toKey,
     MESES,
-    BTN_OUTLINE,
-    PILL_ROJA,
+    PILL_SOBRECARGA,
     type CalendarCurso,
     type CalendarEvento,
     type CalendarHito,
@@ -53,11 +51,12 @@
   } from '@/modules/resources/calendario';
   import {
     CalendarDays,
-    CalendarRange,
     ChevronLeft,
     ChevronRight,
+    ClipboardCheck,
+    ClipboardList,
+    Clock,
     Columns3,
-    Info,
     LayoutList,
     SlidersHorizontal,
     TriangleAlert,
@@ -100,20 +99,24 @@
     return `${curso.agno_real ?? '?'}-${curso.semestre_real ?? '?'}`;
   }
 
-  const periodos = $derived.by(() => {
-    const vistos = new Set<string>();
-    const lista: string[] = [];
-    for (const c of cursos) {
-      const clave = clavePeriodo(c);
-      if (!vistos.has(clave)) {
-        vistos.add(clave);
-        lista.push(clave);
-      }
-    }
-    return lista;
-  });
+  // Del más reciente al más antiguo; «?-?» (curso sin período) al final.
+  const periodos = $derived(
+    [...new Set(cursos.map(clavePeriodo))].sort((a, b) => {
+      const [aa, as] = a.split('-').map((n) => Number(n) || 0);
+      const [ba, bs] = b.split('-').map((n) => Number(n) || 0);
+      return ba - aa || bs - as;
+    }),
+  );
 
-  let periodo = $state<string>('todos');
+  // Por defecto el período más reciente, como en el resto de la vista del
+  // docente; «Todos los períodos» sigue disponible en el selector.
+  let periodoElegido = $state<string | null>(null);
+  const periodo = $derived(periodoElegido ?? periodos[0] ?? 'todos');
+
+  const ceja = $derived.by(() => {
+    const [agno, sem] = (periodo === 'todos' ? (periodos[0] ?? '') : periodo).split('-');
+    return Number(agno) && Number(sem) ? `Semestre ${sem} · ${agno}` : undefined;
+  });
 
   const cursosDelPeriodo = $derived(
     periodo === 'todos' ? cursos : cursos.filter((c) => clavePeriodo(c) === periodo),
@@ -126,12 +129,16 @@
   let ancla = $state(todayKey());
   let vista = $state<Vista>('mes');
   let selectedDay = $state<string | null>(null);
-  let filtrosAbiertos = $state(false);
+  let filtrosAbiertos = $state(true);
 
   // En pantallas estrechas la agenda es la vista útil: la grilla mensual a
-  // 390px no se lee. Sólo se aplica al montar, no pisa la elección del docente.
+  // 390px no se lee, y los filtros empiezan plegados. Sólo se aplica al
+  // montar, no pisa la elección del docente.
   onMount(() => {
-    if (window.matchMedia('(max-width: 767px)').matches) vista = 'agenda';
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      vista = 'agenda';
+      filtrosAbiertos = false;
+    }
   });
 
   const anclaFecha = $derived.by(() => {
@@ -193,9 +200,6 @@
     if (next.has(id)) next.delete(id);
     else next.add(id);
     ocultos = next;
-  }
-  function soloEste(id: number) {
-    ocultos = new Set(cursos.filter((c) => c.id_curso !== id).map((c) => c.id_curso));
   }
   function todosCursos() {
     ocultos = new Set();
@@ -340,279 +344,219 @@
       .sort((a, b) => a.fecha.localeCompare(b.fecha) || comparar(a, b))[0] ?? null,
   );
 
-  // Muestras de la leyenda: mismo trazo que EventPill e ItemCard, con el azul
-  // de marca como acento. Sin ella el borde punteado no se explicaba en ningún lado.
+  // Muestras de la leyenda: el mismo trazo que EventPill, con el azul de acción.
   const MUESTRA = {
-    sumativa:
-      'background:var(--background-color-uta-blue-light, #E6EDF5);border-left:3px solid var(--color-navy, #002F6C)',
+    sumativa: 'background:var(--color-inst-accion-s);border-left:3px solid var(--color-inst-accion)',
     formativa:
-      'background:var(--background-color-white, #FFFFFF);border:1px dashed var(--color-navy, #002F6C);border-left:3px solid var(--color-navy, #002F6C)',
+      'background:var(--color-inst-tarjeta);border:1px dashed var(--color-inst-accion);border-left:3px solid var(--color-inst-accion)',
     oculta:
-      'background:var(--background-color-zinc-100, #F4F4F5);border:1px dashed var(--color-zinc-400, #A1A1AA);border-left:3px solid var(--color-navy, #002F6C)',
+      'background:var(--color-inst-off-s);border:1px dashed var(--color-inst-control);border-left:3px solid var(--color-inst-accion)',
   };
 
   const hayDatos = $derived(eventos.length + sesiones.length + hitos.length > 0);
+  const todosVisibles = $derived(activos.size === cursosDelPeriodo.length);
 
-  // ── Lenguaje visual del selector de vista ───────────────────────────────────
-  const SEG_BASE =
-    'inline-flex items-center gap-1.5 rounded-[7px] border px-2.5 py-1.5 text-[12.5px] transition-colors';
-  const SEG_ON = 'border-line bg-white font-semibold text-navy shadow-[0_1px_2px_rgba(0,0,0,.06)]';
-  const SEG_OFF = 'border-transparent bg-transparent font-medium text-zinc-600 hover:text-ink';
+  const VISTAS: { id: Vista; label: string; icon: typeof CalendarDays }[] = [
+    { id: 'mes', label: 'Mes', icon: CalendarDays },
+    { id: 'semana', label: 'Semana', icon: Columns3 },
+    { id: 'agenda', label: 'Agenda', icon: LayoutList },
+  ];
 
-  const NAV_BTN =
-    'flex h-8 w-8 items-center justify-center transition-colors hover:bg-sand';
+  const FAMILIAS: { id: FamiliaItem; label: string; icon: typeof CalendarDays }[] = [
+    { id: 'ENTREGA', label: 'Fechas límite', icon: ClipboardCheck },
+    { id: 'SESION', label: 'Clases con asistencia', icon: Clock },
+    { id: 'HITO', label: 'Hitos de syllabus', icon: ClipboardList },
+  ];
+
+  const botonSeg =
+    'inline-flex min-h-11 cursor-pointer items-center gap-1.5 border-0 border-r border-inst-linea px-3.5 text-[13px] font-bold last:border-r-0 lg:min-h-9';
+  const filtro =
+    'inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-[13px] font-bold transition-colors lg:min-h-9';
+  const filtroOn = 'border-inst-control bg-inst-tarjeta text-inst-ink hover:bg-inst-sutil';
+  const filtroOff = 'border-dashed border-inst-linea bg-transparent text-inst-ink-3 hover:bg-inst-sutil';
 </script>
 
-<DocenteLayout {breadcrumbs}>
-  <div class="min-h-screen bg-white pb-16">
-    <div class="mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6 max-md:px-4">
-      <!-- ── Encabezado ─────────────────────────────────────────────────────── -->
-      <header class="flex flex-wrap items-start gap-4">
-        <div class="flex min-w-0 flex-col gap-0.5">
-          <h1 class="m-0 text-[24px] font-semibold tracking-[-0.01em] text-ink">Calendario</h1>
-          <span class="text-[12.5px] text-ink-2">
-            Fecha nominal de cada actividad, sesiones de asistencia e hitos de syllabus
+<DocenteLayout {breadcrumbs} {ceja} titulo="Calendario">
+  {#snippet acciones()}
+    <div role="group" aria-label="Vista del calendario" class="inline-flex overflow-hidden rounded-md border border-inst-control">
+      {#each VISTAS as v (v.id)}
+        <button
+          type="button"
+          aria-pressed={vista === v.id}
+          onclick={() => cambiarVista(v.id)}
+          class="{botonSeg} {vista === v.id ? 'bg-inst-accion text-inst-sobre-accion' : 'bg-inst-tarjeta text-inst-ink'}"
+        >
+          <v.icon size={15} aria-hidden="true" />
+          {v.label}
+        </button>
+      {/each}
+    </div>
+  {/snippet}
+
+  <div class={cuerpo}>
+    {#if !hayDatos}
+      <CalendarioVacio {cursos} {accentPorCurso} />
+    {:else}
+      <!-- Barra: navegación, período y filtros -->
+      <div class="{tarjeta} flex flex-wrap items-center gap-x-3 gap-y-2.5 px-4 py-3">
+        <button type="button" onclick={irHoy} class="{btnSecundario} {chico}">Hoy</button>
+        <span class="flex gap-1">
+          <button
+            type="button"
+            onclick={() => paso(-1)}
+            class="{btnSecundario} w-11 px-0! lg:min-h-9 lg:w-9"
+            aria-label={vista === 'mes' ? 'Mes anterior' : 'Semana anterior'}
+          >
+            <ChevronLeft size={17} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onclick={() => paso(1)}
+            class="{btnSecundario} w-11 px-0! lg:min-h-9 lg:w-9"
+            aria-label={vista === 'mes' ? 'Mes siguiente' : 'Semana siguiente'}
+          >
+            <ChevronRight size={17} aria-hidden="true" />
+          </button>
+        </span>
+        <h2 class="{tituloInst} m-0 text-lg leading-6 first-letter:uppercase" aria-live="polite">{rango.titulo}</h2>
+        {#if diasConSobrecarga > 0}
+          <span class={PILL_SOBRECARGA}>
+            <TriangleAlert size={13} aria-hidden="true" />
+            {diasConSobrecarga}
+            {diasConSobrecarga === 1 ? 'día con sobrecarga' : 'días con sobrecarga'}
           </span>
-        </div>
+        {/if}
 
-        <div class="ml-auto flex flex-wrap items-center gap-2">
-          <!-- Selector de vista -->
-          <div
-            class="flex gap-0.5 rounded-[9px] border border-zinc-200 bg-gray-100 p-0.5"
-            role="group"
-            aria-label="Vista del calendario"
-          >
-            <button
-              type="button"
-              onclick={() => cambiarVista('mes')}
-              class="{SEG_BASE} {vista === 'mes' ? SEG_ON : SEG_OFF}"
-              aria-pressed={vista === 'mes'}
-            >
-              <CalendarDays size={14} class={vista === 'mes' ? 'text-navy' : 'text-ink-2'} />
-              Mes
-            </button>
-            <button
-              type="button"
-              onclick={() => cambiarVista('semana')}
-              class="{SEG_BASE} {vista === 'semana' ? SEG_ON : SEG_OFF}"
-              aria-pressed={vista === 'semana'}
-            >
-              <Columns3 size={14} class={vista === 'semana' ? 'text-navy' : 'text-ink-2'} />
-              Semana
-            </button>
-            <button
-              type="button"
-              onclick={() => cambiarVista('agenda')}
-              class="{SEG_BASE} {vista === 'agenda' ? SEG_ON : SEG_OFF}"
-              aria-pressed={vista === 'agenda'}
-            >
-              <LayoutList size={14} class={vista === 'agenda' ? 'text-navy' : 'text-ink-2'} />
-              Agenda
-            </button>
-          </div>
-
-          <!-- Navegación temporal -->
-          <div
-            class="flex items-center overflow-hidden rounded-lg border border-line bg-white"
-          >
-            <button
-              type="button"
-              onclick={() => paso(-1)}
-              class="{NAV_BTN} border-r border-gray-200"
-              aria-label={vista === 'mes' ? 'Mes anterior' : 'Semana anterior'}
-            >
-              <ChevronLeft size={15} class="text-zinc-600" />
-            </button>
-            <button
-              type="button"
-              onclick={irHoy}
-              class="h-8 border-r border-gray-200 bg-uta-blue-light px-3 text-[12.5px] font-semibold text-navy transition-colors hover:bg-slate-200"
-            >
-              Hoy
-            </button>
-            <button
-              type="button"
-              onclick={() => paso(1)}
-              class={NAV_BTN}
-              aria-label={vista === 'mes' ? 'Mes siguiente' : 'Semana siguiente'}
-            >
-              <ChevronRight size={15} class="text-zinc-600" />
-            </button>
-          </div>
-
-          <!-- Período académico -->
+        <span class="ml-auto flex flex-wrap items-center gap-3">
           {#if periodos.length > 1}
-            <label
-              class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 text-[12.5px] font-medium text-ink"
-            >
-              <CalendarRange size={14} class="text-ink-2" />
-              <span class="sr-only">Período académico</span>
-              <select
-                bind:value={periodo}
-                class="cursor-pointer border-none bg-transparent text-[12.5px] font-medium text-ink outline-none"
-              >
-                <option value="todos">Todos los períodos</option>
+            <label class="flex items-center gap-2">
+              <span class="text-[13px] font-bold">Período</span>
+              <select value={periodo} onchange={(e) => (periodoElegido = e.currentTarget.value)} class="{campo} w-auto">
                 {#each periodos as p (p)}
-                  <option value={p}>Semestre {p}</option>
+                  <option value={p}>{p === '?-?' ? 'Sin período' : p}</option>
                 {/each}
+                <option value="todos">Todos los períodos</option>
               </select>
             </label>
           {/if}
-
-          <!-- Filtros en pantallas estrechas -->
           <button
             type="button"
             onclick={() => (filtrosAbiertos = !filtrosAbiertos)}
-            class="{BTN_OUTLINE} h-8 py-0 lg:hidden"
+            class="{btnSecundario} {chico}"
             aria-expanded={filtrosAbiertos}
+            aria-controls="filtros-calendario"
           >
-            <SlidersHorizontal size={13} class="text-ink-2" />
-            Filtros
-            <span
-              class="rounded-full bg-uta-blue-light px-1.5 text-[10px] font-bold text-navy tabular-nums"
-            >
-              {activos.size}
-            </span>
+            <SlidersHorizontal size={15} aria-hidden="true" />
+            Filtros · {todosVisibles ? cursosDelPeriodo.length : `${activos.size} de ${cursosDelPeriodo.length}`}
+            {cursosDelPeriodo.length === 1 ? 'curso' : 'cursos'}
           </button>
-        </div>
-      </header>
+        </span>
+      </div>
 
-      {#if !hayDatos}
-        <CalendarioVacio {cursos} {accentPorCurso} />
-      {:else}
-        <div class="flex gap-5 max-lg:flex-col">
-          <!-- ── Filtros ────────────────────────────────────────────────────── -->
-          <aside
-            class="w-[236px] shrink-0 self-start overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)] max-lg:w-full {filtrosAbiertos
-              ? ''
-              : 'max-lg:hidden'}"
-          >
-            <div class="flex items-center gap-2 border-b border-gray-200 px-3.5 py-3">
-              <SlidersHorizontal size={15} class="text-ink-2" />
-              <span class="text-[13.5px] font-semibold text-ink">Filtros</span>
-              <span
-                class="ml-auto rounded-full border border-slate-300 bg-uta-blue-light px-2 py-px text-[10.5px] font-bold text-navy tabular-nums"
+      {#if filtrosAbiertos}
+        <div id="filtros-calendario" class="flex flex-col gap-2.5">
+          <!-- El color es del curso: estos botones son también la leyenda de colores. -->
+          <div role="group" aria-label="Cursos visibles" class="flex flex-wrap items-center gap-2">
+            {#each cursosDelPeriodo as curso (curso.id_curso)}
+              {@const activo = activos.has(curso.id_curso)}
+              <button
+                type="button"
+                aria-pressed={activo}
+                onclick={() => toggleCurso(curso.id_curso)}
+                title={curso.asignatura}
+                class="{filtro} {activo ? filtroOn : filtroOff}"
               >
-                {activos.size} de {cursosDelPeriodo.length}
-              </span>
-            </div>
-
-            <CourseFilter
-              cursos={cursosDelPeriodo}
-              {accentPorCurso}
-              {activos}
-              conteoPorCurso={enRangoPorCurso}
-              onToggle={toggleCurso}
-              onSoloEste={soloEste}
-              onTodos={todosCursos}
-            />
-
-            <TipoEventoFilter
-              familias={familiasActivas}
-              conteos={conteosFamilia}
-              onToggle={toggleFamilia}
-            />
-
-            <ResumenPeriodo
-              titulo={rango.rotulo}
-              entregas={conteosFamilia.ENTREGA}
-              sesiones={conteosFamilia.SESION}
-              hitos={conteosFamilia.HITO}
-              {diasConSobrecarga}
-            />
-          </aside>
-
-          <!-- ── Vista ──────────────────────────────────────────────────────── -->
-          <main class="flex min-w-0 flex-1 flex-col gap-3">
-            <div class="flex flex-wrap items-center gap-2.5">
-              <h2 class="m-0 text-[16px] font-semibold capitalize text-ink">
-                {rango.titulo}
-              </h2>
-              <span class="font-mono text-[11.5px] text-ink-2">
-                {rango.desde.split('-').reverse().slice(0, 2).join('-')} → {rango.hasta
-                  .split('-')
-                  .reverse()
-                  .slice(0, 2)
-                  .join('-')}
-              </span>
-              {#if diasConSobrecarga > 0}
-                <span class="{PILL_ROJA} ml-auto">
-                  <TriangleAlert size={12} class="text-red-700" />
-                  {diasConSobrecarga}
-                  {diasConSobrecarga === 1 ? 'día con sobrecarga' : 'días con sobrecarga'}
-                </span>
-              {/if}
-            </div>
-
-            {#if vista === 'mes'}
-              <CalendarMonth
-                year={anclaFecha.year}
-                month={anclaFecha.month}
-                {itemsPorDia}
-                {accentPorCurso}
-                {cursoPorId}
-                {sobrecargas}
-                onSelectDay={(iso) => (selectedDay = iso)}
-                onSelectItem={(item) => (selectedDay = item.fecha)}
-              />
-            {:else if vista === 'semana'}
-              <CalendarWeek
-                dias={diasSemana}
-                {itemsPorDia}
-                {accentPorCurso}
-                {cursoPorId}
-                {sobrecargas}
-                onSelectDay={(iso) => (selectedDay = iso)}
-                onSelectItem={(item) => (selectedDay = item.fecha)}
-              />
-            {:else}
-              <CalendarAgenda
-                dias={diasSemana}
-                {itemsPorDia}
-                {accentPorCurso}
-                {cursoPorId}
-                {sobrecargas}
-                proxima={proximaMarca}
-                onIrA={(iso) => (ancla = iso)}
-              />
+                <span
+                  aria-hidden="true"
+                  class="size-3 shrink-0 rounded-[3px] {activo ? '' : 'opacity-35'}"
+                  style="background:{accentPorCurso[curso.id_curso].base}"
+                ></span>
+                {codigoCurso(curso)}
+                <span class="font-semibold text-inst-ink-3 tabular-nums">{enRangoPorCurso[curso.id_curso] ?? 0}</span>
+              </button>
+            {/each}
+            {#if !todosVisibles}
+              <button type="button" onclick={todosCursos} class="{btnFantasma} {chico}">Mostrar todos</button>
             {/if}
-
-            {#if familiasActivas.has('ENTREGA') && conteosFamilia.ENTREGA > 0}
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-0.5 text-xs text-ink-2">
-                <span class="font-semibold text-ink">Fechas límite:</span>
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.sumativa} aria-hidden="true"></span>
-                  Sumativa
-                </span>
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.formativa} aria-hidden="true"></span>
-                  Formativa (borde punteado)
-                </span>
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.oculta} aria-hidden="true"></span>
-                  Oculta al estudiante
-                </span>
-              </div>
-            {/if}
-
-            <div class="flex items-start gap-1.5 px-0.5">
-              <Info size={13} class="text-ink-3 mt-0.5 shrink-0" />
-              <p class="m-0 max-w-[880px] text-[11.5px] leading-[1.45] text-ink-2">
-                Este calendario muestra la fecha
-                <span class="font-semibold text-ink">nominal</span> de cada actividad. La
-                fecha efectiva de cada alumno
-                <span class="font-mono">(fecha_limite + días de holgura)</span> es personal y se
-                consulta en el detalle de la actividad. Las sesiones de clase que aparecen son las
-                que ya tienen asistencia registrada.
-                {#if ancla !== hoyIso}
-                  <span class="text-muted-foreground">Hoy es el {hoyIso.split('-').reverse().join('-')}.</span>
-                {/if}
-              </p>
-            </div>
-          </main>
+          </div>
+          <div role="group" aria-label="Tipos de evento" class="flex flex-wrap items-center gap-2">
+            {#each FAMILIAS as f (f.id)}
+              {@const activo = familiasActivas.has(f.id)}
+              <button
+                type="button"
+                aria-pressed={activo}
+                onclick={() => toggleFamilia(f.id)}
+                class="{filtro} {activo ? filtroOn : filtroOff}"
+              >
+                <f.icon size={15} aria-hidden="true" />
+                {f.label}
+                <span class="font-semibold text-inst-ink-3 tabular-nums">{conteosFamilia[f.id]}</span>
+              </button>
+            {/each}
+          </div>
         </div>
       {/if}
-    </div>
+
+      {#if vista === 'mes'}
+        <CalendarMonth
+          year={anclaFecha.year}
+          month={anclaFecha.month}
+          {itemsPorDia}
+          {accentPorCurso}
+          {cursoPorId}
+          {sobrecargas}
+          onSelectDay={(iso) => (selectedDay = iso)}
+          onSelectItem={(item) => (selectedDay = item.fecha)}
+        />
+      {:else if vista === 'semana'}
+        <CalendarWeek
+          dias={diasSemana}
+          {itemsPorDia}
+          {accentPorCurso}
+          {cursoPorId}
+          {sobrecargas}
+          onSelectDay={(iso) => (selectedDay = iso)}
+          onSelectItem={(item) => (selectedDay = item.fecha)}
+        />
+      {:else}
+        <CalendarAgenda
+          dias={diasSemana}
+          {itemsPorDia}
+          {accentPorCurso}
+          {cursoPorId}
+          {sobrecargas}
+          proxima={proximaMarca}
+          onIrA={(iso) => (ancla = iso)}
+        />
+      {/if}
+
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-inst-ink-2">
+        <span class="font-bold text-inst-ink">Leyenda</span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.sumativa} aria-hidden="true"></span>
+          Sumativa
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.formativa} aria-hidden="true"></span>
+          Formativa (borde punteado)
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="h-3 w-5 rounded-[3px]" style={MUESTRA.oculta} aria-hidden="true"></span>
+          Oculta al estudiante
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class={PILL_SOBRECARGA}><TriangleAlert size={12} aria-hidden="true" />3</span>
+          Sobrecarga: 3 o más entregas de un mismo grupo el mismo día
+        </span>
+      </div>
+      <p class="m-0 max-w-[880px] text-[13px] text-inst-ink-2">
+        Se dibuja la fecha nominal de cierre de cada actividad; los plazos adicionales de grupos o estudiantes se ven
+        en el detalle de la actividad. Las clases que aparecen son las que ya tienen asistencia registrada.
+        {#if ancla !== hoyIso}
+          Hoy es el {hoyIso.split('-').reverse().join('-')}.
+        {/if}
+      </p>
+    {/if}
   </div>
 
   <!-- Detalle del día -->
