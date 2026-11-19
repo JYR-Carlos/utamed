@@ -2,23 +2,23 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
-  import { ArrowUpRight, BookOpen, CalendarClock, ChevronRight, CircleAlert, LifeBuoy } from 'lucide-svelte';
+  import { ArrowUpRight, BookOpen, ChevronRight, CircleAlert, LifeBuoy } from 'lucide-svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import SemanaAlumno from '@/components/student/inicio/SemanaAlumno.svelte';
   import MensajesSinLeer from '@/components/student/inicio/MensajesSinLeer.svelte';
   import TarjetaCurso from '@/components/student/inicio/TarjetaCurso.svelte';
+  import DestacadaDelDia from '@/components/student/inicio/DestacadaDelDia.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
   import {
     abiertas as abiertasDe,
     hrefAtrasadas,
-    plazoDe,
     textoVencidas,
     vencidas as vencidasDe,
     type ActividadPorVencer,
   } from '@/lib/plazoAlumno';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
-  import { btnNoche, btnPrimario, btnSecundario, enlace, etiqueta, pildora, tituloCond, tono } from '@/lib/dm';
+  import { btnNoche, btnSecundario, enlace, etiqueta, tituloCond } from '@/lib/dm';
   import { claveDia, parseFechaSoloDia } from '@/utils/formatters';
 
   /**
@@ -113,7 +113,10 @@
     const cursosConVencidas = new Set(vencidas.map((a) => a.id_curso));
     return cursosConVencidas.size === 1 ? hrefAtrasadas(vencidas[0].id_curso) : '#t-cursos';
   });
-  const cierraHoy = $derived(destacada !== null && (destacada.plazo_hasta ?? destacada.fecha_limite).slice(0, 10) === hoy);
+  const diaDeCierre = (a: ActividadPorVencer) => (a.plazo_hasta ?? a.fecha_limite).slice(0, 10);
+  const cierraHoy = $derived(destacada !== null && diaDeCierre(destacada) === hoy);
+  /** Las que cierran el mismo día que la destacada: la tarjeta las alterna (OBS-08). */
+  const delDia = $derived(destacada ? abiertas.filter((a) => diaDeCierre(a) === diaDeCierre(destacada)) : []);
 
   function nombreCurso(idCurso: number): string {
     const c = cursos.find((x) => x.id_curso === idCurso);
@@ -183,20 +186,14 @@
           class="flex w-full flex-col gap-3 rounded-xl bg-dm-elevada p-4 text-dm-ink shadow-[0_8px_24px_rgb(11_12_40/0.28)] lg:w-auto lg:flex-[0_1_360px] lg:p-5"
         >
           {#if destacada}
-            {@const plazo = plazoDe(destacada, hoy)}
-            <span class="{etiqueta} text-dm-ink-3">{cierraHoy ? 'Lo de hoy' : 'Lo próximo'}</span>
-            <span class="{pildora} {tono.curso} self-start font-bold" style={colorDe(destacada.id_curso)}>
-              <span aria-hidden="true" class="size-2 rounded-full bg-(--curso)"></span>{destacada.curso}{nombreCurso(destacada.id_curso)
-                ? ` · ${nombreCurso(destacada.id_curso)}`
-                : ''}
-            </span>
-            <span class="text-lg leading-6 font-semibold">{destacada.nombre}</span>
-            <span class="{pildora} {plazo.urgente ? tono.warn : tono.neutro} self-start">
-              <CalendarClock size={14} aria-hidden="true" />{destacada.es_sumativa ? 'Sumativa' : 'Formativa'} · {plazo.texto.charAt(0).toLowerCase()}{plazo.texto.slice(1)}
-            </span>
-            <Link href={`/estudiante/cursos/${destacada.id_curso}/actividad/${destacada.id_actividad}`} class="{btnPrimario} mt-1 w-full">
-              Ir a la actividad <ChevronRight size={16} aria-hidden="true" />
-            </Link>
+            <DestacadaDelDia
+              items={delDia}
+              titulo={cierraHoy ? 'Lo de hoy' : 'Lo próximo'}
+              {cierraHoy}
+              {hoy}
+              {colorDe}
+              {nombreCurso}
+            />
           {:else}
             <span class="{etiqueta} text-dm-ink-3">Lo de hoy</span>
             {#if vencidas.length}
