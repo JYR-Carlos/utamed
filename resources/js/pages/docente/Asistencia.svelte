@@ -1,27 +1,30 @@
 <script lang="ts">
   /**
-   * Centro de Asistencia del docente (transversal a sus cursos).
+   * Centro de Asistencia del docente — /docente/asistencia (dirección
+   * institucional UTA).
    *
-   * Flujo de 2 pasos + panel:
-   *   1. Seleccione el curso al cual quiere tomar asistencia.
-   *   2. Seleccione la componente (si imparte/supervisa varias).
-   *   3. AsistenciaPanel — registro por sesión implícita (dia + horas).
+   * En la cabecera se elige el curso y el componente (por defecto, el primero
+   * del período más reciente); debajo, AsistenciaPanel con las sesiones, el
+   * pase de lista y la asistencia por estudiante.
    *
-   * Reglas: cualquier docente asignado a una componente puede tomar asistencia
-   * (sea o no titular de la componente — sólo el titular califica). El titular del
-   * curso puede tomar asistencia de cualquier componente del curso.
+   * Reglas: cualquier docente asignado a un componente puede tomar asistencia
+   * (sea o no titular del componente; sólo el titular califica). El titular
+   * del curso puede tomar asistencia de cualquier componente del curso.
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import CentroPasos, { type ComponenteCentro, type CursoCentro } from '@/components/docente/CentroPasos.svelte';
+  import { campo, cuerpo, tarjeta } from '@/lib/inst';
   import type { BreadcrumbItem } from '@/types';
+  import type { ComponenteCentro, CursoCentro } from '@/types/centro-docente';
   import AsistenciaPanel from './components/AsistenciaPanel.svelte';
 
   interface ComponenteAsistencia extends ComponenteCentro {
     total_estudiantes: number;
   }
 
+  type Curso = CursoCentro<ComponenteAsistencia>;
+
   interface Props {
-    cursos: CursoCentro<ComponenteAsistencia>[];
+    cursos: Curso[];
   }
 
   let { cursos }: Props = $props();
@@ -30,43 +33,105 @@
     { title: 'Inicio', href: '/docente/dashboard' },
     { title: 'Asistencia', href: '/docente/asistencia' },
   ];
+
+  /** El nombre del curso sin el «Grupo A» final, que ya va en el código. */
+  function nombreCurso(c: Curso) {
+    const base = c.etiqueta || c.nombre;
+    return c.letra_grupo ? base.replace(new RegExp(`\\s+Grupo\\s+${c.letra_grupo}$`), '') : base;
+  }
+
+  const codigoDe = (c: Curso) => c.cod_asignatura || c.cod_curso;
+
+  // ── Opciones del selector, por período (el más reciente primero) ───────────
+  interface Opcion {
+    valor: string;
+    curso: Curso;
+    comp: ComponenteAsistencia;
+  }
+
+  const grupos = $derived.by(() => {
+    const porClave = new Map<string, { orden: number; etiqueta: string; opciones: Opcion[] }>();
+    for (const curso of cursos) {
+      const conPeriodo = curso.agno_real && curso.semestre_real;
+      const clave = conPeriodo ? `${curso.agno_real}-${curso.semestre_real}` : 'sin';
+      if (!porClave.has(clave)) {
+        porClave.set(clave, {
+          orden: conPeriodo ? curso.agno_real! * 10 + curso.semestre_real! : -1,
+          etiqueta: conPeriodo ? `Semestre ${curso.semestre_real} · ${curso.agno_real}` : 'Sin período',
+          opciones: [],
+        });
+      }
+      for (const comp of curso.componentes) {
+        porClave.get(clave)!.opciones.push({ valor: `${curso.id_curso}-${comp.id_componente}`, curso, comp });
+      }
+    }
+    return [...porClave.values()].sort((a, b) => b.orden - a.orden);
+  });
+
+  const opciones = $derived(grupos.flatMap((g) => g.opciones));
+
+  // Por defecto, el primer componente con estudiantes del período más reciente.
+  let elegido = $state<string | null>(null);
+  const actual = $derived(
+    opciones.find((o) => o.valor === elegido) ??
+      grupos[0]?.opciones.find((o) => o.comp.total_estudiantes > 0) ??
+      opciones[0] ??
+      null,
+  );
+
+  const ceja = $derived(
+    actual
+      ? [codigoDe(actual.curso), actual.curso.letra_grupo && `Grupo ${actual.curso.letra_grupo}`, actual.comp.tipo_componente]
+          .filter(Boolean)
+          .join(' · ')
+      : undefined,
+  );
+
+  function etiquetaOpcion(o: Opcion) {
+    const partes = [codigoDe(o.curso), o.curso.letra_grupo, nombreCurso(o.curso), o.comp.tipo_componente];
+    const texto = partes.filter(Boolean).join(' · ');
+    return o.comp.total_estudiantes === 0 ? `${texto} (sin estudiantes)` : texto;
+  }
 </script>
 
-<DocenteLayout {breadcrumbs}>
-  <div class="pb-16">
-    <div class="mx-auto flex max-w-[1120px] flex-col gap-5 px-4 md:px-0">
-      <header class="flex flex-col gap-1">
-        <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink sm:text-[28px] sm:leading-[34px]">Asistencia</h1>
-        <p class="m-0 text-sm font-medium text-slate-600">Registra la asistencia de tus estudiantes por sesión.</p>
-      </header>
+<DocenteLayout {breadcrumbs} {ceja} titulo="Asistencia">
+  {#snippet acciones()}
+    {#if opciones.length > 1}
+      <label class="flex w-full flex-col gap-1 sm:w-auto">
+        <span class="sr-only">Curso y componente</span>
+        <select
+          value={actual?.valor}
+          onchange={(e) => (elegido = e.currentTarget.value)}
+          class="{campo} sm:w-auto sm:max-w-[440px]"
+        >
+          {#each grupos as g (g.etiqueta)}
+            <optgroup label={g.etiqueta}>
+              {#each g.opciones as o (o.valor)}
+                <option value={o.valor}>{etiquetaOpcion(o)}</option>
+              {/each}
+            </optgroup>
+          {/each}
+        </select>
+      </label>
+    {/if}
+  {/snippet}
 
-      {#if cursos.length === 0}
-        <div class="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center">
-          <p class="m-0 mb-1 text-base font-semibold text-ink">No tienes componentes para tomar asistencia.</p>
-          <p class="m-0 text-sm text-slate-600">
-            La asistencia se toma sobre los componentes que impartes; aún no tienes ninguno asignado.
-          </p>
-        </div>
-      {:else}
-        <CentroPasos {cursos} indicacionCursos="Elige el curso al que quieres tomar asistencia." etiquetaMigas="Selección de asistencia">
-          {#snippet datosComponente(comp)}
-            {#if comp.total_estudiantes === 0}
-              Sin estudiantes inscritos
-            {:else}
-              {comp.total_estudiantes}
-              {comp.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'}
-            {/if}
-          {/snippet}
-
-          {#snippet contenido(curso, comp)}
-            <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-              {#key comp.id_componente}
-                <AsistenciaPanel idCurso={curso.id_curso} idComponente={comp.id_componente} tipoComponente={comp.tipo_componente} />
-              {/key}
-            </section>
-          {/snippet}
-        </CentroPasos>
-      {/if}
-    </div>
+  <div class={cuerpo}>
+    {#if !actual}
+      <div class="{tarjeta} px-6 py-10 text-center">
+        <p class="m-0 font-bold">No tienes componentes para tomar asistencia.</p>
+        <p class="m-0 mt-1 text-inst-ink-2">
+          La asistencia se toma sobre los componentes que impartes; aún no tienes ninguno asignado.
+        </p>
+      </div>
+    {:else}
+      {#key actual.valor}
+        <AsistenciaPanel
+          idCurso={actual.curso.id_curso}
+          idComponente={actual.comp.id_componente}
+          tipoComponente={actual.comp.tipo_componente}
+        />
+      {/key}
+    {/if}
   </div>
 </DocenteLayout>

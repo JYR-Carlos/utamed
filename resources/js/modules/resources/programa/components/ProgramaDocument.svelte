@@ -12,7 +12,6 @@
    * verdad es la IX, que trae su tabla de componentes de evaluación.
    */
   import type { Snippet } from 'svelte';
-  import { Link } from 'lucide-svelte';
   import { bloquesDeSeccion, segmentarTexto, textoDeSeccion } from '../utils/syllabusTexto';
 
   interface ComponenteEvaluacion {
@@ -48,8 +47,13 @@
   /** Sólo se dibujan las secciones con contenido; las vacías van a «pendientes». */
   const conContenido = $derived(secciones.filter((s) => contenidoDe(s).trim() !== ''));
 
-  const NUM = 'min-w-[34px] shrink-0 whitespace-nowrap font-mono text-[13px] text-slate-600';
-  const TITULO = 'm-0 min-w-0 break-words text-[19px] font-semibold tracking-[-0.01em] text-ink';
+  // Número y título en la misma letra (formato oficial del programa).
+  const NUM = 'min-w-[36px] shrink-0 whitespace-nowrap';
+  const TITULO =
+    'm-0 flex min-w-0 items-baseline break-words border-b-2 border-ink pb-2.5 font-inst-titulo text-[19px] leading-[25px] font-bold text-ink';
+  /** Etiqueta y valor en columnas. */
+  const CAMPOS = 'm-0 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-[180px_minmax(0,1fr)]';
+  const JUSTO = 'm-0 text-justify hyphens-auto';
 </script>
 
 {#snippet renderizarTexto(texto: string | null | undefined)}
@@ -88,61 +92,43 @@
       class="flex scroll-mt-6 flex-col gap-3"
       aria-labelledby="titulo-{seccion.numeral_romano}"
     >
-      <div class="flex items-baseline gap-2.5">
+      <h2 id="titulo-{seccion.numeral_romano}" class={TITULO}>
         <span class={NUM}>{seccion.numeral_romano}.</span>
-        <h2 id="titulo-{seccion.numeral_romano}" class={TITULO}>{seccion.nombre_seccion}</h2>
-        <a
-          href="#seccion-{seccion.numeral_romano}"
-          class="shrink-0 text-slate-300 transition-colors hover:text-navy"
-          aria-label="Enlace a la sección {seccion.nombre_seccion}"
-        >
-          <Link size={13} aria-hidden="true" />
-        </a>
-      </div>
+        <span>{seccion.nombre_seccion}</span>
+      </h2>
 
       <!-- Sección I: rejilla de identificación a dos columnas -->
       {#if seccion.numeral_romano === 'I'}
-        <dl
-          class="m-0 grid grid-cols-1 gap-x-7 gap-y-3 border-y border-gray-100 py-4 sm:grid-cols-2"
-        >
+        <dl class={CAMPOS}>
           {#each bloques as bloque, index (bloque.tipo + index)}
             {#if bloque.tipo === 'campo'}
-              <div class="flex flex-col">
-                <dt class="text-[12px] text-ink-2">{bloque.etiqueta}</dt>
-                <dd class="m-0 text-[14.5px] font-medium">{bloque.valor}</dd>
-              </div>
+              <dt class="font-bold">{bloque.etiqueta}</dt>
+              <dd class="m-0">{bloque.valor}</dd>
             {:else if bloque.tipo === 'parrafo'}
-              <p class="m-0 text-pretty sm:col-span-2">{@render renderizarTexto(bloque.texto)}</p>
+              <p class="{JUSTO} sm:col-span-2">{@render renderizarTexto(bloque.texto)}</p>
             {/if}
           {/each}
         </dl>
       {:else}
         {#each bloques as bloque, index (bloque.tipo + index)}
           {#if bloque.tipo === 'subtitulo'}
-            <div class="mt-3.5 border-b border-line pb-0.5 first:mt-0">
-              <span
-                class="font-mono text-[12px] font-bold tracking-[0.03em] text-navy uppercase"
-              >
-                {bloque.texto}
-              </span>
-            </div>
+            <h3 class="m-0 mt-2 text-[15px] font-bold text-ink first:mt-0">{bloque.texto}</h3>
           {:else if bloque.tipo === 'campo'}
-            <p class="m-0 flex flex-wrap gap-x-2.5">
-              <span class="font-mono text-[12px] text-ink-2">{bloque.etiqueta}</span>
-              <span class="min-w-0 flex-[1_1_12rem] text-pretty">{@render renderizarTexto(bloque.valor)}</span
-              >
+            <p class={CAMPOS}>
+              <span class="font-bold">{bloque.etiqueta}</span>
+              <span class="min-w-0 text-justify hyphens-auto">{@render renderizarTexto(bloque.valor)}</span>
             </p>
           {:else if bloque.tipo === 'lista'}
             {@const esListaBiblio =
               seccion.numeral_romano === 'VIII' ||
               bloque.items.some((i) => i.texto.includes('Biblioteca UTA'))}
-            <ul class="m-0 flex list-disc flex-col gap-1.5 marker:text-gray-400">
+            <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5 marker:text-inst-enlace">
               {#each bloque.items as item (item.texto)}
                 {@const esUta = item.texto.includes('Biblioteca UTA')}
                 <li
                   class:ml-5={item.anidado}
                   class="
-                    text-pretty transition-colors list-inside {esListaBiblio
+                    text-justify hyphens-auto pl-1 transition-colors {esListaBiblio
                     ? `px-2 py-0.5 border border-transparent ${esUta ? 'bg-brand-light' : ''}`
                     : ``}"
                 >
@@ -156,7 +142,7 @@
               {/each}
             </ul>
           {:else}
-            <p class="m-0 text-pretty">{@render renderizarTexto(bloque.texto)}</p>
+            <p class={JUSTO}>{@render renderizarTexto(bloque.texto)}</p>
           {/if}
         {/each}
       {/if}

@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Curso\Programa;
+use App\Models\Curso\Bibliografia;
 use App\Models\Curso\Curso;
+use App\Models\Curso\Programa;
+use App\Models\Curso\Unidad;
+use App\Models\Operaciones\Archivo;
 use App\Models\Usuario\Usuario;
 use App\Syllabus\SyllabusData;
 use App\Syllabus\SyllabusMetadata;
@@ -403,6 +406,95 @@ class ProgramaService
             'metadata' => $syllabus->metadata?->toArray() ?? [],
             'secciones' => $syllabus->secciones->toArray(),
         ];
+    }
+
+    /**
+     * Sincroniza la tabla `bibliografia` de un programa a partir de la sección VIII del syllabus.
+     */
+    public static function syncBibliografias(Programa $programa, array $bibliografiasData): void
+    {
+        if (empty($bibliografiasData)) {
+            $oldBibs = Bibliografia::where('id_programa', $programa->id_programa)->get();
+            foreach ($oldBibs as $old) {
+                self::markOrphanArchivoIfUnused($old->uuid_archivo, $old->uuid_bibliografia);
+                $old->delete();
+            }
+            return;
+        }
+
+        $keptIds = [];
+
+        foreach ($bibliografiasData as $bibData) {
+            if (empty($bibData['titulo'])) {
+                continue;
+            }
+
+            $resolvedIdUnidad = null;
+            if (!empty($bibData['id_unidad'])) {
+                $resolvedIdUnidad = Unidad::where('id_curso', $programa->id_curso)
+                    ->where('num_unidad', (int) $bibData['id_unidad'])
+                    ->value('id_unidad');
+            }
+
+            $attrs = [
+                'id_unidad' => $resolvedIdUnidad,
+                'titulo' => $bibData['titulo'],
+                'autor' => !empty($bibData['autor']) ? $bibData['autor'] : 'Desconocido',
+                'cita' => $bibData['cita'] ?? null,
+                'editorial' => $bibData['editorial'] ?? null,
+                'agno' => $bibData['anio'] ?? date('Y'),
+                'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
+                'url' => $bibData['url'] ?? null,
+                'uuid_archivo' => $bibData['uuid_archivo'] ?? null,
+            ];
+
+            $bibId = $bibData['uuid_bibliografia'] ?? $bibData['id_bibliografia'] ?? null;
+            if (!empty($bibId)) {
+                $bibliografia = Bibliografia::find($bibId);
+                if ($bibliografia && $bibliografia->id_programa === $programa->id_programa) {
+                    if ($bibliografia->uuid_archivo && $bibliografia->uuid_archivo !== ($bibData['uuid_archivo'] ?? null)) {
+                        self::markOrphanArchivoIfUnused($bibliografia->uuid_archivo, $bibliografia->uuid_bibliografia);
+                    }
+                    $bibliografia->update($attrs);
+                    $keptIds[] = $bibliografia->uuid_bibliografia;
+                    continue;
+                }
+            }
+
+            $nueva = Bibliografia::create($attrs + [
+                'id_programa' => $programa->id_programa,
+                'agregado_por' => Auth::id(),
+            ]);
+            $keptIds[] = $nueva->uuid_bibliografia;
+        }
+
+        $deletedBibs = Bibliografia::where('id_programa', $programa->id_programa)
+            ->whereNotIn('uuid_bibliografia', $keptIds)
+            ->get();
+
+        foreach ($deletedBibs as $delBib) {
+            self::markOrphanArchivoIfUnused($delBib->uuid_archivo, $delBib->uuid_bibliografia);
+            $delBib->delete();
+        }
+    }
+
+    /**
+     * Marca un archivo como pendiente de borrado si ninguna otra bibliografía lo referencia.
+     */
+    private static function markOrphanArchivoIfUnused(?string $uuidArchivo, string $excludeUuidBib): void
+    {
+        if (!$uuidArchivo) {
+            return;
+        }
+
+        $stillReferenced = Bibliografia::where('uuid_archivo', $uuidArchivo)
+            ->where('uuid_bibliografia', '!=', $excludeUuidBib)
+            ->exists();
+
+        if (!$stillReferenced) {
+            Archivo::where('uuid_archivo', $uuidArchivo)
+                ->update(['pendiente_de_borrado' => true]);
+        }
     }
 
     /**

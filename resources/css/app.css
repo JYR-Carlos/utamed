@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import './tema-oscuro.css';
 @import './guia-dm.css';
+@import './institucional.css';
 
 @source "../views";
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -92,54 +93,6 @@
     html {
         --font-sans:
             'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    }
-}
-
-@layer base {
-    /* Portal docente: el contenido va sobre gris claro y las tarjetas en blanco,
-       como en el mockup de la auditoría UI (2026-10-19). Sólo el área de contenido;
-       menú lateral y barra superior siguen blancos. */
-    .docente-shell #contenido {
-        background-color: var(--background-color-slate-50);
-        min-height: 100%;
-    }
-
-    .dark .docente-shell #contenido {
-        background-color: var(--background);
-    }
-}
-
-/* Barra superior del mockup: buscador y botones blancos con borde de
-   control (#7B8AA0, 3:1) en vez de gris sobre gris. Los estilos base viven
-   en AppSidebarHeader.svelte (scoped, fuera de capa): por eso estas reglas
-   también van fuera de @layer, si no pierden siempre. Sólo pisan el docente. */
-@media all {
-    .docente-shell .global-header {
-        border-bottom-color: var(--color-slate-200);
-    }
-    .docente-shell .global-header .search-box {
-        background: var(--background-color-white);
-        border-color: var(--color-line-control);
-        border-radius: 8px;
-    }
-    .docente-shell .global-header .search-box:hover {
-        background: var(--background-color-slate-50);
-    }
-    .docente-shell .global-header .icon-btn {
-        background: var(--background-color-white);
-        border-color: var(--color-line-control);
-        border-radius: 8px;
-        color: var(--color-ink);
-    }
-    .docente-shell .global-header .icon-btn:hover {
-        background: var(--background-color-slate-50);
-    }
-    .docente-shell .global-header .mobile-search-trigger {
-        background: var(--background-color-white);
-        border-color: var(--color-line-control);
-        border-radius: 8px;
-        color: var(--color-ink);
-        box-shadow: none;
     }
 }
 

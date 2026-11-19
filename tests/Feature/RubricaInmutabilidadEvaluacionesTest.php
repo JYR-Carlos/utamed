@@ -188,7 +188,7 @@ test('showEvaluacion expone tiene_evaluaciones = true y puede_editar_rubrica = f
 
     $response->assertStatus(200);
     $response->assertInertia(fn (Assert $page) => $page
-        ->component('docente/Activities/Index')
+        ->component('docente/Actividades')
         ->where('tiene_evaluaciones', true)
         ->where('puede_editar_rubrica', false)
         ->where('estado_rubrica', 'CERRADA')
@@ -249,7 +249,7 @@ test('showEvaluacion entrega integrantes con nombre_apellidos_primero ordenados 
         ->get("/docente/cursos/{$f['id_curso']}/actividades/{$f['id_actividad']}/evaluacion");
 
     $response->assertInertia(function (Assert $page) {
-        $page->component('docente/Activities/Index')
+        $page->component('docente/Actividades')
             ->has('grupos')
             ->where('grupos', function ($grupos) {
                 // Verificar que si hay integrantes, su nombre_completo tiene formato con apellido primero

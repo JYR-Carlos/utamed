@@ -10,7 +10,7 @@
    */
   import { TriangleAlert } from 'lucide-svelte';
   import type { CalendarCurso, CalendarDay, CalendarItem, CursoAccent, Sobrecarga } from '../types';
-  import { DIAS_SEMANA, minutosAhora, minutosDeHora, todayKey } from '../utils/calendar';
+  import { codigoCurso, DIAS_SEMANA, minutosAhora, minutosDeHora, todayKey } from '../utils/calendar';
   import EventPill from './EventPill.svelte';
 
   interface Props {
@@ -131,15 +131,14 @@
   function etiquetaCurso(id: number): string {
     const curso = cursoPorId[id];
     if (!curso) return '';
-    const cod = curso.cod_curso ?? curso.asignatura;
-    return curso.letra_grupo ? `${cod} · ${curso.letra_grupo}` : String(cod);
+    return codigoCurso(curso);
   }
 
   function fondoColumna(dia: CalendarDay, hayCarga: boolean): string {
-    if (dia.isToday) return 'var(--background-color-blue-50, #F7FAFF)';
-    if (hayCarga) return 'var(--background-color-red-50, #FFFCFC)';
-    if (dia.isWeekend) return 'var(--background-color-stone-50, #FBFAF8)';
-    return 'var(--background-color-white, #FFFFFF)';
+    if (dia.isToday) return 'var(--color-inst-sel)';
+    if (hayCarga) return 'var(--color-inst-warn-s)';
+    if (dia.isWeekend) return 'var(--color-inst-sutil)';
+    return 'var(--color-inst-tarjeta)';
   }
 
   /** Avisos de sobrecarga de toda la semana, para la banda superior. */
@@ -153,39 +152,39 @@
 </script>
 
 <div
-  class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)]"
+  class="overflow-hidden rounded-xl border border-inst-linea bg-inst-tarjeta shadow-[0_1px_3px_rgba(0,0,0,.06)]"
 >
   <div class="overflow-x-auto">
     <div class="min-w-[860px]">
       <!-- Cabecera de días -->
-      <div class="flex border-b border-gray-200 bg-stone-100">
-        <div class="w-[52px] shrink-0 border-r border-gray-200"></div>
+      <div class="flex border-b border-inst-linea bg-inst-sutil">
+        <div class="w-[52px] shrink-0 border-r border-inst-linea"></div>
         {#each dias as dia, i (dia.iso)}
           {@const cargas = sobrecargas[dia.iso] ?? []}
           <div
-            class="flex flex-1 flex-col gap-px border-r border-gray-200 px-2 pb-2.5 pt-2 last:border-r-0"
+            class="flex flex-1 flex-col gap-px border-r border-inst-linea px-2 pb-2.5 pt-2 last:border-r-0"
             style="background:{fondoColumna(dia, cargas.length > 0)};{dia.isToday
-              ? 'box-shadow:inset 0 4px 0 var(--color-navy, var(--color-navy, #002F6C))'
+              ? 'box-shadow:inset 0 4px 0 var(--color-inst-accion)'
               : ''}"
           >
             <span class="flex flex-wrap items-center gap-1.5">
               <span
                 class="text-[10.5px] font-semibold uppercase tracking-[0.06em] {dia.isToday
-                  ? 'font-bold text-navy'
+                  ? 'font-bold text-inst-accion-t'
                   : dia.isWeekend
-                    ? 'text-zinc-400'
-                    : 'text-ink-2'}"
+                    ? 'text-inst-ink-3'
+                    : 'text-inst-ink-2'}"
               >
                 {DIAS_SEMANA[i]}{dia.isToday ? ' · hoy' : ''}
               </span>
               {#each cargas as carga (carga.clave)}
                 <span
-                  class="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-1.5 text-[9.5px] font-bold text-red-700"
+                  class="inline-flex items-center gap-1 rounded-full border border-inst-warn/40 bg-inst-warn-s px-1.5 text-[9.5px] font-bold text-inst-warn"
                   title="Grupo {carga.letra} tiene {carga.total} entregas este día: {carga.titulos.join(
                     ', ',
                   )}"
                 >
-                  <TriangleAlert size={9} class="text-red-700" />
+                  <TriangleAlert size={9} class="text-inst-warn" />
                   {carga.letra} ×{carga.total}
                 </span>
               {/each}
@@ -193,11 +192,11 @@
             <button
               type="button"
               onclick={() => onSelectDay?.(dia.iso)}
-              class="w-fit text-[15px] font-semibold transition-colors hover:text-navy {dia.isToday
-                ? 'text-navy'
+              class="w-fit text-[15px] font-semibold transition-colors hover:text-inst-accion-t {dia.isToday
+                ? 'text-inst-accion-t'
                 : dia.isWeekend
-                  ? 'text-zinc-400'
-                  : 'text-ink'}"
+                  ? 'text-inst-ink-3'
+                  : 'text-inst-ink'}"
             >
               {dia.dayOfMonth}
             </button>
@@ -206,9 +205,9 @@
       </div>
 
       <!-- Franja "sin hora": fechas límite e hitos -->
-      <div class="flex border-b border-line bg-zinc-50">
+      <div class="flex border-b border-inst-linea bg-inst-sutil">
         <div
-          class="w-[52px] shrink-0 border-r border-gray-200 px-1.5 py-2 text-[9.5px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-ink-2"
+          class="w-[52px] shrink-0 border-r border-inst-linea px-1.5 py-2 text-[9.5px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-inst-ink-2"
         >
           sin<br />hora
         </div>
@@ -216,7 +215,7 @@
           {@const marcas = sinHora(dia.iso)}
           {@const cargas = sobrecargas[dia.iso] ?? []}
           <div
-            class="flex min-h-[44px] min-w-0 flex-1 flex-col gap-1 border-r border-gray-200 p-1.5 last:border-r-0"
+            class="flex min-h-[44px] min-w-0 flex-1 flex-col gap-1 border-r border-inst-linea p-1.5 last:border-r-0"
             style="background:{fondoColumna(dia, cargas.length > 0)}"
           >
             {#each marcas as item (item.key)}
@@ -234,9 +233,9 @@
       <!-- Avisos de sobrecarga de la semana -->
       {#each avisosSemana as aviso (aviso.iso + aviso.carga.clave)}
         <div
-          class="flex items-start gap-2 border-b border-rose-200 bg-zinc-50 px-3 py-2 text-[11.5px] leading-[1.45] text-red-900"
+          class="flex items-start gap-2 border-b border-inst-warn/40 bg-inst-sutil px-3 py-2 text-[11.5px] leading-[1.45] text-inst-warn"
         >
-          <TriangleAlert size={13} class="text-red-700 mt-0.5 shrink-0" />
+          <TriangleAlert size={13} class="text-inst-warn mt-0.5 shrink-0" />
           <span>
             <span class="font-bold">
               Grupo {aviso.carga.letra}: {aviso.carga.total} entregas el día {aviso.iso
@@ -257,10 +256,10 @@
 
       <!-- Rejilla horaria con las sesiones de asistencia -->
       <div class="flex">
-        <div class="w-[52px] shrink-0 border-r border-gray-200">
+        <div class="w-[52px] shrink-0 border-r border-inst-linea">
           {#each horas as minutos (minutos)}
             <div
-              class="px-1.5 pt-0.5 text-right font-mono text-[10.5px] text-ink-3"
+              class="px-1.5 pt-0.5 text-right font-mono text-[10.5px] text-inst-ink-3"
               style="height:{ALTO_HORA}px"
             >
               {etiquetaHora(minutos)}
@@ -272,11 +271,11 @@
           {@const cargas = sobrecargas[dia.iso] ?? []}
           {@const bloques = disponer(dia.iso)}
           <div
-            class="relative min-w-0 flex-1 border-r border-gray-200 last:border-r-0"
+            class="relative min-w-0 flex-1 border-r border-inst-linea last:border-r-0"
             style="height:{altoRejilla}px;background:{fondoColumna(
               dia,
               cargas.length > 0,
-            )};background-image:repeating-linear-gradient(to bottom,var(--background-color-gray-100, #EFF1F4) 0 1px,transparent 1px {ALTO_HORA}px)"
+            )};background-image:repeating-linear-gradient(to bottom,var(--color-inst-linea) 0 1px,transparent 1px {ALTO_HORA}px)"
           >
             {#each bloques as bloque (bloque.item.key)}
               {@const accent = accentPorCurso[bloque.item.id_curso]}
@@ -291,10 +290,10 @@
                 <span class="font-mono text-[10px] leading-none" style="color:{accent.text}">
                   {sesion.hora_inicio} – {sesion.hora_fin}
                 </span>
-                <span class="truncate text-[11.5px] font-semibold leading-[1.2] text-ink">
+                <span class="truncate text-[11.5px] font-semibold leading-[1.2] text-inst-ink">
                   {etiquetaCurso(bloque.item.id_curso)}
                 </span>
-                <span class="truncate text-[10.5px] font-semibold text-emerald-700">
+                <span class="truncate text-[10.5px] font-semibold text-inst-ok">
                   {sesion.presentes}/{sesion.total} presentes
                 </span>
               </button>
@@ -302,11 +301,11 @@
 
             {#if dia.iso === hoy && topAhora !== null}
               <div
-                class="pointer-events-none absolute inset-x-0 z-[5] border-t-2 border-navy"
+                class="pointer-events-none absolute inset-x-0 z-[5] border-t-2 border-inst-accion"
                 style="top:{topAhora}px"
               >
                 <span
-                  class="absolute -top-[5px] left-0 h-2 w-2 rounded-full bg-navy"
+                  class="absolute -top-[5px] left-0 h-2 w-2 rounded-full bg-inst-accion"
                   aria-hidden="true"
                 ></span>
               </div>

@@ -1,52 +1,38 @@
 <script lang="ts">
   /**
-   * Modal deslizante de detalle de estudiante — Docente Titular.
+   * Ficha del estudiante (revisión «Mi UTAmed»): modal sobre la pestaña
+   * Estudiantes con el nombre, el RUT con formato y tres pestañas.
    *
-   * Muestra información contextual de un estudiante dentro de un curso,
-   * organizada en tres pestañas:
+   *  - General: promedio (nota del componente) y asistencia.
+   *  - Contacto: correo institucional y lo que el alumno declaró en su perfil.
+   *  - Evaluación: cada actividad publicada de su componente con su nota o
+   *    calificación (o el estado de la entrega) y «Agenda», que abre su
+   *    agenda encima de la ficha.
    *
-   *  1. Evaluaciones — Lista de actividades publicadas del curso.
-   *                    Enlaza a la página de calificación por actividad.
-   *  2. Mensajes     — Canal de comunicación privada (próximamente).
-   *  3. Asistencia   — Registro de asistencia (próximamente).
-   *
-   * Props:
-   *  - abierto     : boolean        — Controla la visibilidad del panel.
-   *  - estudiante  : Estudiante     — Inscripción con datos del alumno.
-   *  - actividades : Actividad[]    — Actividades del curso (filtradas aquí).
-   *  - idCurso     : number         — ID del curso para construir rutas.
-   *  - onCerrar    : () => void     — Callback para cerrar el panel.
+   * «Enviar mensaje» lleva a su conversación en la mensajería del curso.
    */
   import { Link } from '@inertiajs/svelte';
-  import {
-    X,
-    BookOpenCheck,
-    MessageSquare,
-    ClipboardList,
-    ExternalLink,
-    GraduationCap,
-    Construction,
-    Calendar,
-    Users,
-    User,
-    Send,
-    Loader2,
-  } from 'lucide-svelte';
-  import type { Actividad } from '@/types/actividad';
-  import { initials, formatFechaCorta } from '@/utils/formatters';
-
-  // ── Types ─────────────────────────────────────────────────────────────────
+  import { MessageSquare } from 'lucide-svelte';
+  import ModalInst from '@/components/docente/ModalInst.svelte';
+  import AgendaGrupoModal from '../Activities/Agenda/AgendaGrupoModal.svelte';
+  import { aviso, avisoTono, btnSecundario, chico, chip, etiqueta, tarjeta, tono } from '@/lib/inst';
+  import { textosEntrega, TONO_ENTREGA, type EstadoEntrega } from '@/lib/estadoEntrega';
+  import { formatNota } from '@/utils/formatters';
+  import { formatRut } from '@/lib/validators';
 
   interface Estudiante {
     id_inscripcion_componente: number;
     id_componente: number;
     tipo_componente: string;
     nota_componente: number | null;
+    asistencia?: { presentes: number; total: number };
     estudiante: {
       id_estudiante: number;
+      id_usuario?: number;
       nombre: string;
       username: string;
-      email?: string;
+      rut?: string | null;
+      email?: string | null;
       /** Contacto personal que declara el alumno (T10). Sólo lectura. */
       contacto?: {
         correo_personal: string | null;
@@ -59,506 +45,215 @@
   interface Props {
     abierto: boolean;
     estudiante: Estudiante;
-    actividades: Actividad[];
     idCurso: number;
-    mensajesEstudiante?: Mensaje[];
+    /** «DM069 · Grupo A», para el subtítulo. */
+    cursoEtiqueta?: string;
     onCerrar: () => void;
   }
 
-  // ── Props ─────────────────────────────────────────────────────────────────
+  let { abierto, estudiante, idCurso, cursoEtiqueta, onCerrar }: Props = $props();
 
-  let { abierto, estudiante, actividades, idCurso, mensajesEstudiante = [], onCerrar }: Props = $props();
+  type Pestana = 'general' | 'contacto' | 'evaluacion';
+  let pestana = $state<Pestana>('evaluacion');
 
-  // ── Tab state ─────────────────────────────────────────────────────────────
-
-  type Tab = 'evaluaciones' | 'mensajes' | 'asistencia';
-  let tab = $state<Tab>('evaluaciones');
-
-  const TABS: { id: Tab; label: string; Icon: any; soon?: true }[] = [
-    { id: 'evaluaciones', label: 'Evaluaciones', Icon: BookOpenCheck },
-    { id: 'mensajes', label: 'Mensajes', Icon: MessageSquare },
-    { id: 'asistencia', label: 'Asistencia', Icon: ClipboardList, soon: true },
-  ];
-
-  // ── Mensajes state ────────────────────────────────────────────────────────
-
-  interface Mensaje {
-    id_agenda: number;
-    fecha_envio: string;
-    mensaje: string;
-    grupo: number;
-    tipo_registro: 'Mensaje al profesor' | 'Feedback' | string;
-    emisor_nombre: string;
-    emisor_id_usuario: number;
-    actividad_nombre: string;
+  type FilaEvaluacion = {
     id_actividad: number;
-  }
-
-  let mensajesLoading = $state(false);
-  let mensajesError = $state<string | null>(null);
-
-  /*
-   * Alumno cuyos mensajes ya se pidieron (con éxito o no). Antes la carga se
-   * disparaba mientras `mensajesEstudiante` viniera vacío, así que un alumno
-   * sin mensajes provocaba un router.reload() tras otro sin fin (BUG-01).
-   * Ahora se pide una sola vez por alumno, aunque la respuesta venga vacía.
-   */
-  let mensajesCargadosPara = $state<number | null>(null);
-
-  const idEstudianteActual = $derived(estudiante.estudiante.id_estudiante);
-
-  /** La prop de página conserva la respuesta del alumno anterior: sólo vale la del actual. */
-  const mensajesVisibles = $derived(
-    mensajesCargadosPara === idEstudianteActual ? mensajesEstudiante : [],
-  );
-
-  // Reply form state: keyed by grupo ID
-  let replyingGrupo = $state<number | null>(null);
-  let replyText = $state('');
-  let isSendingReply = $state(false);
-
-  // ── Derived data ──────────────────────────────────────────────────────────
-
-  const NOMBRE_RED: Record<string, string> = {
-    youtube: 'YouTube',
-    x: 'X',
-    instagram: 'Instagram',
-    linkedin: 'LinkedIn',
+    nombre: string;
+    es_sumativa: boolean;
+    grupo: number;
+    nota: number | null;
+    calificacion: string | null;
+    estado: EstadoEntrega;
   };
 
-  const contacto = $derived(estudiante.estudiante.contacto);
-  const redes = $derived(
-    Object.entries(contacto?.redes_sociales ?? {}).filter(([, url]) => !!url) as [string, string][],
+  let filas = $state<FilaEvaluacion[] | null>(null);
+  let error = $state<string | null>(null);
+  let agendaDe = $state<FilaEvaluacion | null>(null);
+
+  const url = $derived(
+    `/docente/cursos/${idCurso}/componentes/${estudiante.id_componente}/estudiantes/${estudiante.estudiante.id_estudiante}/evaluacion`,
   );
-  const tieneContacto = $derived(!!contacto?.correo_personal || !!contacto?.celular || redes.length > 0);
 
-  /** Only show published activities (visible === true). */
-  const actividadesPublicadas = $derived(actividades.filter((a) => a.visible));
+  async function cargar() {
+    error = null;
+    try {
+      const r = await fetch(url, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!r.ok) throw new Error(String(r.status));
+      filas = await r.json();
+    } catch {
+      error = 'No se pudo cargar la evaluación del estudiante.';
+    }
+  }
 
-  // Reset tab when modal re-opens for a different student
+  // Al abrir la ficha de otro estudiante se vuelve a «Evaluación» y se pide lo suyo.
+  let cargadaPara = $state<number | null>(null);
   $effect(() => {
-    if (abierto) {
-      tab = 'evaluaciones';
-      mensajesError = null;
-      replyingGrupo = null;
-      replyText = '';
+    if (abierto && cargadaPara !== estudiante.id_inscripcion_componente) {
+      cargadaPara = estudiante.id_inscripcion_componente;
+      pestana = 'evaluacion';
+      filas = null;
+      cargar();
     }
   });
 
-  // Load messages when switching to mensajes tab
-  $effect(() => {
-    if (
-      tab === 'mensajes' &&
-      abierto &&
-      mensajesCargadosPara !== idEstudianteActual &&
-      !mensajesLoading &&
-      !mensajesError
-    ) {
-      loadMensajes();
-    }
-  });
+  const e = $derived(estudiante.estudiante);
+  const rut = $derived(e.rut ? formatRut(e.rut) : null);
+  const asistencia = $derived(
+    estudiante.asistencia && estudiante.asistencia.total > 0
+      ? Math.round((estudiante.asistencia.presentes / estudiante.asistencia.total) * 100)
+      : null,
+  );
+  const notasSumativas = $derived((filas ?? []).filter((f) => f.es_sumativa && f.nota !== null).length);
 
-  // Close on Escape
-  $effect(() => {
-    function onKeydown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && abierto) onCerrar();
-    }
-    window.addEventListener('keydown', onKeydown);
-    return () => window.removeEventListener('keydown', onKeydown);
-  });
+  const NOMBRE_RED: Record<string, string> = { youtube: 'YouTube', x: 'X', instagram: 'Instagram', linkedin: 'LinkedIn' };
+  const redes = $derived(
+    Object.entries(e.contacto?.redes_sociales ?? {}).filter(([, v]) => !!v) as [string, string][],
+  );
+  const contacto = $derived([
+    ['Correo institucional', e.email ?? null],
+    ['Correo personal', e.contacto?.correo_personal ?? null],
+    ['Teléfono', e.contacto?.celular ?? null],
+  ] as const);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  const TONO_CALIFICACION: Record<string, string> = { Bueno: tono.ok, Regular: tono.warn, Malo: tono.error };
 
-  function isOverdue(d: string): boolean {
-    return new Date(d) < new Date();
-  }
-
-  function formatNota(nota: number | null): string {
-    if (nota === null || nota === undefined) return '—';
-    return nota.toFixed(1);
-  }
-
-  function notaColorClass(nota: number | null): string {
-    if (nota === null) return 'text-muted-foreground';
-    return nota >= 4.0 ? 'text-emerald-700' : 'text-red-600';
-  }
-
-  import { router } from '@inertiajs/svelte';
-
-  function loadMensajes() {
-    const idEstudiante = idEstudianteActual;
-    mensajesLoading = true;
-    mensajesError = null;
-
-    router.reload({
-      only: ['mensajesEstudiante'],
-      data: { estudiante_id: idEstudiante },
-      onSuccess: () => {
-        mensajesCargadosPara = idEstudiante;
-      },
-      onError: () => {
-        mensajesError = 'Error al cargar mensajes.';
-      },
-      onFinish: () => {
-        mensajesLoading = false;
-      },
-    });
-  }
-
-  function enviarFeedback(grupoId: number) {
-    if (!replyText.trim()) return;
-    isSendingReply = true;
-
-    router.post(
-      `/docente/cursos/${idCurso}/grupos/${grupoId}/feedback`,
-      { mensaje: replyText.trim() },
-      {
-        preserveScroll: true,
-        preserveState: true,
-        onSuccess: () => {
-          replyText = '';
-          replyingGrupo = null;
-          isSendingReply = false;
-          // Recargar mensajes
-          loadMensajes();
-        },
-        onError: () => {
-          mensajesError = 'Error al enviar feedback.';
-          isSendingReply = false;
-        },
-      }
-    );
-  }
-
-  // Agrupa mensajes por grupo para mostrar hilos por actividad
-  function mensajesPorGrupo(
-    msgs: Mensaje[],
-  ): Map<number, { actividad_nombre: string; items: Mensaje[] }> {
-    const map = new Map<number, { actividad_nombre: string; items: Mensaje[] }>();
-    for (const m of msgs) {
-      if (!map.has(m.grupo)) {
-        map.set(m.grupo, { actividad_nombre: m.actividad_nombre, items: [] });
-      }
-      map.get(m.grupo)!.items.push(m);
-    }
-    return map;
-  }
+  const PESTANAS: Array<[Pestana, string]> = [
+    ['general', 'General'],
+    ['contacto', 'Contacto'],
+    ['evaluacion', 'Evaluación'],
+  ];
+  const fila = 'grid grid-cols-1 gap-1 border-b border-inst-linea py-3 last:border-b-0 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
 </script>
 
 {#if abierto}
-  <!-- Backdrop -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
-    onclick={onCerrar}
-    aria-hidden="true"
-  ></div>
-
-  <!-- Slide-over panel -->
-  <div
-    class="fixed inset-y-0 right-0 z-50 flex flex-col w-full max-w-md bg-white shadow-2xl border-l border-slate-200 overflow-hidden"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Detalle del estudiante {estudiante.estudiante.nombre}"
-  >
-    <!-- ── Header ─────────────────────────────────────────────────────────── -->
-    <div
-      class="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200 shrink-0"
-    >
-      <div class="flex items-center gap-3 min-w-0">
-        <div
-          class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold shrink-0 select-none"
-          aria-hidden="true"
-        >
-          {initials(estudiante.estudiante.nombre)}
-        </div>
-        <div class="min-w-0">
-          <p class="font-bold text-slate-900 leading-tight truncate">
-            {estudiante.estudiante.nombre}
-          </p>
-          <p class="text-xs text-muted-foreground">{estudiante.estudiante.username}</p>
-        </div>
-      </div>
-      <button
-        onclick={onCerrar}
-        class="mt-0.5 p-1.5 rounded-lg text-muted-foreground hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
-        aria-label="Cerrar panel"
-      >
-        <X size={18} />
-      </button>
-    </div>
-
-    <!-- ── Context strip ──────────────────────────────────────────────────── -->
-    <div
-      class="flex items-center gap-3 px-5 py-2.5 bg-slate-50 border-b border-slate-100 text-sm shrink-0"
-    >
-      <span
-        class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700"
-      >
-        {estudiante.tipo_componente}
-      </span>
-      <span class="text-muted-foreground text-xs">Nota final:</span>
-      <span class="text-sm font-bold {notaColorClass(estudiante.nota_componente)}">
-        {formatNota(estudiante.nota_componente)}
-      </span>
-    </div>
-
-    <!-- ── Contacto personal (sólo lectura) ──────────────────────────────── -->
-    <div class="flex flex-col gap-1.5 px-5 py-3 border-b border-slate-100 text-xs shrink-0">
-      <span class="font-bold uppercase tracking-widest text-muted-foreground">Contacto</span>
-      {#if tieneContacto}
-        <div class="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
-          {#if contacto?.correo_personal}
-            <a href="mailto:{contacto.correo_personal}" class="hover:text-indigo-700 hover:underline">
-              {contacto.correo_personal}
-            </a>
-          {/if}
-          {#if contacto?.celular}
-            <a href="tel:{contacto.celular.replace(/\s+/g, '')}" class="hover:text-indigo-700 hover:underline">
-              {contacto.celular}
-            </a>
-          {/if}
-          {#each redes as [red, url] (red)}
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center gap-1 hover:text-indigo-700 hover:underline"
-            >
-              {NOMBRE_RED[red] ?? red}
-              <ExternalLink size={11} />
-            </a>
-          {/each}
-        </div>
-      {:else}
-        <span class="text-muted-foreground">El estudiante no ha registrado datos de contacto personal.</span>
-      {/if}
-    </div>
-
-    <!-- ── Tabs ───────────────────────────────────────────────────────────── -->
-    <nav class="flex border-b border-slate-200 bg-white shrink-0" aria-label="Secciones">
-      {#each TABS as t (t.id)}
-        {@const active = tab === t.id}
-        {@const Icon = t.Icon}
+  <ModalInst titulo={e.nombre} subtitulo={[rut ? `RUT ${rut}` : null, cursoEtiqueta].filter(Boolean).join(' · ')} ancho={900} {onCerrar}>
+    <div class="-mx-5 -mt-4 flex border-b border-inst-linea bg-inst-tarjeta px-5" role="tablist" aria-label="Ficha del estudiante">
+      {#each PESTANAS as [id, texto] (id)}
         <button
-          onclick={() => !t.soon && (tab = t.id)}
-          disabled={t.soon}
-          aria-selected={active}
+          type="button"
           role="tab"
-          class="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold transition-colors border-b-2
-            {active
-            ? 'border-indigo-600 text-indigo-700'
-            : t.soon
-              ? 'border-transparent text-slate-300 cursor-not-allowed'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}"
+          aria-selected={pestana === id}
+          class="-mb-px min-h-11 border-b-2 px-4 font-bold {pestana === id
+            ? 'border-inst-accion text-inst-accion-t'
+            : 'border-transparent text-inst-ink-2 hover:text-inst-ink'}"
+          onclick={() => (pestana = id)}
         >
-          <Icon size={13} />
-          {t.label}
-          {#if t.soon}
-            <span
-              class="ml-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-100 text-amber-600 uppercase tracking-wide leading-none"
-            >
-              Pronto
-            </span>
-          {/if}
+          {texto}
         </button>
       {/each}
-    </nav>
+    </div>
 
-    <!-- ── Tab panels ─────────────────────────────────────────────────────── -->
-    <div class="flex-1 overflow-y-auto" role="tabpanel">
-      <!-- Evaluaciones -->
-      {#if tab === 'evaluaciones'}
-        <div class="p-5 flex flex-col gap-3">
-          <p class="text-xs text-muted-foreground uppercase font-bold tracking-widest">
-            Actividades publicadas ({actividadesPublicadas.length})
-          </p>
-
-          {#if actividadesPublicadas.length === 0}
-            <div class="flex flex-col items-center gap-3 py-14 text-center text-muted-foreground">
-              <GraduationCap size={36} class="opacity-40" />
-              <p class="text-sm">No hay actividades publicadas en este curso.</p>
-            </div>
-          {:else}
-            {#each actividadesPublicadas as act (act.id_actividad)}
-              <div
-                class="bg-white border border-slate-200 rounded-lg p-4 hover:border-indigo-200 hover:shadow-sm transition-all"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex-1 min-w-0">
-                    <p class="font-semibold text-slate-800 text-sm leading-snug truncate">
-                      {act.nombre}
-                    </p>
-                    <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-500">
-                      <span class="flex items-center gap-1">
-                        <Calendar size={11} />
-                        {formatFechaCorta(act.fecha_limite)}
-                        {#if isOverdue(act.fecha_limite)}
-                          <span class="text-red-500 font-semibold">(Vencida)</span>
-                        {/if}
-                      </span>
-                      <span class="flex items-center gap-1">
-                        {#if act.es_grupal}
-                          <Users size={11} />
-                          Grupal
-                        {:else}
-                          <User size={11} />
-                          Individual
-                        {/if}
-                      </span>
-                    </div>
-                  </div>
-
-                  <Link
-                    href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
-                    class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors no-underline shrink-0"
-                    title="Ir a calificaciones de esta actividad"
-                  >
-                    <ExternalLink size={11} />
-                    Calificar
-                  </Link>
-                </div>
-              </div>
-            {/each}
+    {#if pestana === 'general'}
+      <div class="{tarjeta} grid grid-cols-1 sm:grid-cols-2">
+        <div class="flex flex-col gap-1 border-inst-linea px-5 py-4 max-sm:border-b sm:border-r">
+          <span class={etiqueta}>Promedio</span>
+          <span class="font-inst-titulo text-[28px] leading-8 font-bold">
+            {estudiante.nota_componente !== null ? formatNota(estudiante.nota_componente) : '—'}
+          </span>
+          {#if filas !== null}
+            <span class="text-[13px] text-inst-ink-2">
+              {notasSumativas}
+              {notasSumativas === 1 ? 'nota sumativa' : 'notas sumativas'}
+            </span>
           {/if}
         </div>
-
-        <!-- Mensajes -->
-      {:else if tab === 'mensajes'}
-        <div class="p-5 flex flex-col gap-4">
-          <!-- El spinner sólo tapa la primera carga; al recargar tras responder
-               se conserva la lista para que no parpadee. -->
-          {#if mensajesLoading && mensajesVisibles.length === 0}
-            <div class="flex items-center justify-center gap-2 py-12 text-muted-foreground text-sm">
-              <Loader2 size={18} class="animate-spin" />
-              Cargando mensajes…
-            </div>
-          {:else if mensajesError}
-            <div class="text-center py-10 text-red-500 text-sm">{mensajesError}</div>
-          {:else if mensajesVisibles.length === 0}
-            <div class="flex flex-col items-center gap-3 py-14 text-center text-muted-foreground">
-              <MessageSquare size={32} class="opacity-30" />
-              <p class="text-sm">Este estudiante no ha enviado mensajes aún.</p>
-            </div>
-          {:else}
-            {@const hilos = mensajesPorGrupo(mensajesVisibles)}
-            {#each [...hilos.entries()] as [grupoId, hilo]}
-              <div class="border border-slate-200 rounded-xl overflow-hidden">
-                <!-- Cabecera del hilo -->
-                <div
-                  class="bg-slate-50 px-4 py-2.5 flex items-center justify-between border-b border-slate-200"
-                >
-                  <span class="text-xs font-semibold text-slate-600 truncate"
-                    >{hilo.actividad_nombre}</span
-                  >
-                  <span class="text-[10px] text-muted-foreground ml-2 shrink-0">#{grupoId}</span>
-                </div>
-
-                <!-- Mensajes del hilo -->
-                <div class="flex flex-col gap-0">
-                  {#each hilo.items as msg (msg.id_agenda)}
-                    {@const esDocente = msg.tipo_registro === 'Feedback'}
-                    <div
-                      class="px-4 py-3 border-b border-slate-100 last:border-b-0 {esDocente
-                        ? 'bg-indigo-50'
-                        : 'bg-white'}"
-                    >
-                      <div class="flex items-center gap-2 mb-1">
-                        <span
-                          class="text-[10px] font-bold px-2 py-0.5 rounded-full {esDocente
-                            ? 'bg-indigo-100 text-indigo-700'
-                            : 'bg-slate-100 text-slate-600'}"
-                        >
-                          {esDocente ? 'Docente' : 'Estudiante'}
-                        </span>
-                        <span class="text-[10px] text-muted-foreground">
-                          {new Date(msg.fecha_envio).toLocaleString('es-CL', {
-                            day: '2-digit',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                      <p class="text-sm text-slate-800 leading-relaxed">{msg.mensaje}</p>
-                    </div>
-                  {/each}
-                </div>
-
-                <!-- Formulario de respuesta -->
-                {#if replyingGrupo === grupoId}
-                  <div class="p-3 bg-indigo-50 border-t border-indigo-100">
-                    <textarea
-                      bind:value={replyText}
-                      rows={3}
-                      placeholder="Escribe tu feedback…"
-                      class="w-full px-3 py-2 text-sm border border-indigo-200 rounded-lg bg-white focus:outline-none focus:border-indigo-400 resize-none"
-                    ></textarea>
-                    <div class="flex gap-2 mt-2 justify-end">
-                      <button
-                        onclick={() => {
-                          replyingGrupo = null;
-                          replyText = '';
-                        }}
-                        class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-100"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onclick={() => enviarFeedback(grupoId)}
-                        disabled={!replyText.trim() || isSendingReply}
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        {#if isSendingReply}
-                          <Loader2 size={12} class="animate-spin" />
-                        {:else}
-                          <Send size={12} />
-                        {/if}
-                        Enviar
-                      </button>
-                    </div>
-                  </div>
-                {:else}
-                  <div class="px-4 py-2 bg-white">
-                    <button
-                      onclick={() => {
-                        replyingGrupo = grupoId;
-                        replyText = '';
-                      }}
-                      class="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1"
-                    >
-                      <Send size={11} />
-                      Responder con feedback
-                    </button>
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          {/if}
-        </div>
-
-        <!-- Asistencia — próximamente -->
-      {:else if tab === 'asistencia'}
-        <div class="flex flex-col items-center justify-center gap-4 py-24 px-6 text-center">
-          <div
-            class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center"
-          >
-            <Construction size={28} class="text-amber-500" />
-          </div>
-          <div>
-            <p class="font-bold text-slate-700">Registro de Asistencia</p>
-            <p class="text-sm text-muted-foreground mt-1.5 leading-relaxed max-w-xs">
-              El módulo de consulta y registro de asistencia estará disponible próximamente.
-            </p>
-          </div>
-          <span
-            class="text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-700 uppercase tracking-wider"
-          >
-            Próximamente
+        <div class="flex flex-col gap-1 px-5 py-4">
+          <span class={etiqueta}>Asistencia</span>
+          <span class="font-inst-titulo text-[28px] leading-8 font-bold">{asistencia !== null ? `${asistencia} %` : '—'}</span>
+          <span class="text-[13px] text-inst-ink-2">
+            {estudiante.asistencia && estudiante.asistencia.total > 0
+              ? `${estudiante.asistencia.presentes} de ${estudiante.asistencia.total} sesiones`
+              : 'Sin sesiones registradas'}
           </span>
         </div>
+      </div>
+    {:else if pestana === 'contacto'}
+      <p class="m-0 text-[13px] text-inst-ink-2">Datos que el estudiante ingresó en su perfil.</p>
+      <dl class="{tarjeta} m-0 px-4.5 py-1">
+        {#each contacto as [clave, valor] (clave)}
+          <div class={fila}>
+            <dt class="{etiqueta} leading-5">{clave}</dt>
+            <dd class="m-0 font-semibold break-words {valor ? '' : 'text-inst-ink-3'}">{valor || 'Sin registro'}</dd>
+          </div>
+        {/each}
+        {#each redes as [red, enlace] (red)}
+          <div class={fila}>
+            <dt class="{etiqueta} leading-5">{NOMBRE_RED[red] ?? red}</dt>
+            <dd class="m-0 font-semibold break-words">
+              <a href={enlace} target="_blank" rel="noopener noreferrer" class="text-inst-enlace">{enlace}</a>
+            </dd>
+          </div>
+        {/each}
+      </dl>
+    {:else if error}
+      <div class="{aviso} {avisoTono.error}" role="alert"><p class="m-0 font-bold">{error}</p></div>
+    {:else if filas === null}
+      <p class="m-0 py-6 text-center text-inst-ink-2" role="status">Cargando la evaluación…</p>
+    {:else if filas.length === 0}
+      <p class="{tarjeta} m-0 px-5 py-4 text-inst-ink-2">Todavía no hay actividades publicadas en su componente.</p>
+    {:else}
+      <div class="{tarjeta} overflow-x-auto">
+        <table class="w-full border-collapse text-left">
+          <thead>
+            <tr class="bg-inst-cabecera text-xs font-extrabold tracking-[0.04em] text-inst-ink-2 uppercase">
+              <th scope="col" class="px-4.5 py-3">Actividad</th>
+              <th scope="col" class="px-3 py-3">Tipo</th>
+              <th scope="col" class="px-3 py-3">Nota o calificación</th>
+              <th scope="col" class="px-4.5 py-3"><span class="sr-only">Agenda</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each filas as f (f.id_actividad)}
+              <tr class="border-t border-inst-linea">
+                <td class="px-4.5 py-3 font-bold">{f.nombre}</td>
+                <td class="px-3 py-3">
+                  <span class="{chip} {f.es_sumativa ? tono.accion : tono.info}">{f.es_sumativa ? 'Sumativa' : 'Formativa'}</span>
+                </td>
+                <td class="px-3 py-3 whitespace-nowrap">
+                  {#if f.es_sumativa && f.nota !== null}
+                    <span class="font-inst-titulo text-lg leading-[22px] font-bold">{formatNota(f.nota)}</span>
+                  {:else if !f.es_sumativa && f.calificacion}
+                    <span class="{chip} {TONO_CALIFICACION[f.calificacion] ?? tono.off}">{f.calificacion}</span>
+                  {:else}
+                    <span class="{chip} {tono[TONO_ENTREGA[f.estado]]}">{textosEntrega(f.es_sumativa)[f.estado]}</span>
+                  {/if}
+                </td>
+                <td class="px-4.5 py-3 text-right">
+                  <button type="button" class="{btnSecundario} {chico}" onclick={() => (agendaDe = f)}>
+                    <MessageSquare size={16} aria-hidden="true" />Agenda
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+
+    {#snippet pie()}
+      {#if e.id_usuario}
+        <Link
+          href="/docente/cursos/{idCurso}/mensajeria?componente_id={estudiante.id_componente}&alumno_id={e.id_usuario}"
+          class={btnSecundario}
+        >
+          <MessageSquare size={16} aria-hidden="true" />Enviar mensaje
+        </Link>
       {/if}
-    </div>
-  </div>
+      <button type="button" class="{btnSecundario} ml-auto" onclick={onCerrar}>Cerrar</button>
+    {/snippet}
+  </ModalInst>
+{/if}
+
+{#if agendaDe}
+  <AgendaGrupoModal
+    {idCurso}
+    idActividad={agendaDe.id_actividad}
+    idGrupo={agendaDe.grupo}
+    nombre={e.nombre}
+    pieCerrar=""
+    onCerrar={() => {
+      agendaDe = null;
+      cargar();
+    }}
+  />
 {/if}

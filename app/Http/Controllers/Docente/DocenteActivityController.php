@@ -31,6 +31,7 @@ use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
+use App\Services\FotoIntranetService;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -176,6 +177,17 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
 
+        return Inertia::render('docente/Actividades', $this->propsListaActividades($curso));
+    }
+
+    /**
+     * Props de la lista de actividades del curso. La comparten la lista sola
+     * (show) y la lista con una actividad desplegada (showEvaluacion): desde la
+     * revisión «Mi UTAmed» gestionar actividades y la hoja de la actividad son
+     * una sola pantalla.
+     */
+    private function propsListaActividades(Curso $curso): array
+    {
         $user = Auth::user();
         $idDocente = $user->docente->id_docente;
         $esTitular = $curso->id_docente_titular === $idDocente;
@@ -264,7 +276,12 @@ class DocenteActivityController extends Controller
                 ->selectRaw('aag.id_actividad, COUNT(*) AS total_entregas')
                 ->pluck('total_entregas', 'id_actividad');
 
-        $actividades = $actividades->map(function (Actividad $actividad) use ($pendientes, $avancePorActividad, $entregasPorActividad) {
+        // Con rúbrica o sin ella: el menú «⋯» ofrece «Crear rúbrica» o «Editar rúbrica».
+        $conRubrica = $idsActividad->isEmpty()
+            ? collect()
+            : Rubrica::whereIn('id_actividad', $idsActividad)->distinct()->pluck('id_actividad')->flip();
+
+        $actividades = $actividades->map(function (Actividad $actividad) use ($pendientes, $avancePorActividad, $entregasPorActividad, $conRubrica) {
             $datos = $actividad->toArray();
             $datos['mensajes_pendientes'] = $pendientes[$actividad->id_actividad] ?? 0;
             $datos['archivo_enunciado'] = $actividad->archivo ? [
@@ -275,11 +292,12 @@ class DocenteActivityController extends Controller
 
             $datos = array_merge($datos, self::datosAvance($avancePorActividad->get($actividad->id_actividad)));
             $datos['total_entregas'] = (int) ($entregasPorActividad[$actividad->id_actividad] ?? 0);
+            $datos['tiene_rubrica'] = $conRubrica->has($actividad->id_actividad);
 
             return $datos;
         });
 
-        return Inertia::render('docente/Actividades', [
+        return [
             'curso' => array_merge($curso->toArray(), [
                 'userPermissions' => $userPermissions,
                 'es_titular_curso' => $esTitular,
@@ -296,7 +314,7 @@ class DocenteActivityController extends Controller
             'unidades' => $unidades,
             'estados' => $estados,
             'reglas_enunciado' => $this->reglasEnunciado(),
-        ]);
+        ];
     }
 
     /**
@@ -797,13 +815,19 @@ class DocenteActivityController extends Controller
                 ->get()
                 ->groupBy('id_componente');
 
-        $data = $cursos->map(function ($curso) use ($idDocente, $actividadesPorComponente) {
+        // Avance por actividad (grupos que entregaron y esperan nota o
+        // feedback), con el mismo criterio que la lista de actividades.
+        $avance = app(AvanceEvaluacionService::class)->porActividad(
+            $actividadesPorComponente->flatten(1)->pluck('id_actividad')
+        );
+
+        $data = $cursos->map(function ($curso) use ($idDocente, $actividadesPorComponente, $avance) {
             $esTitularCurso = $curso->id_docente_titular === $idDocente;
 
             $componentes = $curso->componentes
                 // Titular del curso ve todos; el resto sólo los que imparte.
                 ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
-                ->map(function ($c) use ($actividadesPorComponente) {
+                ->map(function ($c) use ($actividadesPorComponente, $avance) {
                     $actividades = $actividadesPorComponente
                         ->get($c->id_componente, collect())
                         ->map(fn ($a) => [
@@ -813,6 +837,12 @@ class DocenteActivityController extends Controller
                             'es_grupal' => (bool) $a->es_grupal,
                             'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
                             'tiene_grupos' => $a->actividad_asignada_grupos_count > 0,
+                            // Sumativas: por_calificar / calificados; formativas:
+                            // por_revisar / con_feedback (feedback = revisada).
+                            'por_calificar' => $avance[$a->id_actividad]['por_calificar'] ?? 0,
+                            'calificados' => $avance[$a->id_actividad]['calificados'] ?? 0,
+                            'por_revisar' => $avance[$a->id_actividad]['por_revisar'] ?? 0,
+                            'con_feedback' => $avance[$a->id_actividad]['con_feedback'] ?? 0,
                         ])
                         ->values();
 
@@ -871,6 +901,71 @@ class DocenteActivityController extends Controller
         // (evento en InscripcionCurso). Para los datos anteriores está el comando
         // `agenda:backfill-grupos-individuales`.
 
+        $grupos = $this->gruposDeActividad($actividad);
+
+        [$rubricaData, $rubricaId, $estadoRubrica] = $this->rubricaDeActividad($actividad);
+
+        $tieneEvaluaciones = $actividad->hanComenzadoEvaluaciones();
+        $puedeEditarRubrica = $esTitular && !$tieneEvaluaciones;
+
+        // Revisión «Mi UTAmed»: la hoja de la actividad ya no es una pantalla
+        // aparte; es la fila desplegada de la lista de actividades del curso.
+        return Inertia::render('docente/Actividades', $this->propsListaActividades($curso) + [
+            'actividad' => $this->datosActividad($actividad, $esTitular),
+            'grupos' => $grupos,
+            'rubrica' => $rubricaData,
+            'rubrica_id' => $rubricaId,
+            'estado_rubrica' => $estadoRubrica,
+            'tiene_evaluaciones' => $tieneEvaluaciones,
+            'puede_editar_rubrica' => $puedeEditarRubrica,
+            'interaccionesGrupo' => Inertia::lazy(function () {
+                $grupoId = request('grupo_id') ?? session('agenda_grupo_id');
+                if (!$grupoId) {
+                    return [];
+                }
+
+                return (new LecturaAgendaService)->leerHilo(
+                    Auth::id(),
+                    (new ConversacionDocenteService)->hiloCompletoGrupo((int) $grupoId),
+                );
+            }),
+        ]);
+    }
+
+    /**
+     * La actividad tal como la usan la hoja desplegada y la agenda.
+     */
+    private function datosActividad(Actividad $actividad, bool $esTitular): array
+    {
+        $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
+        $traeArchivo = $actividad->tipo_entrega !== 'presencial';
+
+        return [
+            'id_actividad' => $actividad->id_actividad,
+            'nombre' => $actividad->nombre,
+            'descripcion' => $actividad->descripcion ?? '',
+            'fecha_limite' => $actividad->fecha_limite?->format('Y-m-d'),
+            'es_sumativa' => $esSumativa,
+            'trae_archivo' => $traeArchivo,
+            'es_grupal' => (bool) $actividad->es_grupal,
+            'max_integrantes' => $actividad->max_integrantes,
+            'es_titular' => $esTitular,
+            'nro_dias_adicionales_para_bloqueo' => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
+            // El enunciado se muestra junto a la rúbrica en «Sobre esta actividad».
+            'archivo_enunciado' => $actividad->archivo ? [
+                'nombre_original' => $actividad->archivo->nombre_original,
+                'mime_type' => $actividad->archivo->mime_type,
+                'peso_bytes' => $actividad->archivo->peso_bytes,
+            ] : null,
+        ];
+    }
+
+    /**
+     * Grupos de la actividad con integrantes, nota, entrega vigente, feedback
+     * y mensajes sin leer del docente, rotulados como se ven en pantalla.
+     */
+    private function gruposDeActividad(Actividad $actividad): \Illuminate\Support\Collection
+    {
         // Mensajes que el docente aún no ha visto, por grupo: marcan el botón
         // de la agenda de cada uno (se borran al abrirla).
         $noLeidos = (new LecturaAgendaService)->noLeidosPorGrupo(
@@ -906,8 +1001,10 @@ class DocenteActivityController extends Controller
             $idsGrupo->mapWithKeys(fn ($id) => [$id => $actividad->id_actividad]),
         );
 
+        $fotoIntranet = app(FotoIntranetService::class);
+
         $grupos = $gruposActividad
-            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback) {
+            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback, $fotoIntranet) {
                 $estadoCalculado = $g->calcularEstadoGrupo($actividad);
 
                 $integrantes = $g->integranteGrupos
@@ -919,6 +1016,9 @@ class DocenteActivityController extends Controller
                         'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
                         'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
                         'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                        'url_foto' => $m->estudiante?->usuario?->rut
+                            ? $fotoIntranet->getImagenPerfilURL($m->estudiante->usuario->rut)
+                            : null,
                     ])->values();
 
                 return [
@@ -965,10 +1065,14 @@ class DocenteActivityController extends Controller
             ),
         ]);
 
-        // Campos calculados de la actividad
-        $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
-        $traeArchivo = $actividad->tipo_entrega !== 'presencial';
+        return $grupos;
+    }
 
+    /**
+     * La rúbrica más reciente de la actividad: [rubrica, id_rubrica, estado].
+     */
+    private function rubricaDeActividad(Actividad $actividad): array
+    {
         // 1. Autor: GitHub Copilot
         // 2. Fecha: 04/06/2025
         // 3. Se expone también id_rubrica para que el frontend pueda enviarlo al
@@ -991,87 +1095,41 @@ class DocenteActivityController extends Controller
             Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
 
-        $tieneEvaluaciones = $actividad->hanComenzadoEvaluaciones();
-        $puedeEditarRubrica = $esTitular && !$tieneEvaluaciones;
+        return [$rubricaData, $rubricaId, $estadoRubrica];
+    }
 
-        // Estudiantes inscritos en el curso (para asignación de grupos)
-        $estudiantesInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
-            ->with('estudiante.usuario')
-            ->get()
-            ->map(fn($i) => [
-                'id_estudiante' => $i->id_estudiante,
-                'nombre_completo' => $i->estudiante?->usuario?->nombre_apellidos_primero ?? '',
-            ])
-            ->sortBy('nombre_completo')
-            ->values();
+    /**
+     * Agenda de un grupo como JSON, para abrirla en un modal fuera de la
+     * pantalla de Actividades (Inicio del docente, ficha del estudiante): la
+     * actividad, el grupo con su estado y nota, la rúbrica y la conversación.
+     * Leerla marca los mensajes como vistos, igual que en Actividades.
+     */
+    public function agendaGrupo(Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
 
-        // Otras actividades grupales del curso con grupos ya conformados, candidatas
-        // a reutilizar vía copiarGruposDeActividad() (botón "Reutilizar grupos").
-        $actividadesConGrupos = collect();
-        if ($actividad->es_grupal) {
-            $actividadesConGrupos = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $curso->id_curso))
-                ->where('id_actividad', '!=', $actividad->id_actividad)
-                ->where('es_grupal', true)
-                ->whereHas('actividadAsignadaGrupos')
-                ->withCount('actividadAsignadaGrupos')
-                ->orderByDesc('fecha_limite')
-                ->get(['id_actividad', 'nombre', 'fecha_limite'])
-                ->map(fn($a) => [
-                    'id_actividad' => $a->id_actividad,
-                    'nombre' => $a->nombre,
-                    'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
-                    'cantidad_grupos' => $a->actividad_asignada_grupos_count,
-                ])
-                ->values();
-        }
+        $actividad->load(['componente', 'unidad']);
+        $datosGrupo = $this->gruposDeActividad($actividad)->firstWhere('grupo', $grupo);
+        abort_if($datosGrupo === null, 404, 'El grupo no pertenece a la actividad.');
 
-        return Inertia::render('docente/Activities/Index', [
+        $idDocente = Auth::user()->docente?->id_docente;
+        [$rubricaData, $rubricaId] = $this->rubricaDeActividad($actividad);
+        $curso->loadMissing('asignacionPlan.asignatura');
+
+        return response()->json([
             'curso' => [
                 'id_curso' => $curso->id_curso,
-                'nombre' => $curso->nombre,
-                'etiqueta' => $curso->etiqueta(),
-                'cod_curso' => $curso->cod_curso,
-                'es_titular_curso' => $esTitular,
-                'userPermissions' => $this->userPermissionsParaCurso($curso, $esTitular),
+                'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
             ],
-            'actividad' => [
-                'id_actividad' => $actividad->id_actividad,
-                'nombre' => $actividad->nombre,
-                'descripcion' => $actividad->descripcion ?? '',
-                'fecha_limite' => $actividad->fecha_limite?->format('Y-m-d'),
-                'es_sumativa' => $esSumativa,
-                'trae_archivo' => $traeArchivo,
-                'es_grupal' => (bool) $actividad->es_grupal,
-                'max_integrantes' => $actividad->max_integrantes,
-                'es_titular' => $esTitular,
-                'nro_dias_adicionales_para_bloqueo' => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
-                // El enunciado se muestra junto a la rúbrica en «Sobre esta actividad».
-                'archivo_enunciado' => $actividad->archivo ? [
-                    'nombre_original' => $actividad->archivo->nombre_original,
-                    'mime_type' => $actividad->archivo->mime_type,
-                    'peso_bytes' => $actividad->archivo->peso_bytes,
-                ] : null,
-            ],
-            'reglas_enunciado' => $this->reglasEnunciado(),
-            'grupos' => $grupos,
+            'actividad' => $this->datosActividad($actividad, $idDocente !== null && $curso->id_docente_titular === $idDocente),
+            'grupo' => $datosGrupo,
             'rubrica' => $rubricaData,
             'rubrica_id' => $rubricaId,
-            'estado_rubrica' => $estadoRubrica,
-            'tiene_evaluaciones' => $tieneEvaluaciones,
-            'puede_editar_rubrica' => $puedeEditarRubrica,
-            'estudiantesInscritos' => $estudiantesInscritos,
-            'actividadesConGrupos' => $actividadesConGrupos,
-            'interaccionesGrupo' => Inertia::lazy(function () {
-                $grupoId = request('grupo_id') ?? session('agenda_grupo_id');
-                if (!$grupoId) {
-                    return [];
-                }
-
-                return (new LecturaAgendaService)->leerHilo(
-                    Auth::id(),
-                    (new ConversacionDocenteService)->hiloCompletoGrupo((int) $grupoId),
-                );
-            }),
+            'interacciones' => (new LecturaAgendaService)->leerHilo(
+                Auth::id(),
+                (new ConversacionDocenteService)->hiloCompletoGrupo($grupo),
+            ),
         ]);
     }
 
@@ -1949,6 +2007,7 @@ class DocenteActivityController extends Controller
                 'u.id_usuario',
                 NombreUsuario::sqlConcat('u', 'nombre'),
                 'u.email',
+                'u.rut',
                 // Postgres exige que lo que ordena un SELECT DISTINCT esté en el
                 // SELECT. No altera las filas: depende de id_usuario, que ya está.
                 'u.apellido1',
@@ -1983,9 +2042,11 @@ class DocenteActivityController extends Controller
             ->groupBy('e.id_estudiante')
             ->pluck('ultima_fecha', 'id_estudiante');
 
+        $fotoIntranet = app(FotoIntranetService::class);
         $estudiantesConMeta = $estudiantes->map(fn($e) => array_merge((array) $e, [
             'total_mensajes' => $mensajesCount[$e->id_estudiante] ?? 0,
             'ultima_fecha' => $ultimasFechas[$e->id_estudiante] ?? null,
+            'url_foto' => !empty($e->rut) ? $fotoIntranet->getImagenPerfilURL($e->rut) : null,
         ]));
 
         return Inertia::render('docente/MensajesCurso', [

@@ -30,7 +30,9 @@
    * secciones citadas en un rechazo (la razón es texto libre, no referencias).
    */
   import { Link, router, page } from '@inertiajs/svelte';
-  import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
+  import { nombreSemestre } from '@/lib/cursoDocente';
+  import { btnPrimario, btnSecundario, chico } from '@/lib/inst';
   import AyudanteLayout from '@/layouts/AyudanteLayout.svelte';
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
@@ -162,6 +164,13 @@
 
   const asignatura = $derived(asignaturaProp ?? curso?.asignatura ?? null);
   const esAdmin = $derived(layoutType === 'admin');
+  /**
+   * El docente lee el programa en la pestaña Programa de su curso (revisión
+   * «Mi UTAmed»): la cabecera del curso ya nombra la asignatura, así que el
+   * documento va sin título propio, sin el estado «Aprobado» ni el tipo, con
+   * el historial a un botón y el índice fijo al lado.
+   */
+  const esDocente = $derived(layoutType === 'docente');
 
   const resolvedBackUrl = $derived(
     backUrl ??
@@ -177,6 +186,22 @@
   const codigo = $derived(curso?.cod_asignatura ?? asignatura?.cod_asignatura ?? null);
   const titulo = $derived(asignatura?.nombre ?? curso?.asignatura_nombre ?? curso?.nombre ?? '');
   const rotuloCurso = $derived([codigo, titulo].filter(Boolean).join(' '));
+  const semestreTexto = $derived(nombreSemestre(curso?.semestre_real, curso?.agno_real));
+
+  /**
+   * «Imprimir» saca el programa diagramado (cabecera institucional, títulos
+   * oficiales, número de página). El título del documento pasa a ser el
+   * nombre del archivo que el navegador propone al guardar como PDF.
+   */
+  function imprimir() {
+    const anterior = document.title;
+    document.title = ['Programa', codigo, titulo, curso?.agno_real && curso?.semestre_real ? `${curso.agno_real}-${curso.semestre_real}` : null]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, '_');
+    window.print();
+    document.title = anterior;
+  }
 
   // ── Estado del documento ──────────────────────────────────────────────────
 
@@ -506,6 +531,7 @@
   <div class="programa-print min-h-screen bg-white pb-4 print:pb-0">
     <div class="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-8">
       <!-- ── Migas ── -->
+      {#if !esDocente}
       <nav
         class="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-2 print:hidden"
         aria-label="Ruta de navegación"
@@ -532,6 +558,15 @@
         <ChevronRight size={12} class="text-gray-400" aria-hidden="true" />
         <span class="px-1 font-medium text-ink" aria-current="page">Programa</span>
       </nav>
+      {/if}
+
+      <!-- Cabecera del programa impreso: sólo existe en papel. -->
+      <div class="hidden flex-col gap-1 border-b-[1.5px] border-ink pb-3 print:flex">
+        <span class="text-[9pt] font-extrabold tracking-[0.08em]">UNIVERSIDAD DE TARAPACÁ</span>
+        <span class="text-[9pt] font-extrabold tracking-[0.1em] text-inst-enlace">PROGRAMA DE ASIGNATURA</span>
+        <span class="font-inst-titulo text-[20pt] leading-[1.2] font-bold">{titulo}</span>
+        <span class="text-[10pt]">{[codigo, curso.letra_grupo ? `Grupo ${curso.letra_grupo}` : null, semestreTexto].filter(Boolean).join(' · ')}</span>
+      </div>
 
       {#if flashError}
         <p
@@ -554,6 +589,22 @@
         class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
       >
         <!-- ── Cabecera del documento ── -->
+        {#if esDocente}
+          <div class="flex flex-wrap items-center justify-end gap-2 border-b border-inst-linea px-5 py-3 sm:px-7 print:hidden">
+            {#if programa && historial.length > 0}
+              <button type="button" class="{btnSecundario} {chico}" onclick={() => (historialAbierto = true)}>
+                <Clock size={15} aria-hidden="true" />
+                Historial
+              </button>
+            {/if}
+            {#if programa}
+              <button type="button" class="{btnPrimario} {chico}" onclick={imprimir}>
+                <Printer size={15} aria-hidden="true" />
+                Imprimir
+              </button>
+            {/if}
+          </div>
+        {:else}
         <header
           class="flex flex-col gap-2.5 border-b border-gray-200 bg-white px-5 pt-3.5 pb-4 sm:px-7 {esAdmin
             ? 'shadow-[inset_3px_0_0_var(--color-indigo-600)]'
@@ -591,7 +642,7 @@
             <div class="flex max-w-full flex-wrap items-center gap-2.5 sm:ml-auto sm:flex-none">
               <button
                 type="button"
-                onclick={() => window.print()}
+                onclick={imprimir}
                 class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand print:hidden"
               >
                 <Printer size={15} class="text-ink-2" aria-hidden="true" />
@@ -620,6 +671,7 @@
             {@render metaFila()}
           {/if}
         </header>
+        {/if}
 
         {#if programa}
           <!-- ── Banner de rechazo: primer contenido de la pantalla ── -->
@@ -701,18 +753,18 @@
           <div
             class="flex flex-col items-start gap-6 bg-sand px-5 py-6 sm:px-7 lg:flex-row print:bg-white print:p-0"
           >
-            <div class="w-full lg:w-[240px] lg:flex-none print:hidden">
+            <div class="w-full lg:sticky lg:top-40 lg:w-[240px] lg:flex-none lg:self-start print:hidden">
               <SyllabusIndice
                 entradas={entradasIndice}
                 activa={seccionActiva}
-                tipo={tipoSyllabus}
+                tipo={esDocente ? null : tipoSyllabus}
                 {requeridas}
                 mostrarProgreso={!sellado && !enRevision}
               />
             </div>
 
             <div class="flex w-full min-w-0 flex-col gap-3 lg:w-[760px] lg:flex-none print:w-full">
-              {#if sellado}
+              {#if sellado && !esDocente}
                 <div class="flex justify-end print:justify-start">
                   <span
                     class="inline-flex flex-wrap items-center gap-2.5 rounded-[10px] border border-emerald-200 bg-emerald-50 px-3.5 py-2"
@@ -740,7 +792,7 @@
               />
             </div>
 
-            {#if historial.length > 0}
+            {#if historial.length > 0 && !esDocente}
               <div class="hidden xl:block xl:w-[280px] xl:flex-none print:hidden">
                 <SyllabusHistorial eventos={historial} />
               </div>
@@ -748,6 +800,7 @@
           </div>
 
           <!-- ── Pie de acciones ── -->
+          {#if !(esDocente && sellado)}
           <div
             class="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-gray-200 bg-white px-5 py-3.5 shadow-[0_-1px_3px_rgba(0,0,0,.06)] sm:px-7 print:hidden"
           >
@@ -933,6 +986,7 @@
               {/if}
             </div>
           </div>
+          {/if}
         {:else}
           <!-- ── Curso sin syllabus ── -->
           <div
@@ -1183,9 +1237,9 @@
     {@render pageContent()}
   </AdminLayout>
 {:else}
-  <DocenteLayout>
+  <CursoDocenteLayout idCurso={curso.id_curso} seccion="programa" nombre={rotuloCurso}>
     {@render pageContent()}
-  </DocenteLayout>
+  </CursoDocenteLayout>
 {/if}
 
 <style>
@@ -1199,6 +1253,18 @@
   @media print {
     @page {
       margin: 18mm 16mm 20mm;
+
+      @bottom-left {
+        content: 'Universidad de Tarapacá · Programa de asignatura';
+        font-size: 8pt;
+        color: #5f6179;
+      }
+
+      @bottom-right {
+        content: 'Página ' counter(page) ' de ' counter(pages);
+        font-size: 8pt;
+        color: #5f6179;
+      }
     }
 
     :global(html),

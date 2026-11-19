@@ -9,18 +9,20 @@
     src?: string | null;
     /** Junto al nombre, la foto no agrega información: alt vacío. */
     decorativa?: boolean;
+    /** Centra la imagen en lugar de anclarla arriba. */
+    centrada?: boolean;
     /** Forma y tamaño del marco. */
     class?: string;
   }
 
-  let { src = null, decorativa = false, class: clase = '' }: Props = $props();
+  let { src = null, decorativa = false, centrada = false, class: clase = '' }: Props = $props();
 
   let fallo = $state(false);
 </script>
 
 <span class="block shrink-0 overflow-hidden {clase}">
   {#if src && !fallo}
-    <img {src} alt={decorativa ? '' : 'Tu foto de perfil'} class="size-full object-cover object-top" onerror={() => (fallo = true)} />
+    <img {src} alt={decorativa ? '' : 'Tu foto de perfil'} class="size-full object-cover {centrada ? 'object-center' : 'object-top'}" onerror={() => (fallo = true)} />
   {:else}
     <img src="/img/usuarioutamed.png" alt={decorativa ? '' : 'Foto de perfil genérica'} class="size-full object-contain p-[14%]" />
   {/if}

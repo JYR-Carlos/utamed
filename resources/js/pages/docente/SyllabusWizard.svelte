@@ -25,7 +25,7 @@
    */
   import { router } from '@inertiajs/svelte';
   import { Toaster, toast } from 'svelte-sonner';
-  import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import AyudanteLayout from '@/layouts/AyudanteLayout.svelte';
   import {
@@ -940,7 +940,7 @@
     {@render contenido()}
   </AyudanteLayout>
 {:else}
-  <DocenteLayout>
+  <CursoDocenteLayout idCurso={curso.id_curso} seccion="gestion" subpagina="Syllabus" nombre={curso.nombre ?? undefined}>
     {@render contenido()}
-  </DocenteLayout>
+  </CursoDocenteLayout>
 {/if}

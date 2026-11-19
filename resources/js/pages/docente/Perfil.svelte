@@ -1,157 +1,158 @@
 <script lang="ts">
+  /**
+   * Mi perfil del docente — /docente/perfil (revisión «Mi UTAmed»).
+   *
+   * Nombre, roles y los datos de la Intranet en filas (RUT, correo, cargo,
+   * grado académico y título profesional), en sólo lectura. Sin semestre,
+   * subtítulos, pie, usuario ni cursos asignados. «Cambiar contraseña» abre
+   * un modal que sólo cambia la contraseña (PUT /settings/password).
+   */
+  import { page, router } from '@inertiajs/svelte';
+  import { KeyRound } from 'lucide-svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import ModalInst from '@/components/docente/ModalInst.svelte';
+  import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
+  import { titleCase } from '@/lib/utils';
+  import { formatRut } from '@/lib/validators';
+  import { aviso, avisoTono, btnPrimario, btnSecundario, campo, chip, cuerpo, etiqueta, tarjeta, titulo, tono } from '@/lib/inst';
   import type { BreadcrumbItem } from '@/types';
-  import { useInitials } from '@/hooks';
-  import {
-    IdCard,
-    Mail,
-    AtSign,
-    GraduationCap,
-    Award,
-    Briefcase,
-    BookOpen,
-    KeyRound,
-    Lock,
-  } from 'lucide-svelte';
-  import { Link } from '@inertiajs/svelte';
 
   interface Props {
     perfil: {
       nombre_completo: string;
       rut: string;
       email: string;
-      username: string;
       grado: string | null;
       titulo: string | null;
       cargo: string | null;
-      total_cursos: number;
+      ultimo_cambio_clave: string | null;
     };
-    semestreActual: number;
   }
 
-  let { perfil, semestreActual }: Props = $props();
+  let { perfil }: Props = $props();
 
-  const { getInitials } = useInitials();
-  const anoAcademico = new Date().getFullYear();
+  const urlFotoPerfil = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/docente/dashboard' },
-    { title: 'Mi Perfil', href: '/docente/perfil' },
+    { title: 'Mi perfil', href: '/docente/perfil' },
   ];
+
+  const esJefe = $derived((($page.props.auth?.roles as string[]) ?? []).includes('Jefe de Carrera'));
+
+  const datos = $derived([
+    ['RUT', formatRut(perfil.rut)],
+    ['Correo institucional', perfil.email],
+    ['Cargo', perfil.cargo],
+    ['Grado académico', perfil.grado],
+    ['Título profesional', perfil.titulo],
+  ] as const);
+
+  // ── Cambiar contraseña ────────────────────────────────────────────────
+  let abierto = $state(false);
+  let guardando = $state(false);
+  let listo = $state(false);
+  let errores = $state<Record<string, string>>({});
+  let actual = $state('');
+  let nueva = $state('');
+  let repetida = $state('');
+
+  function abrir() {
+    actual = nueva = repetida = '';
+    errores = {};
+    listo = false;
+    abierto = true;
+  }
+
+  function guardar(e: SubmitEvent) {
+    e.preventDefault();
+    guardando = true;
+    errores = {};
+    router.put(
+      '/settings/password',
+      { current_password: actual, password: nueva, password_confirmation: repetida },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          listo = true;
+          actual = nueva = repetida = '';
+        },
+        onError: (e) => (errores = e),
+        onFinish: () => (guardando = false),
+      },
+    );
+  }
+
+  const fila = 'grid grid-cols-1 gap-1 border-b border-inst-linea py-3.5 last:border-b-0 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
 </script>
 
-<DocenteLayout {breadcrumbs}>
-  <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
-    <div class="relative mx-auto max-w-4xl px-4 py-6">
-      <header class="flex flex-col gap-1 mb-8">
-        <span
-          class="inline-flex items-center gap-1.5 text-xs font-bold text-uta-blue bg-uta-blue-light border border-uta-blue/20 rounded-full px-3 py-0.5 w-fit"
-        >
-          Semestre {semestreActual} · {anoAcademico}
+<DocenteLayout {breadcrumbs} titulo="Mi perfil">
+  {#snippet acciones()}
+    <button type="button" class={btnSecundario} onclick={abrir}>
+      <KeyRound size={16} aria-hidden="true" />
+      Cambiar contraseña
+    </button>
+  {/snippet}
+
+  <div class="{cuerpo} max-w-[920px]">
+    <section aria-labelledby="t-datos" class="{tarjeta} overflow-hidden">
+      <div class="flex flex-wrap items-center gap-4 border-b border-inst-linea px-5.5 py-5">
+        <FotoPerfil src={urlFotoPerfil} decorativa centrada class="size-16 rounded-full border border-inst-linea bg-inst-accion-s" />
+        <span class="flex min-w-0 flex-1 flex-col gap-1.5">
+          <h2 id="t-datos" class="{titulo} m-0 text-[22px] leading-7">{titleCase(perfil.nombre_completo)}</h2>
+          <span class="flex flex-wrap gap-1.5">
+            <span class="{chip} {tono.accion}">Docente</span>
+            {#if esJefe}<span class="{chip} {tono.oro}">Jefatura de carrera</span>{/if}
+          </span>
         </span>
-        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-          Mi Perfil
-        </h1>
-        <p class="text-sm text-slate-500">Tus datos como docente en UTAmed.</p>
-      </header>
+      </div>
 
-      <section
-        class="flex flex-wrap items-center gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6"
-      >
-        <div
-          class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-uta-blue-light text-lg font-bold text-uta-blue"
-        >
-          {getInitials(perfil.nombre_completo)}
-        </div>
-        <div class="flex flex-col gap-0.5">
-          <span class="text-lg font-semibold tracking-tight text-slate-900">{perfil.nombre_completo}</span>
-          <span class="text-sm text-slate-500">{perfil.cargo || 'Docente'}</span>
-        </div>
-        <Link
-          href="/settings/password"
-          class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
-        >
-          <KeyRound class="h-4 w-4" />
-          Cambiar contraseña
-        </Link>
-      </section>
-
-      <section class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
-            <IdCard class="h-[18px] w-[18px] text-uta-blue" />
+      <dl class="m-0 px-5.5 pt-1 pb-2">
+        {#each datos as [clave, valor] (clave)}
+          <div class={fila}>
+            <dt class="{etiqueta} leading-5">{clave}</dt>
+            <dd class="m-0 font-semibold break-words {valor ? '' : 'text-inst-ink-3'}">{valor || 'Sin registro'}</dd>
           </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">RUT</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.rut}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
-            <Mail class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Correo institucional</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.email}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
-            <AtSign class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Usuario</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.username}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
-            <Briefcase class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Cargo</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.cargo || '—'}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
-            <GraduationCap class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Grado académico</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.grado || '—'}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
-            <Award class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Título profesional</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.titulo || '—'}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
-            <BookOpen class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Cursos asignados</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.total_cursos}</span>
-          </div>
-        </div>
-      </section>
-
-      <p class="mt-4 inline-flex items-center gap-1.5 text-[12.5px] text-slate-500">
-        <Lock class="h-3.5 w-3.5" />
-        Estos datos vienen de la Intranet y son de sólo lectura.
-      </p>
-    </div>
+        {/each}
+      </dl>
+    </section>
   </div>
 </DocenteLayout>
+
+{#if abierto}
+  <ModalInst titulo="Cambiar contraseña" ancho={480} onCerrar={() => !guardando && (abierto = false)}>
+    {#if listo}
+      <div class="{aviso} {avisoTono.ok}" role="status"><p class="m-0 font-bold">Tu contraseña quedó cambiada.</p></div>
+    {:else}
+      <form id="form-clave" class="flex flex-col gap-4" onsubmit={guardar}>
+        <label class="flex flex-col gap-1.5">
+          <span class="font-bold">Contraseña actual</span>
+          <input class={campo} type="password" autocomplete="current-password" bind:value={actual} required />
+          {#if errores.current_password}<span class="text-[13px] font-bold text-inst-error">{errores.current_password}</span>{/if}
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="font-bold">Nueva contraseña</span>
+          <input class={campo} type="password" autocomplete="new-password" bind:value={nueva} required />
+          <span class="text-[13px] text-inst-ink-2">Al menos 8 caracteres, con una mayúscula, números y algún signo.</span>
+          {#if errores.password}<span class="text-[13px] font-bold text-inst-error">{errores.password}</span>{/if}
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="font-bold">Repite la nueva contraseña</span>
+          <input class={campo} type="password" autocomplete="new-password" bind:value={repetida} required />
+          {#if errores.password_confirmation}<span class="text-[13px] font-bold text-inst-error">{errores.password_confirmation}</span>{/if}
+        </label>
+      </form>
+    {/if}
+    {#snippet pie()}
+      {#if listo}
+        <button type="button" class="{btnPrimario} ml-auto" onclick={() => (abierto = false)}>Cerrar</button>
+      {:else}
+        <button type="button" class="{btnSecundario} ml-auto" disabled={guardando} onclick={() => (abierto = false)}>Cancelar</button>
+        <button type="submit" form="form-clave" class={btnPrimario} disabled={guardando || !actual || !nueva || !repetida}>
+          Guardar contraseña
+        </button>
+      {/if}
+    {/snippet}
+  </ModalInst>
+{/if}

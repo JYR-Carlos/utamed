@@ -7,6 +7,7 @@ use App\Models\Curso\Clase;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionComponente;
+use App\Services\FotoIntranetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -358,6 +359,8 @@ class AsistenciaController extends Controller
     /** Estudiantes inscritos en el componente (para la grilla de asistencia). */
     private function estudiantesDelComponente(Componente $componente): array
     {
+        $fotoIntranet = app(FotoIntranetService::class);
+
         return InscripcionComponente::where('id_componente', $componente->id_componente)
             ->with('estudiante.usuario')
             ->get()
@@ -366,6 +369,9 @@ class AsistenciaController extends Controller
                 'id_estudiante'             => $ic->id_estudiante,
                 'nombre'                    => $ic->estudiante->usuario?->nombre_apellidos_primero ?? '',
                 'username'                  => $ic->estudiante->usuario->username ?? '',
+                'url_foto'                  => $ic->estudiante->usuario?->rut
+                    ? $fotoIntranet->getImagenPerfilURL($ic->estudiante->usuario->rut)
+                    : null,
             ])
             ->sortBy('nombre')
             ->values()

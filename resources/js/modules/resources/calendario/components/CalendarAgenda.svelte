@@ -65,24 +65,24 @@
 
 {#if diasConMarcas.length === 0}
   <div
-    class="flex flex-col items-center justify-center gap-3 rounded-xl border border-gray-200 bg-zinc-50 px-8 py-14 text-center shadow-[0_1px_3px_rgba(0,0,0,.06)]"
+    class="flex flex-col items-center justify-center gap-3 rounded-xl border border-inst-linea bg-inst-sutil px-8 py-14 text-center shadow-[0_1px_3px_rgba(0,0,0,.06)]"
   >
     <span
-      class="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-sand"
+      class="flex h-11 w-11 items-center justify-center rounded-xl border border-inst-linea bg-inst-sutil"
     >
-      <CalendarDays size={20} class="text-ink-2" />
+      <CalendarDays size={20} class="text-inst-ink-2" />
     </span>
-    <p class="m-0 text-[15px] font-semibold text-ink">Nada programado en este período</p>
-    <p class="m-0 max-w-[420px] text-[13px] leading-[1.5] text-ink-2">
+    <p class="m-0 text-[15px] font-semibold text-inst-ink">Nada programado en este período</p>
+    <p class="m-0 max-w-[420px] text-[13px] leading-[1.5] text-inst-ink-2">
       Ninguno de los cursos visibles tiene fechas límite, sesiones de asistencia registradas ni
       hitos de syllabus en estos días.
     </p>
     {#if proxima}
       {@const destino = proxima.fecha}
       <div
-        class="mt-1 flex max-w-full flex-col items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3"
+        class="mt-1 flex max-w-full flex-col items-center gap-2 rounded-lg border border-inst-linea bg-inst-tarjeta px-4 py-3"
       >
-        <p class="m-0 max-w-[420px] text-[13px] leading-[1.45] text-ink">
+        <p class="m-0 max-w-[420px] text-[13px] leading-[1.45] text-inst-ink">
           <span class="font-semibold">Próxima marca: {formatCorto(proxima.fecha)}</span>
           · <span class="break-words">{tituloMarca(proxima)}</span>
         </p>
@@ -90,7 +90,7 @@
           <button
             type="button"
             onclick={() => onIrA?.(destino)}
-            class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-uta-blue px-4 text-[13px] font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:min-h-9"
+            class="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-inst-accion px-4 text-[13px] font-semibold text-inst-sobre-accion transition-colors hover:bg-inst-accion-h sm:min-h-9"
           >
             Ir a esa semana
             <ArrowRight size={14} aria-hidden="true" />
@@ -106,25 +106,25 @@
       <section class="flex flex-col gap-2">
         <header
           class="flex flex-wrap items-center gap-2 border-l-4 pl-2"
-          style="border-color:{grupo.dia.isToday ? 'var(--color-navy, #002F6C)' : 'var(--color-line, #D6D9E0)'}"
+          style="border-color:{grupo.dia.isToday ? 'var(--color-inst-accion)' : 'var(--color-inst-linea)'}"
         >
           {#if etiqueta}
             <span
               class="text-[12.5px] font-bold uppercase tracking-[0.06em]"
-              style="color:{grupo.dia.isToday ? 'var(--color-navy, #002F6C)' : 'var(--color-zinc-600, #4A4E5C)'}"
+              style="color:{grupo.dia.isToday ? 'var(--color-inst-accion)' : 'var(--color-inst-ink-2)'}"
             >
               {etiqueta}
             </span>
           {/if}
           <span
             class={etiqueta
-              ? 'text-[12px] text-ink-2'
-              : 'text-[12.5px] font-bold text-zinc-600'}
+              ? 'text-[12px] text-inst-ink-2'
+              : 'text-[12.5px] font-bold text-inst-ink-2'}
           >
             {formatMedio(grupo.dia.iso)}
           </span>
           {#if grupo.items.length > 0}
-            <span class="ml-auto font-mono text-[11px] tabular-nums text-ink-2">
+            <span class="ml-auto font-mono text-[11px] tabular-nums text-inst-ink-2">
               {grupo.items.length}
               {grupo.items.length === 1 ? 'marca' : 'marcas'}
             </span>
@@ -133,7 +133,7 @@
 
         {#each grupo.cargas as carga (carga.clave)}
           <div class={AVISO_SOBRECARGA}>
-            <TriangleAlert size={14} class="text-red-700 mt-0.5 shrink-0" />
+            <TriangleAlert size={14} class="text-inst-warn mt-0.5 shrink-0" />
             <span>
               <span class="font-bold">
                 Grupo {carga.letra} tiene {carga.total} entregas este día:

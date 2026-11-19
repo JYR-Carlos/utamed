@@ -40,17 +40,19 @@ trait ParsesSyllabus
         $secciones = SyllabusSecciones::fromArray($seccionesData, $tipo);
 
         $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+        // Títulos oficiales del formato de programa de la universidad.
         $nombres = [
-            'I'    => 'Identificación',
-            'II'   => 'Presentación',
-            'III'  => 'Estándares',
-            'IV'   => 'Competencias',
-            'V'    => 'Evaluación Diagnóstica',
-            'VI'   => 'Unidades',
-            'VII'  => 'Planificación',
-            'VIII' => 'Recursos',
-            'IX'   => 'Aspectos Administrativos',
+            'I'    => 'Identificación de la asignatura',
+            'II'   => 'Presentación, descripción y propósito formativo',
+            'III'  => 'Estándares de la profesión',
+            'IV'   => 'Áreas, competencias específicas y competencias genéricas',
+            'V'    => 'Evaluación diagnóstica para determinar los aprendizajes previos',
+            'VI'   => 'Unidades y contenidos de aprendizaje',
+            'VII'  => 'Planificación de la enseñanza',
+            'VIII' => 'Recursos para el aprendizaje',
+            'IX'   => 'Aspectos administrativos y evaluación',
         ];
+        $horasAsignatura = $data['metadata']['asignatura']['horas'] ?? [];
 
         $out = [];
         foreach ($romanos as $idx => $romano) {
@@ -60,7 +62,7 @@ trait ParsesSyllabus
                 'nombre_seccion' => $nombres[$romano] ?? "Sección $romano",
                 'numeral_romano' => $romano,
                 'orden'          => $idx + 1,
-                'contenidos'     => $this->extraeContenidos($contenido, $secciones),
+                'contenidos'     => $this->extraeContenidos($contenido, $secciones, $horasAsignatura),
             ];
 
             if ($romano === 'IX' && $contenido instanceof SeccionIXContenido) {
@@ -80,7 +82,7 @@ trait ParsesSyllabus
     /**
      * Extrae contenidos de cada sección para mostrar legible.
      */
-    protected function extraeContenidos(?object $contenido, ?\App\Syllabus\SyllabusSecciones $secciones = null): array
+    protected function extraeContenidos(?object $contenido, ?\App\Syllabus\SyllabusSecciones $secciones = null, array $horasAsignatura = []): array
     {
         if (!$contenido) {
             return [['texto_contenido' => '', 'orden_item' => 1]];
@@ -89,7 +91,7 @@ trait ParsesSyllabus
         $seccionVI = $secciones?->get('VI');
 
         $text = match (true) {
-            $contenido instanceof SeccionIContenido => $this->formatSeccionI($contenido),
+            $contenido instanceof SeccionIContenido => $this->formatSeccionI($contenido, $horasAsignatura),
             $contenido instanceof SeccionTextoContenido => $contenido->texto,
             $contenido instanceof SeccionIVContenido => $this->formatCompetencias($contenido),
             $contenido instanceof SeccionVContenido => $this->formatEvaluacionDiagnostica($contenido),
@@ -104,18 +106,37 @@ trait ParsesSyllabus
         return [['texto_contenido' => $text ?? '', 'orden_item' => 1]];
     }
 
-    private function formatSeccionI(SeccionIContenido $c): string
+    /**
+     * Las horas presenciales se desglosan en cátedra, taller y laboratorio; las
+     * de dedicación (trabajo autónomo) vienen de metadata.asignatura.horas; si
+     * el programa no las trae (o trae 0, que es el valor sin llenar) se dice.
+     */
+    private function formatSeccionI(SeccionIContenido $c, array $horasAsignatura = []): string
     {
-        return sprintf(
-            "Asignatura: %s\nCódigo: %s\nCréditos SCT: %s\nHoras Cátedra: %s, Taller: %s, Lab: %s\nCategoría: %s",
-            $c->nombreAsignatura,
-            $c->codigo,
-            $c->creditosSct,
-            $c->horas->catedra,
-            $c->horas->taller,
-            $c->horas->laboratorio,
-            $c->categoria
-        );
+        $h = $c->horas;
+        $lineas = [
+            "Asignatura: {$c->nombreAsignatura}",
+            "Código: {$c->codigo}",
+            "Créditos SCT: {$c->creditosSct}",
+            sprintf(
+                'Horas presenciales: %d horas semanales · cátedra %d · taller %d · laboratorio %d',
+                $h->catedra + $h->taller + $h->laboratorio,
+                $h->catedra,
+                $h->taller,
+                $h->laboratorio,
+            ),
+        ];
+
+        $autonomas = (int) ($horasAsignatura['autonomas'] ?? 0);
+        $lineas[] = $autonomas > 0
+            ? "Horas dedicación: {$autonomas} horas semanales de trabajo autónomo"
+            : 'Horas dedicación: sin registrar en la asignatura';
+
+        if (trim($c->categoria) !== '') {
+            $lineas[] = "Categoría: {$c->categoria}";
+        }
+
+        return implode("\n", $lineas);
     }
 
     private function formatCompetencias(SeccionIVContenido $c): string
@@ -132,7 +153,14 @@ trait ParsesSyllabus
         $genStr = implode("\n", array_map(fn ($t) => '• ' . $t, $gen));
         $subStr = implode("\n", array_map(fn ($t) => '• ' . $t, $sub));
 
-        return "Específicas:\n$espStr\n\nGenéricas:\n$genStr\n\nSub:\n$subStr";
+        // Las genéricas van primero, como en el formato oficial.
+        $grupos = array_filter([
+            'Competencias genéricas' => $genStr,
+            'Competencias específicas' => $espStr,
+            'Subcompetencias' => $subStr,
+        ], fn ($v) => $v !== '');
+
+        return implode("\n\n", array_map(fn ($t, $l) => "$t:\n$l", array_keys($grupos), $grupos));
     }
 
     private function formatEvaluacionDiagnostica(SeccionVContenido $c): string

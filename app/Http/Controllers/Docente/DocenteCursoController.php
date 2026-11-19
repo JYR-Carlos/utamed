@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Docente;
 
 use App\Services\Agenda\AvanceEvaluacionService;
 use App\Http\Controllers\Controller;
+use App\Models\Curso\Bibliografia;
 use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
+use App\Models\Curso\Programa;
+use App\Models\Curso\Unidad;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Services\Authorization\GlobalContextService;
+use App\Services\FotoIntranetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -34,6 +38,8 @@ use \Illuminate\Support\Facades\Auth;
  */
 class DocenteCursoController extends Controller
 {
+    use \App\Traits\ParsesSyllabus;
+
     /**
      * Muestra listado de cursos asociados al docente autenticado.
      * 
@@ -102,6 +108,9 @@ class DocenteCursoController extends Controller
                     'tiene_programa' => $tienePrograma,
                     'es_plantilla' => $curso->es_plantilla,
                     'semestre_real' => $semestre,
+                    // Con el año, Mis cursos agrupa por período (2026-2) y no
+                    // mezcla los primeros semestres de años distintos.
+                    'agno_real' => $curso->agno_real,
                     'total_estudiantes' => $totalEstudiantes,
                     'es_titular_curso' => $esTitular,
                     'userPermissions' => $userPermissions,
@@ -172,6 +181,8 @@ class DocenteCursoController extends Controller
             ->get();
         $misComponentes = \App\Models\Curso\TipoComponente::ordenarCTL($misComponentes);
 
+        $fotoIntranet = app(FotoIntranetService::class);
+
         // Estudiantes inscritos en esos componentes
         $misEstudiantes = \App\Models\Curso\InscripcionComponente::whereIn(
                 'id_componente',
@@ -186,8 +197,14 @@ class DocenteCursoController extends Controller
                 'nota_componente'           => $ic->nota_componente,
                 'estudiante' => [
                     'id_estudiante' => $ic->estudiante->id_estudiante,
+                    'id_usuario'    => $ic->estudiante->id_usuario,
                     'nombre'        => $ic->estudiante->usuario?->nombre_apellidos_primero ?? '',
                     'username'      => $ic->estudiante->usuario->username ?? '',
+                    'rut'           => $ic->estudiante->usuario->rut ?? null,
+                    'email'         => $ic->estudiante->usuario->email ?? null,
+                    'url_foto'      => $ic->estudiante->usuario?->rut
+                        ? $fotoIntranet->getImagenPerfilURL($ic->estudiante->usuario->rut)
+                        : null,
                     // Contacto personal (T10): sólo lo ve el equipo docente,
                     // en modo lectura, desde la ficha del estudiante.
                     'contacto'      => $ic->estudiante->contacto(),
@@ -213,12 +230,16 @@ class DocenteCursoController extends Controller
                 ->get()
                 ->keyBy('id_inscripcion_componente');
 
-        $misEstudiantes = $misEstudiantes->map(function ($e) use ($asistenciaPorInscripcion) {
+        $pendientes = $this->pendientesPorEstudiante($misComponentes->pluck('id_componente'));
+
+        $misEstudiantes = $misEstudiantes->map(function ($e) use ($asistenciaPorInscripcion, $pendientes) {
             $fila = $asistenciaPorInscripcion->get($e['id_inscripcion_componente']);
             $e['asistencia'] = [
                 'presentes' => (int) ($fila->presentes ?? 0),
                 'total'     => (int) ($fila->total ?? 0),
             ];
+            $e['pendientes'] = $pendientes[$e['id_componente']][$e['estudiante']['id_estudiante']]
+                ?? ['por_revisar' => 0, 'no_entrego' => 0];
 
             return $e;
         });
@@ -292,44 +313,6 @@ class DocenteCursoController extends Controller
                 ->values()
                 ->all();
 
-        // Actividades del curso (todas las componentes) para el kanban de seguimiento
-        $actividadesModelo = \App\Models\Agenda\Actividad::whereHas(
-                'componente',
-                fn ($q) => $q->where('id_curso', $curso->id_curso)
-            )
-            ->with(['componente.tipoComponente'])
-            ->get();
-
-        // Avance de evaluación de cada actividad para las tarjetas del tablero.
-        $avancePorActividad = app(AvanceEvaluacionService::class)
-            ->porActividad($actividadesModelo->pluck('id_actividad'));
-
-        $actividades = $actividadesModelo->map(function ($a) use ($avancePorActividad) {
-            $avance = $avancePorActividad->get($a->id_actividad);
-
-            return [
-                'id_actividad'   => $a->id_actividad,
-                'nombre'         => $a->nombre,
-                'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
-                'tipo_actividad' => $a->tipo_actividad,
-                'tipo_entrega'   => $a->tipo_entrega,
-                'es_grupal'      => $a->es_grupal,
-                'max_integrantes' => $a->max_integrantes,
-                'visible'        => $a->visible,
-                'ponderacion'    => $a->ponderacion !== null ? (float) $a->ponderacion : null,
-                'id_componente'  => $a->id_componente,
-                ...DocenteActivityController::datosAvance($avance),
-                'componente'     => $a->componente ? [
-                    'id_componente'  => $a->componente->id_componente,
-                    // Clave `tipo`: es la que lee el tipo compartido `Actividad`
-                    // y el kanban. Antes se emitía `nombre` y la tarjeta mostraba «—».
-                    'tipo_componente' => $a->componente->tipoComponente ? [
-                        'tipo' => $a->componente->tipoComponente->tipo,
-                    ] : null,
-                ] : null,
-            ];
-        });
-
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
                 'id_curso' => $curso->id_curso,
@@ -372,43 +355,6 @@ class DocenteCursoController extends Controller
             'mis_componentes' => $misComponentesData->values(),
             'mis_estudiantes' => $misEstudiantes->values(),
             'todos_componentes' => $todosComponentesData->values(),
-            'actividades' => $actividades->values(),
-            'mensajesEstudiante' => Inertia::lazy(function () use ($curso) {
-                $idEstudiante = request('estudiante_id');
-                if (!$idEstudiante) return [];
-
-                $gruposIds = DB::table('agenda.integrante_grupo as ig')
-                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
-                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-                    ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
-                    ->where('ig.id_estudiante', $idEstudiante)
-                    ->where('c.id_curso', $curso->id_curso)
-                    ->pluck('ig.id_actividad_asignada_grupo');
-
-                if ($gruposIds->isEmpty()) {
-                    return [];
-                }
-
-                return DB::table('agenda.agenda as a')
-                    ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
-                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
-                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-                    ->whereIn('a.id_actividad_asignada_grupo', $gruposIds)
-                    ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback'])
-                    ->orderBy('a.fecha_envio', 'asc')
-                    ->select(
-                        'a.id_agenda',
-                        'a.fecha_envio',
-                        'a.mensaje',
-                        'a.tipo_mensaje as tipo_registro',
-                        DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
-                        'u.id_usuario as emisor_id_usuario',
-                        'act.nombre as actividad_nombre',
-                        'act.id_actividad',
-                        'aag.id_actividad_asignada_grupo as grupo'
-                    )
-                    ->get();
-            }),
         ]);
     }
 
@@ -518,6 +464,427 @@ class DocenteCursoController extends Controller
             'syllabus_matrix'   => $syllabusPermsMatrix,
             'available_permissions' => $available_permissions,
         ]);
+    }
+
+    /**
+     * Pestaña «Biblioteca» del curso: usa la tabla `bibliografia` como fuente
+     * de verdad para el programa vigente, con fallback a `data_syllabus` para
+     * programas legacy sin registros en tabla.
+     */
+    public function biblioteca(Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        $bibliografias = [];
+        $secciones = [];
+
+        if ($programa) {
+            $filas = Bibliografia::where('id_programa', $programa->id_programa)
+                ->with(['unidad', 'archivo'])
+                ->orderBy('fecha_creacion')
+                ->get();
+
+            if ($filas->isNotEmpty()) {
+                $bibliografias = $filas->map(function (Bibliografia $b) {
+                    $href = null;
+                    if ($b->uuid_archivo && !$b->es_bibliografia_uta) {
+                        $href = "/api/bibliografias/{$b->uuid_bibliografia}/archivo";
+                    } elseif ($b->url) {
+                        $href = $b->url;
+                    }
+
+                    return [
+                        'uuid_bibliografia' => $b->uuid_bibliografia,
+                        'titulo' => $b->titulo,
+                        'autor' => $b->autor,
+                        'cita' => $b->cita,
+                        'editorial' => $b->editorial,
+                        'anio' => $b->agno,
+                        'es_bibliografia_uta' => (bool) $b->es_bibliografia_uta,
+                        'url' => $b->url,
+                        'uuid_archivo' => $b->uuid_archivo,
+                        'id_unidad' => $b->id_unidad,
+                        'num_unidad' => $b->unidad?->num_unidad,
+                        'nombre_unidad' => $b->unidad?->nombre,
+                        'href' => $href,
+                        'nombre_archivo' => $b->archivo?->nombre_original,
+                    ];
+                })->values()->all();
+            } else {
+                // Fallback para programas legacy (sección VIII en texto/recursos)
+                $raw = is_array($programa->data_syllabus)
+                    ? $programa->data_syllabus
+                    : json_decode((string) $programa->data_syllabus, true);
+                $secciones = collect($this->parseSecciones($raw ?? []))
+                    ->whereIn('numeral_romano', ['VI', 'VIII'])
+                    ->values()
+                    ->all();
+            }
+        }
+
+        $unidadesCurso = Unidad::where('id_curso', $curso->id_curso)
+            ->orderBy('num_unidad')
+            ->get(['id_unidad', 'num_unidad', 'nombre'])
+            ->map(fn (Unidad $u) => [
+                'id_unidad' => $u->id_unidad,
+                'numero' => $u->num_unidad,
+                'titulo' => $u->nombre,
+            ])
+            ->values()
+            ->all();
+
+        $user = Auth::user();
+        $puedeEditar = $programa && $user instanceof Usuario
+            ? ($user->can('create', [Programa::class, $curso])
+                && \App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII'))
+            : false;
+
+        return Inertia::render('docente/Biblioteca', [
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
+            ],
+            'hayPrograma' => (bool) $programa,
+            'idPrograma' => $programa?->id_programa,
+            'puedeEditar' => $puedeEditar,
+            'bibliografias' => $bibliografias,
+            'unidadesCurso' => $unidadesCurso,
+            'secciones' => $secciones,
+        ]);
+    }
+
+    /**
+     * Agrega una nueva bibliografía desde la pestaña «Biblioteca», escribiendo
+     * de forma sincronizada en la tabla `bibliografia` y en `programa.data_syllabus` (sección VIII).
+     */
+    public function storeBibliografia(Request $request, Curso $curso)
+    {
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        if (!$programa) {
+            return redirect()->back()->withErrors([
+                'bibliografia' => 'El curso no tiene un programa vigente para asociar bibliografía.',
+            ]);
+        }
+
+        $this->authorize('create', [Programa::class, $curso]);
+
+        $user = Auth::user();
+        if (!$user instanceof Usuario || !\App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII')) {
+            abort(403, 'No tienes permiso para editar la sección VIII.');
+        }
+
+        $validated = $request->validate([
+            'titulo' => 'required|string|max:500',
+            'autor' => 'nullable|string|max:500',
+            'cita' => 'nullable|string|max:10000',
+            'editorial' => 'nullable|string|max:500',
+            'anio' => 'required|integer|min:1900|max:2100',
+            'es_bibliografia_uta' => 'required|boolean',
+            'url' => 'nullable|url|max:500',
+            'uuid_archivo' => 'nullable|uuid|exists:archivo,uuid_archivo',
+            'id_unidad' => 'nullable|integer|min:1',
+        ]);
+
+        if (!$validated['es_bibliografia_uta'] && empty($validated['url']) && empty($validated['uuid_archivo'])) {
+            return redirect()->back()->withErrors([
+                'url' => 'Debe proveer una URL externa o subir un archivo físico.',
+            ]);
+        }
+
+        DB::transaction(function () use ($curso, $programa, $validated) {
+            $numUnidad = !empty($validated['id_unidad']) ? (int) $validated['id_unidad'] : null;
+            $resolvedIdUnidad = null;
+            if ($numUnidad !== null) {
+                $resolvedIdUnidad = Unidad::where('id_curso', $curso->id_curso)
+                    ->where('num_unidad', $numUnidad)
+                    ->value('id_unidad');
+            }
+
+            $esUta = (bool) $validated['es_bibliografia_uta'];
+            $url = $esUta ? null : ($validated['url'] ?? null);
+            $uuidArchivo = $esUta ? null : ($validated['uuid_archivo'] ?? null);
+            $autor = !empty($validated['autor']) ? $validated['autor'] : 'S/A';
+
+            $nueva = Bibliografia::create([
+                'id_programa' => $programa->id_programa,
+                'id_unidad' => $resolvedIdUnidad,
+                'titulo' => $validated['titulo'],
+                'autor' => $autor,
+                'cita' => $validated['cita'] ?? null,
+                'editorial' => $validated['editorial'] ?? null,
+                'agno' => (int) $validated['anio'],
+                'es_bibliografia_uta' => $esUta,
+                'url' => $url,
+                'uuid_archivo' => $uuidArchivo,
+                'agregado_por' => Auth::id(),
+            ]);
+
+            $raw = is_array($programa->data_syllabus)
+                ? $programa->data_syllabus
+                : (json_decode((string) $programa->data_syllabus, true) ?? []);
+
+            $existentes = $raw['secciones']['VIII']['contenido']['bibliografias'] ?? [];
+            $existentes[] = [
+                'id_bibliografia' => $nueva->uuid_bibliografia,
+                'titulo' => $nueva->titulo,
+                'autor' => $nueva->autor,
+                'cita' => $nueva->cita,
+                'editorial' => $nueva->editorial,
+                'anio' => (int) $nueva->agno,
+                'es_bibliografia_uta' => $esUta,
+                'url' => $nueva->url,
+                'uuid_archivo' => $nueva->uuid_archivo,
+                'id_unidad' => $resolvedIdUnidad !== null ? $numUnidad : null,
+            ];
+
+            $raw['secciones']['VIII']['contenido']['bibliografias'] = $existentes;
+            $programa->data_syllabus = $raw;
+            $programa->save();
+        });
+
+        return redirect()->back()->with('success', 'Bibliografía agregada correctamente.');
+    }
+
+    /**
+     * Pestaña «Gestión» del curso: los accesos al equipo docente, la
+     * delegación de permisos, los grupos de trabajo y el syllabus. Lo que
+     * sólo puede hacer el titular no se dibuja para los demás.
+     */
+    public function gestion(Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $idDocente = Auth::user()?->docente?->id_docente;
+        $programa = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        return Inertia::render('docente/Gestion', [
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
+                'es_titular_curso' => $idDocente !== null && $curso->id_docente_titular === $idDocente,
+            ],
+            'programa' => $programa ? array_merge(
+                ['estado' => $programa->estado],
+                \App\Services\SyllabusViewerPresenter::ultimoRechazo($programa),
+            ) : null,
+        ]);
+    }
+
+    /**
+     * Evaluación de un estudiante en las actividades publicadas de su
+     * componente, para la pestaña «Evaluación» de su ficha (revisión
+     * «Mi UTAmed»): por actividad, el tipo, la nota (individual si la hay) o
+     * la calificación de la formativa, el estado de la entrega con las mismas
+     * palabras que Actividades y el grupo, para abrir su agenda.
+     */
+    public function evaluacionEstudiante(Curso $curso, int $componente, int $estudiante)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        // Mismo alcance que la pestaña Estudiantes: sólo los componentes que dicta.
+        $idDocente = Auth::user()->docente?->id_docente;
+        $inscrito = $idDocente && \App\Models\Curso\InscripcionComponente::where('id_componente', $componente)
+            ->where('id_estudiante', $estudiante)
+            ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso)
+                ->whereHas('docenteComponentes', fn ($d) => $d->where('id_docente', $idDocente)))
+            ->exists();
+        abort_unless($inscrito, 404, 'El estudiante no está inscrito en un componente que dictes.');
+
+        $filas = DB::table('agenda.integrante_grupo as ig')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
+            ->join('agenda.actividad as a', 'a.id_actividad', '=', 'aag.id_actividad')
+            ->where('a.id_componente', $componente)
+            ->where('a.visible', true)
+            ->where('ig.id_estudiante', $estudiante)
+            ->orderBy('a.fecha_limite')
+            ->orderBy('a.id_actividad')
+            ->get([
+                'a.id_actividad', 'a.nombre', 'a.tipo_actividad', 'a.tipo_entrega', 'a.es_grupal', 'a.fecha_limite',
+                'aag.id_actividad_asignada_grupo as grupo', 'aag.nota', 'ig.nota_individual',
+            ]);
+
+        $idsGrupo = $filas->pluck('grupo');
+        $conEntrega = $idsGrupo->isEmpty() ? collect() : \App\Models\Agenda\Agenda::entregasVigentes()
+            ->whereIn('id_actividad_asignada_grupo', $idsGrupo)
+            ->distinct()
+            ->pluck('id_actividad_asignada_grupo')
+            ->flip();
+        $conFeedback = (new AvanceEvaluacionService)->gruposConFeedback($idsGrupo, $filas->pluck('id_actividad', 'grupo'));
+
+        // La calificación de una formativa (Bueno, Regular o Malo) es la de su
+        // evaluación más reciente.
+        $calificacion = $idsGrupo->isEmpty() ? collect() : DB::table('agenda.evaluacion as ev')
+            ->join('agenda.agenda as ag', 'ag.id_agenda', '=', 'ev.id_agenda')
+            ->whereIn('ag.id_actividad_asignada_grupo', $idsGrupo)
+            ->orderByDesc('ev.fecha_evaluacion')
+            ->get(['ag.id_actividad_asignada_grupo as grupo', 'ev.evaluacion_obtenida'])
+            ->unique('grupo')
+            ->pluck('evaluacion_obtenida', 'grupo');
+
+        return response()->json($filas->map(function ($f) use ($conEntrega, $conFeedback, $calificacion) {
+            $esSumativa = $f->tipo_actividad === \App\Enums\DB\TipoActividad::SUMATIVA->value;
+            $nota = $f->nota_individual ?? $f->nota;
+            $listo = $esSumativa ? $nota !== null : $conFeedback->has($f->grupo);
+            $estado = $listo ? 'ok' : ($conEntrega->has($f->grupo) || $f->tipo_entrega === 'presencial' ? 'pend' : 'no');
+
+            return [
+                'id_actividad' => $f->id_actividad,
+                'nombre' => $f->nombre,
+                'es_sumativa' => $esSumativa,
+                'grupo' => $f->grupo,
+                'nota' => $nota !== null ? (float) $nota : null,
+                'calificacion' => $esSumativa ? null : $calificacion->get($f->grupo),
+                'estado' => $estado,
+            ];
+        })->values());
+    }
+
+    /**
+     * Gestión de grupos — /docente/cursos/{curso}/gestion/grupos (revisión
+     * «Mi UTAmed»). Primero se elige la actividad grupal; luego se arman y
+     * modifican sus grupos con los endpoints de siempre de
+     * DocenteActivityController (crear, agregar, quitar, renombrar, eliminar
+     * y reutilizar los de otra actividad). Los grupos viven por actividad:
+     * la base no tiene grupos de curso.
+     */
+    public function gestionGrupos(Request $request, Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $actividades = \App\Models\Agenda\Actividad::whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+            ->where('es_grupal', true)
+            ->withCount('actividadAsignadaGrupos')
+            ->orderBy('fecha_limite')
+            ->get(['id_actividad', 'nombre', 'fecha_limite', 'max_integrantes']);
+
+        $elegida = $actividades->firstWhere('id_actividad', $request->integer('actividad')) ?? $actividades->first();
+
+        $fotoIntranet = app(FotoIntranetService::class);
+        $grupos = collect();
+        if ($elegida) {
+            $grupos = \App\Models\Agenda\ActividadAsignadaGrupo::where('id_actividad', $elegida->id_actividad)
+                ->with('integranteGrupos.estudiante.usuario')
+                ->orderBy('id_actividad_asignada_grupo')
+                ->get()
+                ->values()
+                ->map(fn ($g, $i) => [
+                    'grupo' => $g->id_actividad_asignada_grupo,
+                    'nombre_grupo' => $g->nombre_grupo,
+                    'etiqueta' => \App\Models\Agenda\ActividadAsignadaGrupo::etiqueta(true, $g->nombre_grupo, null, $i + 1),
+                    'integrantes' => $g->integranteGrupos
+                        ->map(fn ($m) => [
+                            'id_estudiante' => $m->id_estudiante,
+                            'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                            'url_foto' => $m->estudiante?->usuario?->rut
+                                ? $fotoIntranet->getImagenPerfilURL($m->estudiante->usuario->rut)
+                                : null,
+                        ])
+                        ->sortBy('nombre_completo')
+                        ->values(),
+                ]);
+        }
+
+        $estudiantes = \App\Models\Curso\InscripcionCurso::where('id_curso', $curso->id_curso)
+            ->with('estudiante.usuario')
+            ->get()
+            ->map(fn ($i) => [
+                'id_estudiante' => $i->id_estudiante,
+                'nombre_completo' => $i->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                'url_foto' => $i->estudiante?->usuario?->rut
+                    ? $fotoIntranet->getImagenPerfilURL($i->estudiante->usuario->rut)
+                    : null,
+            ])
+            ->sortBy('nombre_completo')
+            ->values();
+
+        return Inertia::render('docente/GestionGrupos', [
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
+            ],
+            'actividades' => $actividades->map(fn ($a) => [
+                'id_actividad' => $a->id_actividad,
+                'nombre' => $a->nombre,
+                'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
+                'max_integrantes' => $a->max_integrantes,
+                'cantidad_grupos' => $a->actividad_asignada_grupos_count,
+            ])->values(),
+            'actividad' => $elegida?->id_actividad,
+            'grupos' => $grupos,
+            'estudiantes' => $estudiantes,
+        ]);
+    }
+
+    /**
+     * Columna «Pendiente» de la pestaña Estudiantes: por componente y
+     * estudiante, cuántas actividades visibles esperan evaluación del docente
+     * (entregó y la sumativa no tiene nota o la formativa no tiene
+     * retroalimentación; mismo criterio que AvanceEvaluacionService) y en
+     * cuántas ya cerradas no entregó.
+     *
+     * @param  \Illuminate\Support\Collection<int,int>  $idsComponente
+     * @return array<int, array<int, array{por_revisar:int, no_entrego:int}>>
+     */
+    private function pendientesPorEstudiante($idsComponente): array
+    {
+        if ($idsComponente->isEmpty()) {
+            return [];
+        }
+
+        $filas = DB::table('agenda.integrante_grupo as ig')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
+            ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
+            ->whereIn('act.id_componente', $idsComponente)
+            ->where('act.visible', true)
+            ->get(['ig.id_estudiante', 'act.id_componente', 'act.id_actividad', 'act.tipo_actividad', 'act.fecha_limite', 'aag.id_actividad_asignada_grupo', 'aag.nota']);
+
+        if ($filas->isEmpty()) {
+            return [];
+        }
+
+        $idsGrupo = $filas->pluck('id_actividad_asignada_grupo')->unique()->values();
+        $conEntrega = DB::table('agenda.agenda as a')
+            ->whereIn('a.id_actividad_asignada_grupo', $idsGrupo)
+            ->where(fn ($q) => \App\Models\Agenda\Agenda::soloEntregasVigentes($q, 'a'))
+            ->distinct()
+            ->pluck('a.id_actividad_asignada_grupo')
+            ->flip();
+        $conFeedback = app(AvanceEvaluacionService::class)->gruposConFeedback(
+            $idsGrupo,
+            $filas->pluck('id_actividad', 'id_actividad_asignada_grupo'),
+        );
+        $hoy = now()->toDateString();
+
+        $resultado = [];
+        foreach ($filas as $f) {
+            $celda = &$resultado[$f->id_componente][$f->id_estudiante];
+            $celda ??= ['por_revisar' => 0, 'no_entrego' => 0];
+            if ($conEntrega->has($f->id_actividad_asignada_grupo)) {
+                $evaluada = $f->tipo_actividad === 'SUMATIVA'
+                    ? $f->nota !== null
+                    : $conFeedback->has($f->id_actividad_asignada_grupo);
+                if (! $evaluada) {
+                    $celda['por_revisar']++;
+                }
+            } elseif ($f->fecha_limite !== null && substr((string) $f->fecha_limite, 0, 10) < $hoy) {
+                $celda['no_entrego']++;
+            }
+            unset($celda);
+        }
+
+        return $resultado;
     }
 
     /**

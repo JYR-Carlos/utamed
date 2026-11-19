@@ -22,6 +22,9 @@ test('docente dashboard excluye cursos plantilla del periodo vigente y del conte
     $response->assertInertia(fn (Assert $page) => $page
         ->component('docente/Dashboard')
         ->has('periodo')
+        ->where('proximosSieteDias.desde', now()->toDateString())
+        ->has('proximosSieteDias.actividades')
+        ->has('porEvaluar')
         ->where('periodo.ano', 2026)
         ->where('periodo.sem', 2)
         ->where('periodo.fecha_inicio', fn ($val) => $val !== null && !str_starts_with((string) $val, '2026-01-01'))

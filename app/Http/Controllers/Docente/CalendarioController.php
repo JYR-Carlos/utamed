@@ -139,6 +139,8 @@ class CalendarioController extends Controller
                 'nombre'            => $nombreCurso,
                 'asignatura'        => $asignatura,
                 'cod_curso'         => $curso->cod_curso,
+                // Código visible (DM069); cod_curso es interno.
+                'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 'letra_grupo'       => $curso->letra_grupo,
                 'agno_real'         => $curso->agno_real,
                 'semestre_real'     => $curso->semestre_real,

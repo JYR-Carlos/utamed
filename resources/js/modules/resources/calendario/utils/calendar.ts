@@ -4,7 +4,7 @@
  * Todo el manejo de fechas es local (sin zonas horarias) usando claves
  * 'YYYY-MM-DD' para evitar desfases por UTC al comparar contra fecha_limite.
  */
-import type { CalendarDay, CursoAccent } from '../types';
+import type { CalendarCurso, CalendarDay, CursoAccent } from '../types';
 
 export const MESES = [
   'Enero',
@@ -47,6 +47,15 @@ export const ACCENTS: CursoAccent[] = [
   { base: 'light-dark(#31456B, #6f87b4)', soft: 'light-dark(#ECEEF4, #182439)', text: 'light-dark(#31456B, #87a0cd)', border: 'light-dark(#C9D0DF, #384865)' },
   { base: 'light-dark(#8A6D14, #a4852c)', soft: 'light-dark(#F7F1DE, #2b2e2e)', text: 'light-dark(#6F5710, #bd9d48)', border: 'light-dark(#E5D8A9, #4e4836)' },
 ];
+
+/**
+ * Código visible del curso con su grupo: «DM069 · A». cod_curso (11000…) es
+ * interno y sólo se usa si falta la asignatura.
+ */
+export function codigoCurso(curso: Pick<CalendarCurso, 'cod_asignatura' | 'cod_curso' | 'asignatura' | 'letra_grupo'>): string {
+  const cod = curso.cod_asignatura || curso.cod_curso || curso.asignatura;
+  return curso.letra_grupo ? `${cod} · ${curso.letra_grupo}` : String(cod);
+}
 
 /** Devuelve el acento estable para una posición de curso. */
 export function accentFor(index: number): CursoAccent {

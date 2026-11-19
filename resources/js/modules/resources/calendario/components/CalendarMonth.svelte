@@ -11,7 +11,7 @@
    */
   import { TriangleAlert } from 'lucide-svelte';
   import type { CalendarCurso, CalendarItem, CursoAccent, Sobrecarga } from '../types';
-  import { buildMonthMatrix, DIAS_SEMANA, MESES } from '../utils/calendar';
+  import { buildMonthMatrix, codigoCurso, DIAS_SEMANA, MESES } from '../utils/calendar';
   import EventPill from './EventPill.svelte';
 
   interface Props {
@@ -45,39 +45,38 @@
   const MAX_VISIBLE = 3;
 
   const CELDA =
-    'relative flex min-h-[112px] min-w-0 flex-1 flex-col gap-1 border-r border-gray-200 p-1.5 last:border-r-0';
+    'relative flex min-h-[112px] min-w-0 flex-1 flex-col gap-1 border-r border-inst-linea p-1.5 last:border-r-0';
 
   function etiquetaCurso(id: number): string {
     const curso = cursoPorId[id];
     if (!curso) return '';
-    const cod = curso.cod_curso ?? curso.asignatura;
-    return curso.letra_grupo ? `${cod} ${curso.letra_grupo}` : String(cod);
+    return codigoCurso(curso);
   }
 
   /** Fondo de la celda: hoy manda sobre sobrecarga, y ésta sobre el resto. */
   function fondoCelda(inMonth: boolean, isWeekend: boolean, isToday: boolean, hayCarga: boolean) {
-    if (isToday) return 'background:var(--background-color-slate-50, #F7FAFF);box-shadow:inset 0 4px 0 var(--color-navy, #002F6C)';
-    if (hayCarga) return 'background:var(--background-color-white, #FFFCFC)';
-    if (!inMonth || isWeekend) return 'background:var(--background-color-stone-50, #FBFAF8)';
-    return 'background:var(--background-color-white, #FFFFFF)';
+    if (isToday) return 'background:var(--color-inst-sel);box-shadow:inset 0 4px 0 var(--color-inst-accion)';
+    if (hayCarga) return 'background:var(--color-inst-tarjeta)';
+    if (!inMonth || isWeekend) return 'background:var(--color-inst-sutil)';
+    return 'background:var(--color-inst-tarjeta)';
   }
 </script>
 
 <div
-  class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)]"
+  class="overflow-hidden rounded-xl border border-inst-linea bg-inst-tarjeta shadow-[0_1px_3px_rgba(0,0,0,.06)]"
 >
   <!-- La grilla no se comprime por debajo de 760px: se desplaza dentro de su
        propio contenedor en vez de romper el ancho de la página. -->
   <div class="overflow-x-auto">
     <div class="min-w-[760px]">
       <!-- Encabezado de días -->
-      <div class="flex border-b border-gray-200 bg-stone-100">
+      <div class="flex border-b border-inst-linea bg-inst-sutil">
         {#each DIAS_SEMANA as dia, i (dia)}
           <div
-            class="flex-1 border-r border-gray-200 px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] last:border-r-0 {i >=
+            class="flex-1 border-r border-inst-linea px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] last:border-r-0 {i >=
             5
-              ? 'text-ink-3'
-              : 'text-ink-2'}"
+              ? 'text-inst-ink-3'
+              : 'text-inst-ink-2'}"
           >
             {dia}
           </div>
@@ -86,7 +85,7 @@
 
       <!-- Semanas -->
       {#each weeks as week, wi (wi)}
-        <div class="flex {wi < weeks.length - 1 ? 'border-b border-gray-200' : ''}">
+        <div class="flex {wi < weeks.length - 1 ? 'border-b border-inst-linea' : ''}">
           {#each week as day (day.iso)}
             {@const items = itemsPorDia[day.iso] ?? []}
             {@const visibles = items.slice(0, MAX_VISIBLE)}
@@ -102,7 +101,7 @@
               <button
                 type="button"
                 onclick={() => onSelectDay?.(day.iso)}
-                class="absolute inset-0 z-0 cursor-pointer focus:outline-none focus-visible:bg-uta-blue-light/40"
+                class="absolute inset-0 z-0 cursor-pointer focus:outline-none focus-visible:bg-inst-accion-s/40"
                 aria-label="Ver el día {day.dayOfMonth}"
               ></button>
 
@@ -110,18 +109,18 @@
               <div class="pointer-events-none relative z-10 flex flex-wrap items-center gap-1.5">
                 {#if day.isToday}
                   <span
-                    class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-navy px-1.5 text-[11.5px] font-bold text-white"
+                    class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-inst-accion px-1.5 text-[11.5px] font-bold text-inst-sobre-accion"
                   >
                     {day.dayOfMonth}
                   </span>
                   <span
-                    class="text-[10px] font-bold uppercase tracking-[0.08em] text-navy">hoy</span
+                    class="text-[10px] font-bold uppercase tracking-[0.08em] text-inst-accion-t">hoy</span
                   >
                 {:else}
                   <span
                     class="text-[12.5px] font-semibold {day.inMonth
-                      ? 'text-ink'
-                      : 'text-zinc-400'}"
+                      ? 'text-inst-ink'
+                      : 'text-inst-ink-3'}"
                   >
                     {day.inMonth
                       ? day.dayOfMonth
@@ -139,12 +138,12 @@
                     )}"
                   >
                     <span
-                      class="inline-flex h-[19px] w-[19px] items-center justify-center rounded-md border border-red-200 bg-red-50"
+                      class="inline-flex h-[19px] w-[19px] items-center justify-center rounded-md border border-inst-warn/40 bg-inst-warn-s"
                     >
-                      <TriangleAlert size={11} class="text-red-700" />
+                      <TriangleAlert size={11} class="text-inst-warn" />
                     </span>
                     <span
-                      class="text-[10px] font-bold uppercase tracking-[0.04em] text-red-700"
+                      class="text-[10px] font-bold uppercase tracking-[0.04em] text-inst-warn"
                       >Grupo {carga.letra} ×{carga.total}</span
                     >
                   </span>
@@ -169,14 +168,14 @@
                       e.stopPropagation();
                       onSelectDay?.(day.iso);
                     }}
-                    class="px-1 text-left text-[10.5px] font-semibold text-navy transition-colors hover:text-navy-2"
+                    class="px-1 text-left text-[10.5px] font-semibold text-inst-accion-t transition-colors hover:text-inst-accion-t"
                   >
                     +{restantes} más
                   </button>
                 {/if}
 
                 {#if ocultas > 0}
-                  <span class="px-1 text-[10px] font-semibold leading-[1.3] text-red-700">
+                  <span class="px-1 text-[10px] font-semibold leading-[1.3] text-inst-warn">
                     {ocultas}
                     {ocultas === 1 ? 'entrega más' : 'entregas más'} en cursos ocultos
                   </span>

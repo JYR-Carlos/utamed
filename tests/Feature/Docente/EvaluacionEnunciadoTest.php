@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Pantalla de evaluación del docente (docente/Activities/Index): el enunciado
+ * Pantalla de evaluación del docente (docente/Actividades, con la actividad desplegada): el enunciado
  * se muestra junto a la rúbrica en «Sobre esta actividad», así que la página
  * recibe el archivo y las reglas que EnunciadoModal valida en el cliente. El
  * curso llega rotulado con Curso::etiqueta() para el breadcrumb.
@@ -70,7 +70,7 @@ test('la evaluación recibe el enunciado adjunto y las reglas para reemplazarlo'
         ->get("/docente/cursos/{$f['id_curso']}/actividades/{$f['id_actividad']}/evaluacion")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('docente/Activities/Index')
+            ->component('docente/Actividades')
             ->where('curso.etiqueta', $etiqueta)
             ->where('actividad.archivo_enunciado.nombre_original', 'enunciado_tarea.pdf')
             ->where('actividad.archivo_enunciado.peso_bytes', 2048)

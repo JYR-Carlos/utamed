@@ -44,16 +44,12 @@ use App\Services\Sso\SgeqSsoService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Laravel\Fortify\Features;
 
+// Se entra directo al login: la portada (Welcome) ya no se muestra.
 Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect()->route('dashboard');
-    }
-
-    return Inertia::render('Welcome', [
-        'canRegister' => Features::enabled(Features::registration()),
-    ]);
+    return Auth::check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
 })->name('home');
 
 Route::post('reportes', [IssuesReportController::class, 'store']);
@@ -489,6 +485,12 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     // Course detail view
     Route::get('cursos/{curso}/docentes', [DocenteCursoController::class, 'docentes'])->name('cursos.docentes');
     Route::get('cursos/{curso}', [DocenteCursoController::class, 'show'])->name('cursos.show');
+    // Pestañas Biblioteca y Gestión del curso (revisión «Mi UTAmed»)
+    Route::get('cursos/{curso}/biblioteca', [DocenteCursoController::class, 'biblioteca'])->name('cursos.biblioteca');
+    Route::post('cursos/{curso}/biblioteca', [DocenteCursoController::class, 'storeBibliografia'])->name('cursos.biblioteca.store');
+    Route::get('cursos/{curso}/gestion', [DocenteCursoController::class, 'gestion'])->name('cursos.gestion');
+    Route::get('cursos/{curso}/gestion/grupos', [DocenteCursoController::class, 'gestionGrupos'])->name('cursos.gestion.grupos');
+    Route::get('cursos/{curso}/componentes/{componente}/estudiantes/{estudiante}/evaluacion', [DocenteCursoController::class, 'evaluacionEstudiante'])->name('cursos.estudiantes.evaluacion');
 
     // Activity management for courses
     Route::get('cursos/{curso}/actividades', [DocenteActivityController::class, 'show'])->name('cursos.actividades.index');
@@ -541,6 +543,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     // Se entra desde el curso: la bandeja abre acotada a ese curso y muestra sus
     // componentes como pestañas, con difusiones y un canal por alumno que
     // comparten todos los docentes del componente (colegiados incl.).
+    Route::get('mensajeria', [MensajeriaController::class, 'cursos'])->name('mensajeria.cursos');
     Route::get('cursos/{curso}/mensajeria', [MensajeriaController::class, 'index'])->name('cursos.mensajeria.index');
     Route::post('cursos/{curso}/mensajeria/componentes/{componente}/difusion', [MensajeriaController::class, 'enviarDifusion'])->name('cursos.mensajeria.difusion');
     Route::post('cursos/{curso}/mensajeria/componentes/{componente}/alumnos/{alumno}/mensaje', [MensajeriaController::class, 'enviarMensaje'])->name('cursos.mensajeria.mensaje');
@@ -552,6 +555,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::get('cursos/{curso}/estudiantes/{idEstudiante}/mensajes', [DocenteActivityController::class, 'mensajesEstudiante'])->name('cursos.estudiantes.mensajes');
     // Nivel 2: hilo de un grupo específico de una actividad
     Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/mensajes', [DocenteActivityController::class, 'mensajesGrupo'])->name('cursos.actividades.grupos.mensajes');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/agenda', [DocenteActivityController::class, 'agendaGrupo'])->name('cursos.actividades.grupos.agenda');
     // Docente envía feedback a un grupo
     Route::post('cursos/{curso}/grupos/{grupo}/feedback', [DocenteActivityController::class, 'enviarFeedback'])->name('cursos.grupos.feedback');
     // 1. Autor: Juan Y.

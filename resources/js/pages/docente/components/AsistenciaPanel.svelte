@@ -6,11 +6,14 @@
    * unívocamente por su `id_clase`. La asistencia se registra por
    * inscripción-componente en `curso.asistencia`.
    *
-   * Layout de la lámina «Detalle de curso»: dos paneles.
-   *  - Izquierda: las sesiones, agrupadas por día. Elegir una la abre a la derecha.
-   *  - Derecha: el pase de lista de la sesión elegida, con interruptor por alumno.
-   * Debajo queda el resumen por estudiante, que es donde vive el aviso de
-   * asistencia bajo el mínimo obligatorio del componente.
+   * Composición del lienzo (Docente · Asistencia, dirección institucional UTA):
+   *  - Izquierda: las sesiones, de la más reciente a la más antigua. Elegir
+   *    una la abre a la derecha.
+   *  - Derecha: el pase de lista de la sesión elegida, con Presente / Ausente
+   *    por estudiante. El día y la fecha son el título, la hora el subtítulo,
+   *    y la papelera para eliminar la sesión va en esa cabecera.
+   * La asistencia acumulada de cada estudiante se ve en la tabla de la
+   * pestaña Estudiantes (revisión «Mi UTAmed»: sin «Asistencia por estudiante»).
    *
    * Carga sus propios datos vía GET JSON cuando cambia el componente activo, y
    * usa router.post/put/delete (Inertia) para crear/editar/eliminar sesiones,
@@ -19,22 +22,31 @@
   import { router } from '@inertiajs/svelte';
   import { formatFechaLarga } from '@/utils/formatters';
   import ConfirmDialog from '@/components/custom/common/ConfirmDialog.svelte';
+  import AvatarAlumno from '@/components/docente/AvatarAlumno.svelte';
+  import { titleCase } from '@/lib/utils';
   import {
-    CalendarPlus,
-    Loader2,
-    Trash2,
-    Check,
-    X,
-    Users,
-    ClipboardCheck,
-    AlertTriangle,
-  } from 'lucide-svelte';
+    aviso,
+    avisoTono,
+    btnFantasma,
+    btnPrimario,
+    btnSecundario,
+    campo,
+    chico,
+    chip,
+    tarjeta,
+    tarjetaCabecera,
+    tarjetaPie,
+    titulo,
+    tono,
+  } from '@/lib/inst';
+  import { CalendarPlus, Check, ClipboardCheck, Loader2, Trash2, Users, X } from 'lucide-svelte';
 
   interface EstudianteAsistencia {
     id_inscripcion_componente: number;
     id_estudiante: number;
     nombre: string;
     username: string;
+    url_foto?: string | null;
   }
 
   interface RegistroSesion {
@@ -67,7 +79,6 @@
   let error = $state<string | null>(null);
   let estudiantes = $state<EstudianteAsistencia[]>([]);
   let sesiones = $state<Sesion[]>([]);
-  let porcentajeObligatorio = $state<number | null>(null);
 
   // ── Pase de lista (crear / editar) ──
   /** 'idle' = nada abierto; 'editar' = sesión existente; 'nueva' = sesión por crear. */
@@ -90,16 +101,10 @@
 
   const hoy = new Date().toISOString().slice(0, 10);
 
-  /** Sesiones agrupadas por día, respetando el orden que envía el servidor. */
-  const sesionesPorDia = $derived.by(() => {
-    const grupos: { dia: string; items: Sesion[] }[] = [];
-    for (const s of sesiones) {
-      const ultimo = grupos.at(-1);
-      if (ultimo && ultimo.dia === s.dia) ultimo.items.push(s);
-      else grupos.push({ dia: s.dia, items: [s] });
-    }
-    return grupos;
-  });
+  /** «martes 17 de noviembre»: el día y la fecha son el título de cada sesión. */
+  function fechaLarga(dia: string): string {
+    return new Date(`${dia}T12:00:00`).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
+  }
 
   // Recargar cuando cambia el componente activo.
   $effect(() => {
@@ -123,7 +128,6 @@
           (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { sensitivity: 'base' }),
       );
       sesiones = data.sesiones ?? [];
-      porcentajeObligatorio = data.porcentaje_asistencia_obligatoria ?? null;
 
       if (sesiones.length > 0) {
         if (preferirIdClase != null) {
@@ -264,365 +268,257 @@
     });
   }
 
-  // ── Resumen por estudiante (% de asistencia sobre todas las sesiones) ──
-  interface ResumenEstudiante {
-    estudiante: EstudianteAsistencia;
-    presentes: number;
-    total: number;
-    porcentaje: number;
-  }
 
-  const resumen = $derived.by<ResumenEstudiante[]>(() => {
-    const totalSesiones = sesiones.length;
-    return estudiantes.map((e) => {
-      let pres = 0;
-      for (const s of sesiones) {
-        const r = s.registros.find(
-          (x) => x.id_inscripcion_componente === e.id_inscripcion_componente,
-        );
-        if (r?.esta_presente) pres++;
-      }
-      return {
-        estudiante: e,
-        presentes: pres,
-        total: totalSesiones,
-        porcentaje: totalSesiones === 0 ? 0 : Math.round((pres / totalSesiones) * 100),
-      };
-    });
-  });
-
-  function bajoMinimo(porc: number): boolean {
-    return porcentajeObligatorio != null && porc < porcentajeObligatorio;
-  }
-
-  function pctColor(porc: number): string {
-    if (bajoMinimo(porc)) return 'text-red-700';
-    return porc >= 75 ? 'text-emerald-700' : 'text-amber-700';
-  }
-
-  const CAMPO =
-    'px-2.5 py-1.5 text-[13px] rounded-lg border border-line bg-white focus:outline-none focus:border-navy';
-  const BTN_PRIMARIO =
-    'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:h-10';
-  const BTN_SECUNDARIO =
-    'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
+  const segBoton =
+    'inline-flex min-h-11 cursor-pointer items-center gap-1.5 border-0 border-r border-inst-linea px-3.5 text-[13px] font-bold last:border-r-0 lg:min-h-9';
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-6">
   {#if cargando}
-    <div class="flex items-center justify-center gap-2 py-16 text-ink-2 text-sm">
-      <Loader2 size={18} class="animate-spin" />
+    <div class="{tarjeta} flex items-center justify-center gap-2 py-16 text-sm text-inst-ink-2">
+      <Loader2 size={18} class="animate-spin" aria-hidden="true" />
       Cargando asistencia…
     </div>
   {:else if error}
-    <div class="text-center py-12 text-red-700 text-sm">{error}</div>
+    <div class="{aviso} {avisoTono.error}" role="alert">
+      <p class="m-0 font-bold">{error}</p>
+      <button type="button" onclick={() => cargar()} class="{btnSecundario} {chico} ml-auto">Reintentar</button>
+    </div>
   {:else if estudiantes.length === 0}
-    <div
-      class="flex flex-col items-center justify-center gap-2 py-14 text-center rounded-xl border border-dashed bg-sand border-sand-line"
-    >
-      <Users size={26} class="text-ink-3" />
-      <p class="text-sm text-ink-2 m-0">Sin estudiantes inscritos en este componente.</p>
+    <div class="{tarjeta} flex flex-col items-center gap-2 px-6 py-12 text-center">
+      <Users size={26} class="text-inst-ink-3" aria-hidden="true" />
+      <p class="m-0 font-bold">Sin estudiantes inscritos en este componente.</p>
+      <p class="m-0 text-inst-ink-2">El pase de lista se habilita cuando haya estudiantes inscritos.</p>
     </div>
   {:else if sesiones.length === 0 && modo === 'idle'}
     <!-- Sin sesiones: un solo estado vacío, con la acción adentro. -->
-    <div
-      class="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center"
-    >
-      <ClipboardCheck size={28} class="text-slate-500" aria-hidden="true" />
+    <div class="{tarjeta} flex flex-col items-center gap-3 px-6 py-12 text-center">
+      <ClipboardCheck size={28} class="text-inst-ink-3" aria-hidden="true" />
       <div class="flex flex-col gap-1">
-        <p class="m-0 text-base font-semibold text-ink">Aún no hay sesiones de {tipoComponente}.</p>
-        <p class="m-0 text-sm text-slate-600">Registra la primera para pasar lista.</p>
+        <p class="m-0 font-bold">Aún no hay sesiones de {tipoComponente}.</p>
+        <p class="m-0 text-inst-ink-2">Registra la primera para pasar lista.</p>
       </div>
-      <button type="button" onclick={nuevaSesion} class={BTN_PRIMARIO}>
+      <button type="button" onclick={nuevaSesion} class={btnPrimario}>
         <CalendarPlus size={16} aria-hidden="true" />
         Nueva sesión
       </button>
     </div>
   {:else}
-    <div class="flex flex-col lg:flex-row gap-[18px] items-start">
-      <!-- ── Panel izquierdo: sesiones ── -->
-      <div class="w-full lg:w-[360px] lg:flex-none flex flex-col gap-2.5">
-        <div class="flex items-center gap-2.5">
-          <h3 class="text-sm font-semibold text-ink m-0">Sesiones</h3>
-          <span class="text-xs text-ink-2">
-            {sesiones.length}
-            {sesiones.length === 1 ? 'registrada' : 'registradas'}
-          </span>
-          <button type="button" onclick={nuevaSesion} class="ml-auto {modo === 'idle' ? BTN_PRIMARIO : BTN_SECUNDARIO}">
-            <CalendarPlus size={16} aria-hidden="true" />
+    <div class="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <!-- ── Sesiones ── -->
+      <section aria-labelledby="t-sesiones-{idComponente}" class={tarjeta}>
+        <div class={tarjetaCabecera}>
+          <h2 id="t-sesiones-{idComponente}" class="{titulo} m-0 text-base leading-6">Sesiones</h2>
+          <span class="{chip} {tono.off}">{sesiones.length}</span>
+          <button
+            type="button"
+            onclick={nuevaSesion}
+            class="{modo === 'idle' ? btnPrimario : btnSecundario} {chico} ml-auto"
+          >
+            <CalendarPlus size={15} aria-hidden="true" />
             Nueva sesión
           </button>
         </div>
 
         {#if sesiones.length === 0}
-          <p class="m-0 text-sm text-slate-600">Ésta será la primera sesión del componente.</p>
+          <p class="m-0 px-4.5 py-3.5 text-[13px] text-inst-ink-2">Ésta será la primera sesión del componente.</p>
         {:else}
-          {#each sesionesPorDia as grupo, g (grupo.dia)}
-            <span
-              class="font-mono text-xs uppercase tracking-[0.08em] text-ink-2 pt-1.5 first:pt-0.5 {g > 0 && !verTodas
-                ? 'max-lg:hidden'
-                : ''}"
-            >
-              {formatFechaLarga(grupo.dia)}
-            </span>
-            {#each grupo.items as s, j (s.id_clase)}
+          <ul class="m-0 list-none p-0">
+            {#each sesiones as s, i (s.id_clase)}
               {@const activa = s.id_clase === idClaseActiva}
-              <button
-                onclick={() => abrirSesion(s)}
-                aria-current={activa ? 'true' : undefined}
-                class="flex w-full items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition-colors duration-150 {activa
-                  ? 'bg-slate-50 border-slate-300 border-l-[3px] border-l-navy'
-                  : 'bg-white border-gray-200 hover:bg-stone-50'} {(g > 0 || j > 0) && !verTodas ? 'max-lg:hidden' : ''}"
-              >
-                <span class="flex flex-col gap-0.5 min-w-0">
-                  <span
-                    class="font-mono text-[13px] font-semibold tabular-nums {activa
-                      ? 'text-navy'
-                      : 'text-ink'}">{s.hora_inicio} – {s.hora_fin}</span
-                  >
-                  {#if s.asunto}
-                    <span class="truncate text-[12px] font-medium text-ink" title={s.asunto}>{s.asunto}</span>
-                  {/if}
-                  <span class="text-[11.5px] text-ink-2">{tipoComponente}</span>
-                </span>
-                <span class="ml-auto flex flex-none flex-col items-end gap-0.5">
-                  <span class="font-mono text-sm font-semibold tabular-nums text-ink"
-                    >{s.presentes}/{s.total}</span
-                  >
-                  <span class="text-xs text-ink-2">presentes</span>
-                </span>
-              </button>
-            {/each}
-          {/each}
-          {#if sesiones.length > 1}
-            <button type="button" onclick={() => (verTodas = !verTodas)} class="{BTN_SECUNDARIO} lg:hidden">
-              {verTodas ? 'Ver sólo la última sesión' : `Ver las ${sesiones.length} sesiones`}
-            </button>
-          {/if}
-        {/if}
-      </div>
-
-      <!-- ── Panel derecho: pase de lista ── -->
-      <div
-        class="w-full lg:flex-1 min-w-0 rounded-xl border border-gray-200 flex flex-col {modo === 'idle'
-          ? 'max-lg:hidden'
-          : 'max-lg:order-first'}"
-      >
-        {#if modo === 'idle'}
-          <div
-            class="flex flex-col items-center justify-center gap-2 py-16 text-center text-ink-2"
-          >
-            <ClipboardCheck size={28} class="text-ink-3" />
-            <p class="text-[13px] m-0">
-              Elige una sesión de la izquierda o registra una nueva para pasar lista.
-            </p>
-          </div>
-        {:else}
-          <!-- Cabecera -->
-          <div
-            class="flex flex-wrap items-center gap-3.5 rounded-t-xl border-b border-gray-200 bg-sand px-4 py-3"
-          >
-            <div class="flex flex-col gap-1 min-w-0">
-              <span class="text-sm font-semibold text-ink"
-                >Pase de lista · {tipoComponente} {modo === 'editar' ? '(Editar sesión)' : '(Nueva sesión)'}</span
-              >
-              <div class="flex flex-wrap items-center gap-2 pt-1">
-                <input type="date" bind:value={fDia} class={CAMPO} aria-label="Fecha" />
-                <input type="time" bind:value={fInicio} class={CAMPO} aria-label="Hora inicio" />
-                <span class="text-muted-foreground">–</span>
-                <input type="time" bind:value={fFin} class={CAMPO} aria-label="Hora término" />
-              </div>
-            </div>
-
-            <div class="ml-auto flex flex-wrap items-center gap-3.5">
-              <div class="flex flex-col items-end">
-                <span class="font-mono text-lg font-semibold leading-tight tabular-nums text-ink"
-                  >{totalPresentesForm}/{estudiantes.length}</span
-                >
-                <span class="text-[11px] text-ink-2">presentes</span>
-              </div>
-              {#if modo === 'editar'}
+              <li class="border-b border-inst-linea last:border-b-0 {i > 0 && !verTodas ? 'max-lg:hidden' : ''}">
                 <button
                   type="button"
-                  onclick={solicitarEliminarSesion}
-                  class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-700"
-                  aria-label="Eliminar sesión"
+                  onclick={() => abrirSesion(s)}
+                  aria-current={activa ? 'true' : undefined}
+                  class="flex min-h-11 w-full cursor-pointer items-center gap-3 border-0 border-l-4 px-4 py-2.5 text-left text-inst-ink transition-colors {activa
+                    ? 'border-l-inst-oro bg-inst-sel'
+                    : 'border-l-transparent bg-transparent hover:bg-inst-sutil'}"
                 >
-                  <Trash2 size={15} />
+                  <span class="flex min-w-0 flex-col">
+                    <span class="font-bold first-letter:uppercase">{fechaLarga(s.dia)}</span>
+                    <span class="truncate text-[13px] text-inst-ink-2" title={s.asunto ?? undefined}>
+                      {s.hora_inicio}–{s.hora_fin}{s.asunto ? ` · ${s.asunto}` : ''}
+                    </span>
+                  </span>
+                  <span class="{chip} {tono.ok} ml-auto">{s.presentes} de {s.total}</span>
                 </button>
-              {/if}
-              <button type="button" onclick={() => marcarTodos(!todosPresentes)} class={BTN_SECUNDARIO}>
-                {todosPresentes ? 'Desmarcar todos' : 'Marcar todos'}
-              </button>
-              <button type="button" onclick={guardar} disabled={guardando} class="{BTN_PRIMARIO} disabled:opacity-50">
-                {#if guardando}
-                  <Loader2 size={14} class="animate-spin" />
-                {:else}
-                  <Check size={14} />
-                {/if}
-                Guardar lista
+              </li>
+            {/each}
+          </ul>
+          {#if sesiones.length > 1}
+            <div class="{tarjetaPie} lg:hidden">
+              <button type="button" onclick={() => (verTodas = !verTodas)} class="{btnFantasma} {chico}">
+                {verTodas ? 'Ver sólo la última sesión' : `Ver las ${sesiones.length} sesiones`}
               </button>
             </div>
+          {/if}
+        {/if}
+      </section>
+
+      <!-- ── Pase de lista ── -->
+      <section
+        aria-labelledby="t-lista-{idComponente}"
+        class="{tarjeta} {modo === 'idle' ? 'max-lg:hidden' : 'max-lg:order-first'}"
+      >
+        {#if modo === 'idle'}
+          <div class="flex flex-col items-center gap-2 px-6 py-16 text-center text-inst-ink-2">
+            <ClipboardCheck size={28} class="text-inst-ink-3" aria-hidden="true" />
+            <h2 id="t-lista-{idComponente}" class="m-0 text-[13px] font-normal">
+              Elige una sesión o registra una nueva para pasar lista.
+            </h2>
+          </div>
+        {:else}
+          <div class="{tarjetaCabecera} items-start">
+            <span class="flex min-w-0 flex-col">
+              <h2 id="t-lista-{idComponente}" class="{titulo} m-0 text-lg leading-6 first-letter:uppercase">
+                {modo === 'nueva' && !fDia ? 'Nueva sesión' : fDia ? fechaLarga(fDia) : 'Sin fecha'}
+              </h2>
+              <span class="text-inst-ink-2">{fInicio}–{fFin} · {tipoComponente}</span>
+            </span>
+            {#if modo === 'editar'}
+              <button
+                type="button"
+                onclick={solicitarEliminarSesion}
+                class="{btnFantasma} ml-auto size-11 px-0! text-inst-error! lg:size-10"
+                aria-label="Eliminar la sesión del {fDia ? fechaLarga(fDia) : 'día'}"
+                title="Eliminar sesión"
+              >
+                <Trash2 size={17} aria-hidden="true" />
+              </button>
+            {/if}
           </div>
 
-          <!-- Metadatos de la clase: Asunto y Descripción -->
-          <div class="border-b border-gray-200 bg-white px-4 py-3 flex flex-col gap-2.5">
-            <div class="flex flex-col gap-1">
-              <div class="flex items-center justify-between">
-                <label for="campo-asunto-clase" class="text-xs font-semibold text-ink">
-                  Asunto / Tema de la clase
-                </label>
-                <span class="font-mono text-[11px] tabular-nums text-ink-2">
-                  {fAsunto.length}/150
-                </span>
-              </div>
+          <!-- Fecha, horario y tema de la clase -->
+          <div class="flex flex-col gap-3 border-b border-inst-linea px-4.5 py-3.5">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <label class="col-span-2 flex flex-col gap-1 sm:col-span-1">
+                <span class="text-[13px] font-bold">Fecha</span>
+                <input type="date" bind:value={fDia} class={campo} />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="text-[13px] font-bold">Inicio</span>
+                <input type="time" bind:value={fInicio} class={campo} />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="text-[13px] font-bold">Término</span>
+                <input type="time" bind:value={fFin} class={campo} />
+              </label>
+            </div>
+            <label class="flex flex-col gap-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="text-[13px] font-bold">Asunto o tema de la clase</span>
+                <span class="text-xs text-inst-ink-3 tabular-nums">{fAsunto.length}/150</span>
+              </span>
               <input
-                id="campo-asunto-clase"
                 type="text"
                 maxlength="150"
                 bind:value={fAsunto}
                 placeholder="Título o contenido principal abordado"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-ink placeholder:text-muted-foreground focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy"
+                class={campo}
               />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label for="campo-desc-clase" class="text-xs font-semibold text-ink">
-                Descripción / Notas pedagógicas
-              </label>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[13px] font-bold">Descripción o notas pedagógicas</span>
               <textarea
-                id="campo-desc-clase"
                 rows="2"
                 bind:value={fDescripcion}
                 placeholder="Observaciones, acuerdos o notas sobre la sesión"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-ink placeholder:text-muted-foreground focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy resize-y"
+                class="{campo} resize-y py-2"
               ></textarea>
-            </div>
+            </label>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 border-b border-inst-linea px-4.5 py-3">
+            <span class="{chip} {tono.ok}">Presentes · {totalPresentesForm}</span>
+            <span class="{chip} {tono.error}">Ausentes · {estudiantes.length - totalPresentesForm}</span>
+            <button type="button" onclick={() => marcarTodos(!todosPresentes)} class="{btnSecundario} {chico} ml-auto">
+              <Check size={15} aria-hidden="true" />
+              {todosPresentes ? 'Desmarcar todos' : 'Marcar todos presentes'}
+            </button>
           </div>
 
           {#if formError}
-            <p class="border-b border-gray-200 px-4 py-2 text-[12.5px] text-red-700 m-0">
-              {formError}
-            </p>
+            <div class="mx-4.5 mt-3 {aviso} {avisoTono.error}" role="alert">
+              <p class="m-0 text-[13px] font-bold">{formError}</p>
+            </div>
           {/if}
 
-          <!-- Grilla de alumnos -->
-          <div class="grid grid-cols-1 md:grid-cols-2">
-            {#each estudiantes as e, i (e.id_inscripcion_componente)}
+          <ul class="m-0 list-none p-0">
+            {#each estudiantes as e (e.id_inscripcion_componente)}
               {@const pres = !!presentes[e.id_inscripcion_componente]}
-              <div
-                class="flex items-center gap-3 border-b border-gray-200 px-4 py-2.5 {i % 2 === 0
-                  ? 'md:border-r md:border-r-gray-200'
-                  : ''} {Math.floor(i / 2) % 2 === 1 ? 'bg-stone-50' : ''}"
-              >
-                <span class="w-[22px] shrink-0 font-mono text-[12px] tabular-nums text-ink-2"
-                  >{String(i + 1).padStart(2, '0')}</span
+              <li class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-inst-linea px-4.5 py-2.5 last:border-b-0">
+                <AvatarAlumno
+                  src={e.url_foto ?? null}
+                  nombre={e.nombre}
+                  class="size-8 bg-inst-sutil text-xs font-extrabold text-inst-ink-2"
+                />
+                <span class="min-w-0 flex-1 font-bold break-words">{titleCase(e.nombre)}</span>
+                <span
+                  role="group"
+                  aria-label="Asistencia de {e.nombre}"
+                  class="inline-flex overflow-hidden rounded-md border border-inst-control max-sm:w-full"
                 >
-                <span class="min-w-0 flex-1 break-words text-[13.5px] font-medium text-ink">{e.nombre}</span>
-                <span class="ml-auto flex flex-none items-center gap-2.5">
-                  <span class="text-xs font-semibold {pres ? 'text-emerald-700' : 'text-slate-600'}"
-                    >{pres ? 'Presente' : 'Ausente'}</span
-                  >
                   <button
-                    role="switch"
-                    aria-checked={pres}
-                    aria-label="{e.nombre}: marcar {pres ? 'ausente' : 'presente'}"
-                    onclick={() => togglePresente(e.id_inscripcion_componente)}
-                    class="relative flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-150 before:absolute before:-inset-x-1.5 before:-inset-y-[11px] before:content-[''] {pres
-                      ? 'justify-end bg-emerald-600'
-                      : 'justify-start bg-slate-500'}"
+                    type="button"
+                    aria-pressed={pres}
+                    onclick={() => !pres && togglePresente(e.id_inscripcion_componente)}
+                    class="{segBoton} max-sm:flex-1 max-sm:justify-center {pres
+                      ? 'bg-inst-ok text-inst-tarjeta'
+                      : 'bg-inst-tarjeta text-inst-ink hover:bg-inst-sutil'}"
                   >
-                    <span class="h-[18px] w-[18px] rounded-full bg-white shadow-sm"></span>
+                    <Check size={15} aria-hidden="true" />
+                    Presente
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={!pres}
+                    onclick={() => pres && togglePresente(e.id_inscripcion_componente)}
+                    class="{segBoton} max-sm:flex-1 max-sm:justify-center {!pres
+                      ? 'bg-inst-error text-inst-tarjeta'
+                      : 'bg-inst-tarjeta text-inst-ink hover:bg-inst-sutil'}"
+                  >
+                    <X size={15} aria-hidden="true" />
+                    Ausente
                   </button>
                 </span>
-              </div>
+              </li>
             {/each}
-          </div>
+          </ul>
 
-          <div class="flex items-center gap-3 px-4 py-2.5 text-[12px] text-ink-2">
-            <span class="mr-auto">
+          <div class={tarjetaPie}>
+            <span class="text-[13px] text-inst-ink-2">
               {estudiantes.length}
-              {estudiantes.length === 1 ? 'estudiante' : 'estudiantes'} · el orden sigue la lista de
-              clase
+              {estudiantes.length === 1 ? 'estudiante' : 'estudiantes'}
             </span>
-            {#if modo === 'nueva'}
-              <button
-                type="button"
-                onclick={() => (sesiones.length > 0 ? abrirSesion(sesiones[0]) : (modo = 'idle'))}
-                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-ink-2 transition-colors hover:bg-sand"
-              >
-                <X size={13} />
-                Descartar
+            <span class="ml-auto flex flex-wrap items-center gap-2">
+              {#if modo === 'nueva'}
+                <button
+                  type="button"
+                  onclick={() => (sesiones.length > 0 ? abrirSesion(sesiones[0]) : (modo = 'idle'))}
+                  class="{btnFantasma} {chico}"
+                >
+                  Descartar
+                </button>
+              {/if}
+              <button type="button" onclick={guardar} disabled={guardando} class="{btnPrimario} {chico}">
+                {#if guardando}
+                  <Loader2 size={15} class="animate-spin" aria-hidden="true" />
+                {:else}
+                  <Check size={15} aria-hidden="true" />
+                {/if}
+                Guardar pase de lista
               </button>
-            {/if}
+            </span>
           </div>
         {/if}
-      </div>
+      </section>
     </div>
 
-    <!-- ── Resumen por estudiante ── -->
-    {#if sesiones.length > 0}
-      <div class="flex flex-col gap-2">
-        <div class="flex items-baseline gap-2.5">
-          <h3 class="text-sm font-semibold text-ink m-0">Asistencia por estudiante</h3>
-          {#if porcentajeObligatorio != null}
-            <span class="text-[11.5px] text-ink-2">
-              Mínimo obligatorio del componente:
-              <strong class="font-semibold text-ink">{Number(porcentajeObligatorio)} %</strong>
-            </span>
-          {/if}
-        </div>
-        <div class="overflow-hidden rounded-xl border border-gray-200">
-          <table class="w-full border-collapse text-sm">
-            <thead class="bg-sand">
-              <tr>
-                <th
-                  class="px-3 py-2.5 sm:px-4 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
-                  >Estudiante</th
-                >
-                <th
-                  class="px-3 py-2.5 sm:px-4 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
-                  >Asistió</th
-                >
-                <th
-                  class="px-3 py-2.5 sm:px-4 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
-                  >%</th
-                >
-              </tr>
-            </thead>
-            <tbody>
-              {#each resumen as r, i (r.estudiante.id_inscripcion_componente)}
-                <tr class="border-t border-gray-200 {i % 2 === 1 ? 'bg-stone-50' : ''}">
-                  <td class="px-3 py-2.5 sm:px-4">
-                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span class="text-[13.5px] text-ink">{r.estudiante.nombre}</span>
-                      {#if bajoMinimo(r.porcentaje)}
-                        <span
-                          class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-700"
-                        >
-                          <AlertTriangle size={12} aria-hidden="true" /> Bajo mínimo
-                        </span>
-                      {/if}
-                    </div>
-                  </td>
-                  <td class="px-3 py-2.5 sm:px-4 text-right font-mono tabular-nums text-[13px] text-ink-2"
-                    >{r.presentes}/{r.total}</td
-                  >
-                  <td
-                    class="px-3 py-2.5 sm:px-4 text-right font-mono text-[13px] font-semibold tabular-nums {pctColor(
-                      r.porcentaje,
-                    )}">{r.porcentaje}%</td
-                  >
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    {/if}
   {/if}
 </div>
 
-<!-- Modal de confirmación para eliminar sesión -->
+<!-- Confirmación para eliminar la sesión -->
 <ConfirmDialog
   open={confirmEliminarOpen}
   title="Eliminar sesión de asistencia"

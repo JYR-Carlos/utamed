@@ -1,421 +1,312 @@
 <script lang="ts">
-  import { router } from '@inertiajs/svelte';
+  /**
+   * Mis cursos del docente — /docente/cursos (dirección institucional UTA).
+   *
+   * Todos los cursos donde es titular o imparte un componente, agrupados por
+   * período (2026-2, 2026-1…) del más reciente al más antiguo, en grilla o en
+   * lista. Buscar por código, nombre o carrera y ordenar.
+   *
+   * Sólo se muestra lo que entrega el controlador: estudiantes inscritos y si
+   * el curso ya tiene programa. «Por revisar» y «sin leer» por curso no tienen
+   * todavía consulta; antes se dibujaban siempre en 0.
+   */
+  import { Link } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
+  import { ChevronRight, LayoutGrid, List, Search } from 'lucide-svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import {
-    Search,
-    X,
-    LayoutGrid,
-    List,
-    SlidersHorizontal,
-    ChevronDown,
-    Users,
-    BookOpenCheck,
-    Bell,
-    ArrowRight,
-  } from 'lucide-svelte';
+  import { btnSecundario, campo, chico, chip, codigo, cuerpo, etiqueta, seccionTitulo, tarjeta, titulo, tono } from '@/lib/inst';
+  import { nombreSemestre } from '@/lib/cursoDocente';
+  import type { BreadcrumbItem } from '@/types';
 
-  // ── Types ──────────────────────────────────────────────────────────────────
-
-  interface Accent {
-    base: string;
-    soft: string;
-    gradientEnd: string;
-    hue: number;
+  interface CursoDocente {
+    id_curso: number;
+    nombre: string;
+    cod_curso: string;
+    cod_asignatura?: string | null;
+    letra_grupo?: string | null;
+    carrera_nombre?: string | null;
+    fecha_fin?: string | null;
+    tiene_programa: boolean;
+    semestre_real: number;
+    agno_real?: number | null;
+    total_estudiantes: number;
+    es_titular_curso: boolean;
   }
 
   interface Props {
-    cursosSemestre1: any[];
-    cursosSemestre2: any[];
-    availableRoles?: any[];
-    availablePermissions?: Record<string, any[]>;
+    cursosSemestre1: CursoDocente[];
+    cursosSemestre2: CursoDocente[];
   }
 
-  // ── Props ──────────────────────────────────────────────────────────────────
+  let { cursosSemestre1 = [], cursosSemestre2 = [] }: Props = $props();
 
-  let {
-    cursosSemestre1 = [],
-    cursosSemestre2 = [],
-  }: Props = $props();
-
-  // ── Accent palette (6 rotating colors) ────────────────────────────────────
-
-  const ACCENTS: Accent[] = [
-    { base: '#4F46E5', soft: 'light-dark(#EEF0FF, #1b244c)', gradientEnd: '#6366F1', hue: 245 },
-    { base: '#7C3AED', soft: 'light-dark(#F3EEFF, #24234d)', gradientEnd: '#8B5CF6', hue: 270 },
-    { base: '#2563EB', soft: 'light-dark(#EAF1FF, #16284d)', gradientEnd: '#3B82F6', hue: 220 },
-    { base: '#C026D3', soft: 'light-dark(#FBEEFC, #332249)', gradientEnd: '#D946EF', hue: 300 },
-    { base: '#0284C7', soft: 'light-dark(#E6F4FB, #162d47)', gradientEnd: '#0EA5E9', hue: 200 },
-    { base: '#9333EA', soft: 'light-dark(#F5EEFC, #29234d)', gradientEnd: '#A855F7', hue: 280 },
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Inicio', href: '/docente/dashboard' },
+    { title: 'Mis cursos', href: '/docente/cursos' },
   ];
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  type Vista = 'grilla' | 'lista';
+  type Orden = 'codigo' | 'nombre' | 'estudiantes';
 
-  function getInitials(name: string): string {
-    return (name || '?')
-      .split(' ')
-      .slice(0, 2)
-      .map((w: string) => w[0] || '')
-      .join('')
-      .toUpperCase() || '?';
-  }
-
-  // ── View state ─────────────────────────────────────────────────────────────
-
-  let viewMode = $state<'grid' | 'list'>('grid');
-  let query = $state('');
-  let sortKey = $state<'name' | 'progress' | 'pending' | 'students'>('name');
-  let sortOpen = $state(false);
-  let sortRef = $state<HTMLDivElement | null>(null);
-
-  const SORT_LABELS: Record<string, string> = {
-    name: 'Alfabético',
-    progress: 'Progreso',
-    pending: 'Por calificar',
-    students: 'N° estudiantes',
-  };
+  const CLAVE_VISTA = 'docente-cursos-view';
+  let vista = $state<Vista>('grilla');
+  let busqueda = $state('');
+  let orden = $state<Orden>('codigo');
 
   onMount(() => {
-    const saved = localStorage.getItem('docente-cursos-view');
-    if (saved === 'list' || saved === 'grid') viewMode = saved;
-
-    function onDoc(e: MouseEvent) {
-      if (sortRef && !sortRef.contains(e.target as Node)) sortOpen = false;
+    try {
+      const guardada = localStorage.getItem(CLAVE_VISTA);
+      // Antes se guardaba 'grid' / 'list'.
+      if (guardada === 'list' || guardada === 'lista') vista = 'lista';
+    } catch {
+      // Sin almacenamiento: queda la grilla.
     }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
   });
 
-  function setViewMode(mode: 'grid' | 'list') {
-    viewMode = mode;
-    localStorage.setItem('docente-cursos-view', mode);
+  function elegirVista(v: Vista) {
+    vista = v;
+    try {
+      localStorage.setItem(CLAVE_VISTA, v);
+    } catch {
+      // No se pudo recordar; no afecta a la vista actual.
+    }
   }
 
-  // ── Data derivation ────────────────────────────────────────────────────────
+  /** El backend manda 'N/A' sin asignatura: ahí se cae al código interno. */
+  function codigoAsignatura(c: CursoDocente): string {
+    return c.cod_asignatura && c.cod_asignatura !== 'N/A' ? c.cod_asignatura : c.cod_curso;
+  }
 
-  const allCursos = $derived([
-    ...cursosSemestre1.map((c: any, i: number) => ({
-      ...c,
-      _a: ACCENTS[i % ACCENTS.length],
-      _sem: 1,
-    })),
-    ...cursosSemestre2.map((c: any, i: number) => ({
-      ...c,
-      _a: ACCENTS[i % ACCENTS.length],
-      _sem: 2,
-    })),
-  ]);
+  function codigoConGrupo(c: CursoDocente): string {
+    return c.letra_grupo ? `${codigoAsignatura(c)} · Grupo ${c.letra_grupo}` : codigoAsignatura(c);
+  }
 
-  const filtered = $derived.by(() => {
-    const q = query.trim().toLowerCase();
-    const list = allCursos.filter(
-      (c: any) =>
-        !q ||
-        (c.nombre ?? '').toLowerCase().includes(q) ||
-        (c.cod_curso ?? '').toLowerCase().includes(q),
-    );
-    return [...list].sort((a: any, b: any) => {
-      if (sortKey === 'name') return (a.nombre ?? '').localeCompare(b.nombre ?? '');
-      if (sortKey === 'progress') return 100//getProgress(b) - getProgress(a);
-      if (sortKey === 'pending') return (b.pendientes_calificar ?? 0) - (a.pendientes_calificar ?? 0);
-      if (sortKey === 'students') return (b.total_estudiantes ?? 0) - (a.total_estudiantes ?? 0);
-      return 0;
+  function carrera(c: CursoDocente): string {
+    return c.carrera_nombre && c.carrera_nombre !== 'N/A' ? c.carrera_nombre : 'Sin carrera';
+  }
+
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  /**
+   * La búsqueda acepta el nombre, la carrera o el código, con o sin grupo:
+   * «DM301», «dm301 a» y «DM301 · Grupo A» encuentran el mismo curso. Para
+   * los códigos se comparan sólo letras y números.
+   */
+  const compacto = (t: string) => t.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+
+  function coincide(c: CursoDocente, q: string): boolean {
+    const texto = [c.nombre, carrera(c)].join(' ').toLowerCase();
+    if (texto.includes(q)) return true;
+    const buscado = compacto(q);
+    if (!buscado) return false;
+    const cod = compacto(codigoAsignatura(c));
+    const letra = compacto(c.letra_grupo ?? '');
+    return [cod, cod + letra, cod + 'grupo' + letra, compacto(c.cod_curso)].some((k) => k.includes(buscado));
+  }
+
+  const filtrados = $derived.by(() => {
+    const q = busqueda.trim().toLowerCase();
+    const todos = [...cursosSemestre1, ...cursosSemestre2].filter((c) => !q || coincide(c, q));
+    return todos.sort((a, b) => {
+      if (orden === 'nombre') return a.nombre.localeCompare(b.nombre, 'es');
+      if (orden === 'estudiantes') return b.total_estudiantes - a.total_estudiantes;
+      return codigoConGrupo(a).localeCompare(codigoConGrupo(b), 'es');
     });
   });
 
-  const grouped = $derived.by(() => {
-    const s1 = filtered.filter((c: any) => c._sem === 1);
-    const s2 = filtered.filter((c: any) => c._sem === 2);
-    const out: { label: string; courses: any[] }[] = [];
-    if (s1.length) out.push({ label: 'Primer Semestre', courses: s1 });
-    if (s2.length) out.push({ label: 'Segundo Semestre', courses: s2 });
-    return out;
+  // Períodos del más reciente al más antiguo; un curso sin año va al final.
+  const periodos = $derived.by(() => {
+    const grupos = new Map<string, { clave: string; nombre: string; agno: number; sem: number; cursos: CursoDocente[] }>();
+    for (const c of filtrados) {
+      const agno = c.agno_real ?? 0;
+      const clave = agno ? `${agno}-${c.semestre_real}` : 'sin-periodo';
+      const nombre = agno ? nombreSemestre(c.semestre_real, agno) : 'Sin período';
+      if (!grupos.has(clave)) grupos.set(clave, { clave, nombre, agno, sem: c.semestre_real, cursos: [] });
+      grupos.get(clave)!.cursos.push(c);
+    }
+    const ordenados = [...grupos.values()].sort((a, b) => b.agno - a.agno || b.sem - a.sem);
+    // Como en el Inicio y el menú: el período más reciente es el vigente
+    // (salvo que todos sus cursos ya hayan terminado) y los anteriores están
+    // cerrados. Un curso sin período no lleva estado.
+    const masReciente = ordenados.find((g) => g.agno);
+    return ordenados.map((g) => {
+      let estado: 'En curso' | 'Cerrado' | null = null;
+      if (g.agno) {
+        const terminado = g.cursos.every((c) => c.fecha_fin && c.fecha_fin.slice(0, 10) < hoy);
+        estado = g === masReciente && !terminado ? 'En curso' : 'Cerrado';
+      }
+      return { ...g, estado };
+    });
   });
 
+  const total = $derived(cursosSemestre1.length + cursosSemestre2.length);
+  const resumen = $derived.by(() => {
+    if (periodos.length === 0 || busqueda.trim()) return `${filtrados.length} de ${total} cursos`;
+    const [actual, ...anteriores] = periodos;
+    const nAnteriores = anteriores.filter((p) => p.agno).reduce((n, p) => n + p.cursos.length, 0);
+    const base = `${actual.cursos.length} ${actual.cursos.length === 1 ? 'curso' : 'cursos'} en el ${actual.nombre.toLowerCase()}`;
+    return nAnteriores > 0 ? `${base} · ${nAnteriores} en semestres anteriores` : base;
+  });
 
-  /**
-   * Código de la asignatura (p. ej. DM095) como en CursoTitularCard (FEAT-02).
-   * El backend manda 'N/A' cuando el curso no tiene asignatura; ahí se cae al
-   * código del curso.
-   */
-  function codigoAsignatura(curso: { cod_asignatura?: string | null; cod_curso?: string | null }): string {
-    const cod = curso.cod_asignatura && curso.cod_asignatura !== 'N/A' ? curso.cod_asignatura : '';
-    return cod || curso.cod_curso || '';
-  }
+  const botonSeg =
+    'inline-flex min-h-11 cursor-pointer items-center gap-1.5 border-0 border-r border-inst-linea px-3.5 text-[13px] font-bold last:border-r-0 lg:min-h-9';
 </script>
 
-<DocenteLayout>
-  <div class="max-w-[1280px] mx-auto px-6 py-7 pb-15 max-md:px-4 max-md:py-5 max-md:pb-12">
+<DocenteLayout {breadcrumbs} titulo="Mis cursos">
+  {#snippet acciones()}
+    <span class="text-[13px] text-inst-ink-2">{resumen}</span>
+  {/snippet}
 
-    <!-- ── Header ──────────────────────────────────────────────────────────── -->
-    <header class="flex items-end justify-between gap-5 mb-8 flex-wrap max-md:flex-col max-md:items-stretch">
-      <div>
-        <h1 class="text-[2rem] font-bold tracking-tight mb-1 text-ink leading-[1.15]">Mis Cursos</h1>
-        <p class="text-sm text-ink-2 m-0">
-          {filtered.length}{filtered.length === 1 ? ' asignatura' : ' asignaturas'}
-        </p>
+  <div class={cuerpo}>
+    <div class="{tarjeta} flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
+      <label class="relative flex min-w-0 flex-[1_1_320px] items-center">
+        <Search size={16} aria-hidden="true" class="pointer-events-none absolute left-3 text-inst-ink-3" />
+        <span class="sr-only">Buscar curso</span>
+        <input type="search" bind:value={busqueda} placeholder="Buscar por código (DM301) o por nombre" class="{campo} pl-9.5" />
+      </label>
+      <label class="flex items-center gap-2">
+        <span class="text-[13px] font-bold whitespace-nowrap">Ordenar por</span>
+        <select bind:value={orden} class="{campo} w-auto">
+          <option value="codigo">Código</option>
+          <option value="nombre">Nombre</option>
+          <option value="estudiantes">Más estudiantes</option>
+        </select>
+      </label>
+      <div role="group" aria-label="Vista" class="inline-flex overflow-hidden rounded-md border border-inst-control">
+        <button
+          type="button"
+          aria-pressed={vista === 'grilla'}
+          onclick={() => elegirVista('grilla')}
+          class="{botonSeg} {vista === 'grilla' ? 'bg-inst-accion text-inst-sobre-accion' : 'bg-inst-tarjeta text-inst-ink'}"
+        >
+          <LayoutGrid size={15} aria-hidden="true" />Grilla
+        </button>
+        <button
+          type="button"
+          aria-pressed={vista === 'lista'}
+          onclick={() => elegirVista('lista')}
+          class="{botonSeg} {vista === 'lista' ? 'bg-inst-accion text-inst-sobre-accion' : 'bg-inst-tarjeta text-inst-ink'}"
+        >
+          <List size={15} aria-hidden="true" />Lista
+        </button>
       </div>
+    </div>
 
-      <div class="flex gap-2.5 items-center flex-wrap max-md:w-full">
-        <!-- Search -->
-        <div class="relative flex items-center bg-white border border-slate-200 rounded-xl px-2.5 pl-[34px] h-10 w-[260px] transition-all focus-within:border-indigo-600 focus-within:ring-4 focus-within:ring-indigo-50 max-md:w-full">
-          <span class="absolute left-[11px] text-ink-3 pointer-events-none flex items-center" aria-hidden="true"><Search size={15} /></span>
-          <input
-            class="flex-1 border-none outline-none bg-transparent text-sm text-ink"
-            type="search"
-            placeholder="Buscar por nombre o código…"
-            aria-label="Buscar cursos"
-            bind:value={query}
-          />
-          {#if query}
-            <button class="border-none bg-transparent text-ink-2 px-1.5 py-1 rounded-md flex items-center cursor-pointer hover:bg-neutral-100 hover:text-ink" onclick={() => (query = '')} aria-label="Limpiar búsqueda">
-              <X size={13} />
-            </button>
-          {/if}
-        </div>
-
-        <!-- Sort -->
-        <div class="relative" bind:this={sortRef}>
-          <button
-            class="flex items-center gap-[7px] h-10 px-[13px] bg-white border border-slate-200 rounded-xl text-sm text-slate-800 cursor-pointer transition-all hover:border-line whitespace-nowrap {sortOpen ? 'border-indigo-600 ring-4 ring-indigo-50' : ''}"
-            onclick={() => (sortOpen = !sortOpen)}
-            aria-haspopup="listbox"
-            aria-expanded={sortOpen}
-          >
-            <SlidersHorizontal size={15} aria-hidden="true" />
-            <span class="text-muted-foreground">Ordenar:</span>
-            <span class="text-ink font-medium">{SORT_LABELS[sortKey]}</span>
-            <ChevronDown size={13} aria-hidden="true" />
-          </button>
-          {#if sortOpen}
-            <div class="absolute top-[calc(100%+6px)] right-0 min-w-[200px] bg-white border border-slate-200 rounded-xl p-1.5 shadow-[0_10px_28px_rgba(20,25,50,0.09)] z-20" role="listbox" aria-label="Criterio de orden">
-              {#each Object.entries(SORT_LABELS) as [key, label]}
-                <button
-                  role="option"
-                  aria-selected={sortKey === key}
-                  class="block w-full text-left px-[11px] py-[9px] bg-transparent border-none rounded-lg text-sm text-slate-800 cursor-pointer hover:bg-gray-50 {sortKey === key ? 'bg-indigo-50 text-indigo-600 font-medium' : ''}"
-                  onclick={() => { sortKey = key as any; sortOpen = false; }}
-                >
-                  {label}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-
-        <!-- Segmented view toggle -->
-        <div class="inline-flex bg-white border border-slate-200 rounded-xl p-1 gap-0.5" role="tablist" aria-label="Modo de vista">
-          <button
-            role="tab"
-            aria-selected={viewMode === 'grid'}
-            class="inline-flex items-center gap-1.5 px-[13px] py-[5px] h-8 border-none bg-transparent text-[0.8125rem] font-medium text-ink-2 rounded-lg cursor-pointer transition-colors hover:text-ink {viewMode === 'grid' ? 'bg-indigo-50 !text-indigo-600' : ''}"
-            onclick={() => setViewMode('grid')}
-            aria-label="Vista en grilla"
-          >
-            <LayoutGrid size={15} aria-hidden="true" />
-            <span>Grilla</span>
-          </button>
-          <button
-            role="tab"
-            aria-selected={viewMode === 'list'}
-            class="inline-flex items-center gap-1.5 px-[13px] py-[5px] h-8 border-none bg-transparent text-[0.8125rem] font-medium text-ink-2 rounded-lg cursor-pointer transition-colors hover:text-ink {viewMode === 'list' ? 'bg-indigo-50 !text-indigo-600' : ''}"
-            onclick={() => setViewMode('list')}
-            aria-label="Vista en lista"
-          >
-            <List size={15} aria-hidden="true" />
-            <span>Lista</span>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- ── Empty state ─────────────────────────────────────────────────────── -->
-    {#if grouped.length === 0}
-      <div class="text-center py-14 px-5 border border-dashed border-line rounded-2xl bg-white">
-        <p class="text-base font-semibold text-ink m-0 mb-1">{query ? 'Sin resultados' : 'Sin cursos asignados'}</p>
-        <p class="text-sm text-ink-2 m-0">
-          {#if query}
-            No encontramos cursos para "{query}".
-          {:else}
-            No tienes cursos asignados este periodo.
-          {/if}
+    {#if periodos.length === 0}
+      <div class="{tarjeta} px-6 py-10 text-center">
+        <p class="m-0 font-bold">{busqueda.trim() ? 'Sin resultados' : 'Sin cursos asignados'}</p>
+        <p class="m-0 mt-1 text-inst-ink-2">
+          {busqueda.trim() ? `No hay cursos que coincidan con «${busqueda.trim()}».` : 'Todavía no tienes cursos asignados.'}
         </p>
       </div>
     {/if}
 
-    <!-- ── Semester sections ────────────────────────────────────────────────── -->
-    {#each grouped as { label, courses } (label)}
-      <section class="mb-9">
-        <div class="flex items-center gap-2.5 mb-4.5">
-          <h2 class="text-base font-semibold text-ink m-0 tracking-[-0.01em] whitespace-nowrap">{label}</h2>
-          <span class="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-gray-50 border border-slate-200 text-xs text-ink-2">
-            {courses.length}
+    {#each periodos as periodo (periodo.clave)}
+      <section aria-labelledby="p-{periodo.clave}" class="flex flex-col gap-3.5">
+        <div class={seccionTitulo}>
+          <h2 id="p-{periodo.clave}" class="{titulo} m-0 text-[19px] leading-6">{periodo.nombre}</h2>
+          {#if periodo.estado}
+            <span class="{chip} {periodo.estado === 'Cerrado' ? tono.off : tono.ok}">{periodo.estado}</span>
+          {/if}
+          <span class="ml-auto text-[13px] text-inst-ink-2">
+            {periodo.cursos.length}
+            {periodo.cursos.length === 1 ? 'curso' : 'cursos'}
           </span>
-          <span class="flex-1 h-px bg-slate-200" aria-hidden="true"></span>
         </div>
 
-        {#if viewMode === 'grid'}
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
-            {#each courses as curso (curso.id_curso)}
-              {@const a = curso._a}
-              {@const inits = getInitials(curso.nombre ?? '')}
-              {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
-              {@const pid = `dp-${curso.id_curso}`}
-
-              <div
-                class="group relative bg-white border border-slate-200 rounded-2xl p-[18px_20px_16px] flex flex-col gap-3.5 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.04)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
-                style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
-                onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    router.visit(`/docente/cursos/${curso.id_curso}`);
-                  }
-                }}
-                role="button"
-                tabindex="0"
-                aria-label="Abrir curso: {curso.nombre}"
+        {#if vista === 'grilla'}
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
+            {#each periodo.cursos as curso (curso.id_curso)}
+              <Link
+                href="/docente/cursos/{curso.id_curso}"
+                class="{tarjeta} flex flex-col gap-3.5 px-5 pt-4.5 text-inst-ink no-underline transition-shadow hover:text-inst-ink hover:shadow-md {periodo.estado ===
+                'Cerrado'
+                  ? ''
+                  : curso.es_titular_curso
+                    ? 'border-t-4 border-t-inst-celeste'
+                    : 'border-t-4 border-t-inst-oro'}"
               >
-                <!-- Rail -->
-                <div class="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--ac)] opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none" aria-hidden="true"></div>
-
-                <div class="flex justify-between items-start gap-2.5">
-                  <div class="w-[54px] h-[54px] rounded-[13px] relative overflow-hidden flex items-center justify-center shrink-0" style="background:linear-gradient(135deg,{a.base} 0%,{a.gradientEnd} 100%)">
-                    <svg viewBox="0 0 100 100" class="absolute inset-0 w-full h-full" aria-hidden="true">
-                      <defs>
-                        <pattern id={pid} x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-                          <circle cx="7" cy="7" r="1.2" fill="white" fill-opacity="0.18" />
-                        </pattern>
-                      </defs>
-                      <rect width="100" height="100" fill="url(#{pid})" />
-                      <circle cx="78" cy="22" r="34" fill="white" fill-opacity="0.08" />
-                      <circle cx="78" cy="22" r="22" fill="white" fill-opacity="0.06" />
-                    </svg>
-                    <span class="relative text-[1.2rem] font-bold text-white tracking-[-0.01em] select-none">{inits}</span>
-                  </div>
-                  <div class="flex flex-col items-end gap-1.5">
-                    <div class="flex items-center gap-2">
-                      <span class="font-mono text-[0.75rem] font-semibold text-ink-2 tracking-[0.02em]">{codigoAsignatura(curso)}</span>
-                      {#if curso.letra_grupo}
-                        <span
-                          class="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-uta-blue-light text-[13px] font-bold text-navy"
-                          title="Grupo {curso.letra_grupo}"
-                        >
-                          {curso.letra_grupo}
-                        </span>
-                      {/if}
-                    </div>
-                    {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.18)]" title="Tiene actividades pendientes"></span>{/if}
-                  </div>
-                </div>
-
-                <div class="flex flex-col gap-1">
-                  <h3 class="text-[1.075rem] font-semibold tracking-[-0.015em] m-0 text-ink leading-[1.2]">{curso.nombre}</h3>
-                  <p class="text-[0.8125rem] text-ink-2 m-0">{curso.carrera_nombre || curso.programa_nombre || 'Sin carrera'}</p>
-                </div>
-
-                <div class="flex flex-wrap gap-1.5">
-                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-gray-50 text-slate-800 border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
-                    <Users size={13} aria-hidden="true" />
-                    <span class="font-semibold">{curso.total_estudiantes ?? 0}</span>
-                    <span>estudiantes</span>
-                  </div>
-                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {urgent ? 'bg-amber-100 text-ocre border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
-                    <BookOpenCheck size={13} aria-hidden="true" />
-                    <span class="font-semibold">{curso.pendientes_calificar ?? 0}</span>
-                    <span>por revisar</span>
-                  </div>
-                  {#if curso.anuncios != null}
-                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {(curso.anuncios ?? 0) > 0 ? 'bg-indigo-50 text-blue-600 border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
-                      <Bell size={13} aria-hidden="true" />
-                      <span class="font-semibold">{curso.anuncios}</span>
-                      <span>anuncios</span>
-                    </div>
-                  {/if}
-                </div>
-
-              </div>
+                <span class="flex flex-wrap items-center justify-between gap-2">
+                  <span class={codigo}>{codigoConGrupo(curso)}</span>
+                  <span class="{chip} {curso.es_titular_curso ? tono.accion : tono.oro}">
+                    {curso.es_titular_curso ? 'Titular' : 'Componente'}
+                  </span>
+                </span>
+                <span class="flex flex-col gap-1">
+                  <span class="{titulo} text-lg leading-6">{curso.nombre}</span>
+                  <span class="text-[13px] text-inst-ink-2">{carrera(curso)}</span>
+                </span>
+                <span class="-mx-5 mt-auto grid grid-cols-2 border-t border-inst-linea">
+                  <span class="flex flex-col border-r border-inst-linea px-5 py-2.5">
+                    <span class="{titulo} text-xl leading-6">{curso.total_estudiantes}</span>
+                    <span class={etiqueta}>Estudiantes</span>
+                  </span>
+                  <span class="flex flex-col px-5 py-2.5">
+                    <span class="{titulo} text-xl leading-6 {curso.tiene_programa ? '' : 'text-inst-warn'}">
+                      {curso.tiene_programa ? 'Sí' : 'No'}
+                    </span>
+                    <span class={etiqueta}>Programa</span>
+                  </span>
+                </span>
+              </Link>
             {/each}
           </div>
-
         {:else}
-          <div class="flex flex-col gap-2">
-            {#each courses as curso (curso.id_curso)}
-              {@const a = curso._a}
-              {@const inits = getInitials(curso.nombre ?? '')}
-              {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
-              {@const pid2 = `dpl-${curso.id_curso}`}
-
-              <div
-                class="group relative grid grid-cols-[46px_minmax(200px,1fr)_auto_auto_auto] max-md:grid-cols-[40px_1fr_auto] gap-[14px] items-center bg-white border border-slate-200 rounded-2xl p-[12px_16px_12px_14px] max-md:p-3 overflow-hidden cursor-pointer transition-all hover:-translate-x-0.5 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.09)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
-                style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
-                onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    router.visit(`/docente/cursos/${curso.id_curso}`);
-                  }
-                }}
-                role="button"
-                tabindex="0"
-                aria-label="Abrir curso: {curso.nombre}"
-              >
-                <!-- Rail -->
-                <div class="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--ac)] opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none" aria-hidden="true"></div>
-
-                <div class="flex items-center max-md:row-span-2">
-                  <div class="w-[44px] h-[44px] rounded-[10px] relative overflow-hidden flex items-center justify-center shrink-0" style="background:linear-gradient(135deg,{a.base} 0%,{a.gradientEnd} 100%)">
-                    <svg viewBox="0 0 100 100" class="absolute inset-0 w-full h-full" aria-hidden="true">
-                      <defs>
-                        <pattern id={pid2} x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-                          <circle cx="7" cy="7" r="1.2" fill="white" fill-opacity="0.18" />
-                        </pattern>
-                      </defs>
-                      <rect width="100" height="100" fill="url(#{pid2})" />
-                      <circle cx="78" cy="22" r="34" fill="white" fill-opacity="0.08" />
-                    </svg>
-                    <span class="relative text-base font-bold text-white tracking-[-0.01em] select-none">{inits}</span>
-                  </div>
-                </div>
-
-                <div class="flex flex-col gap-0.5 min-w-0 max-md:col-span-2">
-                  <div class="flex items-center gap-[7px]">
-                    <h3 class="text-base font-semibold m-0 tracking-[-0.01em] whitespace-nowrap overflow-hidden text-ellipsis text-ink">{curso.nombre}</h3>
-                    {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.18)] shrink-0" title="Tiene actividades pendientes"></span>{/if}
-                  </div>
-                  <div class="flex gap-[5px] items-center text-xs text-ink-2 min-w-0 overflow-hidden whitespace-nowrap">
-                    <span class="font-mono text-[0.75rem] font-semibold text-ink-2 tracking-[0.02em]">{codigoAsignatura(curso)}</span>
-                    {#if curso.letra_grupo}
-                      <span
-                        class="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md bg-uta-blue-light text-[12px] font-bold text-navy"
-                        title="Grupo {curso.letra_grupo}"
-                      >
-                        {curso.letra_grupo}
+          <div class="{tarjeta} overflow-hidden">
+            <!-- Anchos fijos: las tablas de cada período quedan alineadas. -->
+            <table class="tabla-inst md:table-fixed">
+              <colgroup>
+                <col class="w-[34%]" />
+                <col class="w-[22%]" />
+                <col class="w-[13%]" />
+                <col class="w-[12%]" />
+                <col class="w-[11%]" />
+                <col />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Curso</th>
+                  <th scope="col">Carrera</th>
+                  <th scope="col">Rol</th>
+                  <th scope="col" class="text-right">Estudiantes</th>
+                  <th scope="col">Programa</th>
+                  <th scope="col"><span class="sr-only">Acción</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each periodo.cursos as curso (curso.id_curso)}
+                  <tr>
+                    <td data-l="Curso">
+                      <span class="flex min-w-0 flex-col">
+                        <span class={codigo}>{codigoConGrupo(curso)}</span>
+                        <span class="font-bold">{curso.nombre}</span>
                       </span>
-                    {/if}
-                    <span aria-hidden="true">·</span>
-                    <span>{curso.carrera_nombre || curso.programa_nombre || 'Sin carrera'}</span>
-                  </div>
-                </div>
-
-                <div class="flex gap-1 items-center max-md:col-span-2">
-                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-gray-50 text-slate-800 border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
-                    <Users size={13} aria-hidden="true" />
-                    <span class="font-semibold">{curso.total_estudiantes ?? 0}</span>
-                  </div>
-                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {urgent ? 'bg-amber-100 text-ocre border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
-                    <BookOpenCheck size={13} aria-hidden="true" />
-                    <span class="font-semibold">{curso.pendientes_calificar ?? 0}</span>
-                  </div>
-                </div>
-
-<div class="w-[30px] h-[30px] rounded-[8px] bg-gray-50 flex items-center justify-center text-ink-2 transition-all group-hover:bg-[var(--ac)] group-hover:text-white shrink-0 max-md:hidden" aria-hidden="true"><ArrowRight size={17} /></div>
-              </div>
-            {/each}
+                    </td>
+                    <td data-l="Carrera" class="text-inst-ink-2">{carrera(curso)}</td>
+                    <td data-l="Rol">
+                      <span class="{chip} {curso.es_titular_curso ? tono.accion : tono.oro}">
+                        {curso.es_titular_curso ? 'Titular' : 'Componente'}
+                      </span>
+                    </td>
+                    <td data-l="Estudiantes" class="text-right">{curso.total_estudiantes}</td>
+                    <td data-l="Programa">
+                      <span class="{chip} {curso.tiene_programa ? tono.ok : tono.warn}">
+                        {curso.tiene_programa ? 'Creado' : 'Sin crear'}
+                      </span>
+                    </td>
+                    <td class="text-right">
+                      <Link href="/docente/cursos/{curso.id_curso}" class="{btnSecundario} {chico}" aria-label="Abrir {curso.nombre} {codigoConGrupo(curso)}">
+                        Abrir
+                        <ChevronRight size={15} aria-hidden="true" />
+                      </Link>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
           </div>
         {/if}
       </section>
     {/each}
-
   </div>
 </DocenteLayout>

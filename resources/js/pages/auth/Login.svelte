@@ -20,7 +20,6 @@
   import { request } from '@/routes/password';
   import { Link, useForm } from '@inertiajs/svelte';
   import {
-    ArrowLeft,
     CircleAlert,
     CircleCheck,
     Clock,
@@ -167,20 +166,17 @@
 
       <div class="relative flex max-w-[460px] flex-col gap-3 px-4 lg:gap-4 lg:px-0">
         <span class="{etiqueta} text-dm-amarillo">Diseño Multimedia · Universidad de Tarapacá</span>
-        <p class="m-0 font-dm-cond text-4xl leading-[34px] font-black uppercase lg:text-[56px] lg:leading-[52px]">
-          Ingresa a tu <UtaMed />
+        <p class="m-0 font-dm-cond text-[32px] leading-[32px] font-black uppercase lg:text-[46px] lg:leading-[46px]">
+          Entorno virtual de enseñanza y aprendizaje <UtaMed />
         </p>
+        
       </div>
 
       <LogosInstitucionales class="relative mt-3 px-4 lg:mt-0 lg:px-0" />
     </aside>
 
     <main class="flex min-w-0 flex-1 flex-col gap-5 px-4 pt-7 pb-8 lg:px-10 lg:pt-6 lg:pb-7">
-      <div class="flex items-center justify-between gap-4 max-lg:hidden">
-        <Link href={home()} class="{enlace} gap-1.5!">
-          <ArrowLeft size={16} aria-hidden="true" />
-          Volver a la portada
-        </Link>
+      <div class="flex items-center justify-end gap-4 max-lg:hidden">
         <BotonTema
           class="size-10! border border-dm-linea bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil"
         />
@@ -189,10 +185,7 @@
       <div class="flex flex-1 items-center justify-center lg:py-8">
         <div class="flex w-full max-w-[420px] flex-col gap-5 lg:gap-6">
           <div class="flex flex-col gap-1.5 lg:gap-2">
-            <h1 class="m-0 text-[28px] leading-[34px] font-bold">Inicia sesión</h1>
-            <p class="m-0 text-[15px] leading-[22px] text-dm-ink-2">
-              Usa tu RUT y la contraseña que te llegó al correo institucional.
-            </p>
+            <h1 class="m-0 text-[28px] leading-[34px] font-bold">Bienvenido a <UtaMed /></h1>
           </div>
 
           {#if aviso}
@@ -337,6 +330,7 @@
             >
             desde tu correo institucional e indica tu RUT.
           </p>
+          <p class="-mt-3 mb-0 text-[13px] leading-[18px] text-dm-ink-3">Sitio web creado por EDIT</p>
         </div>
       </div>
 
@@ -344,10 +338,5 @@
         © {new Date().getFullYear()} Universidad de Tarapacá · Escuela de Diseño e Innovación Tecnológica
       </p>
     </main>
-  </div>
-
-  <div aria-hidden="true" class="grid h-2 grid-cols-3">
-    <span class="bg-[#DEB01F]"></span><span class="bg-[#22213F]"></span><span class="bg-[#678FCA]"
-    ></span>
   </div>
 </div>

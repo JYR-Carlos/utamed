@@ -11,6 +11,8 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Enums\DB\TipoActividad;
+use App\Services\Agenda\AvanceEvaluacionService;
 use App\Services\MensajeriaService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -193,7 +195,8 @@ class DashboardController extends Controller
         $mensajeriaCursos = $this->mensajeriaPorCurso($mensajeria, $idDocente, (int) $user->id_usuario);
 
         $agendaPendiente = $this->agendaPendiente($todosLosCursoIds);
-        $proximasFechasLimite = $this->proximasFechasLimite($actividadesProximas);
+        $proximosSieteDias = $this->proximosSieteDias($actividadesProximas);
+        $porEvaluar = $this->porEvaluar($cursosTitular, $cursosComponente);
 
         $totalCursos = $cursosTitularData->count() + $componentesData->pluck('id_curso')->unique()->count();
 
@@ -220,7 +223,8 @@ class DashboardController extends Controller
                 'cursos' => $mensajeriaCursos,
             ],
             'agendaPendiente' => $agendaPendiente,
-            'proximasFechasLimite' => $proximasFechasLimite,
+            'proximosSieteDias' => $proximosSieteDias,
+            'porEvaluar' => $porEvaluar,
             'jefatura' => [
                 'has_access' => (bool) $asignacionJefatura,
                 'id_contexto' => $asignacionJefatura?->id_contexto,
@@ -304,7 +308,8 @@ class DashboardController extends Controller
             'alertasSyllabus' => [],
             'mensajeria' => ['no_leidos' => 0, 'cursos' => []],
             'agendaPendiente' => ['items' => [], 'total' => 0],
-            'proximasFechasLimite' => [],
+            'proximosSieteDias' => ['desde' => now()->toDateString(), 'actividades' => []],
+            'porEvaluar' => [],
             'jefatura' => ['has_access' => false, 'id_contexto' => null, 'carrera' => null],
             'entreSemestres' => [
                 'ultimo_semestre' => $ultimoCurso?->semestre_real,
@@ -559,7 +564,7 @@ class DashboardController extends Controller
      * Actividades con fecha límite de hoy en adelante en los cursos donde el
      * docente participa (titular o componente), por fecha. Mismo criterio que
      * CalendarioController. De aquí salen tanto la «próxima entrega» de cada
-     * tarjeta de curso como la lista de «Próximas fechas límite».
+     * tarjeta de curso como los «Próximos 7 días».
      *
      * @param  int[]  $cursoIds
      * @return Collection<int,Actividad>
@@ -579,42 +584,87 @@ class DashboardController extends Controller
     }
 
     /**
-     * Próximas fechas límite: una fila por actividad y, dentro de ella, un
-     * enlace por grupo con su fecha. La misma actividad existe una vez por
-     * curso (grupo A, grupo B…), así que se agrupa por nombre y curso en vez
-     * de repetirla sin decir de qué grupo es cada fecha.
+     * Los próximos 7 días, de hoy en adelante (revisión «Mi UTAmed»): cada
+     * actividad que vence en ese tramo, con su curso y tipo. La pantalla arma
+     * los siete días, también los que no tienen fechas.
      *
      * @param  Collection<int,Actividad>  $actividades  ordenadas por fecha_limite
-     * @return array<int,array{id_actividad:int,nombre:string,nombre_curso:?string,grupos:array<int,array{id_curso:int,letra_grupo:?string,fecha_limite:string}>}>
+     * @return array{desde:string, actividades:array<int,array<string,mixed>>}
      */
-    private function proximasFechasLimite(Collection $actividades, int $limit = 4): array
+    private function proximosSieteDias(Collection $actividades): array
     {
+        $hoy = now()->startOfDay();
+        $hasta = $hoy->copy()->addDays(6);
+
+        return [
+            'desde' => $hoy->toDateString(),
+            'actividades' => $actividades
+                ->filter(fn (Actividad $a) => $a->componente?->curso !== null && $a->fecha_limite->lte($hasta))
+                ->map(fn (Actividad $a) => [
+                    'id_actividad' => $a->id_actividad,
+                    'id_curso' => $a->componente->curso->id_curso,
+                    'nombre' => $a->nombre,
+                    'cod_curso' => $a->componente->curso->cod_curso,
+                    'letra_grupo' => $a->componente->curso->letra_grupo,
+                    'es_sumativa' => $a->tipo_actividad === TipoActividad::SUMATIVA,
+                    'fecha_limite' => $a->fecha_limite->format('Y-m-d'),
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * Por evaluar: actividades con entregas que esperan nota (sumativas) o
+     * retroalimentación (formativas), con el mismo conteo que la columna
+     * Entregas de Actividades (AvanceEvaluacionService). Sólo lo que el
+     * docente puede evaluar: todo el curso si es titular, su componente si no.
+     * Las presenciales no reciben entregas y quedan fuera.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function porEvaluar(Collection $cursosTitular, Collection $cursosComponente): array
+    {
+        $idsTitular = $cursosTitular->pluck('id_curso');
+        $misComponentes = $cursosComponente->flatMap(fn (Curso $c) => $c->componentes
+            ->filter(fn ($co) => $co->docenteComponentes->isNotEmpty())
+            ->pluck('id_componente'));
+
+        if ($idsTitular->isEmpty() && $misComponentes->isEmpty()) {
+            return [];
+        }
+
+        $actividades = Actividad::query()
+            ->where(fn ($q) => $q
+                ->whereHas('componente', fn ($c) => $c->whereIn('id_curso', $idsTitular))
+                ->orWhereIn('id_componente', $misComponentes))
+            ->where(fn ($q) => $q->whereNull('tipo_entrega')->orWhere('tipo_entrega', '!=', 'presencial'))
+            ->with('componente.curso')
+            ->get();
+
+        $avance = (new AvanceEvaluacionService)->porActividad($actividades->pluck('id_actividad'));
+
         return $actividades
-            ->filter(fn(Actividad $a) => $a->componente?->curso !== null)
-            ->groupBy(fn(Actividad $a) => $a->nombre . '|' . $a->componente->curso->nombre)
-            ->map(function (Collection $filas) {
-                /** @var Actividad $primera */
-                $primera = $filas->first();
+            ->map(function (Actividad $a) use ($avance) {
+                $curso = $a->componente?->curso;
+                $av = $avance->get($a->id_actividad);
+                $esSumativa = $a->tipo_actividad === TipoActividad::SUMATIVA;
+                $pendientes = $av ? ($esSumativa ? $av['por_calificar'] : $av['por_revisar']) : 0;
 
-                $grupos = $filas
-                    ->unique(fn(Actividad $a) => $a->componente->id_curso)
-                    ->map(fn(Actividad $a) => [
-                        'id_curso' => $a->componente->curso->id_curso,
-                        'letra_grupo' => $a->componente->curso->letra_grupo,
-                        'fecha_limite' => $a->fecha_limite->format('Y-m-d'),
-                    ])
-                    ->values()
-                    ->all();
-
-                return [
-                    'id_actividad' => $primera->id_actividad,
-                    'nombre' => $primera->nombre,
-                    'nombre_curso' => $primera->componente->curso->nombre,
-                    'grupos' => $grupos,
-                ];
+                return $curso && $pendientes > 0 ? [
+                    'id_actividad' => $a->id_actividad,
+                    'id_curso' => $curso->id_curso,
+                    'nombre' => $a->nombre,
+                    'cod_curso' => $curso->cod_curso,
+                    'letra_grupo' => $curso->letra_grupo,
+                    'es_sumativa' => $esSumativa,
+                    'es_grupal' => (bool) $a->es_grupal,
+                    'pendientes' => $pendientes,
+                    'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
+                ] : null;
             })
-            ->sortBy(fn(array $fila) => $fila['grupos'][0]['fecha_limite'])
-            ->take($limit)
+            ->filter()
+            ->sortBy(fn (array $f) => $f['fecha_limite'] ?? '9999-12-31')
             ->values()
             ->all();
     }

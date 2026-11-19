@@ -1,0 +1,209 @@
+/*
+ * Dirección institucional UTA — colores y fuentes del docente (RED-IMP-02).
+ *
+ * Sale de la hoja «Lote 2 · Docente · institucional UTA» del lienzo, que toma
+ * el manual de marca UTA 2017: azul marino #22213F, celeste #678FCA y oro
+ * #DEB01F. No es la guía dm del alumno (guia-dm.css): el docente lleva un
+ * estilo más formal.
+ *
+ * Cada variable da una clase de Tailwind: --color-inst-tarjeta → bg-inst-tarjeta,
+ * text-inst-ink, border-inst-linea… Van en @theme sin `inline` para que el
+ * modo oscuro las redefina abajo y las clases cambien solas, sin `dark:`.
+ * Las clases que se repiten están armadas en resources/js/lib/inst.ts.
+ */
+
+@theme static {
+    --font-inst: 'Mulish', ui-sans-serif, system-ui, sans-serif;
+    /* Century Gothic viene con Windows y Office; Didact Gothic es su par libre. */
+    --font-inst-titulo: 'Century Gothic', 'Didact Gothic', ui-sans-serif, sans-serif;
+
+    /* Superficies */
+    --color-inst-pagina: #f3f4f8;
+    --color-inst-tarjeta: #ffffff;
+    --color-inst-sutil: #f7f8fb;
+    --color-inst-cabecera: #eef1f7;
+    --color-inst-barra: #22213f;
+    --color-inst-barra-texto: #ffffff;
+    --color-inst-barra-texto-2: #c3cce4;
+    --color-inst-barra-borde: rgb(255 255 255 / 0.32);
+
+    /* Texto y bordes */
+    --color-inst-ink: #22213f;
+    --color-inst-ink-2: #4a4c66;
+    --color-inst-ink-3: #5f6179;
+    --color-inst-linea: #dce0e9;
+    --color-inst-control: #7c8099;
+    --color-inst-enlace: #446ba9;
+
+    /* Acción: el azul marino es la única acción primaria; el oro marca lo activo */
+    --color-inst-accion: #303880;
+    --color-inst-accion-h: #22213f;
+    --color-inst-sobre-accion: #ffffff;
+    --color-inst-accion-s: #ebeef8;
+    --color-inst-accion-t: #303880;
+    --color-inst-sel: #fbf3d6;
+    --color-inst-oro: #deb01f;
+    --color-inst-celeste: #678fca;
+    /* Contorno de foco sobre superficies claras: el oro no llega a 3:1 sobre blanco. */
+    --color-inst-foco: #303880;
+
+    /* Estado; el rojo queda sólo para errores reales */
+    --color-inst-ok: #1e7046;
+    --color-inst-ok-s: #eaf5ee;
+    --color-inst-warn: #8f4a0e;
+    --color-inst-warn-s: #fcf1e6;
+    --color-inst-error: #b42318;
+    --color-inst-error-s: #fdefed;
+    --color-inst-info: #446ba9;
+    --color-inst-info-s: #eef3fa;
+    --color-inst-off: #5f6179;
+    --color-inst-off-s: #f0f1f5;
+    --color-inst-velo: rgb(34 33 63 / 0.55);
+
+    /* Los tres colores del pie, iguales en ambos temas. */
+    --color-uta-marino: #22213f;
+    --color-uta-celeste: #678fca;
+    --color-uta-oro: #deb01f;
+}
+
+@layer base {
+    /* Sólo en pantalla: al imprimir se queda el claro, como el resto de la app. */
+    @media screen {
+        .dark {
+            --color-inst-pagina: #14132a;
+            --color-inst-tarjeta: #1c1b36;
+            --color-inst-sutil: #22213f;
+            --color-inst-cabecera: #26254a;
+            --color-inst-barra: #0e0d20;
+            --color-inst-barra-texto: #ffffff;
+            --color-inst-barra-texto-2: #c3cce4;
+            --color-inst-barra-borde: rgb(255 255 255 / 0.32);
+
+            --color-inst-ink: #ecedf7;
+            --color-inst-ink-2: #b9bbd3;
+            --color-inst-ink-3: #9597b5;
+            --color-inst-linea: #33325a;
+            --color-inst-control: #6f7199;
+            --color-inst-enlace: #9db7e2;
+
+            --color-inst-accion: #678fca;
+            --color-inst-accion-h: #86a6d8;
+            --color-inst-sobre-accion: #14132a;
+            --color-inst-accion-s: #26254a;
+            --color-inst-accion-t: #9db7e2;
+            --color-inst-sel: #3a3215;
+            --color-inst-oro: #deb01f;
+            --color-inst-celeste: #678fca;
+            --color-inst-foco: #deb01f;
+
+            --color-inst-ok: #7bd3a2;
+            --color-inst-ok-s: #123826;
+            --color-inst-warn: #f0b46e;
+            --color-inst-warn-s: #3a2812;
+            --color-inst-error: #f7a29a;
+            --color-inst-error-s: #3d1614;
+            --color-inst-info: #9db7e2;
+            --color-inst-info-s: #1e2b47;
+            --color-inst-off: #9597b5;
+            --color-inst-off-s: #26254a;
+            --color-inst-velo: rgb(5 5 15 / 0.7);
+        }
+    }
+
+    /* La base de app.css agranda los párrafos a 16 px desde md; en el docente
+       el texto corrido es de 14 px, como en el lienzo. */
+    .vista-docente p {
+        font-size: inherit;
+        line-height: inherit;
+    }
+
+    .vista-docente :focus-visible {
+        outline: 3px solid var(--color-inst-foco);
+        outline-offset: 2px;
+    }
+
+    /* Sobre la barra marino el oro sí se distingue. */
+    .vista-docente .sobre-barra :focus-visible {
+        outline-color: var(--color-inst-oro);
+    }
+}
+
+@layer components {
+    /* ── Tabla institucional ─────────────────────────────────────
+       Cabecera gris azulada en mayúsculas y filas con línea. En el teléfono
+       cada fila pasa a ser un bloque y cada celda muestra su columna a la
+       izquierda (`data-l`), como en los tableros móviles del lienzo. */
+    .tabla-inst {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .tabla-inst th {
+        padding: 10px 14px;
+        background: var(--color-inst-cabecera);
+        border-bottom: 1px solid var(--color-inst-linea);
+        text-align: left;
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-inst-ink-2);
+        white-space: nowrap;
+    }
+
+    .tabla-inst td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--color-inst-linea);
+        vertical-align: middle;
+    }
+
+    .tabla-inst tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    @media (max-width: 767px) {
+        .tabla-inst,
+        .tabla-inst tbody,
+        .tabla-inst tr,
+        .tabla-inst td {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .tabla-inst thead {
+            display: none;
+        }
+
+        .tabla-inst tbody tr {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--color-inst-linea);
+        }
+
+        .tabla-inst tbody tr:last-child {
+            border-bottom: 0;
+        }
+
+        .tabla-inst td {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px 12px;
+            padding: 4px 0;
+            border: 0;
+            text-align: left !important;
+        }
+
+        .tabla-inst td[data-l]::before {
+            content: attr(data-l);
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--color-inst-ink-3);
+        }
+    }
+}

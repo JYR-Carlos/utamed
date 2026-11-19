@@ -41,6 +41,8 @@ export interface Actividad {
      * (curso.mensaje), que se lleva aparte en /docente/cursos/{id}/mensajeria.
      */
     mensajes_pendientes?: number;
+    /** La actividad ya tiene rúbrica (el menú ofrece «Editar» en vez de «Crear»). */
+    tiene_rubrica?: boolean;
     archivo_enunciado?: {
         nombre_original: string;
         mime_type: string | null;

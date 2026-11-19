@@ -1,44 +1,41 @@
 <script lang="ts">
   /**
-   * Actividades del curso — /docente/cursos/{curso}/actividades.
+   * Actividades del curso — /docente/cursos/{curso}/actividades y
+   * /docente/cursos/{curso}/actividades/{actividad}/evaluacion.
    *
-   * Centro operativo donde se planifica y se abre el semestre (lámina
-   * «Actividades del curso (docente)»). Dos vistas sobre los mismos datos —
-   * Lista densa y Kanban por estado— compartiendo una sola barra de filtros.
+   * Revisión «Mi UTAmed»: gestionar actividades y la hoja de la actividad son
+   * una sola pantalla. «Agenda» despliega la actividad dentro de su fila con
+   * fechas, enunciado, rúbrica y la tabla de estudiantes; se abre una a la vez
+   * y la URL dice cuál (la de la hoja de siempre), así que recargar, volver o
+   * llegar desde la bandeja la deja abierta.
    *
-   * La distinción que gobierna toda la pantalla:
+   * La lista va primero; «Resumen» reemplaza al tablero por estado. Los
+   * estados son los mismos en todas partes: la actividad es Planificada,
+   * Activa o Cerrada; cada entrega es No entregó, Por revisar/calificar o
+   * Revisado/Calificado, y la columna Entregas suma esos mismos estados.
    *
-   *   • El **estado** (planificada / activa / cerrada) lo pone el sistema: se
-   *     deriva de `visible` + `fecha_limite` (ver `utils/actividadEstado`). No
-   *     hay columna que editar.
-   *   • La **visibilidad al alumno** la pone el docente, se cambia muchas veces
-   *     al día y por eso vive como interruptor dentro de la propia fila, con
-   *     guardado optimista y micro-feedback en la fila — nunca un modal.
-   *
-   * Las dos caras de rol siguen el precedente de `CursoDetalle.svelte`: el
-   * controlador sigue enviando todas las actividades del curso y el alcance del
-   * docente de componente se aplica en frontend (`mis_componentes_ids`), con el
-   * filtro de componente puesto y bloqueado. Donde no hay permiso no se
-   * deshabilita nada: la acción sencillamente no se dibuja.
-   *
-   * Tablas implicadas: agenda.actividad, agenda.actividad_asignada_grupo
-   * (grupos y notas), agenda.agenda (entregas), curso.componente, curso.unidad.
+   * El docente de componente ve sólo lo suyo (`mis_componentes_ids`); donde no
+   * hay permiso la acción no se dibuja.
    */
-  import { Link, page } from '@inertiajs/svelte';
-  import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import { slide } from 'svelte/transition';
+  import { page, router } from '@inertiajs/svelte';
+  import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import {
     ChevronDown,
-    ClipboardList,
-    Columns3,
+    Copy,
+    Eye,
     EyeOff,
-    FilterX,
+    LayoutGrid,
     List,
-    Loader2,
-    Lock,
+    ListChecks,
+    MessageSquare,
+    MoreHorizontal,
+    Pencil,
     Plus,
     Search,
-    X,
+    Trash2,
   } from 'lucide-svelte';
+  import { aviso, avisoTono, btnPrimario, btnSecundario, campo, chico, chip, cuerpo, tarjeta, titulo, tono, type Tono } from '@/lib/inst';
   import {
     ActividadForm,
     createActividad,
@@ -46,21 +43,22 @@
     deleteActividad,
     toggleVisibilidadActividad,
   } from '@/modules/resources/actividad';
-  import ActividadesPorEstado from './components/ActividadesPorEstado.svelte';
-  import ActividadesTabla from '@/components/docente/ActividadesTabla.svelte';
+  import { subirEnunciadoActividad } from '@/modules/resources/actividad/services/actividadApi';
   import ActividadEliminarDialog from '@/components/docente/ActividadEliminarDialog.svelte';
-  import EnunciadoModal from '@/components/docente/EnunciadoModal.svelte';
   import CopiarActividadesModal from '@/components/docente/CopiarActividadesModal.svelte';
+  import ActividadDetalle, { type ActividadAbierta, type GrupoData } from './Activities/components/ActividadDetalle.svelte';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
   import type { Actividad } from '@/types/actividad';
-  import { formatDate, formatFechaCorta } from '@/utils/formatters';
-  import { estadoActividad, type EstadoActividad, type ToggleVisibilidad } from '@/utils/actividadEstado';
+  import type { Rubrica } from '@/types/rubrica';
+  import type { InteraccionItem } from '@/types/agenda';
+  import { ETIQUETA_ESTADO, estadoActividad, type EstadoActividad } from '@/utils/actividadEstado';
+  import { BARRA_ENTREGA, ORDEN_ENTREGA, conteoEntregas, textosEntrega } from '@/lib/estadoEntrega';
+  import { formatNota } from '@/utils/formatters';
 
   interface ComponenteCurso {
     id_componente: number;
     tipo_componente?: { tipo: string } | null;
-    /** true si ESTE docente dicta el componente (lo calcula el controlador). */
     es_mio?: boolean;
   }
 
@@ -79,17 +77,10 @@
 
   interface Props {
     curso: {
-      etiqueta?: string;
       id_curso: number;
-      cod_curso?: string;
-      cod_asignatura?: string | null;
+      nombre: string;
+      etiqueta?: string;
       asignatura_nombre?: string | null;
-      letra_grupo?: string | null;
-      agno_real?: number;
-      semestre_real?: number;
-      fecha_inicio?: string | null;
-      fecha_fin?: string | null;
-      total_estudiantes?: number;
       es_titular_curso?: boolean;
       mis_componentes_ids?: number[];
       userPermissions?: Permission[];
@@ -98,11 +89,31 @@
     componentes: ComponenteCurso[];
     unidades: UnidadCurso[];
     reglas_enunciado?: ReglasEnunciado;
+    // ── Sólo con una actividad desplegada (…/actividades/{id}/evaluacion) ──
+    actividad?: ActividadAbierta;
+    grupos?: GrupoData[];
+    rubrica?: Rubrica | null;
+    rubrica_id?: number | null;
+    tiene_evaluaciones?: boolean;
+    puede_editar_rubrica?: boolean;
+    interaccionesGrupo?: InteraccionItem[];
   }
 
-  let { curso, actividades, componentes, unidades, reglas_enunciado }: Props = $props();
+  let {
+    curso,
+    actividades,
+    componentes,
+    unidades,
+    reglas_enunciado,
+    actividad,
+    grupos = [],
+    rubrica = null,
+    rubrica_id = null,
+    tiene_evaluaciones = false,
+    puede_editar_rubrica = false,
+    interaccionesGrupo = [],
+  }: Props = $props();
 
-  /** Fallback sólo por si el backend deja de enviar la config de archivos. */
   const REGLAS_DEFAULT: ReglasEnunciado = {
     extensiones_pdf: ['pdf'],
     extensiones_img: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'tiff'],
@@ -110,278 +121,90 @@
     max_mb_imagen: 50,
   };
   const reglas = $derived(reglas_enunciado ?? REGLAS_DEFAULT);
+  const base = $derived(`/docente/cursos/${curso.id_curso}/actividades`);
 
   // ── Rol y permisos ────────────────────────────────────────────────────────
-
   const esTitular = $derived(curso.es_titular_curso ?? false);
   const misComponentesIds = $derived(curso.mis_componentes_ids ?? []);
+  const canCreate = $derived(esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:crear'));
+  const canEdit = $derived(esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:editar'));
+  const canDelete = $derived(esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:eliminar'));
 
-  const canCreate = $derived(
-    esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:crear'),
-  );
-  const canEdit = $derived(
-    esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:editar'),
-  );
-  const canDelete = $derived(
-    esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:eliminar'),
-  );
-
-  /**
-   * Alcance de los datos, no del diseño: el titular ve el curso entero; el
-   * docente de componente, sólo lo que dicta. Mismo criterio que CursoDetalle.
-   */
   const actividadesDelRol = $derived(
-    esTitular
-      ? actividades
-      : actividades.filter((a) => misComponentesIds.includes(a.id_componente ?? -1)),
+    esTitular ? actividades : actividades.filter((a) => misComponentesIds.includes(a.id_componente ?? -1)),
   );
-
-  /** Componentes por los que se puede filtrar y sobre los que se puede crear. */
-  const componentesDelRol = $derived(
-    esTitular ? componentes : componentes.filter((c) => c.es_mio),
-  );
-
-  /** Con un solo componente el filtro no se abre: viene puesto y bloqueado. */
-  const componenteBloqueado = $derived(!esTitular && componentesDelRol.length === 1);
-
-  const unidadesOrdenadas = $derived(
-    [...unidades].sort((a, b) => (a.num_unidad ?? 0) - (b.num_unidad ?? 0)),
-  );
+  const componentesDelRol = $derived(esTitular ? componentes : componentes.filter((c) => c.es_mio));
+  const unidadesOrdenadas = $derived([...unidades].sort((a, b) => (a.num_unidad ?? 0) - (b.num_unidad ?? 0)));
 
   // ── Vista y filtros ───────────────────────────────────────────────────────
-
-  type Vista = 'lista' | 'kanban';
-  type ClaveFiltro = 'busqueda' | 'componente' | 'unidad' | 'tipo' | 'estado' | 'visibilidad';
-
-  let vista = $state<Vista>('lista');
+  let vista = $state<'lista' | 'resumen'>('lista');
   let busqueda = $state('');
-  let filtroComponente = $state<number | 'todos'>('todos');
-  let filtroUnidad = $state<number | 'todas'>('todas');
-  /**
-   * Formativa vs sumativa. Sale del campo `tipo_actividad`, que ya viaja en
-   * cada actividad, así que el filtro se resuelve en el cliente sobre la lista
-   * ya cargada: cambiarlo no vuelve al servidor ni recarga la página.
-   */
-  let filtroTipo = $state<Actividad['tipo_actividad'] | 'todas'>('todas');
   let filtroEstado = $state<EstadoActividad | 'todos'>('todos');
+  let filtroTipo = $state<Actividad['tipo_actividad'] | 'todos'>('todos');
+  let filtroUnidad = $state<number | 'todas'>('todas');
   let filtroVisibilidad = $state<'todas' | 'visibles' | 'ocultas'>('todas');
 
   const ahora = new Date();
+  const estadoDe = (a: Actividad) => estadoActividad(a, ahora);
 
-  /**
-   * Aplica la barra de filtros. `omitir` deja uno fuera para poder responder
-   * «¿cuántos resultados saldrían si quito este filtro?» sin duplicar la lógica.
-   */
-  function aplicarFiltros(lista: Actividad[], omitir: ClaveFiltro | null = null): Actividad[] {
-    const q = busqueda.trim().toLowerCase();
-
-    return lista.filter((a) => {
-      if (omitir !== 'busqueda' && q && !a.nombre.toLowerCase().includes(q)) return false;
-      if (omitir !== 'componente' && filtroComponente !== 'todos' && a.id_componente !== filtroComponente)
-        return false;
-      if (omitir !== 'unidad' && filtroUnidad !== 'todas' && a.id_unidad !== filtroUnidad) return false;
-      if (omitir !== 'tipo' && filtroTipo !== 'todas' && a.tipo_actividad !== filtroTipo) return false;
-      // En Kanban el estado ES la columna, así que su filtro queda sin uso.
-      if (
-        omitir !== 'estado' &&
-        vista === 'lista' &&
-        filtroEstado !== 'todos' &&
-        estadoActividad(a, ahora) !== filtroEstado
-      )
-        return false;
-      if (
-        omitir !== 'visibilidad' &&
-        filtroVisibilidad !== 'todas' &&
-        a.visible !== (filtroVisibilidad === 'visibles')
-      )
-        return false;
+  const filtradas = $derived(
+    actividadesDelRol.filter((a) => {
+      const q = busqueda.trim().toLowerCase();
+      if (q && !a.nombre.toLowerCase().includes(q)) return false;
+      if (filtroEstado !== 'todos' && estadoDe(a) !== filtroEstado) return false;
+      if (filtroTipo !== 'todos' && a.tipo_actividad !== filtroTipo) return false;
+      if (filtroUnidad !== 'todas' && a.id_unidad !== filtroUnidad) return false;
+      if (filtroVisibilidad !== 'todas' && a.visible !== (filtroVisibilidad === 'visibles')) return false;
       return true;
-    });
-  }
-
-  const actividadesFiltradas = $derived(aplicarFiltros(actividadesDelRol));
+    }),
+  );
 
   function limpiarFiltros() {
     busqueda = '';
-    if (!componenteBloqueado) filtroComponente = 'todos';
-    filtroUnidad = 'todas';
-    filtroTipo = 'todas';
     filtroEstado = 'todos';
+    filtroTipo = 'todos';
+    filtroUnidad = 'todas';
     filtroVisibilidad = 'todas';
   }
 
-  /** Filtros activos, cada uno con su forma de quitarse (lámina d). */
-  const chipsActivos = $derived.by(() => {
-    const chips: Array<{ clave: ClaveFiltro; etiqueta: string; quitar: () => void }> = [];
+  const TONO_ESTADO: Record<EstadoActividad, Tono> = { planificada: 'off', activa: 'ok', cerrada: 'info' };
+  const fmtCierre = new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const cierreDe = (a: Actividad) => {
+    if (!a.fecha_limite) return 'Sin fecha';
+    const [y, m, d] = a.fecha_limite.slice(0, 10).split('-').map(Number);
+    return fmtCierre.format(Date.UTC(y, m - 1, d));
+  };
+  const unidadDe = (a: Actividad) => {
+    const u = a.unidad ?? unidades.find((x) => x.id_unidad === a.id_unidad);
+    return u ? `Unidad ${u.num_unidad ?? ''}`.trim() : null;
+  };
 
-    if (busqueda.trim()) {
-      chips.push({ clave: 'busqueda', etiqueta: `«${busqueda.trim()}»`, quitar: () => (busqueda = '') });
-    }
-    if (filtroComponente !== 'todos' && !componenteBloqueado) {
-      const c = componentesDelRol.find((x) => x.id_componente === filtroComponente);
-      chips.push({
-        clave: 'componente',
-        etiqueta: c?.tipo_componente?.tipo ?? 'Componente',
-        quitar: () => (filtroComponente = 'todos'),
-      });
-    }
-    if (filtroUnidad !== 'todas') {
-      const u = unidadesOrdenadas.find((x) => x.id_unidad === filtroUnidad);
-      chips.push({
-        clave: 'unidad',
-        etiqueta: u ? `Unidad ${u.num_unidad ?? ''} ${u.nombre}`.trim() : 'Unidad',
-        quitar: () => (filtroUnidad = 'todas'),
-      });
-    }
-    if (filtroTipo !== 'todas') {
-      chips.push({
-        clave: 'tipo',
-        etiqueta: filtroTipo === 'FORMATIVA' ? 'Formativa' : 'Sumativa',
-        quitar: () => (filtroTipo = 'todas'),
-      });
-    }
-    if (filtroEstado !== 'todos' && vista === 'lista') {
-      const rotulo = { planificada: 'Planificada', activa: 'Activa', cerrada: 'Cerrada' };
-      chips.push({
-        clave: 'estado',
-        etiqueta: rotulo[filtroEstado],
-        quitar: () => (filtroEstado = 'todos'),
-      });
-    }
-    if (filtroVisibilidad !== 'todas') {
-      chips.push({
-        clave: 'visibilidad',
-        etiqueta: filtroVisibilidad === 'visibles' ? 'Visible' : 'Oculta',
-        quitar: () => (filtroVisibilidad = 'todas'),
-      });
-    }
+  // ── Desplegar una actividad (una a la vez; la URL dice cuál) ───────────────
+  const abiertaId = $derived(actividad?.id_actividad ?? null);
 
-    return chips;
-  });
+  function alternar(a: Actividad) {
+    menuAbierto = null;
+    const url = abiertaId === a.id_actividad ? base : `${base}/${a.id_actividad}/evaluacion`;
+    router.visit(url, { preserveScroll: true, preserveState: true });
+  }
 
-  /**
-   * Qué filtro conviene soltar para volver a ver algo. Se calcula con los datos
-   * reales: si quitar ninguno devuelve resultados, no se sugiere nada.
-   */
-  const sugerencia = $derived.by(() => {
-    if (chipsActivos.length < 2) return null;
-    let mejor: { etiqueta: string; total: number; quitar: () => void } | null = null;
-    for (const chip of chipsActivos) {
-      const total = aplicarFiltros(actividadesDelRol, chip.clave).length;
-      if (total > 0 && (mejor === null || total > mejor.total)) {
-        mejor = { etiqueta: chip.etiqueta, total, quitar: chip.quitar };
-      }
-    }
-    return mejor;
-  });
+  function agendaDesdeResumen(a: Actividad) {
+    vista = 'lista';
+    if (abiertaId !== a.id_actividad) router.visit(`${base}/${a.id_actividad}/evaluacion`, { preserveState: true });
+  }
 
-  // ── Conteos honestos ──────────────────────────────────────────────────────
+  // ── Menú «⋯» ──────────────────────────────────────────────────────────────
+  let menuAbierto = $state<number | null>(null);
 
-  const conteoPorEstado = $derived.by(() => {
-    const c: Record<EstadoActividad, number> = { planificada: 0, activa: 0, cerrada: 0 };
-    for (const a of actividadesFiltradas) c[estadoActividad(a, ahora)]++;
-    return c;
-  });
-
-  /**
-   * Ocultas al alumno. Se calcula sobre las props, no sobre el estado optimista:
-   * por eso el contador sólo se mueve cuando el servidor confirma el guardado.
-   */
-  const ocultasAlAlumno = $derived(actividadesDelRol.filter((a) => !a.visible).length);
-
+  // ── Formularios y diálogos ────────────────────────────────────────────────
   let showForm = $state(false);
   let showDelete = $state(false);
-  let showEnunciado = $state(false);
+  let showCopiar = $state(false);
   let isLoading = $state(false);
   let editando = $state<Actividad | null>(null);
   let eliminando = $state<Actividad | null>(null);
-  let conEnunciado = $state<Actividad | null>(null);
+  let copiarPreseleccion = $state<number[]>([]);
   let formErrors = $state<Record<string, string>>({});
-
-  // ── Guardado optimista del interruptor de visibilidad (lámina e) ──────────
-
-  let toggles = $state<Record<number, ToggleVisibilidad>>({});
-  const temporizadores = new Map<number, ReturnType<typeof setTimeout>>();
-
-  /**
-   * El toggle ya se explica solo dentro de la fila; un banner de flash arriba
-   * sería un segundo aviso para la misma acción. Bandera NO reactiva a
-   * propósito: sólo la leen los $effect de flash, no la plantilla.
-   */
-  let saltarFlashDeToggle = false;
-
-  function handleToggleVisible(act: Actividad) {
-    const id = act.id_actividad;
-    const deseado = !act.visible;
-
-    clearTimeout(temporizadores.get(id));
-    temporizadores.delete(id);
-
-    toggles[id] = { fase: 'guardando', optimista: deseado };
-    saltarFlashDeToggle = true;
-
-    toggleVisibilidadActividad(curso.id_curso, id, {
-      onSuccess: () => {
-        // El controlador atrapa sus propias excepciones y responde 302 igual,
-        // así que «éxito HTTP» no basta: se compara contra el dato que vuelve.
-        const frescas = (($page.props as any).actividades ?? []) as Actividad[];
-        const fresca = frescas.find((a) => a.id_actividad === id);
-        const guardado = fresca ? fresca.visible === deseado : true;
-
-        if (!guardado) {
-          toggles[id] = { fase: 'error', optimista: act.visible };
-          return;
-        }
-
-        toggles[id] = { fase: 'ok', optimista: deseado };
-        temporizadores.set(
-          id,
-          setTimeout(() => {
-            delete toggles[id];
-            temporizadores.delete(id);
-          }, 2000),
-        );
-      },
-      onError: () => {
-        toggles[id] = { fase: 'error', optimista: act.visible };
-      },
-    });
-  }
-
-  // ── Flash del servidor ────────────────────────────────────────────────────
-
-  let flashError = $state<string | undefined>(undefined);
-  let flashSuccess = $state<string | undefined>(undefined);
-
-  $effect(() => {
-    const pageErrors = ($page.props as any).errors as Record<string, string> | undefined;
-    if (pageErrors && Object.keys(pageErrors).length > 0) {
-      formErrors = pageErrors;
-      isLoading = false;
-    }
-  });
-
-  $effect(() => {
-    const err = ($page.props as any).flash?.error as string | undefined;
-    if (!err) return;
-    flashError = err;
-    const t = setTimeout(() => (flashError = undefined), 5000);
-    return () => clearTimeout(t);
-  });
-
-  $effect(() => {
-    const ok = ($page.props as any).flash?.success as string | undefined;
-    if (!ok) return;
-    if (saltarFlashDeToggle) {
-      saltarFlashDeToggle = false;
-      return;
-    }
-    flashSuccess = ok;
-    const t = setTimeout(() => (flashSuccess = undefined), 4000);
-    return () => clearTimeout(t);
-  });
-
-  // ── Handlers de CRUD ──────────────────────────────────────────────────────
 
   function abrirCrear() {
     editando = null;
@@ -389,451 +212,389 @@
     showForm = true;
   }
 
-  function abrirEditar(act: Actividad) {
-    editando = act;
+  function abrirEditar(a: Actividad) {
+    menuAbierto = null;
+    editando = a;
     formErrors = {};
     showForm = true;
   }
 
-  function handleSubmit(data: Partial<Actividad>) {
+  function handleSubmit(data: Partial<Actividad>, enunciado: File | null) {
     isLoading = true;
     formErrors = {};
+    const idsAntes = new Set(actividades.map((a) => a.id_actividad));
 
-    const done = () => {
+    const terminar = () => {
       showForm = false;
       editando = null;
       isLoading = false;
-      formErrors = {};
     };
-    const fail = (errors: Record<string, string>) => {
+    const fallar = (errors: Record<string, string>) => {
       formErrors = errors;
       isLoading = false;
     };
+    const subir = (idActividad: number | undefined) => {
+      if (!enunciado || !idActividad) return terminar();
+      subirEnunciadoActividad(curso.id_curso, idActividad, enunciado, {
+        onSuccess: terminar,
+        onError: (e) => fallar({ error: e.archivo ?? 'La actividad se guardó, pero el enunciado no se pudo subir.' }),
+      });
+    };
 
     if (editando) {
-      updateActividad(curso.id_curso, editando.id_actividad, data, { onSuccess: done, onError: fail });
+      const id = editando.id_actividad;
+      updateActividad(curso.id_curso, id, data, { onSuccess: () => subir(id), onError: fallar });
     } else {
-      createActividad(curso.id_curso, data, { onSuccess: done, onError: fail });
+      createActividad(curso.id_curso, data, {
+        // La actividad nueva es la única que no estaba antes de guardar.
+        onSuccess: () => {
+          const frescas = (($page.props as any).actividades ?? []) as Actividad[];
+          subir(frescas.find((a) => !idsAntes.has(a.id_actividad))?.id_actividad);
+        },
+        onError: fallar,
+      });
     }
   }
 
-  function abrirEliminar(act: Actividad) {
-    eliminando = act;
+  function abrirEliminar(a: Actividad) {
+    menuAbierto = null;
+    eliminando = a;
     showDelete = true;
   }
 
   function handleDelete() {
     if (!eliminando) return;
+    const id = eliminando.id_actividad;
     isLoading = true;
-    deleteActividad(curso.id_curso, eliminando.id_actividad, {
+    deleteActividad(curso.id_curso, id, {
       onSuccess: () => {
         showDelete = false;
         eliminando = null;
         isLoading = false;
+        if (abiertaId === id) router.visit(base, { preserveScroll: true, preserveState: true });
       },
       onError: () => (isLoading = false),
     });
   }
 
-  /** Salida barata del diálogo destructivo: ocultar en vez de borrar. */
-  function ocultarDesdeDialogo() {
-    if (!eliminando) return;
-    const act = eliminando;
-    showDelete = false;
-    eliminando = null;
-    handleToggleVisible(act);
+  function alternarVisibilidad(a: Actividad) {
+    menuAbierto = null;
+    toggleVisibilidadActividad(curso.id_curso, a.id_actividad);
   }
 
-  // ── Copiar a otro curso (sólo el titular, a sus otros grupos) ─────────────
-  let showCopiar = $state(false);
-  let copiarPreseleccion = $state<number[]>([]);
+  function ocultarDesdeDialogo() {
+    if (!eliminando) return;
+    const a = eliminando;
+    showDelete = false;
+    eliminando = null;
+    alternarVisibilidad(a);
+  }
 
-  function abrirCopiar(act?: Actividad) {
-    copiarPreseleccion = act ? [act.id_actividad] : [];
+  function abrirCopiar(a?: Actividad) {
+    menuAbierto = null;
+    copiarPreseleccion = a ? [a.id_actividad] : [];
     showCopiar = true;
   }
 
-  /** Lo que la última copia no pudo llevar y por qué (flash del servidor). */
+  function rubricaDe(a: Actividad) {
+    menuAbierto = null;
+    router.visit(`${base}/${a.id_actividad}/evaluacion?rubrica=1`, { preserveScroll: true, preserveState: true });
+  }
+
+  // ── Avisos del servidor ───────────────────────────────────────────────────
+  const flash = $derived((($page.props as any).flash ?? {}) as { success?: string; error?: string });
   const copiaOmitidas = $derived(
     ((($page.props as any).flash?.data?.copia_omitidas ?? []) as Array<{ nombre: string; curso: string; motivo: string }>),
   );
 
-  function abrirEnunciado(act: Actividad) {
-    conEnunciado = act;
-    showEnunciado = true;
-  }
+  $effect(() => {
+    const errs = ($page.props as any).errors as Record<string, string> | undefined;
+    if (showForm && errs && Object.keys(errs).length > 0) {
+      formErrors = errs;
+      isLoading = false;
+    }
+  });
 
-  // ── Lenguaje visual compartido (mismo vocabulario que CursoDetalle) ───────
-
-  // Botones del mockup: 40 px en escritorio, 44 px en móvil; navy institucional.
-  const BTN_PRIMARY =
-    'inline-flex h-11 items-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2 sm:h-10';
-  const BTN_OUTLINE =
-    'inline-flex h-11 items-center gap-2 rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue sm:h-10';
-  const BTN_GHOST =
-    'inline-flex h-11 items-center gap-2 rounded-lg border border-transparent px-3 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
-  const PILL_AZUL =
-    'inline-flex items-center gap-1.5 rounded-full bg-uta-blue-light px-2.5 py-0.5 text-xs font-semibold text-uta-blue';
-  const PILL_NEUTRA =
-    'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600';
-  // Filtro «Rótulo: valor» del mockup: el rótulo gris va fuera del <select> y el
-  // valor en negrita; la flecha nativa se reemplaza por un chevron propio.
-  const FILTRO_CAJA =
-    'relative inline-flex h-11 min-w-0 shrink-0 items-center rounded-lg border border-line-control bg-white pl-3 text-sm transition-colors hover:bg-slate-50 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10';
-  const FILTRO_ROTULO = 'shrink-0 font-medium text-slate-600';
-  const FILTRO_SELECT =
-    'h-full min-w-0 flex-1 cursor-pointer appearance-none truncate border-0 md:flex-none md:[field-sizing:content] bg-transparent bg-none py-0 pl-1.5 pr-8 text-sm font-semibold text-ink outline-none focus:ring-0';
-  const FILTRO_FLECHA = 'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink';
-  const SEG_ACTIVO =
-    'inline-flex h-11 items-center gap-2 rounded-md border border-line-control bg-white px-4 text-[15px] font-semibold text-uta-blue md:h-9';
-  const SEG_INACTIVO =
-    'inline-flex h-11 items-center gap-2 rounded-md border border-transparent px-4 text-[15px] font-medium text-slate-600 transition-colors hover:text-ink md:h-9';
+  const GRID = 'lg:grid lg:grid-cols-[minmax(0,2.4fr)_minmax(96px,.8fr)_minmax(96px,.8fr)_minmax(200px,2fr)_minmax(96px,.8fr)_auto] lg:items-center lg:gap-x-4';
+  const ITEM_MENU =
+    'flex min-h-11 w-full items-center gap-2.5 border-0 bg-transparent px-3.5 text-left text-sm font-bold text-inst-ink hover:bg-inst-sutil lg:min-h-10';
+  const BTN_SEG =
+    'inline-flex min-h-11 items-center gap-1.5 border-0 border-r border-inst-linea px-3.5 text-[13px] font-bold last:border-r-0 lg:min-h-9';
 </script>
 
 <svelte:head>
-  <title>Actividades | UTAmed</title>
+  <title>Actividades · {curso.etiqueta ?? curso.nombre} | UTAmed</title>
 </svelte:head>
 
-<DocenteLayout
-  breadcrumbs={[
-    { title: 'Mis Cursos', href: '/docente/cursos' },
-    { title: curso.etiqueta ?? curso.cod_curso ?? 'Curso', href: `/docente/cursos/${curso.id_curso}` },
-    { title: 'Actividades', href: `/docente/cursos/${curso.id_curso}/actividades` },
-  ]}
->
-  <div class="pb-16">
-    <div class="mx-auto flex max-w-[1120px] flex-col gap-5 px-4 md:px-0">
+<svelte:window
+  onclick={(e) => {
+    if (menuAbierto !== null && !(e.target as HTMLElement).closest('[data-menu-actividad]')) menuAbierto = null;
+  }}
+/>
 
-      {#if flashError}
-        <p
-          class="m-0 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700"
-          role="alert"
-        >
-          {flashError}
-        </p>
+{#snippet avance(a: Actividad)}
+  {@const c = conteoEntregas(a)}
+  {@const total = c.ok + c.pend + c.no}
+  {@const t = textosEntrega(a.tipo_actividad === 'SUMATIVA')}
+  {#if !a.visible || total === 0}
+    <span class="text-[13px] text-inst-ink-3">{a.visible ? 'Sin estudiantes asignados' : 'Aún no abre'}</span>
+  {:else}
+    <span class="flex min-w-0 flex-col gap-1.5">
+      <span class="flex h-2 overflow-hidden rounded-full bg-inst-sutil" aria-hidden="true">
+        {#each ORDEN_ENTREGA as k (k)}
+          {#if c[k]}<span class={BARRA_ENTREGA[k]} style="width: {(c[k] / total) * 100}%"></span>{/if}
+        {/each}
+      </span>
+      <span class="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[13px]">
+        {#each ORDEN_ENTREGA as k (k)}
+          <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span aria-hidden="true" class="size-2 rounded-sm {BARRA_ENTREGA[k]}"></span>{t[k]} <strong>{c[k]}</strong>
+          </span>
+        {/each}
+      </span>
+    </span>
+  {/if}
+{/snippet}
+
+{#snippet menu(a: Actividad)}
+  {@const sumativa = a.tipo_actividad === 'SUMATIVA'}
+  <span class="relative inline-flex" data-menu-actividad>
+    <button
+      type="button"
+      class="{btnSecundario} {chico} px-0! size-11 lg:size-9"
+      aria-haspopup="menu"
+      aria-expanded={menuAbierto === a.id_actividad}
+      aria-label="Más opciones de {a.nombre}"
+      onclick={() => (menuAbierto = menuAbierto === a.id_actividad ? null : a.id_actividad)}
+    >
+      <MoreHorizontal size={18} aria-hidden="true" />
+    </button>
+    {#if menuAbierto === a.id_actividad}
+      <div role="menu" aria-label="Opciones de {a.nombre}" class="absolute top-full right-0 z-30 mt-1 flex min-w-[230px] flex-col rounded-md border border-inst-linea bg-inst-tarjeta py-1 shadow-lg">
+        {#if canEdit}
+          <button type="button" role="menuitem" class={ITEM_MENU} onclick={() => abrirEditar(a)}><Pencil size={16} aria-hidden="true" />Editar actividad</button>
+        {/if}
+        {#if sumativa}
+          <button type="button" role="menuitem" class={ITEM_MENU} onclick={() => rubricaDe(a)}>
+            <ListChecks size={16} aria-hidden="true" />{a.tiene_rubrica ? 'Editar rúbrica' : 'Crear rúbrica'}
+          </button>
+        {/if}
+        {#if esTitular}
+          <button type="button" role="menuitem" class={ITEM_MENU} onclick={() => abrirCopiar(a)}><Copy size={16} aria-hidden="true" />Copiar a otro curso</button>
+        {/if}
+        {#if canEdit}
+          <button type="button" role="menuitem" class={ITEM_MENU} onclick={() => alternarVisibilidad(a)}>
+            {#if a.visible}<EyeOff size={16} aria-hidden="true" />Ocultar al estudiante{:else}<Eye size={16} aria-hidden="true" />Publicar al estudiante{/if}
+          </button>
+        {/if}
+        {#if canDelete}
+          <div class="my-1 border-t border-inst-linea" role="separator"></div>
+          <button type="button" role="menuitem" class="{ITEM_MENU} text-inst-error" onclick={() => abrirEliminar(a)}><Trash2 size={16} aria-hidden="true" />Eliminar</button>
+        {/if}
+      </div>
+    {/if}
+  </span>
+{/snippet}
+
+{#snippet tipoChip(a: Actividad)}
+  <span class="{chip} {a.tipo_actividad === 'SUMATIVA' ? tono.accion : tono.info}">{a.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}</span>
+{/snippet}
+
+<CursoDocenteLayout idCurso={curso.id_curso} seccion="actividades" nombre={curso.etiqueta ?? curso.nombre}>
+  <div class={cuerpo}>
+    <div class="flex flex-wrap items-center gap-3">
+      <h2 class="{titulo} m-0 mr-auto text-2xl leading-[30px]">Actividades</h2>
+      <div class="inline-flex overflow-hidden rounded-md border border-inst-control" role="group" aria-label="Vista">
+        <button type="button" aria-pressed={vista === 'lista'} class="{BTN_SEG} {vista === 'lista' ? 'bg-inst-accion text-inst-sobre-accion' : 'bg-inst-tarjeta text-inst-ink hover:bg-inst-sutil'}" onclick={() => (vista = 'lista')}>
+          <List size={16} aria-hidden="true" />Lista
+        </button>
+        <button type="button" aria-pressed={vista === 'resumen'} class="{BTN_SEG} {vista === 'resumen' ? 'bg-inst-accion text-inst-sobre-accion' : 'bg-inst-tarjeta text-inst-ink hover:bg-inst-sutil'}" onclick={() => (vista = 'resumen')}>
+          <LayoutGrid size={16} aria-hidden="true" />Resumen
+        </button>
+      </div>
+      {#if esTitular}
+        <button type="button" class={btnSecundario} onclick={() => abrirCopiar()}><Copy size={16} aria-hidden="true" />Copiar a otro curso</button>
       {/if}
-      {#if copiaOmitidas.length > 0}
-        <div
-          class="m-0 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800"
-          role="status"
-        >
-          <p class="m-0 font-semibold">No se copiaron:</p>
+      {#if canCreate}
+        <button type="button" class={btnPrimario} onclick={abrirCrear}><Plus size={16} aria-hidden="true" />Nueva actividad</button>
+      {/if}
+    </div>
+
+    {#if flash.error}
+      <div class="{aviso} {avisoTono.error}" role="alert"><p class="m-0 text-[13px] font-bold">{flash.error}</p></div>
+    {/if}
+    {#if copiaOmitidas.length > 0}
+      <div class="{aviso} {avisoTono.warn}" role="status">
+        <div class="text-[13px]">
+          <p class="m-0 font-bold">No se copiaron:</p>
           <ul class="m-0 mt-1 list-disc pl-5">
-            {#each copiaOmitidas as o, i (i)}
-              <li>{o.nombre} → {o.curso}: {o.motivo}</li>
-            {/each}
+            {#each copiaOmitidas as o, i (i)}<li>{o.nombre} → {o.curso}: {o.motivo}</li>{/each}
           </ul>
         </div>
-      {/if}
-      {#if flashSuccess}
-        <p
-          class="m-0 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-700"
-          role="status"
-        >
-          {flashSuccess}
-        </p>
-      {/if}
+      </div>
+    {/if}
+    {#if flash.success}
+      <div class="{aviso} {avisoTono.ok}" role="status"><p class="m-0 text-[13px] font-bold">{flash.success}</p></div>
+    {/if}
 
-      <section class="flex flex-col gap-4">
-        <!-- ── Cabecera del curso (mockup «Actividades · Lista»): las acciones van a
-             la altura del título, no debajo de la línea de datos. ── -->
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-          <!-- Móvil (lámina 390): el curso ya está en «‹ volver»; el título es la
-               sección y la línea de datos resume la lista. -->
-          <div class="flex flex-col gap-1 md:hidden">
-            <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink">Actividades</h1>
-            <p class="m-0 text-sm font-medium text-slate-600">
-              {curso.total_estudiantes ?? 0}
-              {curso.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} ·
-              {actividadesDelRol.length}
-              {actividadesDelRol.length === 1 ? 'actividad' : 'actividades'} ·
-              {conteoPorEstado.activa} activas · {conteoPorEstado.cerrada} cerradas
-            </p>
-          </div>
-          <div class="flex min-w-0 flex-1 flex-col gap-1.5 max-md:hidden">
-            {#if curso.cod_asignatura}
-              <span class="font-mono text-xs font-medium text-slate-600">{curso.cod_asignatura}</span>
-            {/if}
-            <div class="flex flex-wrap items-center gap-2.5">
-              <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink sm:text-[28px] sm:leading-[34px]">
-                {curso.asignatura_nombre ?? curso.cod_curso ?? 'Actividades del curso'}
-              </h1>
-              {#if curso.letra_grupo}
-                <span class={PILL_AZUL}>Grupo {curso.letra_grupo}</span>
-              {/if}
-              {#if curso.agno_real && curso.semestre_real}
-                <span class={PILL_NEUTRA}>{curso.agno_real}-{curso.semestre_real}</span>
-              {/if}
-            </div>
-            <p class="m-0 text-sm font-medium text-slate-600">
-              {#if curso.fecha_inicio && curso.fecha_fin}
-                {formatFechaCorta(curso.fecha_inicio)} a {formatFechaCorta(curso.fecha_fin)} ·
-              {/if}
-              {curso.total_estudiantes ?? 0}
-              {curso.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} · actúas como
-              {esTitular ? 'docente titular' : 'docente de componente'}
-            </p>
-          </div>
+    <div class="{tarjeta} flex flex-wrap items-end gap-3 px-4.5 py-3.5">
+      <label class="relative min-w-[220px] flex-[1_1_260px]">
+        <span class="sr-only">Buscar actividad</span>
+        <Search size={16} aria-hidden="true" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-inst-ink-3" />
+        <input type="search" bind:value={busqueda} placeholder="Buscar actividad" class="{campo} pl-9" />
+      </label>
+      <label class="flex flex-[0_1_150px] flex-col gap-1 text-[13px] font-bold">
+        Estado
+        <select bind:value={filtroEstado} class={campo}>
+          <option value="todos">Todos</option>
+          <option value="planificada">Planificada</option>
+          <option value="activa">Activa</option>
+          <option value="cerrada">Cerrada</option>
+        </select>
+      </label>
+      <label class="flex flex-[0_1_150px] flex-col gap-1 text-[13px] font-bold">
+        Tipo
+        <select bind:value={filtroTipo} class={campo}>
+          <option value="todos">Todos</option>
+          <option value="SUMATIVA">Sumativa</option>
+          <option value="FORMATIVA">Formativa</option>
+        </select>
+      </label>
+      <label class="flex flex-[0_1_160px] flex-col gap-1 text-[13px] font-bold">
+        Unidad
+        <select bind:value={filtroUnidad} class={campo}>
+          <option value="todas">Todas</option>
+          {#each unidadesOrdenadas as u (u.id_unidad)}<option value={u.id_unidad}>Unidad {u.num_unidad ?? ''} · {u.nombre}</option>{/each}
+        </select>
+      </label>
+      <label class="flex flex-[0_1_150px] flex-col gap-1 text-[13px] font-bold">
+        Visibilidad
+        <select bind:value={filtroVisibilidad} class={campo}>
+          <option value="todas">Todas</option>
+          <option value="visibles">Visibles</option>
+          <option value="ocultas">Ocultas</option>
+        </select>
+      </label>
+    </div>
 
-          <div class="flex flex-wrap items-center gap-2.5 lg:pt-[22px]">
-            <!-- Conmutador de vista (a todo el ancho en móvil) -->
-            <div
-              class="flex items-center gap-0.5 rounded-lg bg-slate-100 p-1 max-md:w-full max-md:[&>button]:flex-1 max-md:[&>button]:justify-center"
-              role="group"
-              aria-label="Vista de las actividades"
-            >
-              <button
-                type="button"
-                class={vista === 'lista' ? SEG_ACTIVO : SEG_INACTIVO}
-                aria-pressed={vista === 'lista'}
-                onclick={() => (vista = 'lista')}
-              >
-                <List size={16} aria-hidden="true" />
-                Lista
-              </button>
-              <button
-                type="button"
-                class={vista === 'kanban' ? SEG_ACTIVO : SEG_INACTIVO}
-                aria-pressed={vista === 'kanban'}
-                onclick={() => (vista = 'kanban')}
-              >
-                <Columns3 size={16} aria-hidden="true" />
-                Tablero
-              </button>
-            </div>
-
-            {#if esTitular && actividades.length > 0}
-              <!-- En móvil se copia por actividad desde «⋯». -->
-              <button type="button" class="{BTN_OUTLINE} max-md:hidden" onclick={() => abrirCopiar()}>
-                Copiar a otro curso
-              </button>
-            {/if}
-            {#if canCreate}
-              <button type="button" class="{BTN_PRIMARY} max-md:w-full max-md:justify-center" onclick={abrirCrear}>
-                + Nueva actividad
-              </button>
-            {/if}
-          </div>
+    {#if actividadesDelRol.length === 0}
+      <section class="{tarjeta} px-6 py-10 text-center">
+        <p class="m-0 font-bold">Todavía no hay actividades en este curso</p>
+        <p class="m-0 mt-1 text-inst-ink-2">{canCreate ? 'Crea la primera con «Nueva actividad».' : 'El titular aún no crea actividades.'}</p>
+      </section>
+    {:else if filtradas.length === 0}
+      <section class="{tarjeta} flex flex-col items-center gap-3 px-6 py-10 text-center">
+        <p class="m-0 font-bold">Ninguna actividad coincide con los filtros</p>
+        <button type="button" class="{btnSecundario} {chico}" onclick={limpiarFiltros}>Limpiar filtros</button>
+      </section>
+    {:else if vista === 'lista'}
+      <div class={tarjeta}>
+        <div class="hidden border-b border-inst-linea bg-inst-sutil px-4.5 py-2.5 text-xs font-extrabold tracking-[0.06em] text-inst-ink-3 uppercase {GRID}" aria-hidden="true">
+          <span>Actividad</span><span>Estado</span><span>Cierre</span><span>Entregas</span><span>Acciones</span><span></span>
         </div>
-
-        <!-- ── Barra de filtros, común a las dos vistas: una fila, «Rótulo: valor» ── -->
-        {#if actividadesDelRol.length > 0}
-          <div class="grid grid-cols-2 items-center gap-2 md:flex md:flex-nowrap md:gap-2">
-            <label
-              class="col-span-2 inline-flex h-11 min-w-0 items-center gap-2 rounded-lg border border-line-control bg-white px-3 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10 md:min-w-[170px] md:flex-1"
-            >
-              <Search size={16} class="shrink-0 text-slate-600" aria-hidden="true" />
-              <span class="sr-only">Buscar actividades por nombre</span>
-              <input
-                type="search"
-                bind:value={busqueda}
-                placeholder="Buscar actividad"
-                class="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-ink outline-none focus:ring-0 placeholder:text-muted-foreground"
-              />
-            </label>
-
-            <!-- En el tablero el estado es la columna: el filtro no se muestra
-                 (deshabilitado sólo ocupaba sitio). -->
-            {#if vista === 'lista'}
-              <label class={FILTRO_CAJA}>
-                <span class={FILTRO_ROTULO}>Estado:</span>
-                <select bind:value={filtroEstado} class={FILTRO_SELECT} aria-label="Filtrar por estado">
-                  <option value="todos">Todos</option>
-                  <option value="planificada">Planificada</option>
-                  <option value="activa">Activa</option>
-                  <option value="cerrada">Cerrada</option>
-                </select>
-                <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
-              </label>
-            {/if}
-
-            <label class="{FILTRO_CAJA} {vista === 'lista' ? '' : 'col-span-2'}">
-              <span class={FILTRO_ROTULO}>Tipo:</span>
-              <select bind:value={filtroTipo} class={FILTRO_SELECT} aria-label="Filtrar por tipo de evaluación">
-                <option value="todas">Todas</option>
-                <option value="FORMATIVA">Formativas</option>
-                <option value="SUMATIVA">Sumativas</option>
-              </select>
-              <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
-            </label>
-
-            {#if unidadesOrdenadas.length > 0}
-              <!-- Móvil: sólo Estado y Tipo (lámina 390); el resto desde md. -->
-              <label class="{FILTRO_CAJA} max-md:hidden">
-                <span class={FILTRO_ROTULO}>Unidad:</span>
-                <select bind:value={filtroUnidad} class="{FILTRO_SELECT} md:max-w-[10rem]" aria-label="Filtrar por unidad">
-                  <option value="todas">Todas</option>
-                  {#each unidadesOrdenadas as u (u.id_unidad)}
-                    <option value={u.id_unidad}
-                      >{u.num_unidad != null ? `${u.num_unidad} · ` : ''}{u.nombre}</option
-                    >
-                  {/each}
-                </select>
-                <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
-              </label>
-            {/if}
-
-            {#if componenteBloqueado}
-              <!-- El filtro viene puesto: sin `actividades:ver` en el resto de
-                   componentes, no hay nada más que abrir. -->
-              <span
-                class="inline-flex h-11 items-center gap-1.5 rounded-lg bg-uta-blue-light px-3 text-sm text-uta-blue max-md:hidden md:h-10"
-                title="Sólo dictas este componente"
-              >
-                <span class="font-medium">Componente:</span>
-                <strong class="font-semibold">{componentesDelRol[0]?.tipo_componente?.tipo ?? '—'}</strong>
-                <Lock size={13} aria-hidden="true" />
-              </span>
-            {:else if componentesDelRol.length > 1}
-              <label class="{FILTRO_CAJA} max-md:hidden">
-                <span class={FILTRO_ROTULO}>Componente:</span>
-                <select bind:value={filtroComponente} class={FILTRO_SELECT} aria-label="Filtrar por componente">
-                  <option value="todos">Todos</option>
-                  {#each componentesDelRol as c (c.id_componente)}
-                    <option value={c.id_componente}>{c.tipo_componente?.tipo ?? 'Componente'}</option>
-                  {/each}
-                </select>
-                <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
-              </label>
-            {/if}
-
-            <label class="{FILTRO_CAJA} max-md:hidden">
-              <span class={FILTRO_ROTULO}>Visibilidad:</span>
-              <select bind:value={filtroVisibilidad} class={FILTRO_SELECT} aria-label="Filtrar por visibilidad">
-                <option value="todas">Todas</option>
-                <option value="visibles">Visibles</option>
-                <option value="ocultas">Ocultas</option>
-              </select>
-              <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
-            </label>
-          </div>
-
-          {#if ocultasAlAlumno > 0}
-            <span
-              class="-mt-1 inline-flex items-center gap-[7px] self-start rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800"
-            >
-              <EyeOff size={14} aria-hidden="true" />
-              {ocultasAlAlumno}
-              {ocultasAlAlumno === 1 ? 'actividad oculta' : 'actividades ocultas'} al alumno
-            </span>
-          {/if}
-        {/if}
-
-        <!-- ── Cuerpo ── -->
-        {#if actividadesDelRol.length === 0}
-          <!-- Vacío «curso por construir»: ofrece la acción. -->
-          <div
-            class="flex flex-col items-center gap-3.5 rounded-xl border border-dashed border-line-control bg-white px-6 py-9 text-center"
-          >
-            <ClipboardList size={30} class="text-slate-500" aria-hidden="true" />
-            <div class="flex max-w-[440px] flex-col gap-1.5">
-              <p class="m-0 text-[15px] font-semibold text-ink">
-                {esTitular
-                  ? 'El curso todavía no tiene actividades'
-                  : 'No hay actividades en los componentes que dictas'}
-              </p>
-              <p class="m-0 text-sm text-pretty text-slate-600">
-                {#if esTitular}
-                  Cada actividad se ancla a una unidad del syllabus y a un componente. Al crearla
-                  queda planificada y oculta: el alumno la verá cuando tú la hagas visible.
-                {:else}
-                  El titular del curso puede tener actividades en otros componentes; aquí sólo se
-                  listan las de los tuyos.
-                {/if}
-              </p>
-            </div>
-            {#if canCreate}
-              <button type="button" class={BTN_PRIMARY} onclick={abrirCrear}>
-                <Plus size={16} aria-hidden="true" />
-                Crear primera actividad
-              </button>
-            {/if}
-          </div>
-        {:else if actividadesFiltradas.length === 0}
-          <!-- Vacío «consulta demasiado estrecha»: ofrece deshacerla, no crear. -->
-          <div class="flex flex-col gap-3">
-            {#if chipsActivos.length > 0}
-              <div class="flex flex-wrap items-center gap-2">
-                {#each chipsActivos as chip (chip.clave)}
+        <ul class="m-0 list-none p-0">
+          {#each filtradas as a (a.id_actividad)}
+            {@const estado = estadoDe(a)}
+            {@const abierta = abiertaId === a.id_actividad}
+            <li class="border-t border-inst-linea first:border-t-0">
+              <div class="flex flex-col gap-3 px-4.5 py-3.5 {GRID}">
+                <span class="flex min-w-0 flex-col gap-1">
+                  <span class="text-[15px] font-bold break-words">{a.nombre}</span>
+                  <span class="flex flex-wrap items-center gap-1.5">
+                    {@render tipoChip(a)}
+                    <span class="text-[13px] text-inst-ink-2">{[a.es_grupal ? 'Grupal' : 'Individual', unidadDe(a)].filter(Boolean).join(' · ')}</span>
+                  </span>
+                </span>
+                <span><span class="{chip} {tono[TONO_ESTADO[estado]]}">{ETIQUETA_ESTADO[estado]}</span></span>
+                <span class="text-[13px]"><span class="lg:hidden">Cierra </span>{cierreDe(a)}</span>
+                {@render avance(a)}
+                <span class="flex flex-col text-[13px]">
+                  {#if a.tipo_actividad === 'SUMATIVA'}
+                    <span>Pond. <strong>{a.ponderacion ? `${a.ponderacion} %` : '—'}</strong></span>
+                    <span>Prom. <strong>{a.promedio_nota != null ? formatNota(a.promedio_nota) : '—'}</strong></span>
+                  {:else}
+                    <span class="text-inst-ink-3">Sin nota</span>
+                  {/if}
+                </span>
+                <span class="flex items-center justify-end gap-1.5">
                   <button
                     type="button"
-                    class="inline-flex h-9 items-center gap-[7px] rounded-lg border border-uta-blue bg-uta-blue-light px-2.5 text-[13px] font-semibold text-uta-blue transition-colors hover:bg-white"
-                    onclick={chip.quitar}
+                    class="{abierta ? btnPrimario : btnSecundario} {chico} whitespace-nowrap"
+                    aria-expanded={abierta}
+                    aria-controls="det-{a.id_actividad}"
+                    onclick={() => alternar(a)}
                   >
-                    {chip.etiqueta}
-                    <X size={13} aria-hidden="true" />
+                    <Eye size={16} aria-hidden="true" />Ver
+                    {#if (a.mensajes_pendientes ?? 0) > 0}
+                      <span class="rounded-full px-1.5 text-xs font-extrabold {abierta ? 'bg-inst-tarjeta text-inst-accion-t' : 'bg-inst-accion text-inst-sobre-accion'}" aria-label="{a.mensajes_pendientes} por responder">{a.mensajes_pendientes}</span>
+                    {/if}
+                    <ChevronDown size={16} aria-hidden="true" class="-ml-0.5 transition-transform {abierta ? 'rotate-180' : ''}" />
                   </button>
-                {/each}
+                  {@render menu(a)}
+                </span>
               </div>
-            {/if}
-            <div
-              class="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white px-6 py-9 text-center"
-            >
-              <FilterX size={26} class="text-slate-500" aria-hidden="true" />
-              <div class="flex max-w-[420px] flex-col gap-1.5">
-                <p class="m-0 text-[14.5px] font-semibold text-ink">
-                  Ninguna de las {actividadesDelRol.length}
-                  {actividadesDelRol.length === 1 ? 'actividad cumple' : 'actividades cumple'}
-                  {chipsActivos.length === 1 ? 'el filtro' : `los ${chipsActivos.length} filtros`}
-                </p>
-                {#if sugerencia}
-                  <p class="m-0 text-sm text-pretty text-slate-600">
-                    Quita <strong class="font-semibold text-ink">{sugerencia.etiqueta}</strong>
-                    para ver {sugerencia.total}
-                    {sugerencia.total === 1 ? 'resultado' : 'resultados'}.
-                  </p>
-                {/if}
-              </div>
-              <div class="flex flex-wrap justify-center gap-2">
-                {#if sugerencia}
-                  <button type="button" class={BTN_OUTLINE} onclick={sugerencia.quitar}>
-                    Quitar «{sugerencia.etiqueta}»
-                  </button>
-                {/if}
-                <button type="button" class={BTN_GHOST} onclick={limpiarFiltros}>
-                  Limpiar todos los filtros
-                </button>
-              </div>
+              {#if abierta && actividad}
+                <div
+                  id="det-{a.id_actividad}"
+                  transition:slide={{ duration: 250 }}
+                  class="flex flex-col gap-3.5 border-t border-inst-linea bg-inst-sel px-4.5 pt-4 pb-5 shadow-[inset_4px_0_0_var(--color-inst-oro)]"
+                >
+                  {#key actividad.id_actividad}
+                    <ActividadDetalle
+                      {curso}
+                      {actividad}
+                      fila={a}
+                      {grupos}
+                      {rubrica}
+                      {rubrica_id}
+                      {tiene_evaluaciones}
+                      {puede_editar_rubrica}
+                      {interaccionesGrupo}
+                      reglas_enunciado={reglas}
+                      puedeEditar={canEdit}
+                      onEditar={() => abrirEditar(a)}
+                    />
+                  {/key}
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {:else}
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] items-start gap-4">
+        {#each ['activa', 'planificada', 'cerrada'] as EstadoActividad[] as e (e)}
+          {@const xs = filtradas.filter((a) => estadoDe(a) === e)}
+          <section class="{tarjeta} bg-inst-sutil">
+            <div class="flex items-center gap-2.5 rounded-t-lg border-b border-inst-linea bg-inst-tarjeta px-4.5 py-3">
+              <span class="{chip} {tono[TONO_ESTADO[e]]}">{ETIQUETA_ESTADO[e]}</span>
+              <span class="text-[13px] text-inst-ink-2">{xs.length} {xs.length === 1 ? 'actividad' : 'actividades'}</span>
             </div>
-          </div>
-        {:else if vista === 'lista'}
-          <ActividadesTabla
-            actividades={actividadesFiltradas}
-            idCurso={curso.id_curso}
-            {canEdit}
-            {canDelete}
-            {toggles}
-            onToggleVisible={handleToggleVisible}
-            onEdit={abrirEditar}
-            onDelete={abrirEliminar}
-            onEnunciado={abrirEnunciado}
-            onCopiar={esTitular ? abrirCopiar : undefined}
-          >
-            <!-- Pie dentro de la tabla: qué se está viendo, cómo se reparte y qué
-                 significan los colores del avance. Sin paginación: el controlador
-                 entrega el curso completo en una sola carga. -->
-            {#snippet pie()}
-              <span class="mr-auto">
-                {actividadesFiltradas.length === actividadesDelRol.length
-                  ? `${actividadesDelRol.length} ${actividadesDelRol.length === 1 ? 'actividad' : 'actividades'}`
-                  : `${actividadesFiltradas.length} de ${actividadesDelRol.length} actividades`}
-                · orden por fecha límite
-                {#if conteoPorEstado.planificada > 0}· {conteoPorEstado.planificada} planificadas{/if}
-                · {conteoPorEstado.activa} activas · {conteoPorEstado.cerrada} cerradas
-              </span>
-              <span>Avance: verde = calificadas o con feedback · ámbar = pendientes de calificar o revisar</span>
-            {/snippet}
-          </ActividadesTabla>
-        {:else}
-          <ActividadesPorEstado
-            actividades={actividadesFiltradas}
-            idCurso={curso.id_curso}
-            {canEdit}
-            onCopiar={esTitular ? abrirCopiar : undefined}
-          />
-        {/if}
-      </section>
-    </div>
+            <div class="flex flex-col gap-2.5 p-3">
+              {#each xs as a (a.id_actividad)}
+                <div class="{tarjeta} flex flex-col gap-2.5 border-l-4 px-3.5 py-3 {e === 'cerrada' ? 'border-l-inst-ok' : e === 'activa' ? 'border-l-inst-oro' : 'border-l-inst-linea'}">
+                  <span class="flex items-center gap-1.5">
+                    {@render tipoChip(a)}
+                    <span class="mr-auto text-[13px] text-inst-ink-2">{unidadDe(a) ?? ''}</span>
+                    {@render menu(a)}
+                  </span>
+                  <span class="font-bold">{a.nombre}</span>
+                  <span class="text-[13px] text-inst-ink-2">
+                    Cierra {cierreDe(a)}{#if a.tipo_actividad === 'SUMATIVA'} · ponderación {a.ponderacion ? `${a.ponderacion} %` : '—'} · promedio {a.promedio_nota != null ? formatNota(a.promedio_nota) : '—'}{/if}
+                  </span>
+                  {@render avance(a)}
+                  <button type="button" class="{btnSecundario} {chico} self-start" onclick={() => agendaDesdeResumen(a)}>
+                    <MessageSquare size={16} aria-hidden="true" />Agenda
+                  </button>
+                </div>
+              {:else}
+                <p class="m-0 px-1 py-2 text-[13px] text-inst-ink-2">Ninguna.</p>
+              {/each}
+            </div>
+          </section>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <ActividadForm
@@ -843,6 +604,7 @@
     componentes={componentesDelRol}
     unidades={unidadesOrdenadas}
     errors={formErrors}
+    reglasEnunciado={esTitular ? reglas : null}
     onClose={() => {
       showForm = false;
       editando = null;
@@ -871,15 +633,4 @@
     preseleccion={copiarPreseleccion}
     onClose={() => (showCopiar = false)}
   />
-
-  <EnunciadoModal
-    bind:isOpen={showEnunciado}
-    idCurso={curso.id_curso}
-    actividad={conEnunciado}
-    {reglas}
-    onClose={() => {
-      showEnunciado = false;
-      conEnunciado = null;
-    }}
-  />
-</DocenteLayout>
+</CursoDocenteLayout>
