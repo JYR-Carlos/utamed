@@ -228,6 +228,12 @@ class ProgramaController extends Controller
                 $this->createActividadesFromSyllabus($curso, $actividadesByCreate);
             }
 
+            // Sincronizar bibliografías desde sección VIII hacia la tabla `bibliografia`
+            $seccionVIII = $validated['secciones']['VIII']['contenido']['bibliografias'] ?? [];
+            if (!empty($seccionVIII)) {
+                ProgramaService::syncBibliografias($programa, $seccionVIII);
+            }
+
             Log::info('Programa creado por ayudante', [
                 'id_programa' => $programa->id_programa,
                 'id_curso'    => $curso->id_curso,

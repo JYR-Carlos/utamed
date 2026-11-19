@@ -31,10 +31,9 @@ class ProgramaController extends Controller
     use ParsesSyllabus;
 
     /**
-     * Genera el programa de un curso.
-     *
-     * Si se envían secciones customizadas, actualiza el syllabus con esos contenidos.
-     * Si no, genera la estructura base automáticamente.
+     * @deprecated Sin uso: método huérfano no registrado en `routes/web.php`
+     *             (`POST docente/cursos/{curso}/programa` apunta a `Admin\ProgramaController::store`).
+     *             Se conserva solo como referencia legacy.
      */
     public function store(Request $request, Curso $curso): RedirectResponse
     {
