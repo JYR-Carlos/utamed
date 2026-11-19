@@ -181,7 +181,7 @@
                       <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[13px] leading-[18px] font-bold {t.pildora}">{t.etiqueta}</span>
                       <span class="text-[13px] leading-[18px] text-dm-ink-3 tabular-nums">{hora(e.fecha)}</span>
                       <span class="ml-auto inline-flex items-center gap-1 text-[13px] leading-[18px] font-semibold text-dm-enlace">
-                        <span class="max-sm:sr-only">Ver en la agenda</span><ChevronRight size={16} aria-hidden="true" />
+                        <span class="max-sm:sr-only">Ver en Consultas</span><ChevronRight size={16} aria-hidden="true" />
                       </span>
                     </span>
                     <span class="text-[15px] leading-5 font-semibold">

@@ -83,7 +83,7 @@
 <div
   bind:this={lista}
   role="log"
-  aria-label="Mensajes de la agenda"
+  aria-label="Conversación con tu equipo docente"
   tabindex="0"
   class="min-h-0 flex-1 overflow-y-auto bg-dm-pagina px-4 py-4 outline-none lg:px-7 lg:py-5"
 >

@@ -113,8 +113,8 @@
           </span>
           <span class="text-sm leading-5 text-dm-ink-2">
             {esGrupal
-              ? 'Cuando tu docente te asigne a un grupo podrás entregar y escribir en la agenda. Si crees que es un error, avísale.'
-              : 'Avisa a tu docente para que lo revise: sin él no puedes entregar ni escribir en la agenda.'}
+              ? 'Cuando tu docente te asigne a un grupo podrás entregar y escribirle en Consultas. Si crees que es un error, avísale.'
+              : 'Avisa a tu docente para que lo revise: sin él no puedes entregar ni escribir en Consultas.'}
           </span>
           {#if hrefMensajeria}
             <Link href={hrefMensajeria} class="{btnSecundario} mt-2 self-start">Escribir al equipo docente</Link>
@@ -195,7 +195,7 @@
           <span class="text-base leading-[22px] font-semibold">Sin entrega registrada</span>
           <span class="text-sm leading-5 text-dm-ink-2">
             {estado === 'CERRADA'
-              ? `El plazo cerró sin que ${quien === 'tú' ? 'entregaras' : 'tu grupo entregara'}. Si crees que es un error, escríbele a tu docente en la agenda.`
+              ? `El plazo cerró sin que ${quien === 'tú' ? 'entregaras' : 'tu grupo entregara'}. Si crees que es un error, escríbele a tu docente en Consultas.`
               : 'Esta actividad ya no recibe entregas.'}
           </span>
         </div>

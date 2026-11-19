@@ -2,8 +2,11 @@
   /**
    * Página de una actividad para el alumno (guía dm): una tarjeta con la
    * cabecera noche y, debajo, pestañas. En escritorio, Enunciado · Rúbrica ·
-   * Agenda, con la entrega, la nota y el grupo fijos en la columna derecha;
-   * en el móvil, Enunciado · Rúbrica · Entrega · Agenda. La pestaña viaja en
+   * Consultas, con la entrega, la nota y el grupo fijos en la columna derecha;
+   * en el móvil, Enunciado · Rúbrica · Entrega · Consultas. «Consultas» es la
+   * agenda de la actividad: el alumno la ve con ese nombre porque «Agenda» se
+   * leía como calendario (OBS-40); en el código y para el docente sigue siendo
+   * la agenda. La pestaña viaja en
    * ?seccion= (como en la ficha del curso). Por entregar se abre en el
    * enunciado; calificada, en la rúbrica evaluada.
    */
@@ -357,7 +360,7 @@
     if (id_actividad_asignada_grupo) {
       lista.push({
         id: 'agenda',
-        etiqueta: 'Agenda',
+        etiqueta: 'Consultas',
         detalle: mensajesAgenda === 0 ? 'Sin mensajes' : `${mensajesAgenda} ${mensajesAgenda === 1 ? 'mensaje' : 'mensajes'}`,
         nuevos: nuevosAgenda,
         icono: MessagesSquare,
@@ -711,8 +714,8 @@
             {#if id_actividad_asignada_grupo}
               {@render paso(
                 calificada ? '¿Dudas sobre la nota?' : '¿Dudas sobre un criterio?',
-                calificada ? 'Escríbele a tu docente en la agenda' : 'Pregúntale a tu docente en la agenda',
-                'Ir a la agenda',
+                calificada ? 'Escríbele a tu docente en Consultas' : 'Pregúntale a tu docente en Consultas',
+                'Ir a Consultas',
                 'agenda',
               )}
             {/if}
@@ -742,11 +745,11 @@
 
 <ModalAlumno
   bind:open={showAgendaModal}
-  etiqueta="Agenda de la actividad"
+  etiqueta="Consultas · con tu equipo docente"
   titulo={nombre_actividad}
   subtitulo={subtituloAgenda}
   estilo={colorCurso}
-  rotuloCerrar="Cerrar agenda"
+  rotuloCerrar="Cerrar consultas"
 >
   <Agenda
     idCurso={id_curso}
