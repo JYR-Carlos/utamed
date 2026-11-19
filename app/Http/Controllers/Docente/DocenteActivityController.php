@@ -797,13 +797,19 @@ class DocenteActivityController extends Controller
                 ->get()
                 ->groupBy('id_componente');
 
-        $data = $cursos->map(function ($curso) use ($idDocente, $actividadesPorComponente) {
+        // Avance por actividad (grupos que entregaron y esperan nota o
+        // feedback), con el mismo criterio que la lista de actividades.
+        $avance = app(AvanceEvaluacionService::class)->porActividad(
+            $actividadesPorComponente->flatten(1)->pluck('id_actividad')
+        );
+
+        $data = $cursos->map(function ($curso) use ($idDocente, $actividadesPorComponente, $avance) {
             $esTitularCurso = $curso->id_docente_titular === $idDocente;
 
             $componentes = $curso->componentes
                 // Titular del curso ve todos; el resto sólo los que imparte.
                 ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
-                ->map(function ($c) use ($actividadesPorComponente) {
+                ->map(function ($c) use ($actividadesPorComponente, $avance) {
                     $actividades = $actividadesPorComponente
                         ->get($c->id_componente, collect())
                         ->map(fn ($a) => [
@@ -813,6 +819,12 @@ class DocenteActivityController extends Controller
                             'es_grupal' => (bool) $a->es_grupal,
                             'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
                             'tiene_grupos' => $a->actividad_asignada_grupos_count > 0,
+                            // Sumativas: por_calificar / calificados; formativas:
+                            // por_revisar / con_feedback (feedback = revisada).
+                            'por_calificar' => $avance[$a->id_actividad]['por_calificar'] ?? 0,
+                            'calificados' => $avance[$a->id_actividad]['calificados'] ?? 0,
+                            'por_revisar' => $avance[$a->id_actividad]['por_revisar'] ?? 0,
+                            'con_feedback' => $avance[$a->id_actividad]['con_feedback'] ?? 0,
                         ])
                         ->values();
 
