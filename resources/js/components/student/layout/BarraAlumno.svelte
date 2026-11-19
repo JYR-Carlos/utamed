@@ -4,12 +4,14 @@
    *
    * En escritorio: la ruta de navegación sobre fondo de tarjeta. En móvil: barra
    * noche con el botón del menú y la marca; ahí la ruta no cabe y cada página
-   * trae su «‹ volver» en la cabecera.
+   * trae su «‹ volver» en la cabecera. A la derecha, siempre: reportar un
+   * problema, el tema y la foto del alumno, que lleva a Mi perfil.
    */
-  import { Link } from '@inertiajs/svelte';
+  import { Link, page } from '@inertiajs/svelte';
   import { Menu } from 'lucide-svelte';
   import IssueReport from '@/components/custom/IssueReport.svelte';
   import BotonTema from '@/components/ingreso/BotonTema.svelte';
+  import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import type { BreadcrumbItem } from '@/types';
 
   interface Props {
@@ -18,6 +20,9 @@
   }
 
   let { breadcrumbs = [], onAbrirMenu }: Props = $props();
+
+  const foto = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
+  const enPerfil = $derived(($page.url ?? '').startsWith('/estudiante/perfil'));
 
   // Sobre noche (móvil) el foco va en amarillo; sobre la tarjeta (escritorio), en azul.
   const foco = 'focus-visible:outline-dm-amarillo lg:focus-visible:outline-dm-enlace';
@@ -37,7 +42,8 @@
 
   <Link href="/estudiante/dashboard" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 no-underline lg:hidden {foco}">
     <img src="/icon.png" alt="" width="28" height="28" class="size-7 shrink-0 object-contain" />
-    <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] text-dm-noche-texto">UTAMED</span>
+    <!-- En teléfonos angostos sólo el logo: la barra suma el tema y la foto. -->
+    <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] text-dm-noche-texto max-[379px]:sr-only">UTAMED</span>
   </Link>
 
   <nav aria-label="Ruta de navegación" class="hidden min-w-0 flex-1 lg:block">
@@ -66,5 +72,20 @@
     <BotonTema
       class="text-dm-noche-texto hover:bg-dm-noche-activo lg:h-10 lg:border lg:border-dm-linea lg:bg-dm-tarjeta lg:text-dm-ink lg:hover:bg-dm-sutil {foco}"
     />
+    <Link
+      href="/estudiante/perfil"
+      aria-label="Mi perfil"
+      title="Mi perfil"
+      aria-current={enPerfil ? 'page' : undefined}
+      class="flex size-11 shrink-0 items-center justify-center rounded-full no-underline {foco}"
+    >
+      <FotoPerfil
+        src={foto}
+        decorativa
+        class="size-9 rounded-full bg-dm-noche-activo ring-2 ring-dm-noche-linea lg:bg-dm-sutil lg:ring-dm-linea {enPerfil
+          ? 'ring-dm-amarillo! lg:ring-dm-enlace!'
+          : ''}"
+      />
+    </Link>
   </div>
 </header>
