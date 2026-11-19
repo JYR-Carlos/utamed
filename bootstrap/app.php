@@ -114,4 +114,20 @@ return Application::configure(basePath: dirname(__DIR__))
                 (int) ($e->getHeaders()['Retry-After'] ?? 60),
             ), $request);
         });
+
+        // Un formulario enviado después de que la sesión venció por inactividad
+        // falla el token CSRF (419). En vez de la página «Page Expired», se vuelve
+        // al login con un aviso que explica por qué hay que ingresar de nuevo.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, $request) {
+            if ($e->getStatusCode() !== 419 || $request->expectsJson()) {
+                return null;
+            }
+
+            $request->session()->put('login_error', [
+                'code' => 'SESSION_EXPIRED',
+                'message' => 'Tu sesión terminó por inactividad.',
+            ]);
+
+            return redirect()->route('login');
+        });
     })->create();

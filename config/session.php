@@ -32,9 +32,13 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    // 30 minutos sin actividad y la sesión termina al cerrar el navegador: en los
+    // computadores compartidos de la universidad la cuenta no queda abierta para el
+    // siguiente. Quien marca «Mantener la sesión iniciada» sigue entrando por la
+    // cookie de recordar, que no depende de estos valores.
+    'lifetime' => (int) env('SESSION_LIFETIME', 30),
 
-    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+    'expire_on_close' => (bool) env('SESSION_EXPIRE_ON_CLOSE', true),
 
     /*
     |--------------------------------------------------------------------------

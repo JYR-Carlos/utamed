@@ -78,6 +78,12 @@
     switch (loginError.code) {
       case 'INVALID_CREDENTIALS':
         return { tono: 'error', titulo: 'Credenciales incorrectas' };
+      case 'SESSION_EXPIRED':
+        return {
+          tono: 'warn',
+          titulo: 'Tu sesión terminó por inactividad',
+          texto: 'Vuelve a ingresar para seguir. Lo que no alcanzaste a enviar no quedó guardado.',
+        };
       case 'USER_INACTIVE':
         return {
           tono: 'error',
@@ -282,9 +288,15 @@
                   type="checkbox"
                   disabled={deshabilitado}
                   bind:checked={$form.remember}
+                  aria-describedby="recordar-ayuda"
                   class="size-5 shrink-0 accent-dm-accion"
                 />
-                Mantener la sesión iniciada
+                <span class="flex flex-col">
+                  Mantener la sesión iniciada
+                  <span id="recordar-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">
+                    Sólo en tu computador personal
+                  </span>
+                </span>
               </label>
               {#if canResetPassword}
                 <Link href={request()} class="{enlace} lg:min-h-11!">¿Olvidaste tu contraseña?</Link
