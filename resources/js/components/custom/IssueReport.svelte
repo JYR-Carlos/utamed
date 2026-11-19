@@ -28,6 +28,8 @@
   });
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const campoBase =
+    'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-slate-400/70 dark:bg-slate-100 dark:text-slate-900 dark:placeholder-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-500/30';
 
   function closeModal() {
     if (isUploading) return;
@@ -161,7 +163,7 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="bug-modal-title"
-      class="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl"
+      class="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white text-slate-900 shadow-2xl"
     >
       <header class="flex items-start justify-between border-b border-slate-100 px-6 py-4">
         <div class="flex items-center gap-3">
@@ -187,7 +189,7 @@
 
       <form onsubmit={handlePreSubmit} class="flex min-h-0 flex-1 flex-col">
         <div class="space-y-4 overflow-y-auto px-6 py-4 text-left">
-          <div class="bg-amber-100 border-2 text-shadow-amber-800 border-amber-200 p-4 gap-5 flex flex-col rounded-3xl text-justify font-semibold">
+          <div class="bg-amber-100 border-2 text-amber-900 border-amber-200 p-4 gap-5 flex flex-col rounded-3xl text-justify font-semibold">
             <p class="text-sm">Tu reporte será revisado por el equipo de desarrollo de UTAmed. Por favor, envía únicamente incidencias reales y comprobables.  </p>
             <p class="text-sm">El spam o envío masivo de reportes falsos o inapropiados resultará en el bloqueo de tu cuenta o IP y será notificado.</p>
           </div>
@@ -202,7 +204,7 @@
               maxlength="120"
               required
               placeholder="Ej. Error al guardar asistencia"
-              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              class="{campoBase} text-sm"
             />
           </div>
 
@@ -217,7 +219,7 @@
               rows="3"
               maxlength="2000"
               placeholder="Describe qué ocurrió y los pasos para reproducir el fallo..."
-              class="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              class="{campoBase} resize-y text-sm"
             ></textarea>
           </div>
 
@@ -231,7 +233,7 @@
                 bind:value={formData.expected}
                 rows="2"
                 placeholder="¿Qué debería suceder?"
-                class="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                class="{campoBase} resize-none text-xs"
               ></textarea>
             </div>
 
@@ -244,7 +246,7 @@
                 bind:value={formData.actual}
                 rows="2"
                 placeholder="¿Qué sucede realmente?"
-                class="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                class="{campoBase} resize-none text-xs"
               ></textarea>
             </div>
           </div>
@@ -253,14 +255,14 @@
             <span class="mb-1 block text-xs font-semibold text-slate-700">Captura de pantalla (opcional)</span>
             {#if !file}
               <label
-                class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-4 py-3 text-xs text-slate-500 transition hover:border-blue-400 hover:bg-blue-50/30"
+                class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-4 py-3 text-xs text-slate-500 transition hover:border-blue-400 hover:bg-blue-50/30 dark:border-slate-400/70 dark:bg-slate-100/70 dark:text-slate-700 dark:hover:border-blue-400 dark:hover:bg-slate-100"
               >
                 <Upload size={16} class="text-slate-400" />
                 <span>Haz clic para adjuntar imagen <span class="text-slate-400">(máx. 10 MB)</span></span>
                 <input type="file" accept="image/*" onchange={handleFile} class="sr-only" />
               </label>
             {:else}
-              <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-400/70 dark:bg-slate-100">
                 <span class="truncate font-medium text-slate-700">
                   {file.name}
                   <span class="font-normal text-slate-400">({(file.size / 1024).toFixed(0)} KB)</span>
@@ -309,7 +311,7 @@
       aria-modal="true"
       aria-labelledby="confirm-title"
       aria-describedby="confirm-desc"
-      class="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl"
+      class="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 text-slate-900 shadow-2xl"
     >
       <div class="mb-4 flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
         <MessageCircleWarning size={20} />
