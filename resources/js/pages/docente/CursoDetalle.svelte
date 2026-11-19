@@ -16,11 +16,11 @@
   import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import { btnSecundario, campo, chip, cuerpo, tarjeta, tarjetaCabecera, titulo, tono } from '@/lib/inst';
   import type { Permission } from '@/types/permissions/permissions';
+  import type { SidebarCourse } from '@/types';
   import EstudianteDetalleModal from './components/EstudianteDetalleModal.svelte';
   import AsistenciaPanel from './components/AsistenciaPanel.svelte';
   import EstudiantesTable from './components/EstudiantesTable.svelte';
   import ComponentePills from './components/ComponentePills.svelte';
-  import type { Actividad } from '@/types/actividad';
 
   interface Componente {
     id_componente: number;
@@ -58,12 +58,17 @@
     curso: Curso;
     mis_componentes: Componente[];
     mis_estudiantes: EstudianteComponente[];
-    actividades?: Actividad[];
-    /** Prop diferida: sólo llega cuando la ficha del alumno la pide. */
-    mensajesEstudiante?: any[];
   }
 
-  let { curso, mis_componentes, mis_estudiantes, actividades = [], mensajesEstudiante = [] }: Props = $props();
+  let { curso, mis_componentes, mis_estudiantes }: Props = $props();
+
+  // «DM069 · Grupo A» para el subtítulo de la ficha: el código visible viene del menú.
+  const codigoCurso = $derived.by(() => {
+    const c = (($page.props.auth?.docente_courses as SidebarCourse[]) ?? []).find((x) => x.id_curso === curso.id_curso);
+    const cod = c?.cod_asignatura || c?.cod_curso;
+    if (!cod) return curso.etiqueta;
+    return c?.letra_grupo ? `${cod} · Grupo ${c.letra_grupo}` : cod;
+  });
 
   // «Asistencia» cambia la tabla por el pase de lista. Se abre directo con
   // ?vista=asistencia (o el ?tab=asistencia de antes, que usa el centro de asistencia).
@@ -202,9 +207,8 @@
     <EstudianteDetalleModal
       abierto={modalEstudiante}
       estudiante={estudianteSeleccionado}
-      {actividades}
       idCurso={curso.id_curso}
-      {mensajesEstudiante}
+      cursoEtiqueta={codigoCurso}
       onCerrar={() => {
         modalEstudiante = false;
         estudianteSeleccionado = null;

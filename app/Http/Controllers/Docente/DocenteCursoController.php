@@ -191,8 +191,11 @@ class DocenteCursoController extends Controller
                 'nota_componente'           => $ic->nota_componente,
                 'estudiante' => [
                     'id_estudiante' => $ic->estudiante->id_estudiante,
+                    'id_usuario'    => $ic->estudiante->id_usuario,
                     'nombre'        => $ic->estudiante->usuario?->nombre_apellidos_primero ?? '',
                     'username'      => $ic->estudiante->usuario->username ?? '',
+                    'rut'           => $ic->estudiante->usuario->rut ?? null,
+                    'email'         => $ic->estudiante->usuario->email ?? null,
                     // Contacto personal (T10): sólo lo ve el equipo docente,
                     // en modo lectura, desde la ficha del estudiante.
                     'contacto'      => $ic->estudiante->contacto(),
@@ -301,44 +304,6 @@ class DocenteCursoController extends Controller
                 ->values()
                 ->all();
 
-        // Actividades del curso (todas las componentes) para el kanban de seguimiento
-        $actividadesModelo = \App\Models\Agenda\Actividad::whereHas(
-                'componente',
-                fn ($q) => $q->where('id_curso', $curso->id_curso)
-            )
-            ->with(['componente.tipoComponente'])
-            ->get();
-
-        // Avance de evaluación de cada actividad para las tarjetas del tablero.
-        $avancePorActividad = app(AvanceEvaluacionService::class)
-            ->porActividad($actividadesModelo->pluck('id_actividad'));
-
-        $actividades = $actividadesModelo->map(function ($a) use ($avancePorActividad) {
-            $avance = $avancePorActividad->get($a->id_actividad);
-
-            return [
-                'id_actividad'   => $a->id_actividad,
-                'nombre'         => $a->nombre,
-                'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
-                'tipo_actividad' => $a->tipo_actividad,
-                'tipo_entrega'   => $a->tipo_entrega,
-                'es_grupal'      => $a->es_grupal,
-                'max_integrantes' => $a->max_integrantes,
-                'visible'        => $a->visible,
-                'ponderacion'    => $a->ponderacion !== null ? (float) $a->ponderacion : null,
-                'id_componente'  => $a->id_componente,
-                ...DocenteActivityController::datosAvance($avance),
-                'componente'     => $a->componente ? [
-                    'id_componente'  => $a->componente->id_componente,
-                    // Clave `tipo`: es la que lee el tipo compartido `Actividad`
-                    // y el kanban. Antes se emitía `nombre` y la tarjeta mostraba «—».
-                    'tipo_componente' => $a->componente->tipoComponente ? [
-                        'tipo' => $a->componente->tipoComponente->tipo,
-                    ] : null,
-                ] : null,
-            ];
-        });
-
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
                 'id_curso' => $curso->id_curso,
@@ -381,43 +346,6 @@ class DocenteCursoController extends Controller
             'mis_componentes' => $misComponentesData->values(),
             'mis_estudiantes' => $misEstudiantes->values(),
             'todos_componentes' => $todosComponentesData->values(),
-            'actividades' => $actividades->values(),
-            'mensajesEstudiante' => Inertia::lazy(function () use ($curso) {
-                $idEstudiante = request('estudiante_id');
-                if (!$idEstudiante) return [];
-
-                $gruposIds = DB::table('agenda.integrante_grupo as ig')
-                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
-                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-                    ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
-                    ->where('ig.id_estudiante', $idEstudiante)
-                    ->where('c.id_curso', $curso->id_curso)
-                    ->pluck('ig.id_actividad_asignada_grupo');
-
-                if ($gruposIds->isEmpty()) {
-                    return [];
-                }
-
-                return DB::table('agenda.agenda as a')
-                    ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
-                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
-                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-                    ->whereIn('a.id_actividad_asignada_grupo', $gruposIds)
-                    ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback'])
-                    ->orderBy('a.fecha_envio', 'asc')
-                    ->select(
-                        'a.id_agenda',
-                        'a.fecha_envio',
-                        'a.mensaje',
-                        'a.tipo_mensaje as tipo_registro',
-                        DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
-                        'u.id_usuario as emisor_id_usuario',
-                        'act.nombre as actividad_nombre',
-                        'act.id_actividad',
-                        'aag.id_actividad_asignada_grupo as grupo'
-                    )
-                    ->get();
-            }),
         ]);
     }
 
@@ -591,6 +519,75 @@ class DocenteCursoController extends Controller
                 \App\Services\SyllabusViewerPresenter::ultimoRechazo($programa),
             ) : null,
         ]);
+    }
+
+    /**
+     * Evaluación de un estudiante en las actividades publicadas de su
+     * componente, para la pestaña «Evaluación» de su ficha (revisión
+     * «Mi UTAmed»): por actividad, el tipo, la nota (individual si la hay) o
+     * la calificación de la formativa, el estado de la entrega con las mismas
+     * palabras que Actividades y el grupo, para abrir su agenda.
+     */
+    public function evaluacionEstudiante(Curso $curso, int $componente, int $estudiante)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        // Mismo alcance que la pestaña Estudiantes: sólo los componentes que dicta.
+        $idDocente = Auth::user()->docente?->id_docente;
+        $inscrito = $idDocente && \App\Models\Curso\InscripcionComponente::where('id_componente', $componente)
+            ->where('id_estudiante', $estudiante)
+            ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso)
+                ->whereHas('docenteComponentes', fn ($d) => $d->where('id_docente', $idDocente)))
+            ->exists();
+        abort_unless($inscrito, 404, 'El estudiante no está inscrito en un componente que dictes.');
+
+        $filas = DB::table('agenda.integrante_grupo as ig')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
+            ->join('agenda.actividad as a', 'a.id_actividad', '=', 'aag.id_actividad')
+            ->where('a.id_componente', $componente)
+            ->where('a.visible', true)
+            ->where('ig.id_estudiante', $estudiante)
+            ->orderBy('a.fecha_limite')
+            ->orderBy('a.id_actividad')
+            ->get([
+                'a.id_actividad', 'a.nombre', 'a.tipo_actividad', 'a.tipo_entrega', 'a.es_grupal', 'a.fecha_limite',
+                'aag.id_actividad_asignada_grupo as grupo', 'aag.nota', 'ig.nota_individual',
+            ]);
+
+        $idsGrupo = $filas->pluck('grupo');
+        $conEntrega = $idsGrupo->isEmpty() ? collect() : \App\Models\Agenda\Agenda::entregasVigentes()
+            ->whereIn('id_actividad_asignada_grupo', $idsGrupo)
+            ->distinct()
+            ->pluck('id_actividad_asignada_grupo')
+            ->flip();
+        $conFeedback = (new AvanceEvaluacionService)->gruposConFeedback($idsGrupo, $filas->pluck('id_actividad', 'grupo'));
+
+        // La calificación de una formativa (Bueno, Regular o Malo) es la de su
+        // evaluación más reciente.
+        $calificacion = $idsGrupo->isEmpty() ? collect() : DB::table('agenda.evaluacion as ev')
+            ->join('agenda.agenda as ag', 'ag.id_agenda', '=', 'ev.id_agenda')
+            ->whereIn('ag.id_actividad_asignada_grupo', $idsGrupo)
+            ->orderByDesc('ev.fecha_evaluacion')
+            ->get(['ag.id_actividad_asignada_grupo as grupo', 'ev.evaluacion_obtenida'])
+            ->unique('grupo')
+            ->pluck('evaluacion_obtenida', 'grupo');
+
+        return response()->json($filas->map(function ($f) use ($conEntrega, $conFeedback, $calificacion) {
+            $esSumativa = $f->tipo_actividad === \App\Enums\DB\TipoActividad::SUMATIVA->value;
+            $nota = $f->nota_individual ?? $f->nota;
+            $listo = $esSumativa ? $nota !== null : $conFeedback->has($f->grupo);
+            $estado = $listo ? 'ok' : ($conEntrega->has($f->grupo) || $f->tipo_entrega === 'presencial' ? 'pend' : 'no');
+
+            return [
+                'id_actividad' => $f->id_actividad,
+                'nombre' => $f->nombre,
+                'es_sumativa' => $esSumativa,
+                'grupo' => $f->grupo,
+                'nota' => $nota !== null ? (float) $nota : null,
+                'calificacion' => $esSumativa ? null : $calificacion->get($f->grupo),
+                'estado' => $estado,
+            ];
+        })->values());
     }
 
     /**
