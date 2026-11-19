@@ -35,7 +35,7 @@
    * agenda al grabar. En una formativa se califica con Bueno, Regular o Malo.
    */
   import { router } from '@inertiajs/svelte';
-  import { Check, ChevronRight, ClipboardCheck, Info, MessageSquare, Pencil, Save, Send, X } from 'lucide-svelte';
+  import { Check, ChevronRight, ClipboardCheck, GripVertical, Info, MessageSquare, Pencil, Save, Send, X } from 'lucide-svelte';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
   import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
@@ -240,6 +240,66 @@
 
   const BTN_TAB =
     'inline-flex min-h-11 cursor-pointer items-center gap-2 border-0 border-b-[3px] bg-transparent px-1 text-sm font-bold lg:min-h-12';
+
+  let splitContainerEl = $state<HTMLDivElement | null>(null);
+  let esDesktop = $state(false);
+  let porcentajeChat = $state<number | null>(null);
+  let arrastrandoDivisor = $state(false);
+
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const actualizar = () => {
+      esDesktop = mq.matches;
+      if (!mq.matches) arrastrandoDivisor = false;
+    };
+    actualizar();
+    mq.addEventListener('change', actualizar);
+    return () => mq.removeEventListener('change', actualizar);
+  });
+
+  function ajustarPorcentajeDesdeX(clientX: number) {
+    if (!esDesktop || !splitContainerEl) return;
+    const rect = splitContainerEl.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const minIzqPct = Math.min(45, (280 / rect.width) * 100);
+    const minDerPct = Math.min(45, (360 / rect.width) * 100);
+    const maxIzqPct = Math.max(minIzqPct, 100 - minDerPct);
+    const pct = ((clientX - rect.left) / rect.width) * 100;
+    porcentajeChat = Math.min(maxIzqPct, Math.max(minIzqPct, pct));
+  }
+
+  function iniciarArrastreDivisor(e: PointerEvent) {
+    if (!esDesktop || e.button !== 0) return;
+    e.preventDefault();
+    arrastrandoDivisor = true;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    ajustarPorcentajeDesdeX(e.clientX);
+  }
+
+  function moverDivisor(e: PointerEvent) {
+    if (!arrastrandoDivisor || !esDesktop) return;
+    ajustarPorcentajeDesdeX(e.clientX);
+  }
+
+  function terminarArrastreDivisor(e: PointerEvent) {
+    if (!arrastrandoDivisor) return;
+    arrastrandoDivisor = false;
+    const el = e.currentTarget as HTMLElement;
+    if (el.hasPointerCapture(e.pointerId)) {
+      el.releasePointerCapture(e.pointerId);
+    }
+  }
+
+  function manejarTecladoDivisor(e: KeyboardEvent) {
+    if (!esDesktop) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const base = porcentajeChat ?? (esSumativa ? 32 : 55);
+    const paso = e.shiftKey ? 5 : 2;
+    const siguiente = e.key === 'ArrowRight' ? base + paso : base - paso;
+    porcentajeChat = Math.min(72, Math.max(22, siguiente));
+  }
 </script>
 
 <svelte:window
@@ -251,7 +311,7 @@
 />
 
 <div
-  class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-inst-velo p-2 sm:items-center sm:p-4"
+  class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-inst-velo p-2 sm:p-4 lg:items-center"
   role="presentation"
   onclick={(e) => e.target === e.currentTarget && onCerrar()}
 >
@@ -259,7 +319,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="t-agenda-docente"
-    class="relative flex w-full flex-col overflow-hidden rounded-lg border border-inst-linea bg-inst-tarjeta text-inst-ink shadow-[0_18px_48px_rgba(16,24,40,.28)] lg:h-[min(92dvh,900px)] {esSumativa
+    class="relative flex w-full flex-col overflow-hidden rounded-lg border border-inst-linea bg-inst-tarjeta text-inst-ink shadow-[0_18px_48px_rgba(16,24,40,.28)] lg:h-[min(92dvh,900px)] lg:max-w-[min(96vw,1720px)] {esSumativa
       ? 'max-w-[1360px]'
       : 'max-w-[1100px]'}"
   >
@@ -281,13 +341,19 @@
       </button>
     </div>
 
-    <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
+    <div
+      bind:this={splitContainerEl}
+      class="flex min-h-0 flex-1 flex-col lg:flex-row {arrastrandoDivisor ? 'select-none' : ''}"
+    >
       <!-- Conversación -->
       <section
         aria-label="Conversación"
-        class="flex min-h-[420px] min-w-0 flex-col gap-4 bg-inst-pagina px-5 py-5 lg:min-h-0 {esSumativa
-          ? 'lg:w-[360px] lg:shrink-0'
-          : 'lg:flex-1'}"
+        style={esDesktop && porcentajeChat !== null ? `width: ${porcentajeChat}%; flex: none;` : undefined}
+        class="flex h-[360px] min-h-0 min-w-0 shrink-0 flex-col gap-4 bg-inst-pagina px-4 py-4 sm:h-[420px] sm:px-5 sm:py-5 lg:h-auto lg:shrink {esDesktop && porcentajeChat !== null
+          ? ''
+          : esSumativa
+            ? 'lg:w-[360px] lg:shrink-0'
+            : 'lg:flex-1'}"
       >
         <div class="flex flex-wrap items-center gap-2">
           <span class={etiqueta}>Estado</span>
@@ -323,10 +389,41 @@
         </div>
       </section>
 
+      <!-- Divisor arrastrable solo en pantallas grandes (lg+); oculto en md hacia abajo -->
+      <button
+        type="button"
+        aria-label="Redimensionar panel de conversación y evaluación"
+        title="Arrastra para ajustar el ancho (doble clic para restablecer)"
+        onpointerdown={iniciarArrastreDivisor}
+        onpointermove={moverDivisor}
+        onpointerup={terminarArrastreDivisor}
+        onpointercancel={terminarArrastreDivisor}
+        ondblclick={() => {
+          if (esDesktop) porcentajeChat = null;
+        }}
+        onkeydown={manejarTecladoDivisor}
+        class="group relative z-10 -mx-1 hidden w-2.5 shrink-0 cursor-col-resize touch-none items-center justify-center border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-inst-foco lg:flex"
+      >
+        <span
+          aria-hidden="true"
+          class="h-full w-px transition-colors {arrastrandoDivisor
+            ? 'w-0.5 bg-inst-accion'
+            : 'bg-inst-linea group-hover:w-0.5 group-hover:bg-inst-accion'}"
+        ></span>
+        <span
+          aria-hidden="true"
+          class="absolute flex h-7 w-3.5 items-center justify-center rounded-sm border border-inst-linea bg-inst-tarjeta text-inst-ink-3 shadow-xs transition-colors {arrastrandoDivisor
+            ? 'border-inst-accion text-inst-accion'
+            : 'group-hover:border-inst-accion group-hover:text-inst-accion'}"
+        >
+          <GripVertical size={12} />
+        </span>
+      </button>
+
       <!-- Escribir o evaluar -->
       <section
         aria-label="Escribir o evaluar"
-        class="flex min-h-0 min-w-0 flex-col border-t border-inst-linea lg:border-t-0 lg:border-l {esSumativa
+        class="flex min-h-0 min-w-0 flex-col border-t border-inst-linea lg:border-t-0 {esSumativa || (esDesktop && porcentajeChat !== null)
           ? 'lg:flex-1'
           : 'lg:w-[440px] lg:shrink-0'}"
       >
