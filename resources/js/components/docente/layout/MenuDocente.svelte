@@ -31,7 +31,8 @@
   const destinos = [
     { href: '/docente/dashboard', label: 'Inicio', icon: House },
     { href: '/docente/calendario', label: 'Calendario', icon: Calendar },
-    { href: '/docente/mensajes', label: 'Mensajes', icon: MessageSquare },
+    // «Mensajes para» (cursos); la bandeja de actividades cuelga de ella.
+    { href: '/docente/mensajeria', label: 'Mensajes', icon: MessageSquare, tambien: '/docente/mensajes' },
     { href: '/docente/calificaciones', label: 'Calificaciones', icon: ClipboardCheck },
     { href: '/docente/asistencia', label: 'Asistencia', icon: UserCheck },
   ];
@@ -107,7 +108,7 @@
 
   <div class="flex flex-col gap-0.5">
     {#each destinos as destino (destino.href)}
-      {@const activo = enRuta(destino.href)}
+      {@const activo = enRuta(destino.href) || (!!destino.tambien && enRuta(destino.tambien))}
       <Link href={destino.href} class="{fila} {activo ? filaActiva : ''}" aria-current={activo ? 'page' : undefined}>
         {#if activo}{@render marcaActiva()}{/if}
         <destino.icon size={18} aria-hidden="true" class="shrink-0 text-inst-ink-2" />

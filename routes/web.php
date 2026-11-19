@@ -537,6 +537,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     // Se entra desde el curso: la bandeja abre acotada a ese curso y muestra sus
     // componentes como pestañas, con difusiones y un canal por alumno que
     // comparten todos los docentes del componente (colegiados incl.).
+    Route::get('mensajeria', [MensajeriaController::class, 'cursos'])->name('mensajeria.cursos');
     Route::get('cursos/{curso}/mensajeria', [MensajeriaController::class, 'index'])->name('cursos.mensajeria.index');
     Route::post('cursos/{curso}/mensajeria/componentes/{componente}/difusion', [MensajeriaController::class, 'enviarDifusion'])->name('cursos.mensajeria.difusion');
     Route::post('cursos/{curso}/mensajeria/componentes/{componente}/alumnos/{alumno}/mensaje', [MensajeriaController::class, 'enviarMensaje'])->name('cursos.mensajeria.mensaje');

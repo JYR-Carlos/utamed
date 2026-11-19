@@ -6,11 +6,14 @@
    * está elegido y aquí sólo se navegan sus componentes. Cada componente
    * (Cátedra, Laboratorio…) es una pestaña, y dentro hay dos vistas:
    *
-   *  - Generales    : difusiones al componente (MENSAJE_PARA_TODO_EL_CURSO).
-   *  - Individuales : un canal por alumno (MENSAJE_INDIVIDUAL). El canal es
-   *                   (componente, alumno) y lo comparten todos los docentes del
-   *                   componente, así que si responde un colegiado o un ayudante
-   *                   el mensaje entra en la misma conversación.
+   *  - Curso       : difusiones al componente (MENSAJE_PARA_TODO_EL_CURSO).
+   *  - Estudiantes : un canal por alumno (MENSAJE_INDIVIDUAL). El canal es
+   *                  (componente, alumno) y lo comparten todos los docentes del
+   *                  componente, así que si responde un colegiado o un ayudante
+   *                  el mensaje entra en la misma conversación.
+   *
+   * Textos de la revisión «Mi UTAmed»: «Curso» y «Estudiantes» en vez de
+   * Generales e Individuales, y «mensaje» en vez de «aviso».
    *
    * Modelo: curso.mensaje. Nada de esto pasa por agenda.agenda, que es el
    * feedback de entregas y vive dentro de cada actividad.
@@ -25,6 +28,7 @@
    *   POST {base}/componentes/{componente}/alumnos/{alumno}/mensaje
    */
   import { router } from '@inertiajs/svelte';
+  import { nombreSemestre } from '@/lib/cursoDocente';
   import {
     ChevronLeft,
     Loader2,
@@ -116,10 +120,7 @@
   // ── Derived ────────────────────────────────────────────────────────────────
   const totalNoLeidos = $derived(componentes.reduce((acc, c) => acc + c.no_leidos, 0));
 
-  const periodo = $derived(
-    `Año ${curso.agno_real} · Semestre ${curso.semestre_real}` +
-      (curso.letra_grupo ? ` · Grupo ${curso.letra_grupo}` : ''),
-  );
+  const periodo = $derived(nombreSemestre(curso.semestre_real, curso.agno_real));
 
   // Con todo el curso en la lista, las pocas conversaciones quedan enterradas
   // entre alumnos «Sin mensajes». El filtro no rige al buscar (es como se le
@@ -207,7 +208,7 @@
           sendError =
             (errors as Record<string, string>)?.mensaje ??
             (errors as Record<string, string>)?.tema ??
-            'No se pudo enviar el aviso.';
+            'No se pudo enviar el mensaje.';
         },
         onFinish: () => (sending = false),
       },
@@ -259,7 +260,7 @@
         <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight truncate">
           {curso.nombre}
         </h1>
-        <p class="text-xs text-slate-600 truncate">{curso.cod_curso} · {periodo}</p>
+        <p class="text-xs text-slate-600 truncate">{periodo}</p>
       </div>
       {#if totalNoLeidos > 0}
         <span
@@ -306,7 +307,7 @@
         Este curso no tiene componentes a los que tengas acceso.
       </div>
     {:else}
-      <!-- Generales / Individuales. En móvil el buscador baja a su propia línea
+      <!-- Curso / Estudiantes. En móvil el buscador baja a su propia línea
            en vez de estrujar al selector. -->
       <div
         class="bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 flex flex-wrap items-center gap-2 sm:gap-3 shrink-0"
@@ -318,7 +319,7 @@
               ? 'bg-white text-brand shadow-sm'
               : 'text-slate-600 hover:text-slate-800'}"
           >
-            Generales
+            Curso
             {#if panel.difusiones.length > 0}
               <span>({panel.difusiones.length})</span>
             {/if}
@@ -330,7 +331,7 @@
               ? 'bg-white text-brand shadow-sm'
               : 'text-slate-600 hover:text-slate-800'}"
           >
-            Individuales
+            Estudiantes
           </button>
         </div>
 
@@ -347,7 +348,7 @@
               ? 'hidden md:inline-flex'
               : 'inline-flex'}"
           >
-            Solo con mensajes ({conMensajes})
+            Estudiantes con mensaje ({conMensajes})
           </button>
         {/if}
 
@@ -363,7 +364,7 @@
             <input
               bind:value={query}
               type="search"
-              placeholder="Buscar alumno…"
+              placeholder="Buscar estudiante"
               class="w-full pl-8 pr-8 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand bg-slate-50"
             />
             <!-- El spinner va dentro del input (absoluto) para que su
@@ -393,14 +394,14 @@
       {/if}
 
       {#if vista === 'generales'}
-        <!-- ── Avisos del componente ───────────────────────────────────── -->
-        <!-- Los avisos ocupan todo el ancho, así que en pantallas grandes se
+        <!-- ── Mensajes al curso ────────────────────────────────────────── -->
+        <!-- Los mensajes ocupan todo el ancho, así que en pantallas grandes se
              limita la medida: una línea de 2000px no se lee. -->
         <div class="flex-1 overflow-y-auto p-3 sm:p-4">
           <div class="mx-auto w-full max-w-3xl space-y-3">
             {#if panel.difusiones.length === 0}
               <div class="text-center text-sm text-muted-foreground py-10">
-                Todavía no hay avisos en {panel.componente}.
+                Todavía no hay mensajes en {curso.nombre}
               </div>
             {:else}
               {#each panel.difusiones as d (d.id_mensaje)}
@@ -429,7 +430,8 @@
               bind:value={temaAviso}
               type="text"
               maxlength="150"
-              placeholder="Asunto del aviso"
+              placeholder="Asunto del mensaje"
+              aria-label="Asunto del mensaje"
               class="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand"
             />
             <div class="flex gap-2">
@@ -437,13 +439,14 @@
                 bind:value={cuerpoAviso}
                 rows="2"
                 maxlength="2000"
-                placeholder={`Escribe el aviso para todo ${panel.componente}…`}
+                placeholder="Escribe el mensaje para todo el curso"
+                aria-label="Mensaje para todo el curso"
                 class="flex-1 min-w-0 px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:border-brand"
               ></textarea>
               <button
                 onclick={enviarAviso}
                 disabled={sending || !temaAviso.trim() || !cuerpoAviso.trim()}
-                aria-label="Enviar aviso"
+                aria-label="Enviar mensaje al curso"
                 class="px-3 sm:px-4 rounded-lg bg-brand text-white font-bold text-sm disabled:opacity-40 hover:bg-brand-hover transition-colors flex items-center gap-1.5 shrink-0"
               >
                 {#if sending}<Loader2 size={15} class="animate-spin" />{:else}<Send size={15} />{/if}
@@ -468,8 +471,8 @@
               {#if canalesFiltrados.length === 0}
                 <div class="text-center text-sm text-muted-foreground py-10 px-3">
                   {query
-                    ? 'Ningún alumno coincide.'
-                    : `No hay alumnos inscritos en ${panel.componente}.`}
+                    ? 'Ningún estudiante coincide.'
+                    : `No hay estudiantes inscritos en ${panel.componente}.`}
                 </div>
               {:else}
                 {#each canalesFiltrados as k (k.id_alumno)}
@@ -518,7 +521,7 @@
                   class="w-full px-3 py-2.5 mt-1 rounded-xl text-left text-xs text-slate-600 hover:bg-white"
                 >
                   {ocultosSinMensajes}
-                  {ocultosSinMensajes === 1 ? 'alumno sin mensajes oculto' : 'alumnos sin mensajes ocultos'} ·
+                  {ocultosSinMensajes === 1 ? 'estudiante sin mensajes oculto' : 'estudiantes sin mensajes ocultos'} ·
                   <span class="font-semibold text-uta-blue underline underline-offset-2">Mostrar</span>
                 </button>
               {/if}
@@ -540,7 +543,7 @@
                 <button
                   onclick={volverAAlumnos}
                   class="md:hidden text-muted-foreground hover:text-slate-600 -ml-1 p-1"
-                  aria-label="Volver a la lista de alumnos"
+                  aria-label="Volver a la lista de estudiantes"
                 >
                   <ChevronLeft size={18} />
                 </button>
@@ -551,7 +554,7 @@
               <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
                 {#if panel.canal.mensajes.length === 0}
                   <div class="text-center text-sm text-muted-foreground py-10 px-3">
-                    Sin mensajes todavía. Escribe el primero.
+                    Sin mensajes todavía.
                   </div>
                 {:else}
                   {#each panel.canal.mensajes as m (m.id_mensaje)}
@@ -580,7 +583,8 @@
                   bind:value={cuerpoMensaje}
                   rows="2"
                   maxlength="2000"
-                  placeholder="Escribe tu respuesta…"
+                  placeholder="Escribe tu mensaje."
+                  aria-label="Mensaje para {panel.canal.alumno}"
                   class="flex-1 min-w-0 px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:border-brand"
                 ></textarea>
                 <button
@@ -602,7 +606,7 @@
                 class="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground px-6 text-center"
               >
                 <MessageSquare size={28} class="opacity-40" />
-                <p class="text-sm">Elige un alumno para ver la conversación.</p>
+                <p class="text-sm">Elige un estudiante para ver la conversación.</p>
               </div>
             {/if}
           </div>
