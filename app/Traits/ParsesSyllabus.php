@@ -300,13 +300,27 @@ trait ParsesSyllabus
 
                 $etiqueta = !empty($tipoRecurso) ? ' [' . implode(' · ', $tipoRecurso) . ']' : '';
 
-                return "• {$autor} ({$b->anio}). {$b->titulo}{$editorial}.{$etiqueta}{$cita}";
+                // Hay títulos que ya traen la referencia («Sandoval Yáñez, C. (2025).
+                // Documento de Ruta»): anteponerles autor y año los repetía (OBS-46).
+                $titulo = rtrim(trim($b->titulo), '.');
+                $referencia = $this->tituloTraeAutor($titulo, $autor) ? $titulo : "{$autor} ({$b->anio}). {$titulo}";
+
+                return "• {$referencia}{$editorial}.{$etiqueta}{$cita}";
             }, $items);
 
             $bloquesTexto[] = $encabezado . "\n" . implode("\n", $lineasItems);
         }
 
         return implode("\n\n", $bloquesTexto);
+    }
+
+    /** El título empieza con el autor: es la referencia completa, escrita a mano. */
+    private function tituloTraeAutor(string $titulo, string $autor): bool
+    {
+        $comparable = fn (string $t): string => (string) preg_replace('/[^\p{L}\p{N}]/u', '', mb_strtolower($t));
+        $prefijo = $comparable($autor);
+
+        return $prefijo !== '' && str_starts_with($comparable($titulo), $prefijo);
     }
 
     /**

@@ -3,8 +3,12 @@
    * Recursos de la bibliografía, uno por fila: ícono según el tipo (libro,
    * archivo subido, enlace), la referencia y, a la derecha, la acción para
    * abrirlo. El archivo usa el color del curso (variables --curso*).
+   *
+   * Sólo un archivo subido se puede ver y descargar (OBS-46); un enlace se
+   * abre, y un libro sin enlace no tiene botón: dice dónde está.
    */
-  import { BookOpen, ExternalLink, FileText, Link2 } from 'lucide-svelte';
+  import { BookOpen, Download, ExternalLink, Eye, FileText, Link2 } from 'lucide-svelte';
+  import { btnSecundario, btnSuave } from '@/lib/dm';
   import type { Recurso } from '@/lib/programaAlumno';
 
   interface Props {
@@ -44,9 +48,16 @@
         {/if}
       </div>
       {#if recurso.tipo === 'archivo'}
-        <a href={recurso.href} target="_blank" rel="noopener noreferrer" class="{ACCION} max-sm:ml-12.5">
-          <FileText size={16} aria-hidden="true" />Ver archivo<span class="sr-only">{' '}(se abre en otra pestaña)</span>
-        </a>
+        <span class="flex shrink-0 flex-wrap gap-2 max-sm:ml-12.5">
+          <a href={recurso.href} target="_blank" rel="noopener noreferrer" class="{btnSuave} min-h-10 px-3! whitespace-nowrap">
+            <Eye size={16} aria-hidden="true" />Ver<span class="sr-only">{' '}{recurso.texto} (se abre en otra pestaña)</span>
+          </a>
+          {#if recurso.descarga}
+            <a href={recurso.descarga} class="{btnSecundario} min-h-10 px-3! whitespace-nowrap">
+              <Download size={16} aria-hidden="true" />Descargar<span class="sr-only">{' '}{recurso.texto}</span>
+            </a>
+          {/if}
+        </span>
       {:else if recurso.tipo === 'enlace'}
         <a href={recurso.href} target="_blank" rel="noopener noreferrer" class="{ACCION} max-sm:ml-12.5">
           Abrir enlace<ExternalLink size={16} aria-hidden="true" /><span class="sr-only">{' '}(se abre en otra pestaña)</span>
