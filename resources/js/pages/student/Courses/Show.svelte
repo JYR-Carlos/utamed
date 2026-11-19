@@ -315,7 +315,12 @@
             ? `${totalRecursos} ${totalRecursos === 1 ? 'recurso' : 'recursos'} · bibliografía y recursos indicados en el programa`
             : 'Bibliografía y recursos de aprendizaje indicados en el programa.',
         )}
-        <CursoBiblioteca grupos={gruposBiblioteca} hayPrograma={!!programa} />
+        <CursoBiblioteca
+          grupos={gruposBiblioteca}
+          hayPrograma={!!programa}
+          hrefMensajeria={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
+          onIrAMensajeria={() => cambiarSeccion('mensajeria', true)}
+        />
       {/if}
     </div>
   </div>
