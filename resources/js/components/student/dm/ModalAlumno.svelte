@@ -31,6 +31,8 @@
     rotuloCerrar?: string;
     /** Mientras algo no se puede interrumpir (una subida): sin cerrar. */
     bloqueada?: boolean;
+    /** id del campo que recibe el foco al abrir («Escribir a mi docente»); si no, el de siempre. */
+    enfocar?: string;
     children: Snippet;
   }
 
@@ -43,6 +45,7 @@
     estilo = '',
     rotuloCerrar = 'Cerrar',
     bloqueada = false,
+    enfocar,
     children,
   }: Props = $props();
 
@@ -66,6 +69,12 @@
       style={estilo}
       escapeKeydownBehavior={bloqueada ? 'ignore' : 'close'}
       interactOutsideBehavior={bloqueada ? 'ignore' : 'close'}
+      onOpenAutoFocus={(e) => {
+        const campo = enfocar ? document.getElementById(enfocar) : null;
+        if (!campo) return;
+        e.preventDefault();
+        campo.focus();
+      }}
       class="vista-alumno fixed z-50 flex flex-col overflow-hidden bg-dm-elevada font-dm text-sm text-dm-ink outline-none {POSICION[variante]}"
     >
       <header class="sobre-noche relative shrink-0 overflow-hidden border-b-6 border-(--curso) bg-dm-noche">

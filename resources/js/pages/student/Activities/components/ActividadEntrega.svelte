@@ -8,7 +8,7 @@
    * en la pestaña Entrega), así que todo se apila.
    */
   import { Link } from '@inertiajs/svelte';
-  import { CircleAlert, CircleCheck, Clock, Download, Eye, FileText, Lock, RefreshCw, Trash2, Upload, Users } from 'lucide-svelte';
+  import { CircleAlert, CircleCheck, Clock, Download, Eye, FileText, Lock, PenLine, RefreshCw, Trash2, Upload, Users } from 'lucide-svelte';
   import { btnPrimario, btnSecundario, pildora, tarjeta, tono } from '@/lib/dm';
   import { claveDia, formatBytes, formatDiaCorto } from '@/utils/formatters';
   import { textoCierre } from '@/utils/plazo';
@@ -34,6 +34,8 @@
     hrefMensajeria?: string | null;
     onSubir: () => void;
     onBorrar: () => void;
+    /** Abre Consultas listo para escribir; sin él (no hay grupo) no hay dónde. */
+    onEscribirDocente?: () => void;
   }
 
   let {
@@ -48,6 +50,7 @@
     hrefMensajeria = null,
     onSubir,
     onBorrar,
+    onEscribirDocente,
   }: Props = $props();
 
   const hoy = claveDia();
@@ -195,9 +198,14 @@
           <span class="text-base leading-[22px] font-semibold">Sin entrega registrada</span>
           <span class="text-sm leading-5 text-dm-ink-2">
             {estado === 'CERRADA'
-              ? `El plazo cerró sin que ${quien === 'tú' ? 'entregaras' : 'tu grupo entregara'}. Si crees que es un error, escríbele a tu docente en Consultas.`
+              ? `El plazo cerró sin que ${quien === 'tú' ? 'entregaras' : 'tu grupo entregara'}. Si crees que es un error, escríbele a tu docente.`
               : 'Esta actividad ya no recibe entregas.'}
           </span>
+          {#if estado === 'CERRADA' && onEscribirDocente}
+            <button type="button" class="{btnSecundario} mt-2 self-start" onclick={onEscribirDocente}>
+              <PenLine size={16} aria-hidden="true" />Escribir a mi docente
+            </button>
+          {/if}
         </div>
       </div>
     {/if}

@@ -410,6 +410,15 @@
   }
 
   const abrirAgenda = () => (showAgendaModal = true);
+  // «Escribir a mi docente» / «Abrir y escribir»: Consultas con el campo del mensaje enfocado (OBS-41).
+  let escribirAlAbrir = $state(false);
+  function escribirADocente() {
+    escribirAlAbrir = true;
+    showAgendaModal = true;
+  }
+  $effect(() => {
+    if (!showAgendaModal) escribirAlAbrir = false;
+  });
   const abrirEntrega = () => (showEntregaModal = true);
   const abrirEnunciado = () => (showEnunciadoModal = true);
 
@@ -558,6 +567,7 @@
       hrefMensajeria={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
       onSubir={abrirEntrega}
       onBorrar={handleBorrarEntrega}
+      onEscribirDocente={id_actividad_asignada_grupo ? escribirADocente : undefined}
     />
   {/if}
 
@@ -727,7 +737,7 @@
               esGrupal={es_grupal}
               {calificada}
               vista={agendaVista}
-              onAbrir={abrirAgenda}
+              onAbrir={escribirADocente}
               onVerRubrica={verRubricaDesdeAgenda}
             />
           {/if}
@@ -750,6 +760,7 @@
   subtitulo={subtituloAgenda}
   estilo={colorCurso}
   rotuloCerrar="Cerrar consultas"
+  enfocar={escribirAlAbrir ? 'agenda-mensaje' : undefined}
 >
   <Agenda
     idCurso={id_curso}
