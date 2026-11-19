@@ -149,6 +149,8 @@
     return abiertas.find((a) => a.id_curso === idCurso) ?? null;
   }
 
+  const vencidasDelCurso = (idCurso: number) => vencidas.filter((a) => a.id_curso === idCurso).length;
+
   const hrefCalendario = $derived(
     cursosPeriodoActual.length > 0
       ? `/estudiante/cursos/${cursosPeriodoActual[0].id_curso}?seccion=calendario&alcance=semestre`
@@ -276,6 +278,7 @@
                   nombre={curso.asignatura_nombre || curso.nombre}
                   profesor={curso.profesor}
                   proxima={proximaDe(curso.id_curso)}
+                  vencidas={vencidasDelCurso(curso.id_curso)}
                   no_leidos={noLeidosPorCurso.get(curso.id_curso) ?? 0}
                   estilo={colorDe(curso.id_curso)}
                 />
