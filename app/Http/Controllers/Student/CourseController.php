@@ -160,7 +160,7 @@ class CourseController extends Controller
         if ($syllabus['programa']) {
             $data = Programa::find($syllabus['programa']['id_programa'])?->data_syllabus;
             $data = is_array($data) ? $data : json_decode($data ?? '[]', true);
-            $secciones = $this->parseSecciones($data ?? []);
+            $secciones = StudentSyllabusPresenter::conAsistenciaDelCurso($curso, $this->parseSecciones($data ?? []));
         }
 
         return Inertia::render('student/Courses/Show', array_merge(

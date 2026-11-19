@@ -155,6 +155,44 @@ class StudentSyllabusPresenter
     }
 
     /**
+     * La asistencia mínima que lee el alumno en el programa sale del
+     * componente del curso: la misma del resumen de notas y de la lista del
+     * docente (OBS-45). La tabla de la sección IX la repite como texto y
+     * puede haber quedado distinta (75 % en vez de 70 %), y un syllabus
+     * aprobado no se edita; en la vista del alumno manda el componente del
+     * mismo tipo. Si no hay componente de ese tipo, queda lo del syllabus.
+     *
+     * @param  array<int, array<string, mixed>>  $secciones  como las arma ParsesSyllabus
+     * @return array<int, array<string, mixed>>
+     */
+    public static function conAsistenciaDelCurso(Curso $curso, array $secciones): array
+    {
+        $porTipo = Componente::where('id_curso', $curso->id_curso)
+            ->with('tipoComponente')
+            ->get()
+            ->filter(fn (Componente $c) => $c->tipoComponente && $c->porcentaje_asistencia_obligatoria !== null)
+            ->mapWithKeys(fn (Componente $c) => [
+                mb_strtoupper(trim($c->tipoComponente->tipo)) => (float) $c->porcentaje_asistencia_obligatoria,
+            ]);
+
+        return array_map(function (array $seccion) use ($porTipo) {
+            if (($seccion['numeral_romano'] ?? null) !== 'IX' || empty($seccion['componentes'])) {
+                return $seccion;
+            }
+            $seccion['componentes'] = array_map(function (array $c) use ($porTipo) {
+                $tipo = mb_strtoupper(trim((string) ($c['componente'] ?? '')));
+                if ($porTipo->has($tipo)) {
+                    $c['asistencia_obligatoria'] = $porTipo->get($tipo);
+                }
+
+                return $c;
+            }, $seccion['componentes']);
+
+            return $seccion;
+        }, $secciones);
+    }
+
+    /**
      * @return \Illuminate\Database\Eloquent\Builder<Componente>
      */
     private static function componentesQuery(Curso $curso)

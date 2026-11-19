@@ -151,7 +151,7 @@ class CursoService
                     'genera_acta'                       => $generaActaPorComponente[$idPrinc] ?? true,
                     'aprobacion_obligatoria'            => $aprobObligPorComponente[$idPrinc] ?? ($data['aprobacion_obligatoria'] ?? false),
                     'porcentaje_aprobacion'             => $pctAprobPorComponente[$idPrinc] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
-                    'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idPrinc] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
+                    'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idPrinc] ?? ($data['porcentaje_asistencia_obligatoria'] ?? Componente::ASISTENCIA_MINIMA_POR_DEFECTO),
                     'intranet_cur_codigo'               => $curCodigoPrincipal,
                 ])->refresh();
 
@@ -184,7 +184,7 @@ class CursoService
                         'genera_acta'                       => $generaActaPorComponente[$idAdic] ?? false,
                         'aprobacion_obligatoria'            => $aprobObligPorComponente[$idAdic] ?? ($data['aprobacion_obligatoria'] ?? false),
                         'porcentaje_aprobacion'             => $pctAprobPorComponente[$idAdic] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
-                        'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idAdic] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
+                        'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idAdic] ?? ($data['porcentaje_asistencia_obligatoria'] ?? Componente::ASISTENCIA_MINIMA_POR_DEFECTO),
                         'intranet_cur_codigo'               => $curCodigoAdicional,
                     ])->refresh();
 

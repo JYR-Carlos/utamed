@@ -804,7 +804,7 @@ class IntranetService
                 'genera_acta'                       => true,
                 'aprobacion_obligatoria'            => false,
                 'porcentaje_aprobacion'             => 60.00,
-                'porcentaje_asistencia_obligatoria' => 75.00,
+                'porcentaje_asistencia_obligatoria' => Componente::ASISTENCIA_MINIMA_POR_DEFECTO,
                 'intranet_cur_codigo'               => $curCodigo,
             ]);
 

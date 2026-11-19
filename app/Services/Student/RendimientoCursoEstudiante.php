@@ -23,15 +23,14 @@ use Illuminate\Support\Facades\DB;
  * - Promedio del curso en un componente: promedio de los promedios de cada
  *   alumno de ese componente que ya tiene alguna nota. Sólo sale el número
  *   agregado, nunca datos de otro alumno.
- * - Asistencia mínima: 70 % en todos los componentes.
+ * - Asistencia mínima: la de cada componente (`porcentaje_asistencia_obligatoria`),
+ *   la misma que ve el docente al pasar lista y la que el alumno lee en el
+ *   programa; 70 % si el componente no la tiene (OBS-45).
  * - El total del curso combina los componentes según el % del syllabus
  *   (sección IX), sólo entre los que ya tienen promedio.
  */
 class RendimientoCursoEstudiante
 {
-    /** Asistencia mínima exigida, igual para todos los componentes. */
-    public const ASISTENCIA_MINIMA = 70;
-
     /**
      * @param  array<int, array{componente: string, porcentaje: int|float|string, aprobacion_obligatoria?: bool}>  $componentesSyllabus
      */
@@ -77,6 +76,7 @@ class RendimientoCursoEstudiante
                 'actividades_evaluadas' => $mias->count(),
                 'ponderacion_evaluada' => $ponderacionTotal > 0 ? round($ponderacionEvaluada / $ponderacionTotal * 100) : null,
                 'asistencia' => $this->asistencia($componente, $estudiante),
+                'asistencia_minima' => (float) ($componente->porcentaje_asistencia_obligatoria ?? Componente::ASISTENCIA_MINIMA_POR_DEFECTO),
                 'syllabus' => [
                     'porcentaje' => isset($syllabus['porcentaje']) ? (float) $syllabus['porcentaje'] : null,
                     'aprobacion_obligatoria' => (bool) ($syllabus['aprobacion_obligatoria'] ?? false),
@@ -86,7 +86,6 @@ class RendimientoCursoEstudiante
         })->values();
 
         return [
-            'asistencia_minima' => self::ASISTENCIA_MINIMA,
             'mi_promedio' => $this->combinar($filas, 'mi_promedio'),
             'promedio_curso' => $this->combinar($filas, 'promedio_curso'),
             'componentes' => $filas->all(),
