@@ -487,6 +487,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::get('cursos/{curso}', [DocenteCursoController::class, 'show'])->name('cursos.show');
     // Pestañas Biblioteca y Gestión del curso (revisión «Mi UTAmed»)
     Route::get('cursos/{curso}/biblioteca', [DocenteCursoController::class, 'biblioteca'])->name('cursos.biblioteca');
+    Route::post('cursos/{curso}/biblioteca', [DocenteCursoController::class, 'storeBibliografia'])->name('cursos.biblioteca.store');
     Route::get('cursos/{curso}/gestion', [DocenteCursoController::class, 'gestion'])->name('cursos.gestion');
     Route::get('cursos/{curso}/gestion/grupos', [DocenteCursoController::class, 'gestionGrupos'])->name('cursos.gestion.grupos');
     Route::get('cursos/{curso}/componentes/{componente}/estudiantes/{estudiante}/evaluacion', [DocenteCursoController::class, 'evaluacionEstudiante'])->name('cursos.estudiantes.evaluacion');

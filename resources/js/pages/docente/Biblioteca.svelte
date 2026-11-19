@@ -2,33 +2,156 @@
   /**
    * Pestaña «Biblioteca» del curso — /docente/cursos/{curso}/biblioteca.
    *
-   * Aparte del syllabus (revisión «Mi UTAmed»): los recursos de la sección
-   * VIII del programa agrupados por unidad, con buscador y filtros, y la
-   * bibliografía obligatoria y complementaria al lado como referencia.
-   *
-   * El lienzo propone además que el docente agregue, edite u oculte recursos
-   * propios por unidad; eso necesita una tabla de material del curso que la
-   * base no tiene, así que aquí sólo se lee lo que el programa registra.
+   * Lee los recursos desde la tabla `bibliografia` (con fallback a la sección
+   * VIII de `data_syllabus` para programas legacy) y permite agregar nuevas
+   * bibliografías cuando existe un programa vigente y el usuario puede editarlo.
    */
-  import { Link } from '@inertiajs/svelte';
-  import { BookOpen, ExternalLink, FileText, Link2, Search } from 'lucide-svelte';
+  import { Link, router } from '@inertiajs/svelte';
+  import { BookOpen, ExternalLink, FileText, Link2, Plus, Search } from 'lucide-svelte';
   import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
-  import { btnSecundario, campo, chico, chip, cuerpo, tarjeta, tarjetaCabecera, titulo, tono } from '@/lib/inst';
-  import { gruposDeRecursos, type GrupoRecursos, type TipoRecurso } from '@/lib/programaAlumno';
+  import { btnPrimario, btnSecundario, campo, chico, chip, cuerpo, tarjeta, tarjetaCabecera, titulo, tono } from '@/lib/inst';
+  import { gruposDeRecursos, type GrupoRecursos, type Recurso, type TipoRecurso } from '@/lib/programaAlumno';
+  import BibliografiaModal from '@/modules/resources/programa/components/BibliografiaModal.svelte';
+  import type { BibliografiaSyllabus } from '@/types/syllabus.types';
+
+  interface BibliografiaItem {
+    uuid_bibliografia: string;
+    titulo: string;
+    autor?: string | null;
+    cita?: string | null;
+    editorial?: string | null;
+    anio: number;
+    es_bibliografia_uta: boolean;
+    url?: string | null;
+    uuid_archivo?: string | null;
+    id_unidad?: number | null;
+    num_unidad?: number | null;
+    nombre_unidad?: string | null;
+    href?: string | null;
+    nombre_archivo?: string | null;
+  }
+
+  interface UnidadCurso {
+    id_unidad: number;
+    numero: number;
+    titulo: string;
+  }
 
   interface Props {
     curso: { id_curso: number; nombre: string; etiqueta?: string };
     hayPrograma: boolean;
+    idPrograma?: number | null;
+    puedeEditar?: boolean;
+    bibliografias?: BibliografiaItem[];
+    unidadesCurso?: UnidadCurso[];
     secciones: Array<{ numeral_romano?: string; nombre_seccion: string; contenidos?: Array<{ texto_contenido: string | null }> }>;
   }
 
-  let { curso, hayPrograma, secciones }: Props = $props();
+  let {
+    curso,
+    hayPrograma,
+    idPrograma = null,
+    puedeEditar = false,
+    bibliografias = [],
+    unidadesCurso = [],
+    secciones,
+  }: Props = $props();
 
-  const grupos = $derived(gruposDeRecursos(secciones as any));
-  /** La bibliografía va al costado; las unidades, al centro. */
+  let modalOpen = $state(false);
+
+  function direccionDe(href: string): string {
+    try {
+      const u = new URL(href);
+      return `${u.host}${u.pathname}`.replace(/\/$/, '');
+    } catch {
+      return href;
+    }
+  }
+
+  function recursoDesdeTabla(b: BibliografiaItem): Recurso {
+    const partes = [b.titulo];
+    if (b.autor && b.autor !== 'S/A' && b.autor !== 'Desconocido') partes.push(b.autor);
+    if (b.anio) partes.push(`(${b.anio})`);
+    const texto = partes.join(' · ');
+
+    if (b.uuid_archivo && !b.es_bibliografia_uta) {
+      return {
+        texto,
+        cita: b.cita ?? undefined,
+        tipo: 'archivo',
+        href: b.href ?? `/api/bibliografias/${b.uuid_bibliografia}/archivo`,
+        direccion: b.nombre_archivo ?? undefined,
+      };
+    }
+    if (b.url) {
+      return {
+        texto,
+        cita: b.cita ?? undefined,
+        tipo: 'enlace',
+        href: b.url,
+        direccion: direccionDe(b.url),
+      };
+    }
+    return {
+      texto,
+      cita: b.cita ?? undefined,
+      tipo: 'libro',
+      direccion: b.es_bibliografia_uta ? 'Biblioteca UTA' : undefined,
+    };
+  }
+
+  function gruposDesdeTabla(items: BibliografiaItem[]): GrupoRecursos[] {
+    const porUnidad = new Map<number, GrupoRecursos>();
+    const generales: Recurso[] = [];
+
+    for (const item of items) {
+      const recurso = recursoDesdeTabla(item);
+      if (item.num_unidad != null) {
+        const num = item.num_unidad;
+        if (!porUnidad.has(num)) {
+          const nombre = item.nombre_unidad?.trim() || `Unidad ${num}`;
+          porUnidad.set(num, {
+            id: `unidad-${num}`,
+            titulo: `Unidad ${num} · ${nombre}`,
+            corto: `Unidad ${num}`,
+            recursos: [],
+          });
+        }
+        porUnidad.get(num)!.recursos.push(recurso);
+      } else {
+        generales.push(recurso);
+      }
+    }
+
+    const resultado = [...porUnidad.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, grupo]) => grupo);
+
+    if (generales.length > 0) {
+      resultado.push({
+        id: 'bibliografia-general',
+        titulo: 'Bibliografía general',
+        corto: 'General',
+        recursos: generales,
+      });
+    }
+
+    return resultado;
+  }
+
+  const grupos = $derived(
+    bibliografias.length > 0 ? gruposDesdeTabla(bibliografias) : gruposDeRecursos(secciones as any),
+  );
+  /** La bibliografía general va al costado; las unidades, al centro. */
   const esBibliografia = (g: GrupoRecursos) => /bibliograf/i.test(g.titulo);
   const unidades = $derived(grupos.filter((g) => !esBibliografia(g)));
   const bibliografia = $derived(grupos.filter(esBibliografia));
+
+  function guardarBibliografia(data: BibliografiaSyllabus) {
+    router.post(`/docente/cursos/${curso.id_curso}/biblioteca`, data as any, {
+      preserveScroll: true,
+    });
+  }
 
   let busqueda = $state('');
   let filtroUnidad = $state('todas');
@@ -62,16 +185,30 @@
 
 <CursoDocenteLayout idCurso={curso.id_curso} seccion="biblioteca" nombre={curso.etiqueta ?? curso.nombre}>
   <div class={cuerpo}>
-    <h2 class="{titulo} m-0 text-2xl leading-[30px]">Biblioteca</h2>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="{titulo} m-0 text-2xl leading-[30px]">Biblioteca</h2>
+      {#if hayPrograma && puedeEditar}
+        <button type="button" onclick={() => (modalOpen = true)} class="{btnPrimario} {chico}">
+          <Plus size={16} aria-hidden="true" />
+          Agregar bibliografía
+        </button>
+      {/if}
+    </div>
 
     {#if grupos.length === 0}
       <section class="{tarjeta} px-6 py-8 text-center">
         <p class="m-0 font-bold">{hayPrograma ? 'El programa no registra recursos' : 'Todavía no hay programa'}</p>
         <p class="m-0 mt-1 text-inst-ink-2">
           {hayPrograma
-            ? 'Los recursos y la bibliografía se escriben en la sección VIII del programa.'
-            : 'La biblioteca muestra los recursos de la sección VIII del programa del curso.'}
+            ? 'Los recursos y la bibliografía se escriben en la sección VIII del programa o se agregan desde aquí.'
+            : 'La biblioteca muestra los recursos asociados al programa del curso.'}
         </p>
+        {#if hayPrograma && puedeEditar}
+          <button type="button" onclick={() => (modalOpen = true)} class="{btnPrimario} {chico} mt-4">
+            <Plus size={16} aria-hidden="true" />
+            Agregar bibliografía
+          </button>
+        {/if}
       </section>
     {:else}
       <div class="{tarjeta} flex flex-wrap items-end gap-3 px-4.5 py-3.5">
@@ -171,4 +308,15 @@
       </div>
     {/if}
   </div>
+
+  {#if hayPrograma && puedeEditar}
+    <BibliografiaModal
+      isOpen={modalOpen}
+      unidades={unidadesCurso}
+      idCurso={curso.id_curso}
+      {idPrograma}
+      onClose={() => (modalOpen = false)}
+      onSave={guardarBibliografia}
+    />
+  {/if}
 </CursoDocenteLayout>

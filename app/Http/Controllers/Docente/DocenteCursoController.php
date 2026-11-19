@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Docente;
 
 use App\Services\Agenda\AvanceEvaluacionService;
 use App\Http\Controllers\Controller;
+use App\Models\Curso\Bibliografia;
 use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
+use App\Models\Curso\Programa;
+use App\Models\Curso\Unidad;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Permiso;
@@ -458,29 +461,81 @@ class DocenteCursoController extends Controller
     }
 
     /**
-     * Pestaña «Biblioteca» del curso: los recursos de la sección VIII del
-     * programa vigente, agrupados en el cliente por unidad. No hay material
-     * propio del curso aparte del programa (ninguna tabla lo guarda), así que
-     * la página sólo lee.
+     * Pestaña «Biblioteca» del curso: usa la tabla `bibliografia` como fuente
+     * de verdad para el programa vigente, con fallback a `data_syllabus` para
+     * programas legacy sin registros en tabla.
      */
     public function biblioteca(Curso $curso)
     {
         $this->authorize('viewPrograma', $curso);
 
-        $programa = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
+        $programa = Programa::where('id_curso', $curso->id_curso)
             ->where('es_actual', true)
             ->first();
 
+        $bibliografias = [];
         $secciones = [];
+
         if ($programa) {
-            $raw = is_array($programa->data_syllabus)
-                ? $programa->data_syllabus
-                : json_decode((string) $programa->data_syllabus, true);
-            $secciones = collect($this->parseSecciones($raw ?? []))
-                ->whereIn('numeral_romano', ['VI', 'VIII'])
-                ->values()
-                ->all();
+            $filas = Bibliografia::where('id_programa', $programa->id_programa)
+                ->with(['unidad', 'archivo'])
+                ->orderBy('fecha_creacion')
+                ->get();
+
+            if ($filas->isNotEmpty()) {
+                $bibliografias = $filas->map(function (Bibliografia $b) {
+                    $href = null;
+                    if ($b->uuid_archivo && !$b->es_bibliografia_uta) {
+                        $href = "/api/bibliografias/{$b->uuid_bibliografia}/archivo";
+                    } elseif ($b->url) {
+                        $href = $b->url;
+                    }
+
+                    return [
+                        'uuid_bibliografia' => $b->uuid_bibliografia,
+                        'titulo' => $b->titulo,
+                        'autor' => $b->autor,
+                        'cita' => $b->cita,
+                        'editorial' => $b->editorial,
+                        'anio' => $b->agno,
+                        'es_bibliografia_uta' => (bool) $b->es_bibliografia_uta,
+                        'url' => $b->url,
+                        'uuid_archivo' => $b->uuid_archivo,
+                        'id_unidad' => $b->id_unidad,
+                        'num_unidad' => $b->unidad?->num_unidad,
+                        'nombre_unidad' => $b->unidad?->nombre,
+                        'href' => $href,
+                        'nombre_archivo' => $b->archivo?->nombre_original,
+                    ];
+                })->values()->all();
+            } else {
+                // Fallback para programas legacy (sección VIII en texto/recursos)
+                $raw = is_array($programa->data_syllabus)
+                    ? $programa->data_syllabus
+                    : json_decode((string) $programa->data_syllabus, true);
+                $secciones = collect($this->parseSecciones($raw ?? []))
+                    ->whereIn('numeral_romano', ['VI', 'VIII'])
+                    ->values()
+                    ->all();
+            }
         }
+
+        $unidadesCurso = Unidad::where('id_curso', $curso->id_curso)
+            ->orderBy('num_unidad')
+            ->get(['id_unidad', 'num_unidad', 'nombre'])
+            ->map(fn (Unidad $u) => [
+                'id_unidad' => $u->id_unidad,
+                'numero' => $u->num_unidad,
+                'titulo' => $u->nombre,
+            ])
+            ->values()
+            ->all();
+
+        $user = Auth::user();
+        $puedeEditar = $programa && $user instanceof Usuario
+            ? ($user->can('create', [Programa::class, $curso])
+                && \App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII'))
+            : false;
 
         return Inertia::render('docente/Biblioteca', [
             'curso' => [
@@ -489,8 +544,107 @@ class DocenteCursoController extends Controller
                 'etiqueta' => $curso->etiqueta(),
             ],
             'hayPrograma' => (bool) $programa,
+            'idPrograma' => $programa?->id_programa,
+            'puedeEditar' => $puedeEditar,
+            'bibliografias' => $bibliografias,
+            'unidadesCurso' => $unidadesCurso,
             'secciones' => $secciones,
         ]);
+    }
+
+    /**
+     * Agrega una nueva bibliografía desde la pestaña «Biblioteca», escribiendo
+     * de forma sincronizada en la tabla `bibliografia` y en `programa.data_syllabus` (sección VIII).
+     */
+    public function storeBibliografia(Request $request, Curso $curso)
+    {
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        if (!$programa) {
+            return redirect()->back()->withErrors([
+                'bibliografia' => 'El curso no tiene un programa vigente para asociar bibliografía.',
+            ]);
+        }
+
+        $this->authorize('create', [Programa::class, $curso]);
+
+        $user = Auth::user();
+        if (!$user instanceof Usuario || !\App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII')) {
+            abort(403, 'No tienes permiso para editar la sección VIII.');
+        }
+
+        $validated = $request->validate([
+            'titulo' => 'required|string|max:500',
+            'autor' => 'nullable|string|max:500',
+            'cita' => 'nullable|string|max:10000',
+            'editorial' => 'nullable|string|max:500',
+            'anio' => 'required|integer|min:1900|max:2100',
+            'es_bibliografia_uta' => 'required|boolean',
+            'url' => 'nullable|url|max:500',
+            'uuid_archivo' => 'nullable|uuid|exists:archivo,uuid_archivo',
+            'id_unidad' => 'nullable|integer|min:1',
+        ]);
+
+        if (!$validated['es_bibliografia_uta'] && empty($validated['url']) && empty($validated['uuid_archivo'])) {
+            return redirect()->back()->withErrors([
+                'url' => 'Debe proveer una URL externa o subir un archivo físico.',
+            ]);
+        }
+
+        DB::transaction(function () use ($curso, $programa, $validated) {
+            $numUnidad = !empty($validated['id_unidad']) ? (int) $validated['id_unidad'] : null;
+            $resolvedIdUnidad = null;
+            if ($numUnidad !== null) {
+                $resolvedIdUnidad = Unidad::where('id_curso', $curso->id_curso)
+                    ->where('num_unidad', $numUnidad)
+                    ->value('id_unidad');
+            }
+
+            $esUta = (bool) $validated['es_bibliografia_uta'];
+            $url = $esUta ? null : ($validated['url'] ?? null);
+            $uuidArchivo = $esUta ? null : ($validated['uuid_archivo'] ?? null);
+            $autor = !empty($validated['autor']) ? $validated['autor'] : 'S/A';
+
+            $nueva = Bibliografia::create([
+                'id_programa' => $programa->id_programa,
+                'id_unidad' => $resolvedIdUnidad,
+                'titulo' => $validated['titulo'],
+                'autor' => $autor,
+                'cita' => $validated['cita'] ?? null,
+                'editorial' => $validated['editorial'] ?? null,
+                'agno' => (int) $validated['anio'],
+                'es_bibliografia_uta' => $esUta,
+                'url' => $url,
+                'uuid_archivo' => $uuidArchivo,
+                'agregado_por' => Auth::id(),
+            ]);
+
+            $raw = is_array($programa->data_syllabus)
+                ? $programa->data_syllabus
+                : (json_decode((string) $programa->data_syllabus, true) ?? []);
+
+            $existentes = $raw['secciones']['VIII']['contenido']['bibliografias'] ?? [];
+            $existentes[] = [
+                'id_bibliografia' => $nueva->uuid_bibliografia,
+                'titulo' => $nueva->titulo,
+                'autor' => $nueva->autor,
+                'cita' => $nueva->cita,
+                'editorial' => $nueva->editorial,
+                'anio' => (int) $nueva->agno,
+                'es_bibliografia_uta' => $esUta,
+                'url' => $nueva->url,
+                'uuid_archivo' => $nueva->uuid_archivo,
+                'id_unidad' => $resolvedIdUnidad !== null ? $numUnidad : null,
+            ];
+
+            $raw['secciones']['VIII']['contenido']['bibliografias'] = $existentes;
+            $programa->data_syllabus = $raw;
+            $programa->save();
+        });
+
+        return redirect()->back()->with('success', 'Bibliografía agregada correctamente.');
     }
 
     /**
