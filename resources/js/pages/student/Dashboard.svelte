@@ -2,7 +2,7 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
-  import { ArrowUpRight, BookOpen, CalendarClock, ChevronRight, LifeBuoy } from 'lucide-svelte';
+  import { ArrowUpRight, BookOpen, CalendarClock, ChevronRight, CircleAlert, LifeBuoy } from 'lucide-svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import SemanaAlumno from '@/components/student/inicio/SemanaAlumno.svelte';
@@ -10,7 +10,14 @@
   import NotasRecientes, { type NotaReciente } from '@/components/student/inicio/NotasRecientes.svelte';
   import TarjetaCurso from '@/components/student/inicio/TarjetaCurso.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
-  import { plazoDe, type ActividadPorVencer } from '@/lib/plazoAlumno';
+  import {
+    abiertas as abiertasDe,
+    hrefAtrasadas,
+    plazoDe,
+    textoVencidas,
+    vencidas as vencidasDe,
+    type ActividadPorVencer,
+  } from '@/lib/plazoAlumno';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import { btnNoche, btnPrimario, btnSecundario, enlace, etiqueta, pildora, tituloCond, tono } from '@/lib/dm';
   import { claveDia, parseFechaSoloDia } from '@/utils/formatters';
@@ -95,15 +102,21 @@
   });
 
   /** Lo que se puede entregar todavía, de lo que cierra antes a lo que cierra después. */
-  const abiertas = $derived(
-    proximasAVencer
-      .filter((a) => plazoDe(a, hoy).abierta)
-      .sort((a, b) =>
-        (a.plazo_hasta ?? a.fecha_limite).localeCompare(b.plazo_hasta ?? b.fecha_limite) ||
-        a.fecha_limite.localeCompare(b.fecha_limite),
-      ),
-  );
+  const abiertas = $derived(abiertasDe(proximasAVencer, hoy));
   const destacada = $derived(abiertas[0] ?? null);
+
+  /**
+   * Lo que venció sin entrega en el semestre no desaparece del Inicio: el
+   * alumno tiene que verlo para escribirle a su docente o apelar. Una sola
+   * lleva a la actividad; varias de un curso, a sus actividades atrasadas; de
+   * varios cursos, a las tarjetas, que dicen cuántas tiene cada uno.
+   */
+  const vencidas = $derived(vencidasDe(proximasAVencer));
+  const hrefVencidas = $derived.by(() => {
+    if (vencidas.length === 1) return `/estudiante/cursos/${vencidas[0].id_curso}/actividad/${vencidas[0].id_actividad}`;
+    const cursosConVencidas = new Set(vencidas.map((a) => a.id_curso));
+    return cursosConVencidas.size === 1 ? hrefAtrasadas(vencidas[0].id_curso) : '#t-cursos';
+  });
   const cierraHoy = $derived(destacada !== null && (destacada.plazo_hasta ?? destacada.fecha_limite).slice(0, 10) === hoy);
 
   function nombreCurso(idCurso: number): string {
@@ -111,7 +124,7 @@
     return c?.asignatura_nombre || c?.nombre || '';
   }
 
-  /** Una línea con lo urgente: lo que vence hoy, lo atrasado que aún se recibe y los mensajes. */
+  /** Una línea con lo urgente: lo que vence hoy, lo atrasado, lo vencido y los mensajes. */
   const resumen = $derived.by(() => {
     const venceHoy = abiertas.filter((a) => a.fecha_limite.slice(0, 10) === hoy).length;
     const atrasadas = abiertas.filter((a) => a.fecha_limite.slice(0, 10) < hoy).length;
@@ -119,14 +132,18 @@
 
     const tienes: string[] = [];
     if (atrasadas) tienes.push(atrasadas === 1 ? 'una atrasada que todavía se recibe' : `${atrasadas} atrasadas que todavía se reciben`);
+    if (vencidas.length) tienes.push(vencidas.length === 1 ? 'una vencida sin entregar' : `${vencidas.length} vencidas sin entregar`);
     if (mensajes) tienes.push(mensajes === 1 ? 'un mensaje sin leer' : `${mensajes} mensajes sin leer`);
 
     const partes: string[] = [];
     if (venceHoy) partes.push(venceHoy === 1 ? 'Hoy vence una entrega' : `Hoy vencen ${venceHoy} entregas`);
-    if (tienes.length) partes.push(`${partes.length ? 'tienes' : 'Tienes'} ${tienes.join(' y ')}`);
+    if (tienes.length) partes.push(`${partes.length ? 'tienes' : 'Tienes'} ${unir(tienes)}`);
     if (!partes.length) return 'Nada vence hoy y no tienes mensajes sin leer.';
     return partes.join(partes.length === 2 && tienes.length === 1 ? ' y ' : ', ') + '.';
   });
+
+  /** «a», «a y b», «a, b y c». */
+  const unir = (l: string[]) => (l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} y ${l[l.length - 1]}`);
 
   function proximaDe(idCurso: number): ActividadPorVencer | null {
     return abiertas.find((a) => a.id_curso === idCurso) ?? null;
@@ -184,8 +201,22 @@
             </Link>
           {:else}
             <span class="{etiqueta} text-dm-ink-3">Lo de hoy</span>
-            <span class="text-lg leading-6 font-semibold">Nada pendiente por ahora</span>
-            <span class="text-sm text-dm-ink-2">No tienes entregas pendientes en los próximos 7 días.</span>
+            {#if vencidas.length}
+              <span class="text-lg leading-6 font-semibold">Nada por entregar en los próximos 7 días</span>
+            {:else}
+              <span class="text-lg leading-6 font-semibold">Nada pendiente por ahora</span>
+              <span class="text-sm text-dm-ink-2">No tienes entregas pendientes en los próximos 7 días.</span>
+            {/if}
+          {/if}
+          {#if vencidas.length}
+            <a
+              href={hrefVencidas}
+              class="mt-1 flex min-h-11 items-center gap-2 rounded-lg border border-dm-error bg-dm-error-s px-3 py-2 text-sm font-semibold text-dm-error no-underline hover:underline"
+            >
+              <CircleAlert size={16} aria-hidden="true" class="shrink-0" />
+              <span class="min-w-0 flex-1">{textoVencidas(vencidas.length)}</span>
+              <ChevronRight size={16} aria-hidden="true" class="shrink-0" />
+            </a>
           {/if}
         </div>
       </div>

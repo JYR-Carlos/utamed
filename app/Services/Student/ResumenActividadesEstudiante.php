@@ -32,9 +32,17 @@ class ResumenActividadesEstudiante
     /** Cuántas notas/retroalimentaciones se listan. */
     public const MAX_RECIENTES = 5;
 
+    /** Sin período, cuántos días atrás se siguen mostrando las vencidas sin entrega. */
+    public const DIAS_VENCIDAS_SIN_PERIODO = 14;
+
     /**
-     * Actividades cuyo plazo real (fecha límite + holgura de la actividad +
-     * holgura personal del grupo) cae entre ahora y los próximos 7 días.
+     * Actividades sin entregar cuyo plazo real (fecha límite + holgura de la
+     * actividad + holgura personal del grupo) cae entre ahora y los próximos
+     * 7 días, más las que ya vencieron sin entrega (`es_vencida`).
+     *
+     * Con período (semestre y año), las vencidas se muestran todas, es decir,
+     * hasta que termina el semestre: el alumno tiene que verlas para escribirle
+     * a su docente o apelar. Sin período, sólo las de los últimos 14 días.
      *
      * `plazo_hasta` sólo viene cuando hay holgura: es la fecha que el alumno
      * tiene que mirar, ya calculada, en vez de la fecha límite nominal.
@@ -43,6 +51,7 @@ class ResumenActividadesEstudiante
      */
     public function proximasAVencer(Estudiante $estudiante, ?int $semestre = null, ?int $agno = null): array
     {
+        $delPeriodo = $semestre !== null && $agno !== null;
         $componentes = $this->componentesDelEstudiante($estudiante, $semestre, $agno);
 
         if ($componentes->isEmpty()) {
@@ -103,10 +112,13 @@ class ResumenActividadesEstudiante
                     '_plazo'       => $plazo,
                 ];
             })
-            ->filter(function (array $item) use ($ahora, $tope) {
-                // Incluye próximas a vencer o vencidas no entregadas recientes (hasta 14 días atrás)
-                return $item['_plazo']->between($ahora, $tope)
-                    || ($item['es_vencida'] && $item['_plazo']->greaterThanOrEqualTo($ahora->copy()->subDays(14)));
+            ->filter(function (array $item) use ($ahora, $tope, $delPeriodo) {
+                if ($item['es_vencida']) {
+                    return $delPeriodo
+                        || $item['_plazo']->greaterThanOrEqualTo($ahora->copy()->subDays(self::DIAS_VENCIDAS_SIN_PERIODO));
+                }
+
+                return $item['_plazo']->between($ahora, $tope);
             })
             ->sortBy(function (array $item) {
                 return ($item['es_vencida'] ? '0' : '1') . '_' . $item['_plazo']->timestamp;

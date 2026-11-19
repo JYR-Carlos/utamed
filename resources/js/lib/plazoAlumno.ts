@@ -1,8 +1,8 @@
 import { claveDia, formatDiaCorto, parseFechaSoloDia } from '@/utils/formatters';
 
 /**
- * Actividad sin entregar cuyo plazo termina en los próximos 7 días o que
- * venció hace poco (ResumenActividadesEstudiante::proximasAVencer).
+ * Actividad sin entregar cuyo plazo termina en los próximos 7 días o que ya
+ * venció en el semestre (ResumenActividadesEstudiante::proximasAVencer).
  */
 export interface ActividadPorVencer {
     id_actividad: number;
@@ -25,6 +25,25 @@ export interface PlazoVisible {
     /** Todavía se puede entregar. */
     abierta: boolean;
 }
+
+const cierre = (a: ActividadPorVencer) => a.plazo_hasta ?? a.fecha_limite;
+
+/** Lo que todavía se puede entregar, de lo que cierra antes a lo que cierra después. */
+export function abiertas(items: ActividadPorVencer[], hoy: string = claveDia()): ActividadPorVencer[] {
+    return items
+        .filter((a) => plazoDe(a, hoy).abierta)
+        .sort((a, b) => cierre(a).localeCompare(cierre(b)) || a.fecha_limite.localeCompare(b.fecha_limite));
+}
+
+/** Vencidas sin entrega (ya no se reciben) del semestre, de la más reciente a la más antigua. */
+export function vencidas(items: ActividadPorVencer[]): ActividadPorVencer[] {
+    return items.filter((a) => a.es_vencida).sort((a, b) => cierre(b).localeCompare(cierre(a)));
+}
+
+export const textoVencidas = (n: number) => (n === 1 ? '1 vencida sin entregar' : `${n} vencidas sin entregar`);
+
+/** Las actividades del curso con el filtro «Atrasadas» puesto. */
+export const hrefAtrasadas = (idCurso: number) => `/estudiante/cursos/${idCurso}?seccion=actividades&filtro=atrasadas`;
 
 /** Cómo se lee el plazo de una entrega pendiente en el Inicio. El cierre es a las 23:59 de Chile. */
 export function plazoDe(a: ActividadPorVencer, hoy: string = claveDia()): PlazoVisible {
