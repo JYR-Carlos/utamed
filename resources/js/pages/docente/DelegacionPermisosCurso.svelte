@@ -14,8 +14,7 @@
    * así que no se fabrica esa fila aquí.
    */
   import { router } from '@inertiajs/svelte';
-  import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import type { BreadcrumbItem } from '@/types';
+  import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import { ShieldCheck, Users, ChevronsDownUp, ChevronsUpDown, CheckCircle2, AlertTriangle } from 'lucide-svelte';
   import GrupoPermisosMatriz from '@/components/docente/permisos/GrupoPermisosMatriz.svelte';
   import { formatSlugAction } from '@/utils/permisos';
@@ -135,12 +134,6 @@
     expandido = Object.fromEntries(grupos.map((g) => [g.grupo, next]));
   }
 
-  const breadcrumbs: BreadcrumbItem[] = $derived([
-    { title: 'Mis cursos', href: '/docente/cursos' },
-    { title: curso.etiqueta ?? curso.nombre, href: `/docente/cursos/${curso.id_curso}` },
-    { title: 'Delegación de permisos', href: '' },
-  ]);
-
   const subtituloCurso = $derived(
     [curso.cod_curso, curso.letra_grupo ? `Grupo ${curso.letra_grupo}` : null, curso.semestre_real && curso.agno_real ? `${curso.semestre_real}º semestre ${curso.agno_real}` : null]
       .filter(Boolean)
@@ -148,7 +141,7 @@
   );
 </script>
 
-<DocenteLayout {breadcrumbs}>
+<CursoDocenteLayout idCurso={curso.id_curso} seccion="gestion" subpagina="Delegación de permisos" nombre={curso.etiqueta ?? curso.nombre}>
   <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-4 bg-white p-4 md:p-6">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div class="flex flex-col gap-1.5">
@@ -232,4 +225,4 @@
       </div>
     {/if}
   </div>
-</DocenteLayout>
+</CursoDocenteLayout>

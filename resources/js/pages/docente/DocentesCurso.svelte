@@ -7,7 +7,7 @@
    * y permite gestionar autorizaciones individuales.
    */
   import { router } from '@inertiajs/svelte';
-  import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import { Button } from '@/components/ui/button';
   import * as Card from '@/components/ui/card';
   import { Badge } from '@/components/ui/badge';
@@ -94,7 +94,7 @@
   let matrizModalOpen = $state(false);
 
   function goBack() {
-    router.visit(`/docente/cursos/${curso.id_curso}`);
+    router.visit(`/docente/cursos/${curso.id_curso}/gestion`);
   }
 
   function openPermisosModal(col: ColegiadoDocente) {
@@ -108,13 +108,13 @@
   }
 </script>
 
-<DocenteLayout>
-  <div class="space-y-6">
+<CursoDocenteLayout idCurso={curso.id_curso} seccion="gestion" subpagina="Equipo docente" nombre={curso.nombre}>
+  <div class="mx-auto w-full max-w-[1200px] space-y-6 px-4 pt-4 pb-8 lg:px-10 lg:pt-7">
     <!-- Header -->
     <div class="flex flex-wrap items-center gap-4">
       <Button variant="ghost" onclick={goBack} class="gap-2">
         <ArrowLeft class="h-4 w-4" />
-        Volver al curso
+        Gestión
       </Button>
       <div class="flex-1 min-w-[200px]">
         <h1 class="text-2xl font-bold tracking-tight text-slate-900">Docentes del Curso</h1>
@@ -245,4 +245,4 @@
     matrix={syllabus_matrix}
     cursoNombre={curso.nombre}
   />
-</DocenteLayout>
+</CursoDocenteLayout>

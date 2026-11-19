@@ -34,6 +34,8 @@ use \Illuminate\Support\Facades\Auth;
  */
 class DocenteCursoController extends Controller
 {
+    use \App\Traits\ParsesSyllabus;
+
     /**
      * Muestra listado de cursos asociados al docente autenticado.
      * 
@@ -524,6 +526,70 @@ class DocenteCursoController extends Controller
             'colegiados'        => $colegiadosData->values(),
             'syllabus_matrix'   => $syllabusPermsMatrix,
             'available_permissions' => $available_permissions,
+        ]);
+    }
+
+    /**
+     * Pestaña «Biblioteca» del curso: los recursos de la sección VIII del
+     * programa vigente, agrupados en el cliente por unidad. No hay material
+     * propio del curso aparte del programa (ninguna tabla lo guarda), así que
+     * la página sólo lee.
+     */
+    public function biblioteca(Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $programa = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        $secciones = [];
+        if ($programa) {
+            $raw = is_array($programa->data_syllabus)
+                ? $programa->data_syllabus
+                : json_decode((string) $programa->data_syllabus, true);
+            $secciones = collect($this->parseSecciones($raw ?? []))
+                ->whereIn('numeral_romano', ['VI', 'VIII'])
+                ->values()
+                ->all();
+        }
+
+        return Inertia::render('docente/Biblioteca', [
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
+            ],
+            'hayPrograma' => (bool) $programa,
+            'secciones' => $secciones,
+        ]);
+    }
+
+    /**
+     * Pestaña «Gestión» del curso: los accesos al equipo docente, la
+     * delegación de permisos, los grupos de trabajo y el syllabus. Lo que
+     * sólo puede hacer el titular no se dibuja para los demás.
+     */
+    public function gestion(Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $idDocente = Auth::user()?->docente?->id_docente;
+        $programa = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        return Inertia::render('docente/Gestion', [
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
+                'es_titular_curso' => $idDocente !== null && $curso->id_docente_titular === $idDocente,
+            ],
+            'programa' => $programa ? array_merge(
+                ['estado' => $programa->estado],
+                \App\Services\SyllabusViewerPresenter::ultimoRechazo($programa),
+            ) : null,
         ]);
     }
 
