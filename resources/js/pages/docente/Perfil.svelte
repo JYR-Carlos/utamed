@@ -11,7 +11,7 @@
   import { KeyRound } from 'lucide-svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import ModalInst from '@/components/docente/ModalInst.svelte';
-  import { getInitials } from '@/hooks/useInitials';
+  import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import { titleCase } from '@/lib/utils';
   import { formatRut } from '@/lib/validators';
   import { aviso, avisoTono, btnPrimario, btnSecundario, campo, chip, cuerpo, etiqueta, tarjeta, titulo, tono } from '@/lib/inst';
@@ -31,11 +31,7 @@
 
   let { perfil }: Props = $props();
 
-  // Iniciales como en la barra: primer nombre y primer apellido.
-  const usuario = $derived($page.props.auth.user);
-  const iniciales = $derived(
-    getInitials(usuario?.nombre1 && usuario?.apellido1 ? `${usuario.nombre1} ${usuario.apellido1}` : perfil.nombre_completo),
-  );
+  const urlFotoPerfil = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/docente/dashboard' },
@@ -102,12 +98,7 @@
   <div class="{cuerpo} max-w-[920px]">
     <section aria-labelledby="t-datos" class="{tarjeta} overflow-hidden">
       <div class="flex flex-wrap items-center gap-4 border-b border-inst-linea px-5.5 py-5">
-        <span
-          aria-hidden="true"
-          class="flex size-16 shrink-0 items-center justify-center rounded-full bg-inst-accion-s font-inst-titulo text-xl font-bold text-inst-accion-t"
-        >
-          {iniciales}
-        </span>
+        <FotoPerfil src={urlFotoPerfil} decorativa centrada class="size-16 rounded-full border border-inst-linea bg-inst-accion-s" />
         <span class="flex min-w-0 flex-1 flex-col gap-1.5">
           <h2 id="t-datos" class="{titulo} m-0 text-[22px] leading-7">{titleCase(perfil.nombre_completo)}</h2>
           <span class="flex flex-wrap gap-1.5">

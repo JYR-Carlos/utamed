@@ -11,6 +11,7 @@
   import { ChevronDown, Menu, X } from 'lucide-svelte';
   import IssueReport from '@/components/custom/IssueReport.svelte';
   import UserMenuContent from '@/components/custom/common/UserMenuContent.svelte';
+  import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import {
     DropdownMenu,
     DropdownMenuContent,
@@ -20,7 +21,6 @@
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
   import { OPCIONES_APARIENCIA, useAppearance } from '@/hooks/useAppearance.svelte';
-  import { getInitials } from '@/hooks/useInitials';
   import { usePermissions } from '@/lib/composables/usePermissions';
   import { AMBIENTES, ambientesDisponibles } from '@/lib/ambientes';
   import { titleCase } from '@/lib/utils';
@@ -45,6 +45,7 @@
   const ambientes = $derived(ambientesDisponibles($page.props.auth, can));
 
   const usuario = $derived($page.props.auth.user);
+  const urlFotoPerfil = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
   const nombre = $derived(
     titleCase(
       usuario?.nombre1 && usuario?.apellido1
@@ -126,12 +127,7 @@
         aria-label="Menú de {nombre}"
         class="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md text-left text-inst-barra-texto lg:border-l lg:border-white/20 lg:pl-3"
       >
-        <span
-          aria-hidden="true"
-          class="flex size-8.5 shrink-0 items-center justify-center rounded-full bg-inst-oro text-[13px] font-extrabold text-uta-marino"
-        >
-          {getInitials(nombre)}
-        </span>
+        <FotoPerfil src={urlFotoPerfil} decorativa centrada class="size-8.5 rounded-full border border-white/25 bg-inst-oro" />
         <span class="hidden min-w-0 flex-col lg:flex">
           <span class="max-w-48 truncate text-sm leading-[18px] font-bold">{nombre}</span>
           <span class="text-xs leading-4 text-inst-barra-texto-2">Docente</span>
