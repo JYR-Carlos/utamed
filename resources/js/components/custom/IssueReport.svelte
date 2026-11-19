@@ -7,9 +7,12 @@
   interface Props {
     /** Clases para el botón disparador; pisan los colores por defecto (p. ej. la barra noche del alumno). */
     class?: string;
+    /** Rótulo del botón: el docente lo ve como «Sugerencias»; los demás, «Reportar error». */
+    etiqueta?: string;
   }
 
-  let { class: claseBoton = '' }: Props = $props();
+  let { class: claseBoton = '', etiqueta = 'Reportar error' }: Props = $props();
+  const esSugerencia = $derived(etiqueta === 'Sugerencias');
 
   let isOpen = $state(false);
   let showConfirmModal = $state(false);
@@ -129,16 +132,17 @@
     'group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-slate-200',
     claseBoton,
   )}
-  title="Reportar error"
-  aria-label="Reportar error"
+  title={etiqueta}
+  aria-label={etiqueta}
 >
-  <Bug
-    size={16}
-    class="shrink-0"
-  />
+  {#if esSugerencia}
+    <MessageCircleWarning size={16} class="shrink-0" />
+  {:else}
+    <Bug size={16} class="shrink-0" />
+  {/if}
 
   <!-- En móvil sólo el ícono: con el rótulo la ruta de navegación casi desaparece. -->
-  <span class="hidden whitespace-nowrap sm:inline">Reportar error</span>
+  <span class="hidden whitespace-nowrap sm:inline">{etiqueta}</span>
 </button>
 
 
@@ -165,8 +169,8 @@
             <Bug size={18} />
           </div>
           <div>
-            <h2 id="bug-modal-title" class="text-base font-semibold text-slate-900">Reportar un problema</h2>
-            <p class="text-xs text-slate-500">Notifica un error o fallo en la plataforma</p>
+            <h2 id="bug-modal-title" class="text-base font-semibold text-slate-900">{esSugerencia ? 'Enviar una sugerencia' : 'Reportar un problema'}</h2>
+            <p class="text-xs text-slate-500">{esSugerencia ? 'Cuéntanos qué mejorarías o qué falló en la plataforma' : 'Notifica un error o fallo en la plataforma'}</p>
           </div>
         </div>
 
