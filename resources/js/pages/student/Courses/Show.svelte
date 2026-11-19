@@ -18,7 +18,7 @@
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import ActividadesView, { coincideConFiltro, type FiltroActividad } from '../Activities/ActividadesView.svelte';
+  import ActividadesView, { coincideConFiltro, filtroDeUrl, type FiltroActividad } from '../Activities/ActividadesView.svelte';
   import CursoEncabezado, { SECCIONES_CURSO, type SeccionCurso } from './components/CursoEncabezado.svelte';
   import CursoBitacora, { type Bitacora } from './components/CursoBitacora.svelte';
   import CursoCalendario, { type AlcanceCalendario } from './components/CursoCalendario.svelte';
@@ -187,7 +187,7 @@
   const conComponente = $derived(new Set(actividades.map((a) => a.componente_tipo).filter(Boolean)).size > 1);
 
   // ─── Filtros de actividades ─────────────────────────────────────────────────
-  let filtro = $state<FiltroActividad>('todas');
+  let filtro = $state<FiltroActividad>(filtroDeUrl($page.url));
 
   const actividadesFiltradas = $derived(actividades.filter((a) => coincideConFiltro(a, filtro)));
 

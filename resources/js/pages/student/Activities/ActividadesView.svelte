@@ -1,27 +1,34 @@
 <script lang="ts" module>
-  import { porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
+  import { atrasada, porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
 
-  export type FiltroActividad = 'todas' | 'pendientes' | 'entregadas' | 'individuales' | 'grupales';
+  export type FiltroActividad = 'todas' | 'pendientes' | 'atrasadas' | 'entregadas';
 
+  // Individual o grupal ya lo dice cada fila: los filtros quedan en el estado de la entrega.
   export const FILTROS: ReadonlyArray<{ id: FiltroActividad; etiqueta: string }> = [
     { id: 'todas', etiqueta: 'Todas' },
     { id: 'pendientes', etiqueta: 'Por entregar' },
+    { id: 'atrasadas', etiqueta: 'Atrasadas' },
     { id: 'entregadas', etiqueta: 'Entregadas' },
-    { id: 'individuales', etiqueta: 'Individuales' },
-    { id: 'grupales', etiqueta: 'Grupales' },
   ];
 
-  /** Un solo filtro a la vez: «Por entregar» son las que aún se pueden entregar. */
+  /** El filtro pedido en ?filtro= (el Inicio enlaza a «Atrasadas»); si no es válido, todas. */
+  export function filtroDeUrl(url: string): FiltroActividad {
+    const pedido = new URL(url, 'http://x').searchParams.get('filtro');
+    return FILTROS.find((f) => f.id === pedido)?.id ?? 'todas';
+  }
+
+  /**
+   * Un solo filtro a la vez: «Por entregar» son las que aún se pueden entregar;
+   * «Atrasadas», las que pasaron la fecha límite sin entrega (se reciban o no).
+   */
   export function coincideConFiltro(actividad: ActividadAlumno, filtro: FiltroActividad): boolean {
     switch (filtro) {
       case 'pendientes':
         return porEntregar(actividad);
+      case 'atrasadas':
+        return atrasada(actividad);
       case 'entregadas':
         return !!actividad.ya_entregada;
-      case 'individuales':
-        return !actividad.es_grupal;
-      case 'grupales':
-        return actividad.es_grupal;
       default:
         return true;
     }
@@ -60,9 +67,8 @@
   const SIN_RESULTADOS: Record<FiltroActividad, string> = {
     todas: '',
     pendientes: 'No tienes actividades por entregar en este curso.',
+    atrasadas: 'No tienes actividades atrasadas en este curso.',
     entregadas: 'Todavía no has entregado actividades en este curso.',
-    individuales: 'No hay actividades individuales en este curso.',
-    grupales: 'No hay actividades grupales en este curso.',
   };
 
   const ICONOS = { ok: CircleCheck, info: Upload, reloj: Clock, alerta: CircleAlert } as const;

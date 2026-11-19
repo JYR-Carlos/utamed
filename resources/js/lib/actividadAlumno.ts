@@ -72,3 +72,10 @@ export function fechaLimiteTexto(fecha: string, hoy: string = claveDia()): strin
 export function porEntregar(a: ActividadAlumno): boolean {
     return a.con_entrega && !a.ya_entregada && !a.ya_evaluada && a.estado !== 'CERRADA';
 }
+
+/** Pasó la fecha límite sin entrega: las que aún se reciben por la holgura y las ya vencidas. */
+export function atrasada(a: ActividadAlumno, hoy: string = claveDia()): boolean {
+    if (!a.con_entrega || a.ya_entregada || a.ya_evaluada) return false;
+    const limite = a.fecha_limite?.slice(0, 10) ?? '';
+    return a.estado === 'CERRADA' || (limite !== '' && limite < hoy);
+}
