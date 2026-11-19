@@ -1,7 +1,7 @@
 <?php
 
-test('returns a successful response', function () {
+test('la raíz lleva directo al login', function () {
     $response = $this->get('/');
 
-    $response->assertStatus(200);
+    $response->assertRedirect(route('login'));
 });
