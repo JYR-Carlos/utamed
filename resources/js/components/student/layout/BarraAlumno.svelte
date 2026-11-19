@@ -9,7 +9,7 @@
   import { Link } from '@inertiajs/svelte';
   import { Menu } from 'lucide-svelte';
   import IssueReport from '@/components/custom/IssueReport.svelte';
-  import { OPCIONES_APARIENCIA, useAppearance } from '@/hooks/useAppearance.svelte';
+  import BotonTema from '@/components/ingreso/BotonTema.svelte';
   import type { BreadcrumbItem } from '@/types';
 
   interface Props {
@@ -18,14 +18,6 @@
   }
 
   let { breadcrumbs = [], onAbrirMenu }: Props = $props();
-
-  // Un solo botón de tema: cada clic pasa a la siguiente opción
-  // (Claro → Oscuro → Sistema → Claro) y el ícono muestra la actual.
-  const apariencia = useAppearance();
-  const temaIndice = $derived(Math.max(0, OPCIONES_APARIENCIA.findIndex((o) => o.value === apariencia.appearance)));
-  const temaActual = $derived(OPCIONES_APARIENCIA[temaIndice]);
-  const temaSiguiente = $derived(OPCIONES_APARIENCIA[(temaIndice + 1) % OPCIONES_APARIENCIA.length]);
-  const temaEtiqueta = $derived(`Tema: ${temaActual.label}. Cambiar a ${temaSiguiente.label.toLowerCase()}`);
 
   // Sobre noche (móvil) el foco va en amarillo; sobre la tarjeta (escritorio), en azul.
   const foco = 'focus-visible:outline-dm-amarillo lg:focus-visible:outline-dm-enlace';
@@ -71,14 +63,8 @@
     <IssueReport
       class="border-dm-control bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil max-lg:border-transparent max-lg:bg-transparent max-lg:text-dm-noche-texto max-lg:hover:bg-dm-noche-activo {foco}"
     />
-    <button
-      type="button"
-      onclick={() => apariencia.updateAppearance(temaSiguiente.value)}
-      aria-label={temaEtiqueta}
-      title={temaEtiqueta}
-      class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-dm-noche-texto hover:bg-dm-noche-activo lg:size-10 lg:rounded-[10px] lg:border lg:border-dm-linea lg:bg-dm-tarjeta lg:text-dm-ink lg:hover:bg-dm-sutil {foco}"
-    >
-      <temaActual.Icon size={18} aria-hidden="true" />
-    </button>
+    <BotonTema
+      class="text-dm-noche-texto hover:bg-dm-noche-activo lg:h-10 lg:border lg:border-dm-linea lg:bg-dm-tarjeta lg:text-dm-ink lg:hover:bg-dm-sutil {foco}"
+    />
   </div>
 </header>

@@ -184,7 +184,7 @@
     <main class="flex min-w-0 flex-1 flex-col gap-5 px-4 pt-7 pb-8 lg:px-10 lg:pt-6 lg:pb-7">
       <div class="flex items-center justify-end gap-4 max-lg:hidden">
         <BotonTema
-          class="size-10! border border-dm-linea bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil"
+          class="h-10 border border-dm-linea bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil"
         />
       </div>
 
