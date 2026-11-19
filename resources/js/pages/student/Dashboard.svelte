@@ -7,7 +7,6 @@
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import SemanaAlumno from '@/components/student/inicio/SemanaAlumno.svelte';
   import MensajesSinLeer from '@/components/student/inicio/MensajesSinLeer.svelte';
-  import NotasRecientes, { type NotaReciente } from '@/components/student/inicio/NotasRecientes.svelte';
   import TarjetaCurso from '@/components/student/inicio/TarjetaCurso.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
   import {
@@ -51,8 +50,6 @@
     };
     /** Actividades cuyo plazo termina pronto (ya con la holgura aplicada). */
     proximasAVencer?: ActividadPorVencer[];
-    /** Últimas notas y retroalimentaciones del equipo docente. */
-    notasRecientes?: NotaReciente[];
     isAyudante?: boolean;
     periodoActual: { semestre: number, agno: number}
     /** El servidor ya evaluó si esta persona puede entrar a SGEQ. */
@@ -64,7 +61,6 @@
     stats,
     mensajeria,
     proximasAVencer = [],
-    notasRecientes = [],
     isAyudante = false,
     puedeAbrirSgeq = false,
     periodoActual
@@ -252,13 +248,13 @@
       {:else}
         <SemanaAlumno items={proximasAVencer} {colorDe} {hrefCalendario} />
 
+        <!-- Sin «Notas recientes» (OBS-07): las notas se leen en cada actividad y en la pestaña Notas del curso. -->
         <div class="flex flex-col gap-6 lg:flex-row-reverse lg:items-start">
-          <aside class="flex min-w-0 flex-col gap-6 lg:w-85 lg:shrink-0">
-            {#if mensajeria && mensajeria.no_leidos > 0}
+          {#if mensajeria && mensajeria.no_leidos > 0}
+            <aside class="flex min-w-0 flex-col gap-6 lg:w-85 lg:shrink-0">
               <MensajesSinLeer total={mensajeria.no_leidos} cursos={mensajeria.cursos} {colorDe} />
-            {/if}
-            <NotasRecientes items={notasRecientes} {colorDe} />
-          </aside>
+            </aside>
+          {/if}
 
           <section aria-labelledby="t-cursos" class="flex min-w-0 flex-1 flex-col gap-3 lg:gap-4">
             <div class="flex flex-wrap items-baseline justify-between gap-x-4">

@@ -76,7 +76,6 @@ class DashboardController extends Controller
             'mensajeria' => $cursos->mensajesSinLeer((int) $user->id_usuario),
             'cursos' => $cursosData,
             'proximasAVencer' => $resumen->proximasAVencer($estudiante, $semestreActual, $agnoActual),
-            'notasRecientes' => $resumen->notasYRetroalimentaciones($estudiante),
             'stats' => [
                 'total_cursos' => $cursosData->count(),
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),
