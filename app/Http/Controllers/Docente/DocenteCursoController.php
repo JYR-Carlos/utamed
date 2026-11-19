@@ -216,12 +216,16 @@ class DocenteCursoController extends Controller
                 ->get()
                 ->keyBy('id_inscripcion_componente');
 
-        $misEstudiantes = $misEstudiantes->map(function ($e) use ($asistenciaPorInscripcion) {
+        $pendientes = $this->pendientesPorEstudiante($misComponentes->pluck('id_componente'));
+
+        $misEstudiantes = $misEstudiantes->map(function ($e) use ($asistenciaPorInscripcion, $pendientes) {
             $fila = $asistenciaPorInscripcion->get($e['id_inscripcion_componente']);
             $e['asistencia'] = [
                 'presentes' => (int) ($fila->presentes ?? 0),
                 'total'     => (int) ($fila->total ?? 0),
             ];
+            $e['pendientes'] = $pendientes[$e['id_componente']][$e['estudiante']['id_estudiante']]
+                ?? ['por_revisar' => 0, 'no_entrego' => 0];
 
             return $e;
         });
@@ -521,6 +525,66 @@ class DocenteCursoController extends Controller
             'syllabus_matrix'   => $syllabusPermsMatrix,
             'available_permissions' => $available_permissions,
         ]);
+    }
+
+    /**
+     * Columna «Pendiente» de la pestaña Estudiantes: por componente y
+     * estudiante, cuántas actividades visibles esperan evaluación del docente
+     * (entregó y la sumativa no tiene nota o la formativa no tiene
+     * retroalimentación; mismo criterio que AvanceEvaluacionService) y en
+     * cuántas ya cerradas no entregó.
+     *
+     * @param  \Illuminate\Support\Collection<int,int>  $idsComponente
+     * @return array<int, array<int, array{por_revisar:int, no_entrego:int}>>
+     */
+    private function pendientesPorEstudiante($idsComponente): array
+    {
+        if ($idsComponente->isEmpty()) {
+            return [];
+        }
+
+        $filas = DB::table('agenda.integrante_grupo as ig')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
+            ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
+            ->whereIn('act.id_componente', $idsComponente)
+            ->where('act.visible', true)
+            ->get(['ig.id_estudiante', 'act.id_componente', 'act.id_actividad', 'act.tipo_actividad', 'act.fecha_limite', 'aag.id_actividad_asignada_grupo', 'aag.nota']);
+
+        if ($filas->isEmpty()) {
+            return [];
+        }
+
+        $idsGrupo = $filas->pluck('id_actividad_asignada_grupo')->unique()->values();
+        $conEntrega = DB::table('agenda.agenda as a')
+            ->whereIn('a.id_actividad_asignada_grupo', $idsGrupo)
+            ->where(fn ($q) => \App\Models\Agenda\Agenda::soloEntregasVigentes($q, 'a'))
+            ->distinct()
+            ->pluck('a.id_actividad_asignada_grupo')
+            ->flip();
+        $conFeedback = app(AvanceEvaluacionService::class)->gruposConFeedback(
+            $idsGrupo,
+            $filas->pluck('id_actividad', 'id_actividad_asignada_grupo'),
+        );
+        $hoy = now()->toDateString();
+
+        $resultado = [];
+        foreach ($filas as $f) {
+            $celda = &$resultado[$f->id_componente][$f->id_estudiante];
+            $celda ??= ['por_revisar' => 0, 'no_entrego' => 0];
+            if ($conEntrega->has($f->id_actividad_asignada_grupo)) {
+                $evaluada = $f->tipo_actividad === 'SUMATIVA'
+                    ? $f->nota !== null
+                    : $conFeedback->has($f->id_actividad_asignada_grupo);
+                if (! $evaluada) {
+                    $celda['por_revisar']++;
+                }
+            } elseif ($f->fecha_limite !== null && substr((string) $f->fecha_limite, 0, 10) < $hoy) {
+                $celda['no_entrego']++;
+            }
+            unset($celda);
+        }
+
+        return $resultado;
     }
 
     /**
