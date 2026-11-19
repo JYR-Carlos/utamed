@@ -37,7 +37,7 @@
       contacto?: {
         correo_personal: string | null;
         celular: string | null;
-        redes_sociales: Record<'youtube' | 'x' | 'instagram' | 'linkedin', string | null>;
+        redes_sociales: Record<'youtube' | 'instagram' | 'linkedin', string | null>;
       };
     };
   }
@@ -105,7 +105,7 @@
   );
   const notasSumativas = $derived((filas ?? []).filter((f) => f.es_sumativa && f.nota !== null).length);
 
-  const NOMBRE_RED: Record<string, string> = { youtube: 'YouTube', x: 'X', instagram: 'Instagram', linkedin: 'LinkedIn' };
+  const NOMBRE_RED: Record<string, string> = { youtube: 'YouTube', instagram: 'Instagram', linkedin: 'LinkedIn' };
   const redes = $derived(
     Object.entries(e.contacto?.redes_sociales ?? {}).filter(([, v]) => !!v) as [string, string][],
   );

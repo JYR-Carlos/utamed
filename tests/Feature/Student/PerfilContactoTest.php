@@ -91,6 +91,28 @@ test('rechaza enlaces que no son de la red indicada y redes no soportadas', func
         ->assertSessionHasErrors(['redes_sociales', 'redes_sociales.instagram']);
 });
 
+test('X ya no se acepta y un enlace a X guardado antes se descarta al guardar', function () {
+    [$user, $estudiante] = alumnoConPerfil();
+    $estudiante->forceFill(['redes_sociales' => [
+        'x' => 'https://x.com/alguien',
+        'instagram' => 'https://www.instagram.com/alguien',
+    ]])->save();
+
+    expect($estudiante->fresh()->contacto()['redes_sociales'])->not->toHaveKey('x');
+
+    $this->actingAs($user)
+        ->patch('/estudiante/perfil/contacto', ['redes_sociales' => ['x' => 'https://x.com/alguien']])
+        ->assertSessionHasErrors(['redes_sociales']);
+
+    $this->actingAs($user)
+        ->patch('/estudiante/perfil/contacto', [
+            'redes_sociales' => ['instagram' => 'https://www.instagram.com/alguien'],
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($estudiante->fresh()->redes_sociales)->toBe(['instagram' => 'https://www.instagram.com/alguien']);
+});
+
 test('rechaza un celular o correo con formato inválido', function () {
     [$user] = alumnoConPerfil();
 

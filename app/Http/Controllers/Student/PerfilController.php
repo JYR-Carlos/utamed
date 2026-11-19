@@ -27,7 +27,6 @@ class PerfilController extends Controller
     /** Dominios aceptados por red: sólo enlaces al perfil en esa red. */
     private const DOMINIOS_REDES = [
         'youtube' => ['youtube.com', 'youtu.be'],
-        'x' => ['x.com', 'twitter.com'],
         'instagram' => ['instagram.com'],
         'linkedin' => ['linkedin.com'],
     ];
@@ -94,13 +93,12 @@ class PerfilController extends Controller
             'celular' => ['nullable', 'string', 'max:30', 'regex:/^\+?[0-9 ]{8,20}$/'],
             'redes_sociales' => ['nullable', 'array:' . implode(',', Estudiante::REDES_SOCIALES)],
             'redes_sociales.youtube' => $reglasRed('youtube'),
-            'redes_sociales.x' => $reglasRed('x'),
             'redes_sociales.instagram' => $reglasRed('instagram'),
             'redes_sociales.linkedin' => $reglasRed('linkedin'),
         ], [
             'correo_personal.email' => 'Ingresa un correo válido.',
             'celular.regex' => 'Ingresa sólo números, con + y código de país si quieres (por ejemplo +56 9 1234 5678).',
-            'redes_sociales.array' => 'Sólo se aceptan YouTube, X, Instagram y LinkedIn.',
+            'redes_sociales.array' => 'Sólo se aceptan YouTube, Instagram y LinkedIn.',
             'redes_sociales.*.url' => 'Ingresa el enlace completo, empezando por https://.',
         ]);
 

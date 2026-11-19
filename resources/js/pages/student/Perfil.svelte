@@ -14,7 +14,7 @@
   import { btnPrimario, campo, etiqueta, tarjeta, tituloCond } from '@/lib/dm';
   import { titleCase } from '@/lib/utils';
 
-  type Red = 'youtube' | 'x' | 'instagram' | 'linkedin';
+  type Red = 'youtube' | 'instagram' | 'linkedin';
 
   interface Props {
     perfil: {
@@ -39,7 +39,6 @@
 
   const REDES: { id: Red; label: string; placeholder: string }[] = [
     { id: 'youtube', label: 'YouTube', placeholder: 'https://www.youtube.com/@tu-canal' },
-    { id: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/tu-usuario' },
     { id: 'instagram', label: 'Instagram', placeholder: 'https://www.instagram.com/tu-usuario' },
     { id: 'linkedin', label: 'LinkedIn', placeholder: 'https://www.linkedin.com/in/tu-perfil' },
   ];
@@ -50,7 +49,6 @@
     celular: contacto?.celular ?? '',
     redes_sociales: {
       youtube: contacto?.redes_sociales?.youtube ?? '',
-      x: contacto?.redes_sociales?.x ?? '',
       instagram: contacto?.redes_sociales?.instagram ?? '',
       linkedin: contacto?.redes_sociales?.linkedin ?? '',
     } as Record<Red, string>,
