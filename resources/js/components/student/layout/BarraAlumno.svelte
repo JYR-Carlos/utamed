@@ -8,7 +8,7 @@
    * problema, el tema y la foto del alumno, que lleva a Mi perfil.
    */
   import { Link, page } from '@inertiajs/svelte';
-  import { Menu } from 'lucide-svelte';
+  import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
   import IssueReport from '@/components/custom/IssueReport.svelte';
   import BotonTema from '@/components/ingreso/BotonTema.svelte';
   import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
@@ -17,9 +17,12 @@
   interface Props {
     breadcrumbs?: BreadcrumbItem[];
     onAbrirMenu: () => void;
+    /** Escritorio: el menú lateral está plegado a íconos. */
+    menuPlegado?: boolean;
+    onPlegarMenu?: () => void;
   }
 
-  let { breadcrumbs = [], onAbrirMenu }: Props = $props();
+  let { breadcrumbs = [], onAbrirMenu, menuPlegado = false, onPlegarMenu }: Props = $props();
 
   const foto = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
   const enPerfil = $derived(($page.url ?? '').startsWith('/estudiante/perfil'));
@@ -39,6 +42,24 @@
   >
     <Menu size={22} aria-hidden="true" />
   </button>
+
+  {#if onPlegarMenu}
+    <button
+      type="button"
+      onclick={onPlegarMenu}
+      aria-label={menuPlegado ? 'Mostrar el menú completo' : 'Plegar el menú'}
+      title={menuPlegado ? 'Mostrar el menú completo' : 'Plegar el menú'}
+      aria-expanded={!menuPlegado}
+      aria-controls="menu-alumno"
+      class="-ml-4 hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-dm-ink-2 hover:bg-dm-sutil hover:text-dm-ink lg:flex {foco}"
+    >
+      {#if menuPlegado}
+        <PanelLeftOpen size={20} aria-hidden="true" />
+      {:else}
+        <PanelLeftClose size={20} aria-hidden="true" />
+      {/if}
+    </button>
+  {/if}
 
   <Link href="/estudiante/dashboard" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 no-underline lg:hidden {foco}">
     <img src="/icon.png" alt="" width="28" height="28" class="size-7 shrink-0 object-contain" />

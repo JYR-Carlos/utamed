@@ -6,9 +6,13 @@
    * los cursos (los de semestres anteriores están ahí). Abajo, otros ambientes
    * si la cuenta tiene más de un rol, y la persona con su salida.
    * Lo usan la columna de escritorio y el cajón móvil de StudentLayout.
+   *
+   * Plegado (sólo escritorio) queda en una columna de íconos: los cursos
+   * muestran su código y cada fila conserva su nombre para lectores de
+   * pantalla y en el texto emergente.
    */
   import { Link, page, router } from '@inertiajs/svelte';
-  import { ChevronRight, House, LogOut } from 'lucide-svelte';
+  import { ChevronRight, House, LayoutGrid, LogOut } from 'lucide-svelte';
   import { logout } from '@/routes';
   import { titleCase } from '@/lib/utils';
   import { usePermissions } from '@/lib/composables/usePermissions';
@@ -16,6 +20,8 @@
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import type { SidebarCourse } from '@/types';
   import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
+
+  let { plegado = false }: { plegado?: boolean } = $props();
 
   const { can } = usePermissions();
 
@@ -65,8 +71,14 @@
     router.post(logout.url());
   }
 
-  const fila =
-    'relative flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm no-underline transition-colors lg:min-h-10';
+  const fila = $derived(
+    `relative flex min-h-11 items-center rounded-lg py-2 text-sm no-underline transition-colors lg:min-h-10 ${
+      plegado ? 'justify-center px-1' : 'gap-3 px-3'
+    }`,
+  );
+  /** Texto de la fila: plegado sólo lo leen los lectores de pantalla. */
+  const texto = $derived(plegado ? 'sr-only' : '');
+  const codigoCurso = (c: SidebarCourse) => c.cod_asignatura || c.cod_curso;
   const filaInactiva = 'text-dm-noche-texto-2 hover:bg-dm-noche-activo hover:text-dm-noche-texto';
   const filaActiva = 'bg-dm-noche-activo font-semibold text-dm-noche-texto';
 </script>
@@ -77,11 +89,16 @@
 
 <nav
   aria-label="Menú principal"
-  class="sobre-noche flex h-full flex-col gap-6 overflow-y-auto border-r border-dm-noche-borde bg-dm-lat px-3 py-5 font-dm"
+  class="sobre-noche flex h-full flex-col gap-6 overflow-x-hidden overflow-y-auto border-r border-dm-noche-borde bg-dm-lat py-5 font-dm {plegado
+    ? 'px-2'
+    : 'px-3'}"
 >
-  <Link href="/estudiante/dashboard" class="flex items-center gap-2.5 rounded-lg px-3 py-1 no-underline">
+  <Link
+    href="/estudiante/dashboard"
+    class="flex items-center gap-2.5 rounded-lg py-1 no-underline {plegado ? 'justify-center' : 'px-3'}"
+  >
     <img src="/icon.png" alt="" width="32" height="32" class="size-8 shrink-0 object-contain" />
-    <span class="font-dm-cond text-2xl leading-7 font-extrabold tracking-[0.02em] text-dm-noche-texto">UTAMED</span>
+    <span class="font-dm-cond text-2xl leading-7 font-extrabold tracking-[0.02em] text-dm-noche-texto {texto}">UTAMED</span>
   </Link>
 
   <div class="flex flex-col gap-1">
@@ -89,15 +106,20 @@
       href="/estudiante/dashboard"
       class="{fila} {enInicio ? filaActiva : filaInactiva}"
       aria-current={enInicio ? 'page' : undefined}
+      title={plegado ? 'Inicio' : undefined}
     >
       {#if enInicio}{@render marcaActiva()}{/if}
       <House size={20} aria-hidden="true" class="shrink-0" />
-      Inicio
+      <span class={texto}>Inicio</span>
     </Link>
   </div>
 
   <div class="flex flex-col gap-1">
-    <span class="px-3 pb-1 text-xs leading-4 font-bold tracking-[0.06em] text-dm-noche-texto-2 uppercase">
+    <span
+      class="pb-1 text-xs leading-4 font-bold tracking-[0.06em] text-dm-noche-texto-2 uppercase {plegado
+        ? 'sr-only'
+        : 'px-3'}"
+    >
       Mis cursos
     </span>
     {#each vigentes as curso (curso.id_curso)}
@@ -110,46 +132,63 @@
         title={curso.etiqueta ?? curso.nombre}
       >
         {#if activo}{@render marcaActiva()}{/if}
-        <span aria-hidden="true" class="size-2.5 shrink-0 rounded-full bg-(--curso-m)"></span>
-        <span class="truncate">{nombreSinGrupo(curso)}</span>
+        {#if plegado}
+          <span aria-hidden="true" class="flex flex-col items-center gap-1">
+            <span class="size-2 rounded-full bg-(--curso-m)"></span>
+            <span class="font-dm-cond text-xs leading-none font-bold tracking-[0.02em]">{codigoCurso(curso)}</span>
+          </span>
+          <span class="sr-only">{nombreSinGrupo(curso)}</span>
+        {:else}
+          <span aria-hidden="true" class="size-2.5 shrink-0 rounded-full bg-(--curso-m)"></span>
+          <span class="truncate">{nombreSinGrupo(curso)}</span>
+        {/if}
       </Link>
     {:else}
-      <p class="px-3 py-1 text-sm text-dm-noche-texto-2">Sin cursos inscritos este semestre</p>
+      <p class="py-1 text-sm text-dm-noche-texto-2 {plegado ? 'sr-only' : 'px-3'}">Sin cursos inscritos este semestre</p>
     {/each}
     <Link
       href="/estudiante/cursos"
       class="{fila} font-semibold {enMisCursos ? filaActiva : filaInactiva}"
       aria-current={enMisCursos ? 'page' : undefined}
+      title={plegado ? 'Ver todos los cursos' : undefined}
     >
       {#if enMisCursos}{@render marcaActiva()}{/if}
-      Ver todos los cursos
-      <ChevronRight size={16} aria-hidden="true" class="shrink-0" />
+      {#if plegado}<LayoutGrid size={20} aria-hidden="true" class="shrink-0" />{/if}
+      <span class={texto}>Ver todos los cursos</span>
+      {#if !plegado}<ChevronRight size={16} aria-hidden="true" class="shrink-0" />{/if}
     </Link>
   </div>
 
   <div class="mt-auto flex flex-col gap-4">
     {#if otrosAmbientes.length > 0}
       <div class="flex flex-col gap-1">
-        <span class="px-3 pb-1 text-xs leading-4 font-bold tracking-[0.06em] text-dm-noche-texto-2 uppercase">
+        <span
+          class="pb-1 text-xs leading-4 font-bold tracking-[0.06em] text-dm-noche-texto-2 uppercase {plegado
+            ? 'sr-only'
+            : 'px-3'}"
+        >
           Otros ambientes
         </span>
         {#each otrosAmbientes as id (id)}
           {@const ambiente = AMBIENTES[id]}
-          <Link href={ambiente.href} class="{fila} {filaInactiva}">
+          <Link href={ambiente.href} class="{fila} {filaInactiva}" title={plegado ? ambiente.label : undefined}>
             <ambiente.icon size={18} aria-hidden="true" class="shrink-0" />
-            {ambiente.label}
+            <span class={texto}>{ambiente.label}</span>
           </Link>
         {/each}
       </div>
     {/if}
 
-    <div class="flex items-center gap-2 border-t border-dm-noche-linea pt-3">
+    <div class="flex items-center gap-2 border-t border-dm-noche-linea pt-3 {plegado ? 'flex-col' : ''}">
       <Link
         href="/estudiante/perfil"
-        class="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 no-underline hover:bg-dm-noche-activo"
+        title={plegado ? 'Mi perfil' : undefined}
+        class="flex min-h-11 min-w-0 items-center gap-3 rounded-lg no-underline hover:bg-dm-noche-activo {plegado
+          ? 'justify-center px-1'
+          : 'flex-1 px-2'}"
       >
         <FotoPerfil src={foto} decorativa class="size-8 rounded-full bg-dm-noche-activo" />
-        <span class="flex min-w-0 flex-col">
+        <span class="flex min-w-0 flex-col {texto}">
           <span class="truncate text-sm font-semibold text-dm-noche-texto">{nombre}</span>
           <span class="text-[13px] leading-[18px] text-dm-noche-texto-2">Estudiante · Ver perfil</span>
         </span>

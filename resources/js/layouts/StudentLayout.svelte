@@ -1,8 +1,8 @@
 <script lang="ts">
     /**
      * Cáscara de la vista del alumno con la guía dm: menú noche a la izquierda
-     * (cajón en móvil), barra superior y el contenido, que es lo único que se
-     * desplaza. `vista-alumno` activa la variante `alumno:` (guia-dm.css) en lo
+     * (cajón en móvil; en escritorio se puede plegar a una columna de íconos),
+     * barra superior y el contenido, que es lo único que se desplaza. `vista-alumno` activa la variante `alumno:` (guia-dm.css) en lo
      * que el alumno comparte con el docente.
      */
     import { page } from '@inertiajs/svelte';
@@ -21,6 +21,25 @@
     let { breadcrumbs = [], children }: Props = $props();
 
     let menuAbierto = $state(false);
+
+    // Menú plegado en escritorio: preferencia de este navegador.
+    const CLAVE_PLEGADO = 'menu-alumno-plegado';
+    function leerPlegado(): boolean {
+        try {
+            return typeof window !== 'undefined' && localStorage.getItem(CLAVE_PLEGADO) === '1';
+        } catch {
+            return false;
+        }
+    }
+    let menuPlegado = $state(leerPlegado());
+    function alternarPlegado() {
+        menuPlegado = !menuPlegado;
+        try {
+            localStorage.setItem(CLAVE_PLEGADO, menuPlegado ? '1' : '0');
+        } catch {
+            // sin almacenamiento, vale para esta visita
+        }
+    }
 
     // Cada visita cierra el cajón: si no, el menú quedaba tapando la página nueva.
     $effect(() => {
@@ -50,8 +69,8 @@
 </a>
 
 <div class="vista-alumno flex h-svh overflow-hidden bg-dm-pagina font-dm text-sm text-dm-ink">
-    <aside class="hidden w-62 shrink-0 lg:block">
-        <MenuAlumno />
+    <aside id="menu-alumno" class="hidden shrink-0 motion-safe:transition-[width] lg:block {menuPlegado ? 'w-18' : 'w-62'}">
+        <MenuAlumno plegado={menuPlegado} />
     </aside>
 
     <Dialog.Root bind:open={menuAbierto}>
@@ -74,7 +93,7 @@
     </Dialog.Root>
 
     <div class="flex min-w-0 flex-1 flex-col">
-        <BarraAlumno {breadcrumbs} onAbrirMenu={() => (menuAbierto = true)} />
+        <BarraAlumno {breadcrumbs} onAbrirMenu={() => (menuAbierto = true)} {menuPlegado} onPlegarMenu={alternarPlegado} />
         <!-- `scroll-region`: Inertia guarda y restaura el desplazamiento de este
              contenedor al volver atrás; sin él la vista saltaba al inicio.
              `relative`: lo absoluto de adentro (los `sr-only`) se mide contra
