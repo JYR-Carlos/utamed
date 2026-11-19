@@ -507,7 +507,7 @@
   <title>{nombre_actividad} | UTAmed</title>
 </svelte:head>
 
-<!-- Un aviso de «siguiente paso» al pie de una pestaña. -->
+<!-- Un acceso a otra pestaña, al pie de la que se está leyendo. -->
 {#snippet paso(rotulo: string, texto: string, boton: string, destino: Seccion)}
   <div class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-dm-linea bg-dm-sutil p-4">
     <span class="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
@@ -691,9 +691,10 @@
               {/if}
             </section>
             {#if pestanas.some((p) => p.id === 'rubrica')}
+              <!-- La rúbrica se mira antes de hacer el trabajo, no como paso siguiente (OBS-42). -->
               {@render paso(
-                'Siguiente paso',
-                rubricaEvaluada ? 'Revisa cómo te evaluaron' : 'Revisa cómo se evaluará la entrega',
+                'Rúbrica',
+                rubricaEvaluada ? 'Cómo te evaluaron, criterio por criterio' : 'Cómo se evalúa esta actividad',
                 rubricaEvaluada ? 'Ver la rúbrica evaluada' : 'Ver la rúbrica',
                 'rubrica',
               )}
