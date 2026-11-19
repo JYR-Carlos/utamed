@@ -102,6 +102,9 @@ class DocenteCursoController extends Controller
                     'tiene_programa' => $tienePrograma,
                     'es_plantilla' => $curso->es_plantilla,
                     'semestre_real' => $semestre,
+                    // Con el año, Mis cursos agrupa por período (2026-2) y no
+                    // mezcla los primeros semestres de años distintos.
+                    'agno_real' => $curso->agno_real,
                     'total_estudiantes' => $totalEstudiantes,
                     'es_titular_curso' => $esTitular,
                     'userPermissions' => $userPermissions,
