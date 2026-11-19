@@ -21,6 +21,12 @@
    * El estado nunca va sólo en el color: cada marca lleva ícono y el detalle
    * lo dice en palabras.
    *
+   * Cada actividad se numera dentro de su curso por orden de plazo: la marca
+   * del día dice «Act. 02», que cabe en la celda, donde el nombre se cortaba
+   * en «Activida…» (OBS-24). En la vista del semestre el borde de la marca
+   * lleva el color del curso. El nombre completo y el curso van en el detalle
+   * del día y al pasar el mouse.
+   *
    * - Escritorio: grilla del mes (o agenda) y, al lado, el detalle del día
    *   elegido y la leyenda. Las flechas mueven el foco entre días.
    * - Móvil: la grilla compacta con puntos, el detalle del día y, debajo, la
@@ -133,6 +139,23 @@
   const colorDe = (a: Actividad) => `var(--color-dm-c${numeroColorCurso(a.id_curso ?? idCurso, listaMenu)})`;
   const cursoDe = (a: Actividad) => a.asignatura || a.curso || '';
 
+  // «Act. 02»: posición dentro de su curso. Las actividades llegan ordenadas
+  // por plazo (las sin plazo al final), así que el número no cambia entre la
+  // vista del curso y la del semestre.
+  const numeros = $derived.by(() => {
+    const mapa = new Map<number, string>();
+    const porCurso = new Map<number, number>();
+    for (const a of fuente) {
+      if (!a.visible) continue;
+      const curso = a.id_curso ?? idCurso;
+      const n = (porCurso.get(curso) ?? 0) + 1;
+      porCurso.set(curso, n);
+      mapa.set(a.id_actividad, `Act. ${String(n).padStart(2, '0')}`);
+    }
+    return mapa;
+  });
+  const numeroDe = (a: Actividad) => numeros.get(a.id_actividad) ?? '';
+
   // ─── Navegación ─────────────────────────────────────────────────────────────
   const hoy = todayKey();
   const [anioHoy, mesHoy] = hoy.split('-').map(Number);
@@ -212,7 +235,9 @@
     {/if}
     <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
     <span class="text-[13px] leading-[18px] text-dm-ink-2">
-      {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(fechaLimiteTexto(a.fecha_limite))}
+      {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
+        fechaLimiteTexto(a.fecha_limite),
+      )}
     </span>
     <span class="{pildora} {e.marca} self-start"><Icono size={14} aria-hidden="true" />{etiquetaDe(a)}</span>
   </Link>
@@ -356,10 +381,11 @@
                             {@const Icono = e.icono}
                             <span
                               class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-[13px] leading-4 font-semibold {e.marca}"
+                              style={esSemestre ? `border-left-color: ${colorDe(a)}` : undefined}
                               title="{cursoDe(a) ? `${cursoDe(a)} · ` : ''}{a.nombre} · {etiquetaDe(a)}"
                             >
                               <Icono size={12} class="shrink-0" />
-                              <span class="truncate">{esSemestre && a.curso ? `${a.curso} · ${a.nombre}` : a.nombre}</span>
+                              <span class="truncate">{numeroDe(a)}</span>
                             </span>
                           {/each}
                           {#if lista.length > 2}
@@ -416,7 +442,7 @@
                           {/if}
                           <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
                           <span class="text-[13px] leading-[18px] text-dm-ink-2 max-md:hidden">
-                            {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
+                            {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
                               fechaLimiteTexto(a.fecha_limite),
                             )}
                           </span>

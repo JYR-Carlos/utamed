@@ -143,6 +143,7 @@ class ResumenActividadesEstudiante
             ->whereNotNull('fecha_limite')
             ->with('componente.tipoComponente')
             ->orderBy('fecha_limite')
+            ->orderBy('id_actividad')
             ->get();
 
         return $this->paraAlumno($estudiante, $actividades)
@@ -185,6 +186,7 @@ class ResumenActividadesEstudiante
             ->where('visible', true)
             ->with(['componente.tipoComponente', 'unidad'])
             ->orderBy('fecha_limite', 'asc')
+            ->orderBy('id_actividad')
             ->get();
 
         return $this->paraAlumno($estudiante, $actividades);
