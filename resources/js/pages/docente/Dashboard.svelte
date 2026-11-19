@@ -159,8 +159,7 @@
   } as const;
 
   const criticas = $derived(alertasSyllabus.filter((a) => a.estado_syllabus === 'RECHAZADO').length);
-  const alertaPrincipal = $derived(alertasSyllabus[0]);
-  const otrasAlertas = $derived(alertasSyllabus.slice(1));
+  
 
   // Los siete días desde hoy, también los que no tienen fechas límite.
   const DIA = 86_400_000;
@@ -289,56 +288,14 @@
         </div>
       {/if}
 
-      {#if alertaPrincipal}
+      {#if alertasSyllabus.length > 0}
+        <div class={seccionTitulo}>
+                <BookOpen size={20} aria-hidden="true" />
+                <h2 id="t-titular" class="{titulo} m-0 text-[19px] leading-6">Avisos de Syllabus</h2>
+              </div>
         <section aria-labelledby="t-alertas" class="{tarjeta} overflow-hidden">
-          <div
-            class="flex flex-wrap items-center gap-2.5 border-b border-inst-linea px-5 py-3 {criticas > 0
-              ? 'bg-inst-error-s'
-              : 'bg-inst-cabecera'}"
-          >
-            <AlertTriangle size={20} aria-hidden="true" class={criticas > 0 ? 'text-inst-error' : 'text-inst-ink-2'} />
-            <h2 id="t-alertas" class="{titulo} m-0 text-[17px] leading-[22px]">Alertas de syllabus</h2>
-            {#if criticas > 0}
-              <span class="{chip} bg-inst-error text-white dark:text-inst-pagina">
-                {criticas}
-                {criticas === 1 ? 'requiere' : 'requieren'} acción
-              </span>
-            {/if}
-          </div>
-
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-4 border-b border-inst-linea px-5 py-4.5 last:border-b-0">
-            <div class="flex min-w-0 flex-[1_1_420px] flex-col gap-1.5">
-              <span class="flex flex-wrap items-center gap-2">
-                <span class="{chip} {ESTADO_SYLLABUS[alertaPrincipal.estado_syllabus].chip} tracking-[0.04em] uppercase">
-                  {ESTADO_SYLLABUS[alertaPrincipal.estado_syllabus].texto}
-                </span>
-                <span class="text-[13px] font-extrabold text-inst-enlace">
-                  {codigoCurso(alertaPrincipal.id_curso, alertaPrincipal.cod_curso, alertaPrincipal.letra_grupo)}
-                </span>
-              </span>
-              <span class="text-base leading-[22px] font-bold">{alertaPrincipal.nombre}</span>
-              {#if alertaPrincipal.estado_syllabus === 'RECHAZADO' && alertaPrincipal.rechazo}
-                <span class="leading-[21px] text-inst-ink-2">
-                  Razón: «{alertaPrincipal.rechazo.razon}»{#if alertaPrincipal.rechazo.por}
-                    — {alertaPrincipal.rechazo.por}{#if alertaPrincipal.rechazo.fecha}, {alertaPrincipal.rechazo.fecha}{/if}{/if}
-                </span>
-              {:else if alertaPrincipal.estado_syllabus === 'BORRADOR'}
-                <span class="text-inst-ink-2">Aún no se ha enviado a revisión.</span>
-              {:else}
-                <span class="text-inst-ink-2">En manos de la jefatura de carrera · no requiere acción tuya.</span>
-              {/if}
-            </div>
-            {#if alertaPrincipal.estado_syllabus !== 'EN_REVISION'}
-              <!-- Directo al asistente: BORRADOR y RECHAZADO (borrador + razón) se editan ahí. -->
-              <Link href="/docente/cursos/{alertaPrincipal.id_curso}/programa/editar" class={btnPrimario}>
-                {alertaPrincipal.estado_syllabus === 'RECHAZADO' ? 'Corregir syllabus' : 'Continuar redacción'}
-              </Link>
-            {/if}
-          </div>
-
-          {#if otrasAlertas.length > 0}
             <ul class="m-0 list-none px-5 py-0">
-              {#each otrasAlertas as alerta (alerta.id_curso)}
+              {#each alertasSyllabus as alerta (alerta.id_curso)}
                 <li class="flex min-h-13 flex-wrap items-center gap-x-4 gap-y-2 border-b border-inst-linea py-2 last:border-b-0">
                   <span class="{chip} {ESTADO_SYLLABUS[alerta.estado_syllabus].chip} w-26 justify-center uppercase">
                     {ESTADO_SYLLABUS[alerta.estado_syllabus].texto}
@@ -353,7 +310,7 @@
                     {:else if alerta.estado_syllabus === 'BORRADOR'}
                       Aún no se ha enviado a revisión.
                     {:else}
-                      En manos de la jefatura de carrera · no requiere acción tuya.
+                      En revisión.
                     {/if}
                   </span>
                   {#if alerta.estado_syllabus !== 'EN_REVISION'}
@@ -367,7 +324,6 @@
                 </li>
               {/each}
             </ul>
-          {/if}
         </section>
       {/if}
 
@@ -412,7 +368,6 @@
               <div class={seccionTitulo}>
                 <BookOpen size={20} aria-hidden="true" />
                 <h2 id="t-componente" class="{titulo} m-0 text-[19px] leading-6">Cursos donde imparto un componente</h2>
-                <span class="{chip} {tono.off}">{componentes.length}</span>
               </div>
               <div class="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
                 {#each componentes as comp (comp.id_componente)}

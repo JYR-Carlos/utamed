@@ -147,7 +147,7 @@
 </script>
 
 {#snippet accion(curso: CursoCentro<ComponenteCalif>, a: ActividadCalif)}
-  {#if !a.tiene_grupos}
+  {#if a.es_grupal && !a.tiene_grupos}
     <span class="{chip} {tono.warn}">Sin grupos asignados</span>
   {:else if pendientes(a) > 0}
     <Link href={evaluar(curso, a)} class="{btnPrimario} {chico}" aria-label="{esSumativa(a) ? 'Calificar' : 'Revisar'} {a.nombre}">

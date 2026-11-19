@@ -250,7 +250,7 @@
     idActividad={agendaDe.id_actividad}
     idGrupo={agendaDe.grupo}
     nombre={e.nombre}
-    pieCerrar="Al cerrar vuelves a la ficha del estudiante."
+    pieCerrar=""
     onCerrar={() => {
       agendaDe = null;
       cargar();

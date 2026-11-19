@@ -17,6 +17,7 @@
    * El docente de componente ve sólo lo suyo (`mis_componentes_ids`); donde no
    * hay permiso la acción no se dibuja.
    */
+  import { slide } from 'svelte/transition';
   import { page, router } from '@inertiajs/svelte';
   import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import {
@@ -489,7 +490,7 @@
     {:else if vista === 'lista'}
       <div class={tarjeta}>
         <div class="hidden border-b border-inst-linea bg-inst-sutil px-4.5 py-2.5 text-xs font-extrabold tracking-[0.06em] text-inst-ink-3 uppercase {GRID}" aria-hidden="true">
-          <span>Actividad</span><span>Estado</span><span>Cierre</span><span>Entregas</span><span>Nota</span><span></span>
+          <span>Actividad</span><span>Estado</span><span>Cierre</span><span>Entregas</span><span>Acciones</span><span></span>
         </div>
         <ul class="m-0 list-none p-0">
           {#each filtradas as a (a.id_actividad)}
@@ -523,7 +524,7 @@
                     aria-controls="det-{a.id_actividad}"
                     onclick={() => alternar(a)}
                   >
-                    <MessageSquare size={16} aria-hidden="true" />Agenda
+                    <Eye size={16} aria-hidden="true" />Ver
                     {#if (a.mensajes_pendientes ?? 0) > 0}
                       <span class="rounded-full px-1.5 text-xs font-extrabold {abierta ? 'bg-inst-tarjeta text-inst-accion-t' : 'bg-inst-accion text-inst-sobre-accion'}" aria-label="{a.mensajes_pendientes} por responder">{a.mensajes_pendientes}</span>
                     {/if}
@@ -535,6 +536,7 @@
               {#if abierta && actividad}
                 <div
                   id="det-{a.id_actividad}"
+                  transition:slide={{ duration: 250 }}
                   class="flex flex-col gap-3.5 border-t border-inst-linea bg-inst-sel px-4.5 pt-4 pb-5 shadow-[inset_4px_0_0_var(--color-inst-oro)]"
                 >
                   {#key actividad.id_actividad}

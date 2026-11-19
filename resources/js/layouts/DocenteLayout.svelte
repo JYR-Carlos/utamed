@@ -86,15 +86,7 @@
             </div>
 
             <footer class="mt-auto shrink-0 border-t border-inst-linea bg-inst-tarjeta">
-                <div aria-hidden="true" class="grid h-1.5 grid-cols-3">
-                    <span class="bg-uta-marino"></span>
-                    <span class="bg-uta-celeste"></span>
-                    <span class="bg-uta-oro"></span>
-                </div>
-                <div class="flex flex-wrap justify-between gap-2 px-6 py-3 text-[13px] text-inst-ink-3">
-                    <span>Universidad de Tarapacá · Arica, Chile</span>
-                    <span>UTAMED · Plataforma académica</span>
-                </div>
+                
             </footer>
         </main>
     </div>
