@@ -11,8 +11,8 @@
    *   «Entregada · en revisión» (ámbar), «Sin entrega» (rojo) o «Por
    *   entregar».
    *
-   * La retroalimentación va aquí sólo cuando no hay rúbrica evaluada donde
-   * leerla.
+   * La retroalimentación no va aquí: en la columna angosta se leía como letra
+   * chica; la página la muestra ancha bajo el enunciado (OBS-39).
    */
   import { ChevronRight, CircleAlert, CircleCheck, Clock } from 'lucide-svelte';
   import { btnSuave, etiqueta, pildora, tono } from '@/lib/dm';
@@ -38,7 +38,6 @@
     puntajeTotal?: number;
     /** Resultado cualitativo de una formativa («Bueno»). */
     resultado?: string | null;
-    retroalimentacion?: string | null;
     /** «Ver cómo te evaluaron»: lleva a la pestaña Rúbrica. */
     onVerRubrica?: () => void;
   }
@@ -58,7 +57,6 @@
     puntaje = null,
     puntajeTotal = 0,
     resultado = null,
-    retroalimentacion = null,
     onVerRubrica,
   }: Props = $props();
 
@@ -145,14 +143,6 @@
   {/if}
   {#if evaluada && detalleAjuste}
     <span class="text-sm leading-5 text-dm-ink-2">{detalleAjuste}</span>
-  {/if}
-  {#if evaluada && retroalimentacion}
-    <blockquote class="m-0 rounded-r-[10px] border-l-4 border-dm-amarillo bg-dm-sutil px-3.5 py-3">
-      <span class="{etiqueta} mb-1 block text-dm-ink-3">Retroalimentación</span>
-      <p class="text-[15px] leading-[22px] break-words whitespace-pre-line text-dm-ink">{retroalimentacion}</p>
-    </blockquote>
-  {:else if evaluada && !esSumativa && !onVerRubrica}
-    <p class="text-sm leading-5 text-dm-ink-2">Tu docente no dejó comentarios escritos.</p>
   {/if}
   {#if evaluada && onVerRubrica}
     <button type="button" class={btnSuave} onclick={onVerRubrica}>

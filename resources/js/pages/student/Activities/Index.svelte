@@ -532,6 +532,28 @@
   </div>
 {/snippet}
 
+<!--
+  Retroalimentación, ancha y en tamaño de lectura: en la columna lateral se
+  perdía (OBS-39). En escritorio va bajo el enunciado; en el móvil, bajo la
+  nota en la pestaña Entrega, que es la que abre una actividad calificada.
+-->
+{#snippet comentarioDocente()}
+  {#if calificada && (retroalimentacion || !es_sumativa)}
+    <section aria-labelledby="t-retroalimentacion" class="flex flex-col gap-3">
+      <h2 id="t-retroalimentacion" class="text-xl leading-7 font-bold lg:text-[22px]">Retroalimentación de tu docente</h2>
+      {#if retroalimentacion}
+        <blockquote class="m-0 rounded-r-xl border-l-4 border-dm-amarillo bg-dm-sutil px-4 py-3.5 lg:px-5 lg:py-4">
+          <p class="text-base leading-6 break-words whitespace-pre-line text-dm-ink">{retroalimentacion}</p>
+        </blockquote>
+      {:else}
+        <p class="text-[15px] leading-[22px] text-dm-ink-2">
+          Tu docente no dejó comentarios escritos{rubricaEvaluada ? '; el detalle está en la rúbrica evaluada' : ''}.
+        </p>
+      {/if}
+    </section>
+  {/if}
+{/snippet}
+
 <!-- Columna derecha en escritorio; pestaña Entrega en el móvil. -->
 {#snippet lateral()}
   <!-- Una sola tarjeta: la nota o el estado arriba y en grande, la entrega debajo (OBS-38, OBS-43). -->
@@ -551,7 +573,6 @@
       puntaje={puntajeEvaluacion}
       puntajeTotal={puntajeTotal(rubricaDeLaEvaluacion)}
       resultado={es_sumativa ? null : ultima_evaluacion?.evaluacion_obtenida ? String(ultima_evaluacion.evaluacion_obtenida) : null}
-      retroalimentacion={rubricaEvaluada ? null : retroalimentacion}
       onVerRubrica={rubricaEvaluada && seccion !== 'rubrica' ? () => irA('rubrica') : undefined}
     />
 
@@ -574,6 +595,7 @@
     />
     {/if}
   </section>
+  {#if !escritorio.current}{@render comentarioDocente()}{/if}
 
   {#if es_grupal && !sinGrupo}
     <section aria-labelledby="t-grupo" class="{tarjeta} overflow-hidden">
@@ -703,6 +725,7 @@
                 <p class="text-[15px] leading-[22px] text-dm-ink-2">Tu docente todavía no adjunta el enunciado de esta actividad.</p>
               {/if}
             </section>
+            {#if escritorio.current}{@render comentarioDocente()}{/if}
             {#if pestanas.some((p) => p.id === 'rubrica')}
               <!-- La rúbrica se mira antes de hacer el trabajo, no como paso siguiente (OBS-42). -->
               {@render paso(
