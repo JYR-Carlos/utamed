@@ -552,6 +552,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::get('cursos/{curso}/estudiantes/{idEstudiante}/mensajes', [DocenteActivityController::class, 'mensajesEstudiante'])->name('cursos.estudiantes.mensajes');
     // Nivel 2: hilo de un grupo específico de una actividad
     Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/mensajes', [DocenteActivityController::class, 'mensajesGrupo'])->name('cursos.actividades.grupos.mensajes');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/agenda', [DocenteActivityController::class, 'agendaGrupo'])->name('cursos.actividades.grupos.agenda');
     // Docente envía feedback a un grupo
     Route::post('cursos/{curso}/grupos/{grupo}/feedback', [DocenteActivityController::class, 'enviarFeedback'])->name('cursos.grupos.feedback');
     // 1. Autor: Juan Y.

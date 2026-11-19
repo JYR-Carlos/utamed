@@ -41,7 +41,13 @@
     errors?: Record<string, string>;
     onClose?: () => void;
     /** Recibe el formulario ya validado en cliente. */
-    onSubmit?: (data: Partial<Actividad>) => void;
+    /**
+     * Recibe el formulario ya validado en cliente y, si se eligió, el archivo
+     * del enunciado (revisión «Mi UTAmed»: se sube desde el mismo formulario).
+     */
+    onSubmit?: (data: Partial<Actividad>, enunciado: File | null) => void;
+    /** Extensiones y tamaño máximo del enunciado; sin ellas el campo no se dibuja. */
+    reglasEnunciado?: { extensiones_pdf: string[]; extensiones_img: string[]; max_mb_pdf: number; max_mb_imagen: number } | null;
   }
 
   let {
@@ -53,7 +59,38 @@
     errors = {},
     onClose = () => {},
     onSubmit = () => {},
+    reglasEnunciado = null,
   }: Props = $props();
+
+  // ── Enunciado ──────────────────────────────────────────────────────────────
+  let enunciado = $state<File | null>(null);
+  let errorEnunciado = $state<string | null>(null);
+  const aceptaEnunciado = $derived(
+    reglasEnunciado ? [...reglasEnunciado.extensiones_pdf, ...reglasEnunciado.extensiones_img].map((e) => '.' + e).join(',') : '',
+  );
+
+  $effect(() => {
+    if (isOpen) {
+      enunciado = null;
+      errorEnunciado = null;
+    }
+  });
+
+  function elegirEnunciado(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    errorEnunciado = null;
+    if (!file || !reglasEnunciado) return (enunciado = null);
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const esPdf = reglasEnunciado.extensiones_pdf.includes(ext);
+    const esImg = reglasEnunciado.extensiones_img.includes(ext);
+    const maxMb = esPdf ? reglasEnunciado.max_mb_pdf : reglasEnunciado.max_mb_imagen;
+    if (!esPdf && !esImg) errorEnunciado = 'El enunciado debe ser un PDF o una imagen.';
+    else if (file.size > maxMb * 1048576) errorEnunciado = `El archivo supera el límite de ${maxMb} MB.`;
+    else if (file.size === 0) errorEnunciado = 'El archivo está vacío.';
+    enunciado = errorEnunciado ? null : file;
+    if (errorEnunciado) input.value = '';
+  }
 
   /**
    * Opciones del select, siempre en el orden Cátedra > Taller > Laboratorio.
@@ -155,7 +192,7 @@
       clientErrors = errs;
       return;
     }
-    onSubmit(formData);
+    onSubmit(formData, enunciado);
   }
 
   /** Clases base de los campos; el color del borde lo decide cada campo según error. */
@@ -401,4 +438,26 @@
       Visible para estudiantes
     </Label>
   </div>
+
+  {#if reglasEnunciado}
+    <div class="mb-1">
+      <label for="enunciado" class="block font-medium text-gray-700 mb-2 text-sm">Enunciado</label>
+      {#if editingActividad?.archivo_enunciado && !enunciado}
+        <p class="mb-2 text-sm text-gray-700">
+          Actual: <span class="font-semibold">{editingActividad.archivo_enunciado.nombre_original}</span>. Elige otro archivo para reemplazarlo.
+        </p>
+      {/if}
+      <input
+        id="enunciado"
+        type="file"
+        accept={aceptaEnunciado}
+        onchange={elegirEnunciado}
+        class="{inputClass} border-dashed border-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold"
+      />
+      <p class="mt-1 text-xs text-gray-600">
+        PDF hasta {reglasEnunciado.max_mb_pdf} MB o imagen hasta {reglasEnunciado.max_mb_imagen} MB. Se sube al guardar la actividad.
+      </p>
+      {#if errorEnunciado}<p class="mt-1 text-xs text-red-600">{errorEnunciado}</p>{/if}
+    </div>
+  {/if}
 </FormModal>

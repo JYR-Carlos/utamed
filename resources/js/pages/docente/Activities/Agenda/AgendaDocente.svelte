@@ -1,92 +1,125 @@
+<script lang="ts" module>
+  export type IntegranteAgenda = {
+    id_asignado_actividad: number;
+    nombre_completo: string;
+    diferencia_decimas: number | null;
+  };
+
+  /** Lo que la agenda pide guardar; el padre hace las peticiones. */
+  export type EnvioAgenda = {
+    tipo: 'Feedback' | 'Evaluación';
+    mensaje: string;
+    nota?: number;
+    /** Resultado cualitativo con el que cierra una formativa. */
+    evaluacion_obtenida?: string | null;
+    resultado_rubrica?: Record<string, string>;
+    puntaje_obtenido?: number;
+    /** Sumativa grupal: décimas de cada integrante y la retroalimentación que las explica. */
+    decimas?: Array<{ id_asignado_actividad: number; nombre: string; decimas: number; retro: string }>;
+  };
+</script>
+
 <script lang="ts">
   /**
-   * AgendaDocente.svelte
+   * Agenda del estudiante (perspectiva docente), revisión «Mi UTAmed».
    *
-   * Modal de "Agenda del Grupo" del docente: muestra el historial de
-   * interacciones (mensajes, feedback y evaluaciones) de un grupo en una
-   * actividad y permite al docente enviar nuevas interacciones. En modo
-   * "Evaluación" despliega la rúbrica de la actividad (panel lateral en
-   * escritorio, overlay a pantalla completa en móvil); al seleccionar un nivel
-   * por criterio calcula automáticamente la nota chilena (1–7) vía
-   * `@/lib/notas`, que el docente puede ajustar manualmente.
+   * Título con el nombre y su avatar; subtítulo curso · actividad · tipo. A la
+   * izquierda el estado (No entregó → Por revisar/calificar → Revisado/
+   * Calificado) y la conversación; a la derecha «Escribir» y «Evaluar».
    *
-   * Props:
-   * - onCerrar: cierra el modal.
-   * - onInteraccionEnviada: callback con los datos de la interacción a enviar
-   *   ({ tipo, mensaje, nota?, resultado_rubrica?,
-   *   puntaje_obtenido? }); el componente padre se encarga de persistirla.
-   * - cod_curso, nombre_actividad, nombre_grupo: textos del encabezado.
-   * - idCurso, idActividad, idGrupo: arman la URL para ver/descargar entregas.
-   * - listado_interacciones: historial a renderizar.
-   * - isLoading, errorMensaje: estado de carga/error del historial.
-   * - rubricaActividad: rúbrica de la actividad (null si no existe).
+   * En una sumativa la matriz de evaluación está dentro de «Evaluar»: se elige
+   * un nivel por criterio, la nota se calcula y en las grupales se replica a
+   * los integrantes, con la opción de diferenciarla por décimas. Cada
+   * integrante con décimas exige una retroalimentación que se publica en la
+   * agenda al grabar. En una formativa se califica con Bueno, Regular o Malo.
    */
+  import { router } from '@inertiajs/svelte';
+  import { Check, ChevronRight, ClipboardCheck, Info, MessageSquare, Pencil, Save, Send, X } from 'lucide-svelte';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
   import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
-  import { router } from '@inertiajs/svelte';
   import { calcularNotaChilena } from '@/lib/notas';
-  import { formatFechaHora, formatNota } from '@/utils/formatters';
-  import { X, Send } from 'lucide-svelte';
+  import { formatNota } from '@/utils/formatters';
+  import {
+    aviso,
+    avisoTono,
+    btnFantasma,
+    btnPrimario,
+    btnSecundario,
+    campo,
+    chico,
+    chip,
+    etiqueta,
+    tarjeta,
+    titulo as claseTitulo,
+    tono,
+  } from '@/lib/inst';
+  import { iniciales, textosEntrega, type EstadoEntrega } from '@/lib/estadoEntrega';
 
   interface Props {
-    onCerrar: () => void;
-    onInteraccionEnviada: (data: {
-      tipo: string;
-      mensaje: string;
-      nota?: number;
-      /** Resultado cualitativo con el que cierra una actividad formativa. */
-      evaluacion_obtenida?: string | null;
-      resultado_rubrica?: Record<string, string>;
-      puntaje_obtenido?: number;
-    }) => void;
-    cod_curso: string;
-    nombre_actividad: string;
-    nombre_grupo: string;
-    idCurso: number;
-    idActividad: number;
+    /** Estudiante (o grupo) dueño de la agenda. */
+    nombre: string;
+    /** Curso · actividad · tipo (· grupo). */
+    subtitulo: string;
+    estado: EstadoEntrega;
+    esSumativa: boolean;
+    esGrupal: boolean;
+    /** Rótulo del grupo en las grupales («Grupo 2»). */
+    nombreGrupo?: string;
+    integrantes?: IntegranteAgenda[];
+    notaActual?: number | null;
+    rubrica?: Rubrica | null;
     idGrupo: number;
+    urlEntrega: (idAgenda: number, ver?: boolean) => string;
     listado_interacciones: InteraccionItem[];
     isLoading?: boolean;
     errorMensaje?: string | null;
-    rubricaActividad?: Rubrica | null;
-    /**
-     * Sumativa → la evaluación cierra con nota. Formativa → con la escala
-     * cualitativa de la rúbrica. Lo decide la actividad; llega del padre.
-     */
-    esSumativa?: boolean;
-    /** En una individual el «grupo» es el registro de un estudiante: se titula con él, no como grupo. */
-    esGrupal?: boolean;
+    pestanaInicial?: 'escribir' | 'evaluar';
+    /** A dónde vuelve el docente al cerrar. */
+    pieCerrar: string;
+    guardando?: boolean;
+    onEnviar: (data: EnvioAgenda) => void;
+    onCerrar: () => void;
+    onCrearRubrica?: () => void;
   }
 
   let {
-    onCerrar,
-    onInteraccionEnviada,
-    cod_curso,
-    nombre_actividad,
-    nombre_grupo,
-    idCurso,
-    idActividad,
+    nombre,
+    subtitulo,
+    estado,
+    esSumativa,
+    esGrupal,
+    nombreGrupo = '',
+    integrantes = [],
+    notaActual = null,
+    rubrica = null,
     idGrupo,
+    urlEntrega,
     listado_interacciones,
     isLoading = false,
-    esGrupal = true,
     errorMensaje = null,
-    rubricaActividad = null,
-    esSumativa = true,
+    pestanaInicial = 'escribir',
+    pieCerrar,
+    guardando = false,
+    onEnviar,
+    onCerrar,
+    onCrearRubrica,
   }: Props = $props();
 
-  // ── Estado del formulario ────────────────────────────────────────────────────
-  let nuevoMensaje = $state('');
-  let tipoSeleccionado = $state('Feedback');
-  let notaEvaluacion = $state<number | null>(null);
-  let notaManualOverride = $state(false);
-  let opinionFormativa = $state<'Bueno' | 'Regular' | 'Malo' | null>(null);
+  const corto = $derived(nombre.split(/\s+/)[0] ?? nombre);
+  const textos = $derived(textosEntrega(esSumativa));
+  const pasos = $derived(
+    (['no', 'pend', 'ok'] as EstadoEntrega[]).map((e, i, xs) => ({
+      texto: textos[e],
+      hecho: xs.indexOf(estado) > i || estado === 'ok',
+      actual: e === estado,
+    })),
+  );
 
+  // Mensajes nuevos y «Visto por» sin recargar la pantalla.
   $effect(() => {
     if (!idGrupo) return;
-    // Polling cada 3 segundos para refrescar nuevos mensajes y confirmaciones de lectura («Visto por»)
     const poll = router.poll(3000, {
       only: ['interaccionesGrupo'],
       data: { grupo_id: idGrupo },
@@ -94,466 +127,456 @@
       replace: true,
       showProgress: false,
     });
-    return () => {
-      poll.stop();
-    };
+    return () => poll.stop();
   });
 
-  // Panel derecho de detalle de evaluación pasada
-  type PanelDetalle = {
-    rubrica: Rubrica;
-    puntaje_obtenido?: number;
-    retroalimentacion?: string;
-    resultado?: Record<string, string> | null;
-  };
-  let panelDetalle = $state<PanelDetalle | null>(null);
+  // ── Pestañas ───────────────────────────────────────────────────────────────
+  let pestana = $state<'escribir' | 'evaluar'>('escribir');
+  $effect.pre(() => {
+    pestana = pestanaInicial;
+  });
 
-  // Slideover de rúbrica en modo Evaluación
-  let mostrarSlideoverEvaluacion = $state(false);
+  // ── Escribir ───────────────────────────────────────────────────────────────
+  let mensaje = $state('');
 
-  // Selección de celdas de rúbrica: id_nivel → id_escala
-  let seleccionRubrica = $state<Record<string, string>>({});
+  function enviarMensaje() {
+    if (!mensaje.trim()) return;
+    onEnviar({ tipo: 'Feedback', mensaje: mensaje.trim() });
+    mensaje = '';
+  }
 
-  // ── Derivados de rúbrica ─────────────────────────────────────────────────────
+  // ── Evaluar · formativa ────────────────────────────────────────────────────
+  type Opinion = 'Bueno' | 'Regular' | 'Malo';
+  let opinion = $state<Opinion | null>(null);
+  let retroFormativa = $state('');
 
-  const puntajeRubrica = $derived(
-    rubricaActividad?.niveles?.reduce((acc, nivel) => {
-      const escalaId = seleccionRubrica[nivel.id];
-      if (!escalaId) return acc;
-      const escala = nivel.escalas.find((e) => e.id === escalaId);
-      return acc + (escala ? escala.puntos : 0);
+  function guardarFormativa() {
+    if (!opinion || !retroFormativa.trim()) return;
+    onEnviar({ tipo: 'Evaluación', mensaje: retroFormativa.trim(), evaluacion_obtenida: opinion });
+    opinion = null;
+    retroFormativa = '';
+  }
+
+  // ── Evaluar · sumativa con la matriz ───────────────────────────────────────
+  let seleccion = $state<Record<string, string>>({});
+  let notaManual = $state<number | null>(null);
+  let retroSumativa = $state('');
+
+  const puntaje = $derived(
+    rubrica?.niveles?.reduce((acc, n) => {
+      const e = n.escalas.find((x) => x.id === seleccion[n.id]);
+      return acc + (e ? e.puntos : 0);
     }, 0) ?? 0,
   );
-
   const puntajeMaximo = $derived(
-    rubricaActividad?.detalles_evaluacion?.puntaje_total ??
-      rubricaActividad?.niveles?.reduce((acc, n) => acc + n.puntaje_total, 0) ??
-      0,
+    rubrica?.detalles_evaluacion?.puntaje_total ?? rubrica?.niveles?.reduce((a, n) => a + n.puntaje_total, 0) ?? 0,
   );
-
-
-
-  const criteriosEvaluados = $derived(
-    rubricaActividad?.niveles?.filter((n) => !!seleccionRubrica[n.id]).length ?? 0,
+  const totalCriterios = $derived(rubrica?.niveles?.length ?? 0);
+  const criteriosElegidos = $derived(rubrica?.niveles?.filter((n) => !!seleccion[n.id]).length ?? 0);
+  const matrizCompleta = $derived(totalCriterios > 0 && criteriosElegidos === totalCriterios);
+  const notaMatriz = $derived(
+    matrizCompleta && puntajeMaximo > 0 ? calcularNotaChilena(puntaje, puntajeMaximo) : null,
   );
-  const totalCriterios = $derived(rubricaActividad?.niveles?.length ?? 0);
-  const todosEvaluados = $derived(totalCriterios > 0 && criteriosEvaluados === totalCriterios);
+  const nota = $derived(notaManual ?? notaMatriz);
 
-  const notaCalculada = $derived(
-    esSumativa && todosEvaluados && puntajeMaximo > 0
-      ? calcularNotaChilena(puntajeRubrica, puntajeMaximo)
-      : null,
-  );
+  // Décimas por integrante: en décimas enteras (−5 = −0,5 de nota).
+  let diferenciar = $state(false);
+  let decimas = $state<Record<number, number>>({});
+  let retros = $state<Record<number, string>>({});
+  let precargado = false;
 
-  /**
-   * Resultado cualitativo con el que cierra una formativa, leído de la escala
-   * de la rúbrica. Es el equivalente de `notaCalculada` para ese caso: sin él,
-   * evaluar una formativa desde la agenda quedaría sin nada que enviar, porque
-   * el servidor rechaza la nota numérica.
-   */
-  const evaluacionCualitativa = $derived(
-    (() => {
-      const escala = rubricaActividad?.detalles_evaluacion?.escala_evaluacion;
-      if (esSumativa || !escala?.length || !todosEvaluados) return null;
-      const ordenada = [...escala].sort((a, b) => b.puntaje_minimo - a.puntaje_minimo);
-      return ordenada.find((e) => puntajeRubrica >= e.puntaje_minimo)?.evaluacion ?? null;
-    })(),
-  );
-
-  /** Qué falta para poder enviar una evaluación, según el tipo de actividad. */
-  const resultadoListo = $derived(
-    esSumativa ? notaEvaluacion !== null : opinionFormativa !== null && nuevoMensaje.trim() !== '',
-  );
-
-  // Auto-poblar nota cuando se completa la rúbrica
-  $effect(() => {
-    if (notaCalculada !== null && !notaManualOverride) {
-      notaEvaluacion = notaCalculada;
+  $effect.pre(() => {
+    if (precargado) return;
+    precargado = true;
+    for (const i of integrantes) {
+      const d = Math.round((i.diferencia_decimas ?? 0) * 10);
+      decimas[i.id_asignado_actividad] = d;
+      if (d !== 0) diferenciar = true;
     }
   });
 
-  // ── Derivados de UI ──────────────────────────────────────────────────────────
+  const notaDe = (d: number) => (nota === null ? null : Math.min(7, Math.max(1, Math.round((nota + d / 10) * 10) / 10)));
+  const fmtDecimas = (d: number) => (d > 0 ? `+${d}` : d < 0 ? `−${Math.abs(d)}` : '0');
 
-  const tiposInteraccion = ['Feedback', 'Evaluación'];
-  const esEvaluacion = $derived(tipoSeleccionado === 'Evaluación');
-
-  function urlEntrega(idAgenda: number, ver = false): string {
-    const url = `/docente/cursos/${idCurso}/actividades/${idActividad}/grupos/${idGrupo}/entregas/${idAgenda}/descargar`;
-    return ver ? `${url}?ver=1` : url;
+  function moverDecimas(id: number, delta: number) {
+    decimas[id] = Math.max(-99, Math.min(99, (decimas[id] ?? 0) + delta));
   }
 
-  // ── Acciones ─────────────────────────────────────────────────────────────────
+  const faltaRetro = $derived(
+    diferenciar && integrantes.some((i) => (decimas[i.id_asignado_actividad] ?? 0) !== 0 && !retros[i.id_asignado_actividad]?.trim()),
+  );
+  const puedeGrabar = $derived(!!rubrica && matrizCompleta && nota !== null && !faltaRetro && !guardando);
 
-  function seleccionarEscala(nivelId: string, escalaId: string) {
-    seleccionRubrica[nivelId] = escalaId;
-    notaManualOverride = false;
-  }
-
-  function manejarEnvio() {
-    if (!esEvaluacion && nuevoMensaje.trim() === '') return;
-    if (esEvaluacion && !resultadoListo) return;
-
-    const data: Parameters<Props['onInteraccionEnviada']>[0] = {
-      tipo: tipoSeleccionado,
-      mensaje: nuevoMensaje,
+  function grabarRubrica() {
+    if (!puedeGrabar || nota === null) return;
+    const data: EnvioAgenda = {
+      tipo: 'Evaluación',
+      mensaje: retroSumativa.trim(),
+      nota,
+      resultado_rubrica: { ...seleccion },
+      puntaje_obtenido: puntaje,
     };
-
-    if (esEvaluacion) {
-      // Uno u otro, nunca los dos: es la misma regla que aplica el servidor.
-      if (esSumativa) {
-        if (notaEvaluacion !== null) data.nota = notaEvaluacion;
-        if (rubricaActividad) {
-          data.resultado_rubrica = { ...seleccionRubrica };
-          data.puntaje_obtenido = puntajeRubrica;
-        }
-      } else {
-        data.evaluacion_obtenida = opinionFormativa;
-      }
+    if (esGrupal && integrantes.length > 0) {
+      data.decimas = integrantes.map((i) => ({
+        id_asignado_actividad: i.id_asignado_actividad,
+        nombre: i.nombre_completo,
+        decimas: diferenciar ? (decimas[i.id_asignado_actividad] ?? 0) : 0,
+        retro: diferenciar ? (retros[i.id_asignado_actividad] ?? '').trim() : '',
+      }));
     }
-
-    onInteraccionEnviada(data);
-
-    nuevoMensaje = '';
-    notaEvaluacion = null;
-    opinionFormativa = null;
-    seleccionRubrica = {};
-    notaManualOverride = false;
-    tipoSeleccionado = tiposInteraccion[0];
-    mostrarSlideoverEvaluacion = false;
+    onEnviar(data);
+    seleccion = {};
+    notaManual = null;
+    retroSumativa = '';
+    retros = {};
   }
 
-  function cambiarTipo(tipo: string) {
-    tipoSeleccionado = tipo;
-    if (tipo === 'Evaluación') {
-      if (esSumativa && rubricaActividad) {
-        mostrarSlideoverEvaluacion = true;
-      }
-    } else {
-      mostrarSlideoverEvaluacion = false;
-      panelDetalle = null;
-    }
-  }
+  // ── Detalle de una evaluación anterior (desde el hilo) ─────────────────────
+  type Detalle = { rubrica: Rubrica; puntaje_obtenido?: number; retroalimentacion?: string; resultado?: Record<string, string> | null };
+  let detalle = $state<Detalle | null>(null);
+
+  const BTN_TAB =
+    'inline-flex min-h-11 cursor-pointer items-center gap-2 border-0 border-b-[3px] bg-transparent px-1 text-sm font-bold lg:min-h-12';
 </script>
 
-<!-- ─────────────────────────────────────────────────────────────────────────── -->
-<!-- Modal principal                                                            -->
-<!-- ─────────────────────────────────────────────────────────────────────────── -->
 <svelte:window
   onkeydown={(e) => {
-    if (e.key === 'Escape') {
-      if (mostrarSlideoverEvaluacion) {
-        mostrarSlideoverEvaluacion = false;
-        e.stopPropagation();
-      } else if (panelDetalle) {
-        panelDetalle = null;
-        e.stopPropagation();
-      }
-    }
+    if (e.key !== 'Escape') return;
+    if (detalle) detalle = null;
+    else onCerrar();
   }}
 />
 
-<div class="w-[96%] sm:w-[94%] lg:w-[92%] 2xl:w-[90%] max-w-[1440px] h-[90vh] flex rounded-2xl bg-white shadow-2xl overflow-hidden relative">
-
-  <!-- ── Panel principal: historial + formulario ───────────────────────────── -->
-  <div class="flex min-w-0 flex-1 flex-col h-full relative overflow-hidden border-r border-gray-200">
-
-    <!-- Cabecera idéntica a estudiante -->
-    <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3.5 bg-white z-10">
-      <div class="flex min-w-0 flex-col">
-        <span class="text-[15px] font-semibold text-ink">{esGrupal ? 'Agenda del grupo' : 'Agenda del estudiante'}</span>
-        <span class="truncate text-xs text-ink-2">{cod_curso} · {nombre_actividad} · {nombre_grupo}</span>
-      </div>
-      <button
-        class="rounded-full p-1.5 text-ink-2 transition-colors hover:bg-slate-50 cursor-pointer"
-        onclick={onCerrar}
-        aria-label="Cerrar agenda"
+<div
+  class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-inst-velo p-2 sm:items-center sm:p-4"
+  role="presentation"
+  onclick={(e) => e.target === e.currentTarget && onCerrar()}
+>
+  <div
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="t-agenda-docente"
+    class="relative flex w-full flex-col overflow-hidden rounded-lg border border-inst-linea bg-inst-tarjeta text-inst-ink shadow-[0_18px_48px_rgba(16,24,40,.28)] lg:h-[min(92dvh,900px)] {esSumativa
+      ? 'max-w-[1360px]'
+      : 'max-w-[1100px]'}"
+  >
+    <!-- Cabecera: nombre con avatar; curso · actividad · tipo -->
+    <div class="flex items-center gap-3.5 border-b border-inst-linea px-5 py-4">
+      <span
+        aria-hidden="true"
+        class="flex size-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#678FCA] to-[#303880] text-lg font-extrabold text-white shadow-[0_0_0_3px_var(--color-inst-tarjeta),0_0_0_4px_var(--color-inst-linea)]"
       >
-        <X class="h-5 w-5" />
+        {iniciales(nombre)}
+      </span>
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h2 id="t-agenda-docente" class="{claseTitulo} m-0 text-[21px] leading-[26px] break-words">
+          {`Agenda del estudiante · ${nombre}`}
+        </h2>
+        <span class="text-inst-ink-2">{subtitulo}</span>
+      </div>
+      <button type="button" class="{btnFantasma} size-11 shrink-0 px-0! lg:size-10" aria-label="Cerrar la agenda" onclick={onCerrar}>
+        <X size={20} aria-hidden="true" />
       </button>
     </div>
 
-    <!-- Hilo conversacional compartido (edge-to-edge) -->
-    <AgendaHilo
-      {listado_interacciones}
-      esDocente={true}
-      urlDescargaEntrega={urlEntrega}
-      onVerRubrica={(detalle) => {
-        const rub = detalle.rubrica ?? rubricaActividad;
-        panelDetalle = rub ? {
-          rubrica: rub,
-          puntaje_obtenido: detalle.puntaje_obtenido ?? undefined,
-          retroalimentacion: detalle.retroalimentacion,
-          resultado: detalle.resultado,
-        } : null;
-      }}
-      {isLoading}
-      {errorMensaje}
-    />
+    <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <!-- Conversación -->
+      <section
+        aria-label="Conversación"
+        class="flex min-h-[420px] min-w-0 flex-col gap-4 bg-inst-pagina px-5 py-5 lg:min-h-0 {esSumativa
+          ? 'lg:w-[360px] lg:shrink-0'
+          : 'lg:flex-1'}"
+      >
+        <div class="flex flex-wrap items-center gap-2">
+          <span class={etiqueta}>Estado</span>
+          {#each pasos as p, i (p.texto)}
+            {#if i > 0}<ChevronRight size={14} class="text-inst-ink-3" aria-hidden="true" />{/if}
+            <span
+              class="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[13px] font-bold {p.actual
+                ? 'border-inst-accion bg-inst-accion-s text-inst-accion-t'
+                : p.hecho
+                  ? 'border-inst-ok bg-inst-ok-s text-inst-ok'
+                  : 'border-inst-linea bg-inst-tarjeta text-inst-ink-3'}"
+              aria-current={p.actual ? 'step' : undefined}
+            >
+              {#if p.hecho && !p.actual}<Check size={14} aria-hidden="true" />{/if}
+              {p.texto}
+            </span>
+          {/each}
+        </div>
+        <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-inst-linea bg-inst-tarjeta">
+          <AgendaHilo
+            {listado_interacciones}
+            esDocente={true}
+            urlDescargaEntrega={urlEntrega}
+            onVerRubrica={(d) => {
+              const rub = d.rubrica ?? rubrica;
+              detalle = rub
+                ? { rubrica: rub, puntaje_obtenido: d.puntaje_obtenido ?? undefined, retroalimentacion: d.retroalimentacion, resultado: d.resultado }
+                : null;
+            }}
+            {isLoading}
+            {errorMensaje}
+          />
+        </div>
+      </section>
 
-    <!-- Compositor inferior integrado y pegado al borde -->
-    <div class="shrink-0 border-t border-gray-200 bg-white px-5 py-3.5 z-10">
-
-      <!-- Selector de tipo -->
-      <div class="flex items-center gap-1.5 mb-2.5">
-        {#each tiposInteraccion as tipo}
+      <!-- Escribir o evaluar -->
+      <section
+        aria-label="Escribir o evaluar"
+        class="flex min-h-0 min-w-0 flex-col border-t border-inst-linea lg:border-t-0 lg:border-l {esSumativa
+          ? 'lg:flex-1'
+          : 'lg:w-[440px] lg:shrink-0'}"
+      >
+        <div class="flex gap-6 border-b border-inst-linea px-5" role="tablist">
           <button
             type="button"
-            onclick={() => cambiarTipo(tipo)}
-            class="px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer
-              {tipoSeleccionado === tipo
-                ? 'bg-uta-blue text-white border-uta-blue shadow-2xs'
-                : 'bg-white text-gray-600 border-gray-300 hover:border-uta-blue/50 hover:bg-slate-50'}"
+            role="tab"
+            aria-selected={pestana === 'escribir'}
+            class="{BTN_TAB} {pestana === 'escribir' ? 'border-inst-accion text-inst-ink' : 'border-transparent text-inst-ink-2 hover:text-inst-ink'}"
+            onclick={() => (pestana = 'escribir')}
           >
-            {tipo}
+            <Pencil size={16} aria-hidden="true" />Escribir
           </button>
-        {/each}
-      </div>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pestana === 'evaluar'}
+            class="{BTN_TAB} {pestana === 'evaluar' ? 'border-inst-accion text-inst-ink' : 'border-transparent text-inst-ink-2 hover:text-inst-ink'}"
+            onclick={() => (pestana = 'evaluar')}
+          >
+            <ClipboardCheck size={16} aria-hidden="true" />Evaluar
+          </button>
+        </div>
 
-      {#if esEvaluacion}
-        {#if esSumativa}
-          <!-- Resumen compacto de la rúbrica -->
-          {#if rubricaActividad}
-            <div class="mb-3 px-3 py-2 rounded-xl bg-white border border-gray-200 flex items-center justify-between gap-2 flex-wrap">
-              <div class="flex items-center gap-3 text-xs">
-                <span class="text-gray-500">Puntaje:</span>
-                <span class="font-black text-uta-blue">{puntajeRubrica}<span class="font-normal text-muted-foreground">/{puntajeMaximo}</span></span>
-                <span class="{criteriosEvaluados < totalCriterios ? 'text-amber-600' : 'text-emerald-600'} font-semibold">
-                  {criteriosEvaluados}/{totalCriterios} criterios
-                </span>
+        <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5" role="tabpanel">
+          {#if pestana === 'escribir'}
+            <label class="flex flex-col gap-1.5 font-bold">
+              Escribe en la agenda de {corto}
+              <textarea
+                bind:value={mensaje}
+                rows={7}
+                maxlength={4000}
+                placeholder="Escribe tu mensaje."
+                class="{campo} min-h-[180px] resize-y font-normal"
+              ></textarea>
+            </label>
+            <span class="self-end text-[13px] text-inst-ink-3">{mensaje.length.toLocaleString('es-CL')} / 4.000 caracteres</span>
+            <button type="button" class="{btnPrimario} self-end" disabled={!mensaje.trim()} onclick={enviarMensaje}>
+              <Send size={16} aria-hidden="true" />Enviar
+            </button>
+          {:else if !esSumativa}
+            <div class="flex flex-col gap-2">
+              <span class="font-bold">Califica el trabajo</span>
+              <div class="inline-flex self-start overflow-hidden rounded-md border border-inst-control" role="group" aria-label="Califica el trabajo">
+                {#each ['Bueno', 'Regular', 'Malo'] as op (op)}
+                  <button
+                    type="button"
+                    aria-pressed={opinion === op}
+                    class="min-h-11 border-0 border-r border-inst-linea px-4 text-sm font-bold last:border-r-0 lg:min-h-10 {opinion === op
+                      ? 'bg-inst-accion text-inst-sobre-accion'
+                      : 'bg-inst-tarjeta text-inst-ink hover:bg-inst-sutil'}"
+                    onclick={() => (opinion = op as Opinion)}
+                  >
+                    {op}
+                  </button>
+                {/each}
               </div>
-              {#if notaCalculada !== null}
-                <span class="text-sm font-black text-emerald-700">Nota: {formatNota(notaCalculada)}</span>
-              {:else}
-                <span class="text-xs text-muted-foreground italic">Completa la rúbrica →</span>
+            </div>
+            <label class="flex flex-col gap-1.5 font-bold">
+              Escribe la retroalimentación para la actividad formativa
+              <textarea bind:value={retroFormativa} rows={6} maxlength={4000} class="{campo} min-h-[150px] resize-y font-normal"></textarea>
+            </label>
+            <div class="{aviso} {avisoTono.info} items-center py-2.5">
+              <Info size={16} class="shrink-0 text-inst-info" aria-hidden="true" />
+              <span class="text-[13px]">Al guardar la evaluación, el estado pasa a <strong>Revisado</strong>.</span>
+            </div>
+            <button
+              type="button"
+              class="{btnPrimario} self-end"
+              disabled={!opinion || !retroFormativa.trim() || guardando}
+              onclick={guardarFormativa}
+            >
+              Guardar evaluación
+            </button>
+          {:else if !rubrica}
+            <div class="{aviso} {avisoTono.warn}">
+              <span class="min-w-0 flex-1">
+                <strong>Esta actividad no tiene rúbrica.</strong> Las sumativas se califican con la matriz: créala primero.
+              </span>
+              {#if onCrearRubrica}
+                <button type="button" class="{btnPrimario} {chico}" onclick={onCrearRubrica}>Crear rúbrica</button>
               {/if}
-              <button
-                type="button"
-                onclick={() => (mostrarSlideoverEvaluacion = !mostrarSlideoverEvaluacion)}
-                class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-uta-blue text-white hover:bg-uta-blue-hover transition cursor-pointer flex items-center gap-1 shadow-2xs"
-              >
-                <span>{mostrarSlideoverEvaluacion ? 'Ocultar Rúbrica' : 'Abrir Rúbrica'}</span>
-                <span class="text-[10px] opacity-80">({criteriosEvaluados}/{totalCriterios})</span>
-              </button>
             </div>
           {:else}
-            <!-- Sin rúbrica: advertencia -->
-            <div class="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
-              ⚠ No hay rúbrica creada para esta actividad. Crea una rúbrica antes de poder evaluar.
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span class="{claseTitulo} text-base">Matriz de evaluación</span>
+              <span class="text-[13px] text-inst-ink-2">Elige un nivel por criterio · {criteriosElegidos} de {totalCriterios}</span>
             </div>
-          {/if}
-
-          <!-- Resultado: nota en las sumativas -->
-          <div class="flex items-center gap-2 mb-3 flex-wrap">
-            <label for="nota-eval" class="text-xs font-bold text-gray-700 shrink-0">Nota (1–7):</label>
-            <input
-              id="nota-eval"
-              type="number"
-              min="1" max="7" step="0.1"
-              bind:value={notaEvaluacion}
-              oninput={() => { notaManualOverride = true; }}
-              placeholder="ej. 5.5"
-              class="w-20 text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-uta-blue focus:ring-1 focus:ring-primary/30"
+            <RubricaView
+              {rubrica}
+              resultado={seleccion}
+              puntaje_obtenido={puntaje}
+              onSeleccionarEscala={(nivel, escala) => {
+                seleccion[nivel] = escala;
+                notaManual = null;
+              }}
+              modoLectura={false}
+              esSumativa={true}
             />
-            {#if notaCalculada !== null && notaManualOverride}
-              <button
-                type="button"
-                onclick={() => { notaEvaluacion = notaCalculada; notaManualOverride = false; }}
-                class="text-xs text-uta-blue underline hover:no-underline"
-              >Restaurar ({formatNota(notaCalculada)})</button>
-            {/if}
-          </div>
-        {:else}
-          <!-- Formativa: ¿Qué opina del trabajo? -->
-          <div class="mb-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-            <div class="flex flex-col gap-2.5">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-700">¿Qué opina del trabajo?</span>
-                {#if opinionFormativa}
-                  <span class="text-xs font-semibold px-2 py-0.5 rounded-md
-                    {opinionFormativa === 'Bueno' ? 'bg-emerald-100 text-emerald-800' : ''}
-                    {opinionFormativa === 'Regular' ? 'bg-amber-100 text-amber-800' : ''}
-                    {opinionFormativa === 'Malo' ? 'bg-rose-100 text-rose-800' : ''}"
-                  >
-                    Seleccionado: {opinionFormativa}
+
+            <div class="flex flex-wrap items-start gap-4">
+              <div class="{tarjeta} flex flex-[1_1_220px]">
+                <div class="flex flex-1 flex-col gap-0.5 border-r border-inst-linea px-4 py-3">
+                  <span class={etiqueta}>Puntaje</span>
+                  <span class="{claseTitulo} text-[26px] leading-8">
+                    {puntaje}<span class="text-sm font-normal text-inst-ink-2"> / {puntajeMaximo}</span>
                   </span>
-                {/if}
+                </div>
+                <label class="flex flex-1 flex-col gap-0.5 px-4 py-3">
+                  <span class={etiqueta}>Nota</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="7"
+                    step="0.1"
+                    value={nota ?? ''}
+                    oninput={(e) => {
+                      const v = (e.currentTarget as HTMLInputElement).valueAsNumber;
+                      notaManual = Number.isFinite(v) ? v : null;
+                    }}
+                    placeholder="—"
+                    aria-describedby="nota-ayuda"
+                    class="w-20 border-0 bg-transparent p-0 font-inst-titulo text-[26px] leading-8 font-bold text-inst-ink focus:outline-2 focus:outline-inst-foco"
+                  />
+                  <span id="nota-ayuda" class="text-xs text-inst-ink-3">
+                    {#if notaManual !== null && notaMatriz !== null}
+                      <button type="button" class="cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-inst-enlace underline" onclick={() => (notaManual = null)}>
+                        Volver a {formatNota(notaMatriz)}
+                      </button>
+                    {:else}
+                      {matrizCompleta ? 'calculada con la matriz' : 'completa la matriz'}
+                    {/if}
+                  </span>
+                </label>
               </div>
-              <div class="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onclick={() => (opinionFormativa = 'Bueno')}
-                  class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer
-                    {opinionFormativa === 'Bueno'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300'}"
-                >
-                  <span class="w-2 h-2 rounded-full {opinionFormativa === 'Bueno' ? 'bg-white' : 'bg-emerald-500'}"></span>
-                  Bueno
-                </button>
-                <button
-                  type="button"
-                  onclick={() => (opinionFormativa = 'Regular')}
-                  class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer
-                    {opinionFormativa === 'Regular'
-                      ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                      : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50 hover:border-amber-300'}"
-                >
-                  <span class="w-2 h-2 rounded-full {opinionFormativa === 'Regular' ? 'bg-white' : 'bg-amber-500'}"></span>
-                  Regular
-                </button>
-                <button
-                  type="button"
-                  onclick={() => (opinionFormativa = 'Malo')}
-                  class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer
-                    {opinionFormativa === 'Malo'
-                      ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                      : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50 hover:border-rose-300'}"
-                >
-                  <span class="w-2 h-2 rounded-full {opinionFormativa === 'Malo' ? 'bg-white' : 'bg-rose-500'}"></span>
-                  Malo
-                </button>
-              </div>
+
+              {#if esGrupal && integrantes.length > 0}
+                <fieldset class="{tarjeta} m-0 min-w-0 flex-[2_1_440px] p-0">
+                  <legend class="sr-only">Nota de los integrantes de {nombreGrupo}</legend>
+                  <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-b border-inst-linea px-3.5 py-3">
+                    <span class="font-bold">Nota del {nombreGrupo}</span>
+                    <span class="text-[13px] text-inst-ink-2">
+                      {nota !== null
+                        ? `la matriz da ${formatNota(nota)} y se replica a ${integrantes.length === 1 ? 'su integrante' : `los ${integrantes.length} integrantes`}`
+                        : 'se replica a los integrantes al grabar'}
+                    </span>
+                  </div>
+                  <ul class="m-0 list-none px-3.5 py-1">
+                    {#each integrantes as i (i.id_asignado_actividad)}
+                      {@const d = diferenciar ? (decimas[i.id_asignado_actividad] ?? 0) : 0}
+                      {@const n = notaDe(d)}
+                      {@const nombreCorto = i.nombre_completo.split(/\s+/)[0]}
+                      <li class="flex items-center gap-2.5 border-b border-inst-linea py-2 last:border-b-0">
+                        <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-inst-sel text-xs font-extrabold text-inst-ink">
+                          {iniciales(i.nombre_completo)}
+                        </span>
+                        <span class="min-w-0 flex-1">{i.nombre_completo}</span>
+                        {#if diferenciar}
+                          <span class="inline-flex items-center overflow-hidden rounded-md border border-inst-control" role="group" aria-label="Décimas de {i.nombre_completo}">
+                            <button type="button" class="size-9 border-0 bg-inst-tarjeta text-lg font-bold hover:bg-inst-sutil" aria-label="Bajar una décima" onclick={() => moverDecimas(i.id_asignado_actividad, -1)}>−</button>
+                            <span class="min-w-9 text-center text-sm font-extrabold {d ? 'text-inst-warn' : ''}">{fmtDecimas(d)}</span>
+                            <button type="button" class="size-9 border-0 bg-inst-tarjeta text-lg font-bold hover:bg-inst-sutil" aria-label="Subir una décima" onclick={() => moverDecimas(i.id_asignado_actividad, 1)}>+</button>
+                          </span>
+                        {/if}
+                        <span class="{claseTitulo} w-10 text-right text-[17px] {d ? 'text-inst-warn' : ''}">{n !== null ? formatNota(n) : '—'}</span>
+                      </li>
+                      {#if diferenciar && d !== 0}
+                        <li class="pb-3 pl-[42px]">
+                          <div class="flex flex-col gap-2 rounded-md border border-l-4 border-inst-linea border-l-inst-warn bg-inst-warn-s px-3.5 py-3">
+                            <span class="flex flex-wrap items-center gap-2">
+                              <MessageSquare size={16} class="text-inst-warn" aria-hidden="true" />
+                              <span class="font-bold">Retroalimentación para {nombreCorto}</span>
+                              <span class="{chip} {tono.warn}">Se activó al {d < 0 ? 'bajar' : 'subir'} {Math.abs(d)} {Math.abs(d) === 1 ? 'décima' : 'décimas'}</span>
+                            </span>
+                            <textarea
+                              bind:value={retros[i.id_asignado_actividad]}
+                              rows={2}
+                              maxlength={2000}
+                              aria-label="Retroalimentación para {i.nombre_completo}"
+                              placeholder="Explica por qué {d < 0 ? 'bajas' : 'subes'} {Math.abs(d)} {Math.abs(d) === 1 ? 'décima' : 'décimas'} a {nombreCorto}"
+                              class="{campo} min-h-16 resize-y bg-inst-tarjeta"
+                            ></textarea>
+                            <span class="text-[13px] text-inst-ink-2">
+                              Obligatoria mientras haya décimas. Se publica en la agenda del grupo al grabar la evaluación.
+                            </span>
+                          </div>
+                        </li>
+                      {/if}
+                    {/each}
+                  </ul>
+                  <div class="flex flex-col gap-0.5 rounded-b-lg border-t border-inst-linea bg-inst-sutil px-3.5 py-2.5">
+                    <label class="inline-flex cursor-pointer items-center gap-2.5 font-bold">
+                      <input type="checkbox" role="switch" bind:checked={diferenciar} class="peer sr-only" />
+                      <span
+                        aria-hidden="true"
+                        class="relative h-6 w-10 shrink-0 rounded-full bg-inst-control transition-colors peer-checked:bg-inst-accion peer-focus-visible:outline-2 peer-focus-visible:outline-inst-foco after:absolute after:top-0.5 after:left-0.5 after:size-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"
+                      ></span>
+                      Diferenciar la nota en el grupo
+                    </label>
+                    <span class="pl-[50px] text-[13px] text-inst-ink-2">
+                      Sube o baja décimas a un integrante; al hacerlo se activa su retroalimentación.
+                    </span>
+                  </div>
+                </fieldset>
+              {/if}
             </div>
-          </div>
-        {/if}
-      {/if}
 
-      <!-- Textarea + enviar -->
-      <div class="flex items-end gap-2.5">
-        <textarea
-          bind:value={nuevoMensaje}
-          placeholder={esEvaluacion
-            ? (esSumativa ? 'Retroalimentación para el grupo (opcional)…' : 'Escribe la evaluación formativa para el estudiante o grupo…')
-            : esGrupal ? 'Escribe tu retroalimentación al grupo…' : `Escribe tu retroalimentación a ${nombre_grupo}…`}
-          rows={esEvaluacion && !esSumativa ? 4 : 2}
-          maxlength="4000"
-          class="flex-1 resize-y rounded-lg border border-line px-3.5 py-2.5 text-[13px] text-ink outline-none transition-colors focus:border-navy"
-        ></textarea>
-        <button
-          onclick={manejarEnvio}
-          disabled={esEvaluacion
-            ? (esSumativa
-                ? (!resultadoListo || (!!rubricaActividad && !todosEvaluados) || !rubricaActividad)
-                : (!opinionFormativa || !nuevoMensaje.trim()))
-            : !nuevoMensaje.trim()}
-          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-navy bg-white px-4 py-2.5 text-[13px] font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-        >
-          <Send class="h-3.5 w-3.5" />
-          Enviar
-        </button>
-      </div>
-      <span class="mt-1 block text-right font-mono text-[10.5px] text-ink-2">
-        {nuevoMensaje.length} / 4.000
-      </span>
-    </div>
-  </div>
-
-  <!-- ── Slideover de Rúbrica de Evaluación (Modo Evaluación) ── -->
-  {#if mostrarSlideoverEvaluacion && rubricaActividad}
-    <div
-      class="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-2xs transition-opacity"
-      onclick={() => (mostrarSlideoverEvaluacion = false)}
-      role="presentation"
-    ></div>
-
-    <div
-      class="absolute inset-y-0 right-0 z-50 flex w-[95%] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
-      role="dialog"
-      aria-modal="true"
-    >
-      <!-- Encabezado limpio sin header azul -->
-      <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-4 shrink-0">
-        <div>
-          <h3 class="text-sm font-bold text-slate-900">Rúbrica de Evaluación</h3>
-          <p class="text-xs text-slate-500">{nombre_actividad} — {nombre_grupo}</p>
-        </div>
-        <button
-          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
-          onclick={() => (mostrarSlideoverEvaluacion = false)}
-          aria-label="Cerrar rúbrica"
-        >
-          <X class="h-5 w-5" />
-        </button>
-      </div>
-
-      <!-- Componente RubricaView (blanquito) en modo interactivo -->
-      <div class="flex-1 overflow-y-auto p-5">
-        <RubricaView
-          rubrica={rubricaActividad}
-          resultado={seleccionRubrica}
-          puntaje_obtenido={puntajeRubrica}
-          onSeleccionarEscala={seleccionarEscala}
-          modoLectura={false}
-          {esSumativa}
-        />
-      </div>
-
-      <!-- Footer con resumen y acción de volver -->
-      <div
-        class="shrink-0 px-5 py-3 border-t bg-slate-50 flex items-center justify-between gap-3"
-      >
-        <div class="text-xs text-slate-600">
-          <span class="font-bold">{criteriosEvaluados}/{totalCriterios}</span> criterios evaluados
-          {#if notaCalculada !== null}
-            · Nota calculada: <strong class="text-emerald-700 font-bold">{formatNota(notaCalculada)}</strong>
+            <label class="flex flex-col gap-1.5 font-bold">
+              Escribe la retroalimentación para la actividad sumativa
+              <textarea bind:value={retroSumativa} rows={3} maxlength={4000} class="{campo} resize-y font-normal"></textarea>
+            </label>
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="text-[13px] text-inst-ink-2">
+                {#if faltaRetro}
+                  Falta la retroalimentación de quienes tienen décimas.
+                {:else if notaActual !== null}
+                  Ya tiene nota {formatNota(notaActual)}; grabar la reemplaza.
+                {:else}
+                  Al grabar, {esGrupal ? nombreGrupo : corto} pasa a «Calificado».
+                {/if}
+              </span>
+              <button type="button" class="{btnPrimario} ml-auto" disabled={!puedeGrabar} onclick={grabarRubrica}>
+                <Save size={16} aria-hidden="true" />Grabar rúbrica
+              </button>
+            </div>
           {/if}
         </div>
-        <button
-          type="button"
-          onclick={() => (mostrarSlideoverEvaluacion = false)}
-          class="px-4 py-2 text-xs font-bold rounded-xl transition-colors cursor-pointer {todosEvaluados
-            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-            : 'bg-uta-blue text-white hover:bg-uta-blue-hover'}"
-        >
-          {todosEvaluados ? 'Confirmar y volver al mensaje' : 'Cerrar rúbrica'}
-        </button>
-      </div>
+      </section>
     </div>
-  {/if}
 
-  <!-- ── Slideover de Detalle de Evaluación (Lectura) ── -->
-  {#if panelDetalle?.rubrica}
-    <div
-      class="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-2xs transition-opacity"
-      onclick={() => (panelDetalle = null)}
-      role="presentation"
-    ></div>
+    <div class="flex flex-wrap items-center gap-2 border-t border-inst-linea bg-inst-sutil px-5 py-3">
+      <span class="text-[13px] text-inst-ink-2">{pieCerrar}</span>
+      <button type="button" class="{btnSecundario} ml-auto" onclick={onCerrar}>Cerrar</button>
+    </div>
 
-    <div
-      class="absolute inset-y-0 right-0 z-50 flex w-[95%] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div class="shrink-0 flex justify-between items-center px-6 py-4 border-b bg-slate-50">
-        <div>
-          <p class="font-bold text-sm text-slate-900">Detalle de Evaluación</p>
-          <p class="text-xs text-slate-500">{nombre_actividad} — {nombre_grupo}</p>
+    {#if detalle}
+      <div class="absolute inset-0 z-10 flex flex-col bg-inst-tarjeta" role="dialog" aria-modal="true" aria-labelledby="t-detalle-eval">
+        <div class="flex items-center gap-3 border-b border-inst-linea px-5 py-4">
+          <h3 id="t-detalle-eval" class="{claseTitulo} m-0 flex-1 text-lg">Detalle de la evaluación</h3>
+          <button type="button" class="{btnSecundario} {chico}" onclick={() => (detalle = null)}>Volver a la agenda</button>
         </div>
-        <button
-          onclick={() => (panelDetalle = null)}
-          class="rounded-lg p-1.5 text-muted-foreground hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-          aria-label="Cerrar detalle"
-        >
-          <X class="h-5 w-5" />
-        </button>
+        <div class="min-h-0 flex-1 overflow-y-auto p-5">
+          <RubricaView
+            rubrica={detalle.rubrica}
+            puntaje_obtenido={detalle.puntaje_obtenido ?? 0}
+            retroalimentacion={detalle.retroalimentacion}
+            resultado={detalle.resultado}
+            modoLectura={true}
+            {esSumativa}
+          />
+        </div>
       </div>
-      <div class="flex-1 overflow-y-auto p-6 custom-scrollbar bg-white">
-        <RubricaView
-          rubrica={panelDetalle.rubrica}
-          puntaje_obtenido={panelDetalle.puntaje_obtenido ?? 0}
-          retroalimentacion={panelDetalle.retroalimentacion}
-          resultado={panelDetalle.resultado}
-          modoLectura={true}
-          {esSumativa}
-        />
-      </div>
-    </div>
-  {/if}
-
+    {/if}
+  </div>
 </div>
-
-<style>
-  .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-  .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--background-color-gray-300, #d1d5db); border-radius: 10px; }
-  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-</style>

@@ -771,7 +771,7 @@
   <!-- ── Body ── -->
   <div class="flex-1 overflow-auto">
     {#if tab === 'editor'}
-      <div class="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto pb-28">
+      <div class="w-full px-4 sm:px-8 py-6 pb-28">
         <!-- Resumen de puntaje (Sticky) -->
         <div class="sticky top-0 z-30 bg-white/95 backdrop-blur-md pt-2 pb-4 mb-4">
           <div
