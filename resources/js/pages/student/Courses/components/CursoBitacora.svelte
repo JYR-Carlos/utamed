@@ -28,7 +28,7 @@
 
 <script lang="ts">
   /**
-   * Pestaña «Bitácora» de la ficha del curso (T41, guía dm): todas las agendas
+   * Pestaña «Historial» (antes «Bitácora», OBS-56) de la ficha del curso (T41, guía dm): todas las agendas
    * de las actividades del alumno —entregas, mensajes, retroalimentaciones y
    * evaluaciones— en un solo flujo por día, de lo más reciente a lo más
    * antiguo, más los plazos que vencieron sin entrega (OBS-55). Se filtra por
@@ -128,13 +128,13 @@
 
 {#if !bitacora}
   {#if error}
-    <EstadoVacio tipo="error" titulo="No se pudo cargar la bitácora" texto={error}>
+    <EstadoVacio tipo="error" titulo="No se pudo cargar el historial" texto={error}>
       {#snippet accion()}
         {#if onReintentar}<button type="button" class={btnPrimario} onclick={onReintentar}>Reintentar</button>{/if}
       {/snippet}
     </EstadoVacio>
   {:else}
-    <EstadoVacio tipo="cargando" titulo="Cargando la bitácora…" />
+    <EstadoVacio tipo="cargando" titulo="Cargando el historial…" />
   {/if}
 {:else if entradas.length === 0}
   <EstadoVacio

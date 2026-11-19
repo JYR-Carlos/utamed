@@ -56,7 +56,7 @@
     mensajeria?: BandejaMensajeria | null;
     /** Mensajes del curso sin leer, para la pestaña antes de abrirla. */
     mensajes_sin_leer?: number;
-    /** Prop diferida: llega al abrir «Bitácora». */
+    /** Prop diferida: llega al abrir «Historial» (?seccion=bitacora). */
     bitacora?: Bitacora | null;
     /** Prop diferida: llega al elegir «Ver todos» en el calendario. */
     calendario_semestre?: Actividad[] | null;
@@ -306,7 +306,7 @@
           onReintentar={reintentar}
         />
       {:else if seccion === 'bitacora'}
-        {@render titulo('Bitácora', 'Entregas, mensajes, retroalimentaciones y notas de todas tus actividades')}
+        {@render titulo('Historial', 'Todo lo que pasó en este ramo: entregas, mensajes, notas y plazos vencidos')}
         <CursoBitacora idCurso={id_curso} {bitacora} error={diferidaError} onReintentar={reintentar} />
       {:else if seccion === 'biblioteca'}
         {@render titulo(

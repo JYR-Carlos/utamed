@@ -31,7 +31,7 @@
    * ahí no hay migas de pan, y la fila de pestañas se desliza hacia los lados.
    */
   import { Link } from '@inertiajs/svelte';
-  import { ChevronLeft } from 'lucide-svelte';
+  import { ChevronLeft, History } from 'lucide-svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import { etiqueta, tituloCond } from '@/lib/dm';
   import type { Curso } from '@/types';
@@ -71,15 +71,17 @@
     [codigo, grupo, curso?.agno_real ? `${ordinal} sem. ${curso.agno_real}` : ''].filter(Boolean).join(' · '),
   );
 
-  const PESTANAS: Array<{ id: SeccionCurso; etiqueta: string }> = [
+  const PESTANAS: Array<{ id: SeccionCurso; etiqueta: string; icono?: typeof History }> = [
     { id: 'actividades', etiqueta: 'Actividades' },
     { id: 'programa', etiqueta: 'Programa' },
     { id: 'notas', etiqueta: 'Resumen de notas' },
     { id: 'biblioteca', etiqueta: 'Biblioteca' },
     { id: 'calendario', etiqueta: 'Calendario' },
     { id: 'mensajeria', etiqueta: 'Mensajería' },
-    // Bitácora del curso (T41): todas las agendas del alumno juntas.
-    { id: 'bitacora', etiqueta: 'Bitácora' },
+    // Bitácora del curso (T41): todas las agendas del alumno juntas. Para el
+    // alumno se llama «Historial», con el reloj de su estado vacío: «Bitácora»
+    // no decía qué había adentro (OBS-56). La URL sigue siendo ?seccion=bitacora.
+    { id: 'bitacora', etiqueta: 'Historial', icono: History },
   ];
 
   // Sin totales en Actividades ni Biblioteca (OBS-35): una burbuja con número se
@@ -155,7 +157,7 @@
             ? 'border-dm-accion font-bold text-dm-ink'
             : 'border-transparent font-medium text-dm-ink-2 hover:text-dm-ink'}"
         >
-          {pestana.etiqueta}
+          {#if pestana.icono}<pestana.icono size={16} aria-hidden="true" />{/if}{pestana.etiqueta}
           {#if aviso}
             <span class="rounded-full bg-dm-accion-suave px-1.5 text-[13px] leading-[18px] font-bold text-dm-accion-texto"
               >{aviso}</span
