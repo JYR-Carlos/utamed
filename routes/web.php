@@ -600,6 +600,8 @@ Route::prefix('estudiante')
         Route::patch('perfil/contacto', [PerfilController::class, 'updateContacto'])
             ->name('perfil.contacto.update');
         Route::get('cursos', [CourseController::class, 'index'])->name('cursos.index');
+        // Calendario general (FEAT-06): las fechas de todos los cursos del semestre.
+        Route::get('calendario', [App\Http\Controllers\Student\CalendarioController::class, 'index'])->name('calendario');
 
         // Programa (Syllabus) View - MUST be before generic {curso} route
         Route::get('cursos/{curso}/programa', [App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');

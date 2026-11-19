@@ -12,7 +12,7 @@
    * pantalla y en el texto emergente.
    */
   import { Link, page, router } from '@inertiajs/svelte';
-  import { ChevronRight, House, LayoutGrid, LogOut } from 'lucide-svelte';
+  import { CalendarDays, ChevronRight, House, LayoutGrid, LogOut } from 'lucide-svelte';
   import { logout } from '@/routes';
   import { titleCase } from '@/lib/utils';
   import { usePermissions } from '@/lib/composables/usePermissions';
@@ -43,6 +43,7 @@
 
   const url = $derived($page.url ?? '');
   const enInicio = $derived(url.startsWith('/estudiante/dashboard'));
+  const enCalendario = $derived(url.startsWith('/estudiante/calendario'));
   const enMisCursos = $derived(url === '/estudiante/cursos' || url.startsWith('/estudiante/cursos?'));
 
   function esActivo(curso: SidebarCourse): boolean {
@@ -111,6 +112,17 @@
       {#if enInicio}{@render marcaActiva()}{/if}
       <House size={20} aria-hidden="true" class="shrink-0" />
       <span class={texto}>Inicio</span>
+    </Link>
+    <!-- Las fechas de todos los cursos del semestre (OBS-23). -->
+    <Link
+      href="/estudiante/calendario"
+      class="{fila} {enCalendario ? filaActiva : filaInactiva}"
+      aria-current={enCalendario ? 'page' : undefined}
+      title={plegado ? 'Calendario' : undefined}
+    >
+      {#if enCalendario}{@render marcaActiva()}{/if}
+      <CalendarDays size={20} aria-hidden="true" class="shrink-0" />
+      <span class={texto}>Calendario</span>
     </Link>
   </div>
 

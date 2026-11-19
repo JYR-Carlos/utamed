@@ -150,11 +150,8 @@
 
   const vencidasDelCurso = (idCurso: number) => vencidas.filter((a) => a.id_curso === idCurso).length;
 
-  const hrefCalendario = $derived(
-    cursosPeriodoActual.length > 0
-      ? `/estudiante/cursos/${cursosPeriodoActual[0].id_curso}?seccion=calendario&alcance=semestre`
-      : null,
-  );
+  // El calendario general junta todos los cursos (OBS-23); antes llevaba al del primer curso.
+  const hrefCalendario = $derived(cursosPeriodoActual.length > 0 ? '/estudiante/calendario' : null);
 </script>
 
 <StudentLayout {breadcrumbs}>

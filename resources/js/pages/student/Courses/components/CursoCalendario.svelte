@@ -1,6 +1,25 @@
 <script lang="ts" module>
   /** Qué fechas muestra el calendario: las del curso o las de todo el semestre. */
   export type AlcanceCalendario = 'curso' | 'semestre';
+
+  /** Una fecha límite tal como la arma ResumenActividadesEstudiante::paraAlumno. */
+  export interface ActividadCalendario {
+    id_actividad: number;
+    nombre: string;
+    es_sumativa: boolean;
+    con_entrega: boolean;
+    es_grupal: boolean;
+    fecha_limite: string;
+    visible: boolean;
+    estado?: string;
+    ya_entregada?: boolean;
+    ya_evaluada?: boolean;
+    /** Sólo en la vista del semestre: el curso al que pertenece. */
+    id_curso?: number;
+    /** Código del curso (DM301). */
+    curso?: string;
+    asignatura?: string | null;
+  }
 </script>
 
 <script lang="ts">
@@ -12,6 +31,10 @@
    * ficha) y «Todo el semestre» (las de todos los cursos inscritos del mismo
    * período, que se piden al elegirlo). En esa vista cada fecha lleva el
    * punto del color de su curso y su código o nombre.
+   *
+   * `general`: el calendario de /estudiante/calendario (FEAT-06). Las fechas
+   * del semestre llegan con la página y, en vez de elegir alcance, se filtra
+   * por curso.
    *
    * Es de solo lectura y sólo dibuja lo que el alumno puede actuar: la fecha
    * límite de cada actividad visible, con su estado de entrega en semáforo
@@ -43,33 +66,22 @@
   import type { SidebarCourse } from '@/types';
   import { diasHasta, formatDiaCorto } from '@/utils/formatters';
 
-  interface Actividad {
-    id_actividad: number;
-    nombre: string;
-    es_sumativa: boolean;
-    con_entrega: boolean;
-    es_grupal: boolean;
-    fecha_limite: string;
-    visible: boolean;
-    estado?: string;
-    ya_entregada?: boolean;
-    ya_evaluada?: boolean;
-    /** Sólo en la vista del semestre: el curso al que pertenece. */
-    id_curso?: number;
-    /** Código del curso (DM301). */
-    curso?: string;
-    asignatura?: string | null;
-  }
+  type Actividad = ActividadCalendario;
 
   interface Props {
-    idCurso: number;
+    /** El curso de la ficha; en el calendario general no hay. */
+    idCurso?: number;
     actividades?: Actividad[];
-    /** Prop diferida: llega al elegir «Todo el semestre». */
+    /** Prop diferida: llega al elegir «Todo el semestre». En el general, llega con la página. */
     semestre?: Actividad[] | null;
     alcance?: AlcanceCalendario;
+    /** Calendario general: todas las fechas del semestre, con filtro por curso. */
+    general?: boolean;
   }
 
-  let { idCurso, actividades = [], semestre = null, alcance = $bindable('curso') }: Props = $props();
+  let { idCurso = 0, actividades = [], semestre = null, alcance = $bindable('curso'), general = false }: Props = $props();
+
+  const listaMenu = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
 
   // ─── Alcance ────────────────────────────────────────────────────────────────
   let cargandoSemestre = $state(false);
@@ -87,11 +99,28 @@
 
   // Las fechas del semestre se piden una vez, la primera vez que se eligen.
   $effect(() => {
-    if (alcance === 'semestre' && semestre === null && !cargandoSemestre && !errorSemestre) cargarSemestre();
+    if (!general && alcance === 'semestre' && semestre === null && !cargandoSemestre && !errorSemestre) cargarSemestre();
   });
 
-  const esSemestre = $derived(alcance === 'semestre');
-  const fuente = $derived(esSemestre ? (semestre ?? []) : actividades);
+  const esSemestre = $derived(general || alcance === 'semestre');
+  const todas = $derived(esSemestre ? (semestre ?? []) : actividades);
+
+  // Filtro del calendario general: los cursos que tienen fechas, en el orden del menú.
+  let filtroCurso = $state<number | null>(null);
+  const cursosConFechas = $derived.by(() => {
+    const vistos = new Map<number, { id: number; codigo: string; nombre: string }>();
+    for (const a of todas) {
+      if (a.id_curso != null && !vistos.has(a.id_curso)) {
+        vistos.set(a.id_curso, { id: a.id_curso, codigo: a.curso || '', nombre: a.asignatura || a.curso || '' });
+      }
+    }
+    const orden = (id: number) => {
+      const i = listaMenu.findIndex((c) => c.id_curso === id);
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...vistos.values()].sort((a, b) => orden(a.id) - orden(b.id));
+  });
+  const fuente = $derived(general && filtroCurso !== null ? todas.filter((a) => a.id_curso === filtroCurso) : todas);
 
   // ─── Estados ────────────────────────────────────────────────────────────────
   type Estado = 'vencida' | 'urgente' | 'entregada' | 'abierta' | 'informativa';
@@ -135,7 +164,6 @@
   const totalFechas = $derived(Object.values(porDia).reduce((n, l) => n + l.length, 0));
 
   // Color de cada curso del semestre, el mismo del menú.
-  const listaMenu = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
   const colorDe = (a: Actividad) => `var(--color-dm-c${numeroColorCurso(a.id_curso ?? idCurso, listaMenu)})`;
   const cursoDe = (a: Actividad) => a.asignatura || a.curso || '';
 
@@ -145,7 +173,7 @@
   const numeros = $derived.by(() => {
     const mapa = new Map<number, string>();
     const porCurso = new Map<number, number>();
-    for (const a of fuente) {
+    for (const a of todas) {
       if (!a.visible) continue;
       const curso = a.id_curso ?? idCurso;
       const n = (porCurso.get(curso) ?? 0) + 1;
@@ -246,16 +274,38 @@
 <div class="flex flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex flex-wrap gap-3 max-md:w-full">
-      <div role="group" aria-label="Qué fechas mostrar" class="{SEGMENTO} max-md:w-full">
-        {#each [{ id: 'curso', etiqueta: 'Este curso' }, { id: 'semestre', etiqueta: 'Todo el semestre' }] as a (a.id)}
-          <button
-            type="button"
-            aria-pressed={alcance === a.id}
-            onclick={() => (alcance = a.id as AlcanceCalendario)}
-            class={opcion(alcance === a.id)}>{a.etiqueta}</button
-          >
-        {/each}
-      </div>
+      {#if general}
+        {#if cursosConFechas.length > 1}
+          <div role="group" aria-label="Qué curso mostrar" class="{SEGMENTO} flex-wrap max-md:w-full">
+            <button type="button" aria-pressed={filtroCurso === null} onclick={() => (filtroCurso = null)} class={opcion(filtroCurso === null)}>
+              Todos
+            </button>
+            {#each cursosConFechas as c (c.id)}
+              <button
+                type="button"
+                aria-pressed={filtroCurso === c.id}
+                title={c.nombre}
+                onclick={() => (filtroCurso = filtroCurso === c.id ? null : c.id)}
+                class="{opcion(filtroCurso === c.id)} gap-1.5"
+              >
+                <span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: var(--color-dm-c{numeroColorCurso(c.id, listaMenu)})"
+                ></span>{c.codigo || c.nombre}<span class="sr-only">{c.codigo ? ` · ${c.nombre}` : ''}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      {:else}
+        <div role="group" aria-label="Qué fechas mostrar" class="{SEGMENTO} max-md:w-full">
+          {#each [{ id: 'curso', etiqueta: 'Este curso' }, { id: 'semestre', etiqueta: 'Todo el semestre' }] as a (a.id)}
+            <button
+              type="button"
+              aria-pressed={alcance === a.id}
+              onclick={() => (alcance = a.id as AlcanceCalendario)}
+              class={opcion(alcance === a.id)}>{a.etiqueta}</button
+            >
+          {/each}
+        </div>
+      {/if}
       <div role="group" aria-label="Vista del calendario" class="{SEGMENTO} max-md:hidden">
         {#each [{ id: 'mes', etiqueta: 'Mes' }, { id: 'agenda', etiqueta: 'Agenda' }] as v (v.id)}
           <button
@@ -304,6 +354,7 @@
       texto={esSemestre
         ? 'Las fechas límite aparecen aquí cuando los docentes de tus cursos del semestre publican actividades con plazo.'
         : 'Las fechas límite aparecen aquí cuando tu docente publica actividades con plazo.'}
+      class={general ? 'min-h-60' : undefined}
     />
   {:else}
     <div class="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start xl:gap-6">
