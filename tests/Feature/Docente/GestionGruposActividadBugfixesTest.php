@@ -241,3 +241,27 @@ test('agregar estudiante a un grupo cuando ya pertenece a otro grupo de la misma
         ])
         ->assertSessionHasErrors(['error' => 'El estudiante ya pertenece a un grupo en esta actividad.']);
 });
+
+test('la página de gestión de grupos muestra la actividad grupal elegida con sus grupos e integrantes', function () {
+    $f = fixtureGruposBugfixes() ?? $this->markTestSkipped('Sin curso adecuado con titular e inscritos.');
+    $docente = docenteGruposBugfixes($f);
+    $actividad = crearActividadGrupalTest($docente, $f);
+
+    $ids = InscripcionCurso::where('id_curso', $f['id_curso'])->orderBy('id_estudiante')->limit(2)->pluck('id_estudiante')->all();
+
+    $this->actingAs($docente)
+        ->post("/docente/cursos/{$f['id_curso']}/actividades/{$actividad->id_actividad}/grupos-create", ['estudiantes' => $ids])
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($docente)
+        ->get("/docente/cursos/{$f['id_curso']}/gestion/grupos?actividad={$actividad->id_actividad}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('docente/GestionGrupos')
+            ->where('actividad', $actividad->id_actividad)
+            ->has('grupos', 1)
+            ->has('grupos.0.integrantes', 2)
+            ->where('grupos.0.etiqueta', 'Grupo 1')
+            ->where('estudiantes', fn ($e) => collect($e)->pluck('id_estudiante')->intersect($ids)->count() === 2)
+            ->where('actividades', fn ($a) => collect($a)->pluck('id_actividad')->contains($actividad->id_actividad)));
+});

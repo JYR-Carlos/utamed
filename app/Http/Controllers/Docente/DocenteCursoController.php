@@ -594,6 +594,76 @@ class DocenteCursoController extends Controller
     }
 
     /**
+     * Gestión de grupos — /docente/cursos/{curso}/gestion/grupos (revisión
+     * «Mi UTAmed»). Primero se elige la actividad grupal; luego se arman y
+     * modifican sus grupos con los endpoints de siempre de
+     * DocenteActivityController (crear, agregar, quitar, renombrar, eliminar
+     * y reutilizar los de otra actividad). Los grupos viven por actividad:
+     * la base no tiene grupos de curso.
+     */
+    public function gestionGrupos(Request $request, Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $actividades = \App\Models\Agenda\Actividad::whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+            ->where('es_grupal', true)
+            ->withCount('actividadAsignadaGrupos')
+            ->orderBy('fecha_limite')
+            ->get(['id_actividad', 'nombre', 'fecha_limite', 'max_integrantes']);
+
+        $elegida = $actividades->firstWhere('id_actividad', $request->integer('actividad')) ?? $actividades->first();
+
+        $grupos = collect();
+        if ($elegida) {
+            $grupos = \App\Models\Agenda\ActividadAsignadaGrupo::where('id_actividad', $elegida->id_actividad)
+                ->with('integranteGrupos.estudiante.usuario')
+                ->orderBy('id_actividad_asignada_grupo')
+                ->get()
+                ->values()
+                ->map(fn ($g, $i) => [
+                    'grupo' => $g->id_actividad_asignada_grupo,
+                    'nombre_grupo' => $g->nombre_grupo,
+                    'etiqueta' => \App\Models\Agenda\ActividadAsignadaGrupo::etiqueta(true, $g->nombre_grupo, null, $i + 1),
+                    'integrantes' => $g->integranteGrupos
+                        ->map(fn ($m) => [
+                            'id_estudiante' => $m->id_estudiante,
+                            'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                        ])
+                        ->sortBy('nombre_completo')
+                        ->values(),
+                ]);
+        }
+
+        $estudiantes = \App\Models\Curso\InscripcionCurso::where('id_curso', $curso->id_curso)
+            ->with('estudiante.usuario')
+            ->get()
+            ->map(fn ($i) => [
+                'id_estudiante' => $i->id_estudiante,
+                'nombre_completo' => $i->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+            ])
+            ->sortBy('nombre_completo')
+            ->values();
+
+        return Inertia::render('docente/GestionGrupos', [
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
+            ],
+            'actividades' => $actividades->map(fn ($a) => [
+                'id_actividad' => $a->id_actividad,
+                'nombre' => $a->nombre,
+                'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
+                'max_integrantes' => $a->max_integrantes,
+                'cantidad_grupos' => $a->actividad_asignada_grupos_count,
+            ])->values(),
+            'actividad' => $elegida?->id_actividad,
+            'grupos' => $grupos,
+            'estudiantes' => $estudiantes,
+        ]);
+    }
+
+    /**
      * Columna «Pendiente» de la pestaña Estudiantes: por componente y
      * estudiante, cuántas actividades visibles esperan evaluación del docente
      * (entregó y la sumativa no tiene nota o la formativa no tiene
