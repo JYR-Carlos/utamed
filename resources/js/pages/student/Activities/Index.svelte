@@ -254,10 +254,16 @@
         : `Grupal · ${resto_integrantes.length + 1} integrantes`
       : 'Individual',
   );
-  const chips = $derived(
-    [es_sumativa ? 'Sumativa' : 'Formativa', modalidad, componente_tipo, entrega_obligatoria ? null : 'Sin entrega'].filter(
-      (c): c is string => !!c,
-    ),
+  // «Actividad sumativa · individual · Taller»: el tipo define si hay nota y tiene que leerse sin esfuerzo.
+  const tipoActividad = $derived(
+    [
+      `Actividad ${es_sumativa ? 'sumativa' : 'formativa'}`,
+      modalidad.toLowerCase(),
+      componente_tipo,
+      entrega_obligatoria ? null : 'sin entrega',
+    ]
+      .filter(Boolean)
+      .join(' · '),
   );
 
   // El grupo completo, con el alumno primero.
@@ -636,7 +642,7 @@
         codigo={cod_asignatura ?? ''}
         nombreCurso={nombre_curso}
         nombre={nombre_actividad}
-        {chips}
+        tipo={tipoActividad}
         {destacado}
         {pestanas}
         seleccion={seccion}
