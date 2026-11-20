@@ -2,6 +2,7 @@
 
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\MensajeriaService;
 use App\Services\Student\MensajeriaCursoEstudiante;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -9,11 +10,11 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * Mensajería por componente (curso.mensaje) — el hilo lo sostiene el componente.
+ * Mensajería por componente (curso.mensaje).
  *
- * El caso que justifica el diseño: cuando responde un COLEGIADO (un segundo
- * docente del mismo componente), su mensaje tiene que entrar en el mismo canal
- * del alumno, no abrir una conversación aparte.
+ * Desde OBS-49 (20-11-2026) cada conversación es privada entre el alumno y una
+ * persona del equipo: un COLEGIADO (segundo docente del componente) o un
+ * ayudante tiene la suya, y el titular no la ve.
  *
  * Se entra siempre desde un curso (/{rol}/cursos/{curso}/mensajeria), así que
  * las rutas llevan el curso y el acceso se decide contra los componentes que el
@@ -144,44 +145,187 @@ it('el docente envía una difusión al componente', function () {
         ->and($difusiones->first()['tema'])->toBe('Cambio de aula');
 });
 
-it('la respuesta del colegiado entra en el mismo canal del alumno', function () {
+/**
+ * Suma un ayudante al curso del componente (rol «Ayudante» sobre el contexto
+ * del curso, el mismo criterio de MensajeriaService::componentesDeAyudante) y
+ * devuelve su id_usuario. Es alguien que no cursa ni dicta el componente.
+ */
+function ayudanteDelCurso(array $f): ?int
+{
+    $usuario = DB::selectOne("
+        SELECT u.id_usuario
+        FROM usuario.usuario u
+        WHERE u.id_usuario NOT IN (?, ?, ?)
+          AND NOT EXISTS (SELECT 1 FROM curso.inscripcion_componente ic
+                          JOIN usuario.estudiante e ON e.id_estudiante = ic.id_estudiante
+                          WHERE ic.id_componente = ? AND e.id_usuario = u.id_usuario)
+          AND NOT EXISTS (SELECT 1 FROM curso.docente_componente dc
+                          JOIN usuario.docente d ON d.id_docente = dc.id_docente
+                          WHERE dc.id_componente = ? AND d.id_usuario = u.id_usuario)
+        ORDER BY u.id_usuario
+        LIMIT 1
+    ", [$f['titular'], $f['alumno'], $f['colegiado'], $f['componente'], $f['componente']]);
+
+    $rol = DB::table('usuario.rol')->whereRaw("LOWER(nombre) = 'ayudante'")->value('id_rol');
+
+    if (!$usuario || !$rol) {
+        return null;
+    }
+
+    UsuarioRolAsignacion::create([
+        'id_usuario'               => $usuario->id_usuario,
+        'id_rol'                   => $rol,
+        'id_contexto'              => DB::table('curso.curso')->where('id_curso', $f['curso'])->value('id_contexto'),
+        'asignado_por'             => $f['titular'],
+        'fecha_inicio_planificada' => now()->subMinute(),
+        'fecha_fin_planificada'    => now()->addYear(),
+        'esta_activo'              => true,
+        'fue_eliminado'            => false,
+        'creado_por'               => $f['titular'],
+    ]);
+
+    return (int) $usuario->id_usuario;
+}
+
+it('cada docente tiene su propia conversación con el alumno', function () {
     $svc = app(MensajeriaService::class);
+    $comp = $this->f['componente'];
+    $noLeidos = fn(int $usuario) => $svc->noLeidosPorComponente([$comp], $usuario)[$comp] ?? 0;
 
-    // 1. El alumno pregunta, dirigido al titular.
+    $antesTitular = $noLeidos($this->f['titular']);
+    $antesColegiado = $noLeidos($this->f['colegiado']);
+
+    // 1. El alumno le pregunta al titular.
     $this->actingAs(Usuario::find($this->f['alumno']))
-        ->post("/estudiante/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/mensaje", [
-            'mensaje' => 'No entiendo el punto 2 del TP3',
-            'tema'    => 'Duda TP3',
+        ->post("/estudiante/cursos/{$this->f['curso']}/mensajeria/componentes/{$comp}/mensaje", [
+            'mensaje'             => 'No entiendo el punto 2 del TP3',
+            'tema'                => 'Duda TP3',
+            'id_usuario_receptor' => $this->f['titular'],
         ])
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
-    // 2. Responde el COLEGIADO, no el titular.
+    // 2. El COLEGIADO le escribe al alumno por su cuenta.
     $this->actingAs(Usuario::find($this->f['colegiado']))
-        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/alumnos/{$this->f['alumno']}/mensaje", [
+        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$comp}/alumnos/{$this->f['alumno']}/mensaje", [
             'mensaje' => 'El punto 2 pide el intervalo de confianza',
         ])
         ->assertRedirect();
 
-    // 3. Y después el titular.
+    // 3. El titular responde.
     $this->actingAs(Usuario::find($this->f['titular']))
-        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/alumnos/{$this->f['alumno']}/mensaje", [
-            'mensaje' => 'Confirmo lo que indica el profesor',
+        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$comp}/alumnos/{$this->f['alumno']}/mensaje", [
+            'mensaje' => 'Te respondo yo',
         ])
         ->assertRedirect();
 
-    $canal = $svc->mensajesDelCanal($this->f['componente'], $this->f['alumno'], $this->f['titular']);
+    // Dos conversaciones separadas; la del titular hereda el asunto.
+    $conTitular = $svc->mensajesDeConversacion($comp, $this->f['alumno'], $this->f['titular'], $this->f['titular']);
+    $conColegiado = $svc->mensajesDeConversacion($comp, $this->f['alumno'], $this->f['colegiado'], $this->f['colegiado']);
 
-    // Un solo canal con los tres mensajes, en orden, y el asunto heredado.
-    expect($canal)->toHaveCount(3)
-        ->and($canal->pluck('mensaje')->all())->toBe([
-            'No entiendo el punto 2 del TP3',
-            'El punto 2 pide el intervalo de confianza',
-            'Confirmo lo que indica el profesor',
+    expect($conTitular->pluck('mensaje')->all())->toBe(['No entiendo el punto 2 del TP3', 'Te respondo yo'])
+        ->and($conTitular->pluck('tema')->unique()->all())->toBe(['Duda TP3'])
+        ->and($conTitular->pluck('es_alumno')->all())->toBe([true, false])
+        ->and($conColegiado->pluck('mensaje')->all())->toBe(['El punto 2 pide el intervalo de confianza']);
+
+    // La pregunta al titular no le llega al colegiado, ni en el contador ni en su lista.
+    expect($noLeidos($this->f['titular']) - $antesTitular)->toBe(1)
+        ->and($noLeidos($this->f['colegiado']) - $antesColegiado)->toBe(0);
+
+    $filaDe = fn(int $actor) => $svc->canalesDeComponente($comp, $actor)->firstWhere('id_alumno', $this->f['alumno']);
+
+    expect($filaDe($this->f['colegiado']))->toMatchArray(['ultimo_mensaje' => 'El punto 2 pide el intervalo de confianza', 'no_leidos' => 0])
+        ->and($filaDe($this->f['titular']))->toMatchArray(['ultimo_mensaje' => 'Te respondo yo', 'no_leidos' => 1]);
+
+    // Y la bandeja del colegiado abre sólo su conversación.
+    $this->actingAs(Usuario::find($this->f['colegiado']))
+        ->get("/docente/cursos/{$this->f['curso']}/mensajeria?componente_id={$comp}&alumno_id={$this->f['alumno']}")
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->where('panel.canal.mensajes', fn($mensajes) => collect($mensajes)->pluck('mensaje')->all()
+                === ['El punto 2 pide el intervalo de confianza']));
+});
+
+it('el ayudante tiene su propia conversación y el alumno lo ve en el equipo', function () {
+    $ayudante = ayudanteDelCurso($this->f);
+    if ($ayudante === null) {
+        $this->markTestSkipped('No hay a quién asignar como ayudante.');
+    }
+
+    $svc = app(MensajeriaService::class);
+    $comp = $this->f['componente'];
+    $curso = Curso::find($this->f['curso']);
+
+    // El alumno ve a cada persona del equipo, con su papel.
+    $bandeja = app(MensajeriaCursoEstudiante::class)->bandeja($curso, $this->f['alumno'], $comp);
+    $roles = collect($bandeja['panel']['conversaciones'])->pluck('rol', 'id_usuario');
+
+    expect($roles[$this->f['titular']] ?? null)->toBe('Titular')
+        ->and($roles[$this->f['colegiado']] ?? null)->toBe('Docente')
+        ->and($roles[$ayudante] ?? null)->toBe('Ayudante');
+
+    $antesTitular = $svc->noLeidosPorComponente([$comp], $this->f['titular'])[$comp] ?? 0;
+
+    $this->actingAs(Usuario::find($this->f['alumno']))
+        ->post("/estudiante/cursos/{$this->f['curso']}/mensajeria/componentes/{$comp}/mensaje", [
+            'mensaje'             => 'Ayudante, ¿revisas mi código?',
+            'tema'                => 'Laboratorio 4',
+            'id_usuario_receptor' => $ayudante,
         ])
-        ->and($canal->pluck('tema')->unique()->all())->toBe(['Duda TP3']);
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
-    // El titular ve la respuesta del colegiado dentro de su misma conversación.
-    expect($canal->pluck('es_alumno')->all())->toBe([true, false, false]);
+    // Le llega al ayudante y a nadie más del equipo.
+    expect($svc->noLeidosPorComponente([$comp], $ayudante)[$comp] ?? 0)->toBeGreaterThanOrEqual(1)
+        ->and($svc->canalesDeComponente($comp, $ayudante)->firstWhere('id_alumno', $this->f['alumno'])['ultimo_mensaje'])
+            ->toBe('Ayudante, ¿revisas mi código?')
+        ->and($svc->noLeidosPorComponente([$comp], $this->f['titular'])[$comp] ?? 0)->toBe($antesTitular)
+        ->and($svc->mensajesDeConversacion($comp, $this->f['alumno'], $this->f['titular'], $this->f['titular']))->toBeEmpty();
+
+    // El ayudante responde; sin pedir una, el alumno aterriza en esa conversación.
+    $svc->enviarIndividual($comp, $ayudante, $this->f['alumno'], 'Sí, mañana');
+
+    $otra = app(MensajeriaCursoEstudiante::class)->bandeja($curso, $this->f['alumno'], $comp);
+    $abierta = $otra['panel']['conversacion'];
+
+    expect($abierta['id_usuario'])->toBe($ayudante)
+        ->and(collect($abierta['mensajes'])->pluck('mensaje')->all())->toBe(['Ayudante, ¿revisas mi código?', 'Sí, mañana'])
+        ->and(collect($abierta['mensajes'])->last()['nuevo'])->toBeTrue()
+        // Hereda el asunto de la conversación con el ayudante, no el de otra.
+        ->and(collect($abierta['mensajes'])->last()['tema'])->toBe('Laboratorio 4');
+
+    // Pedir otra conversación la abre a ella.
+    $conTitular = app(MensajeriaCursoEstudiante::class)->bandeja($curso, $this->f['alumno'], $comp, $this->f['titular']);
+    expect($conTitular['panel']['conversacion']['id_usuario'])->toBe($this->f['titular'])
+        ->and($conTitular['panel']['conversacion']['mensajes'])->toBeEmpty();
+});
+
+it('el alumno sólo puede escribirle a alguien del equipo', function () {
+    // Otro alumno del componente: no es del equipo.
+    $otro = DB::selectOne("
+        SELECT e.id_usuario
+        FROM curso.inscripcion_componente ic
+        JOIN usuario.estudiante e ON e.id_estudiante = ic.id_estudiante
+        WHERE ic.id_componente = ? AND e.id_usuario <> ?
+        LIMIT 1
+    ", [$this->f['componente'], $this->f['alumno']]);
+
+    if (!$otro) {
+        $this->markTestSkipped('El componente tiene un solo alumno.');
+    }
+
+    $antes = DB::table('curso.mensaje')->where('id_usuario_emisor', $this->f['alumno'])->count();
+
+    $this->actingAs(Usuario::find($this->f['alumno']))
+        ->post("/estudiante/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/mensaje", [
+            'mensaje'             => 'hola',
+            'tema'                => 'Prueba',
+            'id_usuario_receptor' => (int) $otro->id_usuario,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('mensaje');
+
+    expect(DB::table('curso.mensaje')->where('id_usuario_emisor', $this->f['alumno'])->count())->toBe($antes);
 });
 
 it('abrir el panel marca como leído y baja el contador', function () {
@@ -193,7 +337,7 @@ it('abrir el panel marca como leído y baja el contador', function () {
             'mensaje' => 'Contenido del aviso',
         ]);
 
-    $antes = $svc->noLeidosPorComponente([$this->f['componente']], $this->f['alumno'], false);
+    $antes = $svc->noLeidosPorComponente([$this->f['componente']], $this->f['alumno']);
     expect($antes[$this->f['componente']] ?? 0)->toBe(1);
 
     // La URL antigua lleva a la pestaña Mensajería de la ficha, con el componente.
@@ -210,7 +354,7 @@ it('abrir el panel marca como leído y baja el contador', function () {
         // Llegó sin abrir: en esta visita se destaca como «Nuevo».
         ->and($bandeja['panel']['difusiones']->firstWhere('tema', 'Aviso')['nuevo'])->toBeTrue();
 
-    $despues = $svc->noLeidosPorComponente([$this->f['componente']], $this->f['alumno'], false);
+    $despues = $svc->noLeidosPorComponente([$this->f['componente']], $this->f['alumno']);
     expect($despues[$this->f['componente']] ?? 0)->toBe(0);
 
     // La próxima vez ya no es nuevo.
@@ -298,7 +442,8 @@ it('el alumno no puede escribir en un componente donde no está inscrito', funct
     // componente del mismo curso (lo ve, pero no ése).
     $this->actingAs(Usuario::find($this->f['alumno']))
         ->post("/estudiante/cursos/{$ajeno->id_curso}/mensajeria/componentes/{$ajeno->id_componente}/mensaje", [
-            'mensaje' => 'hola',
+            'mensaje'             => 'hola',
+            'id_usuario_receptor' => $this->f['titular'],
         ])
         ->assertForbidden();
 });

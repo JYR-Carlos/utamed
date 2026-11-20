@@ -71,7 +71,6 @@ class ResumenCursosEstudiante
         $noLeidos = $this->mensajeria->noLeidosPorComponente(
             $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
             $idUsuario,
-            esStaff: false,
         );
 
         $cursos = $componentes

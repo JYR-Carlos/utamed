@@ -67,7 +67,6 @@ class MensajeriaController extends Controller
         $noLeidos = $this->mensajeria->noLeidosPorComponente(
             $vigentes->pluck('id_componente')->map(fn ($id) => (int) $id)->all(),
             (int) Auth::id(),
-            esStaff: true,
         );
 
         $cursos = $vigentes

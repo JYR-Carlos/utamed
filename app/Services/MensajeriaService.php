@@ -17,15 +17,19 @@ use Illuminate\Support\Facades\DB;
  *  - Difusión  (tipo_mensaje = MENSAJE_PARA_TODO_EL_CURSO, receptor NULL)
  *    La ven todos los inscritos del componente y su equipo docente.
  *
- *  - Canal individual (tipo_mensaje = MENSAJE_INDIVIDUAL)
- *    El canal es el par (componente, alumno). Todos los docentes del componente
- *    comparten ese canal: si responde un colegiado, el mensaje entra en la misma
- *    conversación, porque la identidad del canal no depende de quién contestó.
- *    id_usuario_receptor sólo registra a quién iba dirigido ese mensaje puntual.
+ *  - Conversación privada (tipo_mensaje = MENSAJE_INDIVIDUAL)
+ *    Es el trío (componente, alumno, interlocutor), donde el interlocutor es
+ *    una persona del equipo del componente: titular, docente o ayudante. La
+ *    ven sólo esos dos (OBS-49, decisión del 20-11-2026): el titular no lee las
+ *    conversaciones de los colegiados ni las de los ayudantes. El par sale de
+ *    id_usuario_emisor e id_usuario_receptor, así que no hay cambio de esquema.
+ *    Los mensajes de cuando el canal era compartido por todo el equipo quedan en
+ *    la conversación del par que los escribió.
  *
- * QUIÉN ES EL ALUMNO DEL CANAL: se resuelve por la inscripción a ESE componente
+ * QUIÉN ES EL ALUMNO: se resuelve por la inscripción a ESE componente
  * (curso.inscripcion_componente), no por el rol global. Así un ayudante que
- * además sea alumno avanzado no puede confundirse con el alumno del canal.
+ * además sea alumno avanzado no puede confundirse con el alumno de la
+ * conversación.
  *
  * LECTURA: curso.interaccion_mensaje guarda una fila por (mensaje, lector). Sin
  * fila = no leído.
@@ -130,27 +134,34 @@ class MensajeriaService
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
+     * Lo que alcanza a un lector: las difusiones del componente y los mensajes
+     * individuales donde él es emisor o receptor. Vale igual para el alumno y
+     * para el equipo, porque cada conversación es de dos.
+     */
+    private const ALCANCE = "(m.tipo_mensaje = 'MENSAJE_PARA_TODO_EL_CURSO'
+              OR :id_alcance IN (m.id_usuario_emisor, m.id_usuario_receptor))";
+
+    /**
      * No leídos por componente para un usuario: cuenta difusiones y mensajes
-     * individuales que lo alcanzan y que aún no tienen acuse de lectura suyo.
+     * de sus conversaciones que aún no tienen acuse de lectura suyo.
      *
      * @param  int[]  $componenteIds
-     * @param  bool   $esStaff  TRUE = ve todos los canales del componente;
-     *                          FALSE = sólo su propio canal.
      * @return array<int,int>  [id_componente => no leídos]
      */
-    public function noLeidosPorComponente(array $componenteIds, int $idUsuario, bool $esStaff): array
+    public function noLeidosPorComponente(array $componenteIds, int $idUsuario): array
     {
         if (empty($componenteIds)) {
             return [];
         }
 
-        [$alcance, $extra] = $this->alcanceBandeja($idUsuario, $esStaff);
+        $alcance = self::ALCANCE;
 
         $bindings = [
-            'ids'      => $this->pgIntArray($componenteIds),
-            'id_lector' => $idUsuario,
-            'id_emisor' => $idUsuario,
-        ] + $extra;
+            'ids'        => $this->pgIntArray($componenteIds),
+            'id_lector'  => $idUsuario,
+            'id_emisor'  => $idUsuario,
+            'id_alcance' => $idUsuario,
+        ];
 
         $filas = DB::select("
             SELECT m.id_componente, COUNT(*) AS no_leidos
@@ -158,7 +169,7 @@ class MensajeriaService
             WHERE m.id_componente = ANY(string_to_array(:ids, ',')::int[])
               AND m.fecha_eliminacion IS NULL
               AND m.id_usuario_emisor <> :id_emisor
-              AND ({$alcance})
+              AND {$alcance}
               AND NOT EXISTS (
                     SELECT 1 FROM curso.interaccion_mensaje im
                     WHERE im.id_mensaje = m.id_mensaje
@@ -180,17 +191,15 @@ class MensajeriaService
      * cuenta.
      *
      * @param  int[]  $componenteIds
-     * @param  bool   $esStaff  TRUE = ve todos los canales del componente;
-     *                          FALSE = sólo su propio canal.
      * @return array<int,string>  [id_componente => fecha_creacion]
      */
-    public function ultimoNoLeidoPorComponente(array $componenteIds, int $idUsuario, bool $esStaff): array
+    public function ultimoNoLeidoPorComponente(array $componenteIds, int $idUsuario): array
     {
         if (empty($componenteIds)) {
             return [];
         }
 
-        [$alcance, $extra] = $this->alcanceBandeja($idUsuario, $esStaff);
+        $alcance = self::ALCANCE;
 
         $filas = DB::select("
             SELECT m.id_componente, MAX(m.fecha_creacion) AS ultimo
@@ -198,7 +207,7 @@ class MensajeriaService
             WHERE m.id_componente = ANY(string_to_array(:ids, ',')::int[])
               AND m.fecha_eliminacion IS NULL
               AND m.id_usuario_emisor <> :id_emisor
-              AND ({$alcance})
+              AND {$alcance}
               AND NOT EXISTS (
                     SELECT 1 FROM curso.interaccion_mensaje im
                     WHERE im.id_mensaje = m.id_mensaje
@@ -207,43 +216,42 @@ class MensajeriaService
               )
             GROUP BY m.id_componente
         ", [
-            'ids'       => $this->pgIntArray($componenteIds),
-            'id_lector' => $idUsuario,
-            'id_emisor' => $idUsuario,
-        ] + $extra);
+            'ids'        => $this->pgIntArray($componenteIds),
+            'id_lector'  => $idUsuario,
+            'id_emisor'  => $idUsuario,
+            'id_alcance' => $idUsuario,
+        ]);
 
         return collect($filas)->pluck('ultimo', 'id_componente')->all();
     }
 
     /**
-     * Filtro de alcance de la bandeja: el staff ve todo el componente; el
-     * alumno sólo lo suyo (difusiones + los individuales donde él aparece).
-     * Devuelve el fragmento SQL y el binding extra que ese fragmento necesita.
-     *
-     * @return array{0:string,1:array<string,int>}
+     * Condición SQL de una conversación: los mensajes individuales entre dos
+     * personas, en cualquier sentido. $a y $b son expresiones SQL (una columna
+     * o un placeholder; cada placeholder con nombre propio, porque PDO no deja
+     * repetirlos).
      */
-    private function alcanceBandeja(int $idUsuario, bool $esStaff): array
+    private function sqlPar(string $a, string $b): string
     {
-        if ($esStaff) {
-            return ['1 = 1', []];
-        }
-
-        return [
-            "(m.tipo_mensaje = 'MENSAJE_PARA_TODO_EL_CURSO'
-              OR :id_alcance IN (m.id_usuario_emisor, m.id_usuario_receptor))",
-            ['id_alcance' => $idUsuario],
-        ];
+        return "m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
+                  AND {$a} IN (m.id_usuario_emisor, m.id_usuario_receptor)
+                  AND {$b} IN (m.id_usuario_emisor, m.id_usuario_receptor)";
     }
 
     /**
-     * Canales de un componente para la vista del staff: un canal por alumno
-     * inscrito (existan o no mensajes, para poder iniciar la conversación), con
-     * el último mensaje y los no leídos del propio staff.
+     * Conversaciones del equipo con los alumnos de un componente, vistas por
+     * una persona del equipo: una fila por alumno inscrito (existan o no
+     * mensajes, para poder iniciar la conversación) con el último mensaje y
+     * los no leídos de SU conversación con ese alumno. Lo que el alumno habló
+     * con otros docentes no entra.
      *
      * @return Collection<int,array<string,mixed>>
      */
     public function canalesDeComponente(int $idComponente, int $idUsuarioActor): Collection
     {
+        $parUltimo = $this->sqlPar('u.id_usuario', ':id_actor_ult');
+        $parNoLeidos = $this->sqlPar('u.id_usuario', ':id_actor_nl');
+
         $filas = DB::select("
             SELECT
                 u.id_usuario AS id_alumno,
@@ -260,9 +268,8 @@ class MensajeriaService
                 SELECT m.mensaje, m.fecha_creacion, m.id_usuario_emisor
                 FROM curso.mensaje m
                 WHERE m.id_componente = ic.id_componente
-                  AND m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
                   AND m.fecha_eliminacion IS NULL
-                  AND u.id_usuario IN (m.id_usuario_emisor, m.id_usuario_receptor)
+                  AND {$parUltimo}
                 ORDER BY m.fecha_creacion DESC, m.id_mensaje DESC
                 LIMIT 1
             ) ult ON TRUE
@@ -270,9 +277,8 @@ class MensajeriaService
                 SELECT COUNT(*) AS no_leidos
                 FROM curso.mensaje m
                 WHERE m.id_componente = ic.id_componente
-                  AND m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
                   AND m.fecha_eliminacion IS NULL
-                  AND u.id_usuario IN (m.id_usuario_emisor, m.id_usuario_receptor)
+                  AND {$parNoLeidos}
                   AND m.id_usuario_emisor <> :id_actor
                   AND NOT EXISTS (
                         SELECT 1 FROM curso.interaccion_mensaje im
@@ -285,6 +291,8 @@ class MensajeriaService
             ORDER BY ult.fecha_creacion DESC NULLS LAST, alumno
         ", [
             'id_componente' => $idComponente,
+            'id_actor_ult'  => $idUsuarioActor,
+            'id_actor_nl'   => $idUsuarioActor,
             'id_actor'      => $idUsuarioActor,
             'id_actor2'     => $idUsuarioActor,
         ]);
@@ -337,14 +345,21 @@ class MensajeriaService
     }
 
     /**
-     * Mensajes del canal (componente, alumno), de la más antigua a la más
-     * reciente. No filtra por quién es el otro extremo: por eso un colegiado o
-     * un ayudante que responde queda dentro de la misma conversación.
+     * Mensajes de la conversación entre el alumno y una persona del equipo, de
+     * la más antigua a la más reciente. Lo que el alumno habló con otros del
+     * equipo no entra.
      *
+     * @param  int  $idUsuarioActor  quien mira (el alumno o el interlocutor), para `es_mio`.
      * @return Collection<int,array<string,mixed>>
      */
-    public function mensajesDelCanal(int $idComponente, int $idUsuarioAlumno, int $idUsuarioActor): Collection
-    {
+    public function mensajesDeConversacion(
+        int $idComponente,
+        int $idUsuarioAlumno,
+        int $idUsuarioInterlocutor,
+        int $idUsuarioActor,
+    ): Collection {
+        $par = $this->sqlPar(':id_alumno', ':id_interlocutor');
+
         $filas = DB::select("
             SELECT m.id_mensaje, m.tema, m.mensaje, m.fecha_creacion,
                    m.id_usuario_emisor, m.id_usuario_receptor,
@@ -354,13 +369,13 @@ class MensajeriaService
             JOIN usuario.usuario u           ON u.id_usuario = m.id_usuario_emisor
             LEFT JOIN usuario.usuario r      ON r.id_usuario = m.id_usuario_receptor
             WHERE m.id_componente = :id_componente
-              AND m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
               AND m.fecha_eliminacion IS NULL
-              AND :id_alumno IN (m.id_usuario_emisor, m.id_usuario_receptor)
+              AND {$par}
             ORDER BY m.fecha_creacion ASC, m.id_mensaje ASC
         ", [
-            'id_componente' => $idComponente,
-            'id_alumno'     => $idUsuarioAlumno,
+            'id_componente'   => $idComponente,
+            'id_alumno'       => $idUsuarioAlumno,
+            'id_interlocutor' => $idUsuarioInterlocutor,
         ]);
 
         return collect($filas)->map(fn($f) => [
@@ -376,41 +391,116 @@ class MensajeriaService
     }
 
     /**
-     * Equipo docente del componente: los de curso.docente_componente más el
-     * titular del curso. Sirve para que el alumno elija a quién dirigir el
-     * mensaje (aunque todos lo vean).
+     * Resumen de las conversaciones de un alumno en un componente, una por
+     * interlocutor: último mensaje y cuántos le faltan por leer. Sólo trae a
+     * quienes ya tienen mensajes con él; el equipo completo sale de
+     * {@see equipoDeComponente()}.
      *
-     * @return Collection<int,array<string,mixed>>
+     * @return Collection<int,array<string,mixed>>  indexada por id_usuario del interlocutor
      */
-    public function docentesDeComponente(int $idComponente): Collection
+    public function conversacionesDeAlumno(int $idComponente, int $idUsuarioAlumno): Collection
+    {
+        $filas = DB::select("
+            WITH suyos AS (
+                SELECT m.id_mensaje, m.mensaje, m.fecha_creacion, m.id_usuario_emisor,
+                       CASE WHEN m.id_usuario_emisor = :id_alumno
+                            THEN m.id_usuario_receptor
+                            ELSE m.id_usuario_emisor END AS interlocutor,
+                       (m.id_usuario_emisor <> :id_alumno2 AND NOT EXISTS (
+                            SELECT 1 FROM curso.interaccion_mensaje im
+                            WHERE im.id_mensaje = m.id_mensaje
+                              AND im.id_usuario_lector = :id_alumno3
+                              AND im.fecha_eliminacion IS NULL
+                       )) AS sin_leer
+                FROM curso.mensaje m
+                WHERE m.id_componente = :id_componente
+                  AND m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
+                  AND m.fecha_eliminacion IS NULL
+                  AND :id_alumno4 IN (m.id_usuario_emisor, m.id_usuario_receptor)
+            )
+            SELECT DISTINCT ON (s.interlocutor)
+                   s.interlocutor,
+                   TRIM(CONCAT(u.nombre1, ' ', COALESCE(u.apellido1, ''))) AS nombre,
+                   s.mensaje         AS ultimo_mensaje,
+                   s.fecha_creacion  AS ultima_fecha,
+                   s.id_usuario_emisor AS ultimo_emisor,
+                   COUNT(*) FILTER (WHERE s.sin_leer) OVER (PARTITION BY s.interlocutor) AS no_leidos
+            FROM suyos s
+            JOIN usuario.usuario u ON u.id_usuario = s.interlocutor
+            ORDER BY s.interlocutor, s.fecha_creacion DESC, s.id_mensaje DESC
+        ", [
+            'id_componente' => $idComponente,
+            'id_alumno'     => $idUsuarioAlumno,
+            'id_alumno2'    => $idUsuarioAlumno,
+            'id_alumno3'    => $idUsuarioAlumno,
+            'id_alumno4'    => $idUsuarioAlumno,
+        ]);
+
+        return collect($filas)->mapWithKeys(fn($f) => [(int) $f->interlocutor => [
+            'nombre'         => $f->nombre,
+            'ultimo_mensaje' => $f->ultimo_mensaje,
+            'ultima_fecha'   => $f->ultima_fecha,
+            'ultimo_es_mio'  => (int) $f->ultimo_emisor === $idUsuarioAlumno,
+            'no_leidos'      => (int) $f->no_leidos,
+        ]]);
+    }
+
+    /**
+     * Equipo del componente, a quien el alumno puede escribir: el titular del
+     * curso, los docentes de curso.docente_componente y los ayudantes del curso
+     * (mismo criterio que {@see componentesDeAyudante()}). Una fila por
+     * persona; si alguien tiene dos papeles queda el de más rango.
+     *
+     * @return Collection<int,array{id_usuario:int, nombre:string, rol:string}>
+     */
+    public function equipoDeComponente(int $idComponente): Collection
     {
         $filas = DB::select("
             SELECT
                 u.id_usuario,
                 TRIM(CONCAT(u.nombre1, ' ', COALESCE(u.apellido1, ''))) AS nombre,
-                bool_or(x.es_titular) AS es_titular
+                MIN(x.orden) AS orden
             FROM (
-                SELECT dc.id_docente, dc.es_titular
+                SELECT d.id_usuario, CASE WHEN dc.es_titular THEN 1 ELSE 2 END AS orden
                 FROM curso.docente_componente dc
+                JOIN usuario.docente d ON d.id_docente = dc.id_docente
                 WHERE dc.id_componente = :id_componente
 
                 UNION ALL
 
-                SELECT cur.id_docente_titular, TRUE
+                SELECT d.id_usuario, 1
+                FROM curso.componente cmp
+                JOIN curso.curso cur   ON cur.id_curso = cmp.id_curso
+                JOIN usuario.docente d ON d.id_docente = cur.id_docente_titular
+                WHERE cmp.id_componente = :id_componente2
+
+                UNION ALL
+
+                SELECT ura.id_usuario, 3
                 FROM curso.componente cmp
                 JOIN curso.curso cur ON cur.id_curso = cmp.id_curso
-                WHERE cmp.id_componente = :id_componente2
+                JOIN usuario.usuario_rol_asignacion ura ON ura.id_contexto = cur.id_contexto
+                JOIN usuario.rol r ON r.id_rol = ura.id_rol
+                WHERE cmp.id_componente = :id_componente3
+                  AND ura.esta_activo = TRUE
+                  AND ura.fue_eliminado = FALSE
+                  AND LOWER(r.nombre) = 'ayudante'
             ) x
-            JOIN usuario.docente d ON d.id_docente = x.id_docente
-            JOIN usuario.usuario u ON u.id_usuario = d.id_usuario
+            JOIN usuario.usuario u ON u.id_usuario = x.id_usuario
             GROUP BY u.id_usuario, u.nombre1, u.apellido1
-            ORDER BY es_titular DESC, nombre
-        ", ['id_componente' => $idComponente, 'id_componente2' => $idComponente]);
+            ORDER BY orden, nombre
+        ", [
+            'id_componente'  => $idComponente,
+            'id_componente2' => $idComponente,
+            'id_componente3' => $idComponente,
+        ]);
+
+        $roles = [1 => 'Titular', 2 => 'Docente', 3 => 'Ayudante'];
 
         return collect($filas)->map(fn($f) => [
             'id_usuario' => (int) $f->id_usuario,
             'nombre'     => $f->nombre,
-            'es_titular' => (bool) $f->es_titular,
+            'rol'        => $roles[(int) $f->orden],
         ]);
     }
 
@@ -419,21 +509,22 @@ class MensajeriaService
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Envía un mensaje al canal (componente, alumno).
+     * Envía un mensaje a la conversación entre emisor y receptor (uno es el
+     * alumno y el otro alguien del equipo). Quién puede escribirle a quién lo
+     * deciden los controladores.
      *
-     * El `tema` es NOT NULL en la tabla y aquí se usa como asunto del canal: si
-     * no se entrega uno, se hereda el del primer mensaje del canal, y si el
-     * canal está vacío se usa un valor por defecto.
+     * El `tema` es NOT NULL en la tabla y aquí se usa como asunto de la
+     * conversación: si no se entrega uno, se hereda el del primer mensaje entre
+     * los dos, y si aún no hay ninguno se usa un valor por defecto.
      */
     public function enviarIndividual(
         int $idComponente,
         int $idUsuarioEmisor,
         int $idUsuarioReceptor,
-        int $idUsuarioAlumno,
         string $mensaje,
         ?string $tema = null,
     ): int {
-        $tema = $this->resolverTema($idComponente, $idUsuarioAlumno, $tema);
+        $tema = $this->resolverTema($idComponente, $idUsuarioEmisor, $idUsuarioReceptor, $tema);
 
         return (int) DB::table('curso.mensaje')->insertGetId([
             'mensaje'             => $mensaje,
@@ -466,34 +557,28 @@ class MensajeriaService
         ], 'id_mensaje');
     }
 
-    /** Asunto del canal: el explícito, si no el del primer mensaje, si no el default. */
-    private function resolverTema(int $idComponente, int $idUsuarioAlumno, ?string $tema): string
+    /** Asunto de la conversación: el explícito, si no el del primer mensaje del par, si no el default. */
+    private function resolverTema(int $idComponente, int $idUsuarioA, int $idUsuarioB, ?string $tema): string
     {
         if ($tema !== null && trim($tema) !== '') {
             return trim($tema);
         }
 
+        $par = $this->sqlPar(':id_a', ':id_b');
+
         $primero = DB::select("
             SELECT m.tema
             FROM curso.mensaje m
             WHERE m.id_componente = :id_componente
-              AND m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
               AND m.fecha_eliminacion IS NULL
-              AND :id_alumno IN (m.id_usuario_emisor, m.id_usuario_receptor)
+              AND {$par}
             ORDER BY m.fecha_creacion ASC, m.id_mensaje ASC
             LIMIT 1
-        ", ['id_componente' => $idComponente, 'id_alumno' => $idUsuarioAlumno]);
+        ", ['id_componente' => $idComponente, 'id_a' => $idUsuarioA, 'id_b' => $idUsuarioB]);
 
         return $primero[0]->tema ?? self::TEMA_POR_DEFECTO;
     }
 
-    /**
-     * Registra el acuse de lectura de los mensajes indicados. Inserta sólo lo
-     * que falta: no hay UNIQUE sobre (id_mensaje, id_usuario_lector), así que se
-     * filtra con NOT EXISTS en vez de ON CONFLICT.
-     *
-     * @param  int[]  $idsMensaje
-     */
     /**
      * De esos mensajes, los de otros que el lector todavía no abre: lo que
      * marcarLeidos() marcaría ahora. Para destacarlos como «Nuevo» antes de
@@ -528,6 +613,13 @@ class MensajeriaService
         return collect($ids)->mapWithKeys(fn($f) => [(int) $f->id_mensaje => true])->all();
     }
 
+    /**
+     * Registra el acuse de lectura de los mensajes indicados. Inserta sólo lo
+     * que falta: no hay UNIQUE sobre (id_mensaje, id_usuario_lector), así que se
+     * filtra con NOT EXISTS en vez de ON CONFLICT.
+     *
+     * @param  int[]  $idsMensaje
+     */
     public function marcarLeidos(array $idsMensaje, int $idUsuarioLector): void
     {
         if (empty($idsMensaje)) {

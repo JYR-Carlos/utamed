@@ -17,10 +17,9 @@ use Inertia\Inertia;
  * pestaña, y dentro de la pestaña hay dos cosas:
  *
  *  - Generales   : difusiones al componente (MENSAJE_PARA_TODO_EL_CURSO).
- *  - Individuales: un canal por alumno (MENSAJE_INDIVIDUAL). El canal es
- *                  (componente, alumno) y lo comparten todos los docentes del
- *                  componente, así que un colegiado que responde no abre una
- *                  conversación aparte.
+ *  - Individuales: la conversación privada de ESTE usuario con cada alumno
+ *                  (MENSAJE_INDIVIDUAL). Es de dos: el titular no ve las de los
+ *                  colegiados ni las de los ayudantes, y viceversa (OBS-49).
  *
  * Docentes y ayudantes hacen exactamente lo mismo; sólo cambia qué componentes
  * ven. Cada controlador implementa `resolverComponentesVisibles()` y el resto se
@@ -66,7 +65,6 @@ trait GestionaMensajeriaStaff
         $noLeidos = $mensajeria->noLeidosPorComponente(
             $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
             $idUsuario,
-            esStaff: true,
         );
 
         return Inertia::render($this->vistaMensajeria(), [
@@ -102,7 +100,7 @@ trait GestionaMensajeriaStaff
     }
 
     /**
-     * Mensaje al canal de un alumno.
+     * Mensaje a la conversación de este usuario con un alumno.
      * POST {base}/componentes/{componente}/alumnos/{alumno}/mensaje
      */
     public function enviarMensaje(Request $request, Curso $curso, int $componente, int $alumno, MensajeriaService $mensajeria)
@@ -129,7 +127,6 @@ trait GestionaMensajeriaStaff
             idComponente: $componente,
             idUsuarioEmisor: $idUsuario,
             idUsuarioReceptor: $alumno,
-            idUsuarioAlumno: $alumno,
             mensaje: $datos['mensaje'],
             tema: $datos['tema'] ?? null,
         );
@@ -138,9 +135,9 @@ trait GestionaMensajeriaStaff
     }
 
     /**
-     * Panel de la pestaña activa: difusiones, lista de canales y —si se pidió un
-     * alumno— la conversación de ese canal. Abrirlo marca como leído lo que
-     * muestra.
+     * Panel de la pestaña activa: difusiones, la lista de alumnos con la
+     * conversación de cada uno CON ESTE USUARIO y —si se pidió un alumno— esa
+     * conversación. Abrirlo marca como leído lo que muestra.
      *
      * @param  Collection<int,object>  $componentes
      * @return array<string,mixed>|null
@@ -168,7 +165,7 @@ trait GestionaMensajeriaStaff
         // El alumno debe estar inscrito en ESE componente: la lista de canales
         // ya sale de curso.inscripcion_componente, así que sirve de validación.
         if ($idAlumno && $canales->contains(fn($c) => $c['id_alumno'] === $idAlumno)) {
-            $mensajes = $mensajeria->mensajesDelCanal($idComponente, $idAlumno, $idUsuario);
+            $mensajes = $mensajeria->mensajesDeConversacion($idComponente, $idAlumno, $idUsuario, $idUsuario);
             $mensajeria->marcarLeidos($mensajes->pluck('id_mensaje')->all(), $idUsuario);
 
             $canal = [

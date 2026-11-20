@@ -345,11 +345,10 @@ class DocenteCursoController extends Controller
                 'secciones' => [],
                 'total_estudiantes' => $totalEstudiantes,
                 // «Mensajería · N sin leer» en la cabecera: mismo criterio que el
-                // dashboard (curso.mensaje de los componentes que dicta, como staff).
+                // dashboard (difusiones y sus propias conversaciones de curso.mensaje).
                 'mensajes_sin_leer' => array_sum(app(\App\Services\MensajeriaService::class)->noLeidosPorComponente(
                     $misComponentes->pluck('id_componente')->map(fn ($id) => (int) $id)->all(),
                     $user->id_usuario,
-                    esStaff: true,
                 )),
             ],
             'mis_componentes' => $misComponentesData->values(),

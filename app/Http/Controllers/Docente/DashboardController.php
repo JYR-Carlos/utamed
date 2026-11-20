@@ -426,9 +426,8 @@ class DashboardController extends Controller
 
     /**
      * Mensajería de nivel curso (curso.mensaje) sin leer, agrupada por curso.
-     * Mismo criterio que Student\DashboardController::mensajesSinLeer, pero
-     * con esStaff=true: el docente ve todo el canal del componente, no sólo
-     * lo suyo.
+     * Mismo criterio que el alumno: las difusiones del componente y SUS
+     * conversaciones con los alumnos; las de los colegiados no cuentan.
      *
      * @return Collection<int,array{id_curso:int,nombre:string,cod_curso:string,no_leidos:int}>
      */
@@ -439,7 +438,6 @@ class DashboardController extends Controller
         $noLeidos = $mensajeria->noLeidosPorComponente(
             $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
             $idUsuario,
-            esStaff: true,
         );
 
         return $componentes
