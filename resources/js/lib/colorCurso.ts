@@ -15,6 +15,18 @@ interface CursoListado {
 
 export const COLORES_CURSO = 8;
 
+/**
+ * Los cursos del semestre vigente: el más reciente de la lista. Los de
+ * semestres anteriores quedan en «Mis cursos».
+ */
+export function cursosDelSemestreVigente<T extends CursoListado>(cursos: T[]): T[] {
+    const periodo = (c: CursoListado) => (c.agno_real ?? 0) * 10 + (c.semestre_real ?? 0);
+    const conPeriodo = cursos.filter((c) => c.agno_real != null && c.semestre_real != null);
+    if (conPeriodo.length === 0) return [];
+    const vigente = Math.max(...conPeriodo.map(periodo));
+    return conPeriodo.filter((c) => periodo(c) === vigente);
+}
+
 export function numeroColorCurso(idCurso: number, cursos: CursoListado[] = []): number {
     const curso = cursos.find((c) => c.id_curso === idCurso);
     if (!curso) return (Math.abs(idCurso) % COLORES_CURSO) + 1;

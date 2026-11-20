@@ -70,10 +70,11 @@
    * No pasa por agenda.agenda: las entregas y su feedback siguen en la actividad.
    *
    * Cambiar de componente o de conversación recarga sólo la prop `mensajeria`
-   * con ?componente_id=…&interlocutor_id=…; enviar hace POST a
+   * con ?componente_id=…&interlocutor_id=… (y ?vista=avisos abre los avisos);
+   * enviar hace POST a
    * /estudiante/cursos/{curso}/mensajeria/componentes/{componente}/mensaje.
    */
-  import { router } from '@inertiajs/svelte';
+  import { page, router } from '@inertiajs/svelte';
   import { Check, LoaderCircle, MessageSquare, Megaphone, Send, Users } from 'lucide-svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import { btnPrimario, campo, tarjeta } from '@/lib/dm';
@@ -95,7 +96,10 @@
   const componente_activo = $derived(bandeja?.componente_activo ?? null);
   const panel = $derived(bandeja?.panel ?? null);
 
-  let vista = $state<'conversacion' | 'avisos'>('conversacion');
+  // ?vista=avisos: el buzón del alumno abre directo los avisos del componente.
+  let vista = $state<'conversacion' | 'avisos'>(
+    new URL($page.url, 'http://x').searchParams.get('vista') === 'avisos' ? 'avisos' : 'conversacion',
+  );
   let recargando = $state(false);
 
   let cuerpo = $state('');

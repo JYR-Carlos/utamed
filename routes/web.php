@@ -602,6 +602,8 @@ Route::prefix('estudiante')
         Route::get('cursos', [CourseController::class, 'index'])->name('cursos.index');
         // Calendario general (FEAT-06): las fechas de todos los cursos del semestre.
         Route::get('calendario', [App\Http\Controllers\Student\CalendarioController::class, 'index'])->name('calendario');
+        // Buzón (OBS-48): mensajería de los ramos y agenda de las actividades en una lista; cada fila abre su conversación.
+        Route::get('mensajes', [App\Http\Controllers\Student\MensajesController::class, 'index'])->name('mensajes');
 
         // Programa (Syllabus) View - MUST be before generic {curso} route
         Route::get('cursos/{curso}/programa', [App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');

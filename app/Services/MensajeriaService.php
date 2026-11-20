@@ -400,9 +400,28 @@ class MensajeriaService
      */
     public function conversacionesDeAlumno(int $idComponente, int $idUsuarioAlumno): Collection
     {
+        return $this->conversacionesDeAlumnoEn([$idComponente], $idUsuarioAlumno)
+            ->keyBy('id_usuario');
+    }
+
+    /**
+     * Las conversaciones de un alumno en varios componentes a la vez: una fila
+     * por (componente, interlocutor) con el asunto, el último mensaje y lo que
+     * le falta por leer. Sólo las que ya tienen mensajes. Es la base de
+     * {@see conversacionesDeAlumno()} y del buzón del alumno.
+     *
+     * @param  int[]  $componenteIds
+     * @return Collection<int,array{id_componente:int, id_usuario:int, nombre:string, tema:?string, ultimo_mensaje:?string, ultima_fecha:string, ultimo_es_mio:bool, no_leidos:int}>
+     */
+    public function conversacionesDeAlumnoEn(array $componenteIds, int $idUsuarioAlumno): Collection
+    {
+        if (empty($componenteIds)) {
+            return collect();
+        }
+
         $filas = DB::select("
             WITH suyos AS (
-                SELECT m.id_mensaje, m.mensaje, m.fecha_creacion, m.id_usuario_emisor,
+                SELECT m.id_mensaje, m.id_componente, m.tema, m.mensaje, m.fecha_creacion, m.id_usuario_emisor,
                        CASE WHEN m.id_usuario_emisor = :id_alumno
                             THEN m.id_usuario_receptor
                             ELSE m.id_usuario_emisor END AS interlocutor,
@@ -413,36 +432,88 @@ class MensajeriaService
                               AND im.fecha_eliminacion IS NULL
                        )) AS sin_leer
                 FROM curso.mensaje m
-                WHERE m.id_componente = :id_componente
+                WHERE m.id_componente = ANY(string_to_array(:ids, ',')::int[])
                   AND m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
                   AND m.fecha_eliminacion IS NULL
                   AND :id_alumno4 IN (m.id_usuario_emisor, m.id_usuario_receptor)
             )
-            SELECT DISTINCT ON (s.interlocutor)
+            SELECT DISTINCT ON (s.id_componente, s.interlocutor)
+                   s.id_componente,
                    s.interlocutor,
                    TRIM(CONCAT(u.nombre1, ' ', COALESCE(u.apellido1, ''))) AS nombre,
+                   s.tema,
                    s.mensaje         AS ultimo_mensaje,
                    s.fecha_creacion  AS ultima_fecha,
                    s.id_usuario_emisor AS ultimo_emisor,
-                   COUNT(*) FILTER (WHERE s.sin_leer) OVER (PARTITION BY s.interlocutor) AS no_leidos
+                   COUNT(*) FILTER (WHERE s.sin_leer)
+                       OVER (PARTITION BY s.id_componente, s.interlocutor) AS no_leidos
             FROM suyos s
             JOIN usuario.usuario u ON u.id_usuario = s.interlocutor
-            ORDER BY s.interlocutor, s.fecha_creacion DESC, s.id_mensaje DESC
+            ORDER BY s.id_componente, s.interlocutor, s.fecha_creacion DESC, s.id_mensaje DESC
         ", [
-            'id_componente' => $idComponente,
-            'id_alumno'     => $idUsuarioAlumno,
-            'id_alumno2'    => $idUsuarioAlumno,
-            'id_alumno3'    => $idUsuarioAlumno,
-            'id_alumno4'    => $idUsuarioAlumno,
+            'ids'        => $this->pgIntArray($componenteIds),
+            'id_alumno'  => $idUsuarioAlumno,
+            'id_alumno2' => $idUsuarioAlumno,
+            'id_alumno3' => $idUsuarioAlumno,
+            'id_alumno4' => $idUsuarioAlumno,
         ]);
 
-        return collect($filas)->mapWithKeys(fn($f) => [(int) $f->interlocutor => [
+        return collect($filas)->map(fn($f) => [
+            'id_componente'  => (int) $f->id_componente,
+            'id_usuario'     => (int) $f->interlocutor,
             'nombre'         => $f->nombre,
+            'tema'           => $f->tema,
             'ultimo_mensaje' => $f->ultimo_mensaje,
             'ultima_fecha'   => $f->ultima_fecha,
             'ultimo_es_mio'  => (int) $f->ultimo_emisor === $idUsuarioAlumno,
             'no_leidos'      => (int) $f->no_leidos,
-        ]]);
+        ]);
+    }
+
+    /**
+     * Los avisos de varios componentes, resumidos: por componente, el último
+     * aviso y cuántos le faltan por leer al usuario. Sólo los componentes que
+     * tienen avisos.
+     *
+     * @param  int[]  $componenteIds
+     * @return Collection<int,array{id_componente:int, tema:?string, mensaje:?string, fecha:string, emisor:string, no_leidos:int}>
+     */
+    public function avisosEn(array $componenteIds, int $idUsuario): Collection
+    {
+        if (empty($componenteIds)) {
+            return collect();
+        }
+
+        $filas = DB::select("
+            SELECT DISTINCT ON (m.id_componente)
+                   m.id_componente, m.tema, m.mensaje, m.fecha_creacion,
+                   TRIM(CONCAT(u.nombre1, ' ', COALESCE(u.apellido1, ''))) AS emisor,
+                   COUNT(*) FILTER (WHERE m.id_usuario_emisor <> :id_emisor AND NOT EXISTS (
+                        SELECT 1 FROM curso.interaccion_mensaje im
+                        WHERE im.id_mensaje = m.id_mensaje
+                          AND im.id_usuario_lector = :id_lector
+                          AND im.fecha_eliminacion IS NULL
+                   )) OVER (PARTITION BY m.id_componente) AS no_leidos
+            FROM curso.mensaje m
+            JOIN usuario.usuario u ON u.id_usuario = m.id_usuario_emisor
+            WHERE m.id_componente = ANY(string_to_array(:ids, ',')::int[])
+              AND m.tipo_mensaje = 'MENSAJE_PARA_TODO_EL_CURSO'
+              AND m.fecha_eliminacion IS NULL
+            ORDER BY m.id_componente, m.fecha_creacion DESC, m.id_mensaje DESC
+        ", [
+            'ids'       => $this->pgIntArray($componenteIds),
+            'id_emisor' => $idUsuario,
+            'id_lector' => $idUsuario,
+        ]);
+
+        return collect($filas)->map(fn($f) => [
+            'id_componente' => (int) $f->id_componente,
+            'tema'          => $f->tema,
+            'mensaje'       => $f->mensaje,
+            'fecha'         => $f->fecha_creacion,
+            'emisor'        => $f->emisor,
+            'no_leidos'     => (int) $f->no_leidos,
+        ]);
     }
 
     /**

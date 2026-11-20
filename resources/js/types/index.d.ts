@@ -62,6 +62,8 @@ export interface SharedAuth {
     estudiante?: any;
     docente_courses: SidebarCourse[];
     estudiante_courses: SidebarCourse[];
+    /** Sin leer del buzón del alumno (mensajería de los ramos + agenda de las actividades). */
+    estudiante_buzon_no_leidos?: number;
     ayudante_courses: SidebarCourse[];
     urlFotoPerfil: string;
 }

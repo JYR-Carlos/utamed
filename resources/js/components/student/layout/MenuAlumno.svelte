@@ -12,12 +12,12 @@
    * pantalla y en el texto emergente.
    */
   import { Link, page, router } from '@inertiajs/svelte';
-  import { CalendarDays, ChevronRight, House, LayoutGrid, LogOut } from 'lucide-svelte';
+  import { CalendarDays, ChevronRight, House, LayoutGrid, LogOut, MessageSquare } from 'lucide-svelte';
   import { logout } from '@/routes';
   import { titleCase } from '@/lib/utils';
   import { usePermissions } from '@/lib/composables/usePermissions';
   import { AMBIENTES, ambientesDisponibles } from '@/lib/ambientes';
-  import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
+  import { cursosDelSemestreVigente, estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import type { SidebarCourse } from '@/types';
   import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
 
@@ -28,14 +28,7 @@
   const cursos = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
 
   // Semestre vigente = el más reciente con cursos; los anteriores quedan en «Mis cursos».
-  const vigentes = $derived.by(() => {
-    const conPeriodo = cursos.filter((c) => c.agno_real != null && c.semestre_real != null);
-    if (conPeriodo.length === 0) return [];
-    const ultimo = conPeriodo.reduce((a, c) =>
-      c.agno_real > a.agno_real || (c.agno_real === a.agno_real && c.semestre_real > a.semestre_real) ? c : a,
-    );
-    return conPeriodo.filter((c) => c.agno_real === ultimo.agno_real && c.semestre_real === ultimo.semestre_real);
-  });
+  const vigentes = $derived(cursosDelSemestreVigente(cursos));
 
   const otrosAmbientes = $derived(
     ambientesDisponibles($page.props.auth, can).filter((a) => a !== 'estudiante'),
@@ -44,6 +37,8 @@
   const url = $derived($page.url ?? '');
   const enInicio = $derived(url.startsWith('/estudiante/dashboard'));
   const enCalendario = $derived(url.startsWith('/estudiante/calendario'));
+  const enMensajes = $derived(url.startsWith('/estudiante/mensajes'));
+  const sinLeerBuzon = $derived(Number($page.props.auth?.estudiante_buzon_no_leidos ?? 0));
   const enMisCursos = $derived(url === '/estudiante/cursos' || url.startsWith('/estudiante/cursos?'));
 
   function esActivo(curso: SidebarCourse): boolean {
@@ -123,6 +118,27 @@
       {#if enCalendario}{@render marcaActiva()}{/if}
       <CalendarDays size={20} aria-hidden="true" class="shrink-0" />
       <span class={texto}>Calendario</span>
+    </Link>
+    <!-- Buzón (OBS-48): la mensajería de los ramos y la agenda de las actividades en una lista. -->
+    <Link
+      href="/estudiante/mensajes"
+      class="{fila} {enMensajes ? filaActiva : filaInactiva}"
+      aria-current={enMensajes ? 'page' : undefined}
+      title={plegado ? (sinLeerBuzon > 0 ? `Mensajes (${sinLeerBuzon} sin leer)` : 'Mensajes') : undefined}
+    >
+      {#if enMensajes}{@render marcaActiva()}{/if}
+      <span class="relative shrink-0">
+        <MessageSquare size={20} aria-hidden="true" />
+        {#if plegado && sinLeerBuzon > 0}
+          <span aria-hidden="true" class="absolute -top-1 -right-1 size-2.5 rounded-full bg-dm-amarillo ring-2 ring-dm-lat"></span>
+        {/if}
+      </span>
+      <span class={texto}>Mensajes</span>
+      {#if sinLeerBuzon > 0}
+        <span class="{plegado ? 'sr-only' : 'ml-auto'} min-w-6 rounded-full bg-dm-amarillo px-1.5 text-center text-xs leading-5 font-bold text-dm-noche"
+          >{sinLeerBuzon}<span class="sr-only">{' '}sin leer</span></span
+        >
+      {/if}
     </Link>
   </div>
 
