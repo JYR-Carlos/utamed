@@ -268,7 +268,7 @@
           </div>
 
           <p class="text-xs leading-relaxed text-slate-500">
-            Envía sólo problemas reales. Los envíos masivos o falsos pueden llevar al bloqueo de la cuenta.
+            Envía sólo problemas reales: un reporte falso o con contenido inapropiado puede recibir una advertencia.
           </p>
         </div>
 
