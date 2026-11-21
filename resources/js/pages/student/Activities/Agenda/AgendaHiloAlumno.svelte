@@ -11,7 +11,7 @@
   import VistoPor from '@/components/mensajeria/VistoPor.svelte';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
   import { agruparPorDia, ENTREGA, procesarHilo, type InteraccionDecorada } from '@/lib/agendaHilo';
-  import { puntajeTotal } from '@/lib/rubricaAlumno';
+  import { puntajeTotal } from '@/lib/rubricaMatriz';
   import { titleCase } from '@/lib/utils';
   import { formatBytes, formatDiaLargo } from '@/utils/formatters';
 

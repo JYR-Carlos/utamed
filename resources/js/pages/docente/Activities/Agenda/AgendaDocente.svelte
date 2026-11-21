@@ -28,19 +28,24 @@
    * izquierda el estado (No entregó → Por revisar/calificar → Revisado/
    * Calificado) y la conversación; a la derecha «Escribir» y «Evaluar».
    *
-   * En una sumativa la matriz de evaluación está dentro de «Evaluar»: se elige
-   * un nivel por criterio, la nota se calcula y en las grupales se replica a
-   * los integrantes, con la opción de diferenciarla por décimas. Cada
+   * En una sumativa la matriz de evaluación está dentro de «Evaluar»: la
+   * rúbrica en una tabla, donde cada celda es un botón; se elige un nivel por
+   * criterio, los puntos y la nota se calculan y en las grupales la nota se
+   * replica a los integrantes, con la opción de diferenciarla por décimas. Cada
    * integrante con décimas exige una retroalimentación que se publica en la
-   * agenda al grabar. En una formativa se califica con Bueno, Regular o Malo.
+   * agenda al grabar. Al evaluar, la conversación se pliega para que la tabla
+   * tome todo el ancho; el botón «Conversación» la vuelve a abrir. En una
+   * formativa se califica con Bueno, Regular o Malo.
    */
   import { router } from '@inertiajs/svelte';
-  import { Check, ChevronRight, ClipboardCheck, GripVertical, Info, MessageSquare, Pencil, Save, Send, X } from 'lucide-svelte';
+  import { untrack } from 'svelte';
+  import { Check, ChevronRight, ClipboardCheck, FileText, GripVertical, Info, MessageSquare, Pencil, Save, Send, X } from 'lucide-svelte';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
   import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
-  import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
+  import RubricaMatriz from '@/components/docente/RubricaMatriz.svelte';
   import { calcularNotaChilena } from '@/lib/notas';
+  import { matrizDe } from '@/lib/rubricaMatriz';
   import { formatNota } from '@/utils/formatters';
   import {
     aviso,
@@ -133,11 +138,30 @@
     return () => poll.stop();
   });
 
-  // ── Pestañas ───────────────────────────────────────────────────────────────
+  // ── Pestañas y conversación ────────────────────────────────────────────────
   let pestana = $state<'escribir' | 'evaluar'>('escribir');
+  // En una sumativa con rúbrica, «Evaluar» pliega la conversación para darle
+  // el ancho a la tabla; «Escribir» la muestra. El botón la abre o la cierra.
+  const plegable = $derived(esSumativa && !!rubrica);
+  let verConversacion = $state(true);
+  const conversacionVisible = $derived(!plegable || verConversacion);
+
+  function elegirPestana(p: 'escribir' | 'evaluar') {
+    pestana = p;
+    verConversacion = p === 'escribir' || !plegable;
+  }
+
   $effect.pre(() => {
-    pestana = pestanaInicial;
+    const p = pestanaInicial;
+    untrack(() => elegirPestana(p));
   });
+
+  // La última entrega válida, para abrirla desde «Evaluar» sin pasar por la conversación.
+  const ultimaEntrega = $derived(
+    listado_interacciones
+      .filter((i) => i.es_entrega && i.archivo && !i.fue_cancelada && !i.es_no_valido)
+      .reduce<InteraccionItem | null>((u, i) => (!u || i.fecha_emision > u.fecha_emision ? i : u), null),
+  );
 
   // ── Escribir ───────────────────────────────────────────────────────────────
   let mensaje = $state('');
@@ -165,17 +189,11 @@
   let notaManual = $state<number | null>(null);
   let retroSumativa = $state('');
 
-  const puntaje = $derived(
-    rubrica?.niveles?.reduce((acc, n) => {
-      const e = n.escalas.find((x) => x.id === seleccion[n.id]);
-      return acc + (e ? e.puntos : 0);
-    }, 0) ?? 0,
-  );
-  const puntajeMaximo = $derived(
-    rubrica?.detalles_evaluacion?.puntaje_total ?? rubrica?.niveles?.reduce((a, n) => a + n.puntaje_total, 0) ?? 0,
-  );
-  const totalCriterios = $derived(rubrica?.niveles?.length ?? 0);
-  const criteriosElegidos = $derived(rubrica?.niveles?.filter((n) => !!seleccion[n.id]).length ?? 0);
+  const matriz = $derived(matrizDe(rubrica, seleccion));
+  const puntaje = $derived(matriz.obtenido);
+  const puntajeMaximo = $derived(matriz.maximo);
+  const totalCriterios = $derived(matriz.criterios.length);
+  const criteriosElegidos = $derived(matriz.marcados);
   const matrizCompleta = $derived(totalCriterios > 0 && criteriosElegidos === totalCriterios);
   const notaMatriz = $derived(
     matrizCompleta && puntajeMaximo > 0 ? calcularNotaChilena(puntaje, puntajeMaximo) : null,
@@ -336,6 +354,21 @@
         </h2>
         <span class="text-inst-ink-2">{subtitulo}</span>
       </div>
+      {#if plegable}
+        <button
+          type="button"
+          class="{btnSecundario} {chico} shrink-0 aria-pressed:border-inst-accion aria-pressed:bg-inst-accion-s aria-pressed:text-inst-accion-t"
+          aria-pressed={verConversacion}
+          aria-controls="agenda-conversacion"
+          onclick={() => (verConversacion = !verConversacion)}
+        >
+          <!-- En el teléfono sólo el ícono: el texto le quitaría el ancho al nombre. -->
+          <MessageSquare size={16} aria-hidden="true" /><span class="max-sm:sr-only">Conversación</span>
+          {#if listado_interacciones.length > 0}
+            <span class="rounded-full bg-inst-accion px-1.5 text-xs leading-5 font-extrabold text-inst-sobre-accion">{listado_interacciones.length}</span>
+          {/if}
+        </button>
+      {/if}
       <button type="button" class="{btnFantasma} size-11 shrink-0 px-0! lg:size-10" aria-label="Cerrar la agenda" onclick={onCerrar}>
         <X size={20} aria-hidden="true" />
       </button>
@@ -345,8 +378,10 @@
       bind:this={splitContainerEl}
       class="flex min-h-0 flex-1 flex-col lg:flex-row {arrastrandoDivisor ? 'select-none' : ''}"
     >
+      {#if conversacionVisible}
       <!-- Conversación -->
       <section
+        id="agenda-conversacion"
         aria-label="Conversación"
         style={esDesktop && porcentajeChat !== null ? `width: ${porcentajeChat}%; flex: none;` : undefined}
         class="flex h-[360px] min-h-0 min-w-0 shrink-0 flex-col gap-4 bg-inst-pagina px-4 py-4 sm:h-[420px] sm:px-5 sm:py-5 lg:h-auto lg:shrink {esDesktop && porcentajeChat !== null
@@ -419,6 +454,7 @@
           <GripVertical size={12} />
         </span>
       </button>
+      {/if}
 
       <!-- Escribir o evaluar -->
       <section
@@ -433,7 +469,7 @@
             role="tab"
             aria-selected={pestana === 'escribir'}
             class="{BTN_TAB} {pestana === 'escribir' ? 'border-inst-accion text-inst-ink' : 'border-transparent text-inst-ink-2 hover:text-inst-ink'}"
-            onclick={() => (pestana = 'escribir')}
+            onclick={() => elegirPestana('escribir')}
           >
             <Pencil size={16} aria-hidden="true" />Escribir
           </button>
@@ -442,7 +478,7 @@
             role="tab"
             aria-selected={pestana === 'evaluar'}
             class="{BTN_TAB} {pestana === 'evaluar' ? 'border-inst-accion text-inst-ink' : 'border-transparent text-inst-ink-2 hover:text-inst-ink'}"
-            onclick={() => (pestana = 'evaluar')}
+            onclick={() => elegirPestana('evaluar')}
           >
             <ClipboardCheck size={16} aria-hidden="true" />Evaluar
           </button>
@@ -508,30 +544,51 @@
               {/if}
             </div>
           {:else}
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
               <span class="{claseTitulo} text-base">Matriz de evaluación</span>
-              <span class="text-[13px] text-inst-ink-2">Elige un nivel por criterio · {criteriosElegidos} de {totalCriterios}</span>
+              <span class="text-[13px] text-inst-ink-2">Elige un nivel por criterio</span>
+              <span class="{chip} {matrizCompleta ? tono.ok : tono.warn}">{criteriosElegidos} de {totalCriterios} criterios</span>
+              {#if ultimaEntrega}
+                <a
+                  href={urlEntrega(ultimaEntrega.id_interaccion, !!ultimaEntrega.archivo?.visualizable)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="{btnSecundario} {chico} ml-auto max-w-full"
+                >
+                  <FileText size={16} aria-hidden="true" /><span class="truncate">Ver la entrega{ultimaEntrega.archivo?.nombre_original ? ` · ${ultimaEntrega.archivo.nombre_original}` : ''}</span>
+                </a>
+              {/if}
             </div>
-            <RubricaView
+            <RubricaMatriz
               {rubrica}
               resultado={seleccion}
-              puntaje_obtenido={puntaje}
-              onSeleccionarEscala={(nivel, escala) => {
-                seleccion[nivel] = escala;
+              onElegir={(criterio, escala) => {
+                seleccion[criterio] = escala;
                 notaManual = null;
               }}
-              modoLectura={false}
-              esSumativa={true}
-            />
+            >
+              {#snippet pie()}
+                <span class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                  <span>
+                    Nota de la matriz
+                    <span class="{claseTitulo} ml-1 text-xl {notaMatriz !== null && notaMatriz < 4 ? 'text-inst-error' : 'text-inst-ink'}">
+                      {notaMatriz !== null ? formatNota(notaMatriz) : '—'}
+                    </span>
+                  </span>
+                  <span class="{chip} {notaMatriz === null ? tono.off : notaMatriz >= 4 ? tono.ok : tono.error}">
+                    {notaMatriz === null ? 'Incompleta' : notaMatriz >= 4 ? 'Aprobado' : 'Reprobado'}
+                  </span>
+                  <span class="text-[13px]">
+                    {matrizCompleta
+                      ? 'Todos los criterios evaluados'
+                      : `Falta elegir ${totalCriterios - criteriosElegidos} ${totalCriterios - criteriosElegidos === 1 ? 'criterio' : 'criterios'}`}
+                  </span>
+                </span>
+              {/snippet}
+            </RubricaMatriz>
 
             <div class="flex flex-wrap items-start gap-4">
               <div class="{tarjeta} flex flex-[1_1_220px]">
-                <div class="flex flex-1 flex-col gap-0.5 border-r border-inst-linea px-4 py-3">
-                  <span class={etiqueta}>Puntaje</span>
-                  <span class="{claseTitulo} text-[26px] leading-8">
-                    {puntaje}<span class="text-sm font-normal text-inst-ink-2"> / {puntajeMaximo}</span>
-                  </span>
-                </div>
                 <label class="flex flex-1 flex-col gap-0.5 px-4 py-3">
                   <span class={etiqueta}>Nota</span>
                   <input
@@ -644,7 +701,7 @@
                 {/if}
               </span>
               <button type="button" class="{btnPrimario} ml-auto" disabled={!puedeGrabar} onclick={grabarRubrica}>
-                <Save size={16} aria-hidden="true" />Grabar rúbrica
+                <Save size={16} aria-hidden="true" />Grabar evaluación
               </button>
             </div>
           {/if}
@@ -663,15 +720,14 @@
           <h3 id="t-detalle-eval" class="{claseTitulo} m-0 flex-1 text-lg">Detalle de la evaluación</h3>
           <button type="button" class="{btnSecundario} {chico}" onclick={() => (detalle = null)}>Volver a la agenda</button>
         </div>
-        <div class="min-h-0 flex-1 overflow-y-auto p-5">
-          <RubricaView
-            rubrica={detalle.rubrica}
-            puntaje_obtenido={detalle.puntaje_obtenido ?? 0}
-            retroalimentacion={detalle.retroalimentacion}
-            resultado={detalle.resultado}
-            modoLectura={true}
-            {esSumativa}
-          />
+        <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
+          {#if detalle.retroalimentacion}
+            <div class="{aviso} {avisoTono.info} flex-col gap-1">
+              <span class={etiqueta}>Retroalimentación</span>
+              <p class="m-0 break-words whitespace-pre-line">{detalle.retroalimentacion}</p>
+            </div>
+          {/if}
+          <RubricaMatriz rubrica={detalle.rubrica} resultado={detalle.resultado} {esSumativa} />
         </div>
       </div>
     {/if}

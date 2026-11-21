@@ -8,6 +8,8 @@
    *   en el móvil, a pantalla completa.
    * - `centro`: entrega. Centrada al ancho de un formulario; en el móvil sube
    *   desde abajo.
+   * - `completa`: la rúbrica en pantalla completa. Casi todo el ancho de la
+   *   pantalla, para leer la tabla entera de una vez.
    *
    * Va a un portal fuera de la página, así que el color del curso se le pasa
    * (`estilo`, de estiloCurso) y lleva su propio `vista-alumno`.
@@ -20,7 +22,7 @@
 
   interface Props {
     open: boolean;
-    variante?: 'grande' | 'centro';
+    variante?: 'grande' | 'centro' | 'completa';
     /** Rótulo amarillo sobre el título. */
     etiqueta: string;
     titulo: string;
@@ -54,11 +56,13 @@
       'inset-0 lg:inset-x-0 lg:top-10 lg:bottom-10 lg:mx-auto lg:w-[min(1200px,calc(100vw-96px))] lg:rounded-2xl lg:shadow-[0_24px_64px_rgb(10_12_40/0.35)]',
     centro:
       'inset-x-0 bottom-0 max-h-[92svh] rounded-t-2xl shadow-[0_-12px_40px_rgb(10_12_40/0.3)] md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[calc(100svh-48px)] md:w-140 md:-translate-1/2 md:rounded-2xl md:shadow-[0_24px_64px_rgb(10_12_40/0.35)]',
+    completa: 'inset-0 lg:inset-6 lg:rounded-2xl lg:shadow-[0_24px_64px_rgb(10_12_40/0.35)]',
   } as const;
 
   const TITULO = {
     grande: 'text-[26px] leading-7 lg:text-[32px] lg:leading-8',
     centro: 'text-[26px] leading-7',
+    completa: 'text-[26px] leading-7 lg:text-[28px] lg:leading-7',
   } as const;
 </script>
 

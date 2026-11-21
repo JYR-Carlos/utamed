@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
-  import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
+  import RubricaMatriz from '@/components/docente/RubricaMatriz.svelte';
   import { X, Plus, Trash2, Eye, Pencil, ChevronLeft, Lock, RotateCcw, SlidersHorizontal } from 'lucide-svelte';
   import { puntajeMinimoAprobacion } from '@/lib/notas';
 
@@ -1184,7 +1184,7 @@
     {:else}
       <!-- Preview -->
       <div class="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto">
-        <RubricaView rubrica={rubricaPreview} {esSumativa} />
+        <RubricaMatriz rubrica={rubricaPreview} {esSumativa} />
       </div>
     {/if}
   </div>

@@ -45,7 +45,7 @@
   import { btnSecundario, btnSuave, etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import { fechaLimiteTexto, porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
-  import { criteriosDe, puntajeTotal } from '@/lib/rubricaAlumno';
+  import { matrizDe, puntajeTotal } from '@/lib/rubricaMatriz';
   import { claveDia, formatBytes, formatDiaCorto, initials } from '@/utils/formatters';
   import { titleCase } from '@/lib/utils';
 
@@ -232,11 +232,11 @@
   // La rúbrica que se usó al evaluar; si no hay evaluación, la vigente.
   const rubricaVista = $derived(ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? rubrica?.rubrica ?? null);
   const resultado = $derived(ultima_evaluacion?.resultado ?? ultimaEvaluacion?.resultado ?? null);
-  const criterios = $derived(criteriosDe(rubricaVista, resultado));
+  const matriz = $derived(matrizDe(rubricaVista, resultado));
   // Como antes: la rúbrica es cosa de las sumativas.
-  const conRubrica = $derived(es_sumativa && criterios.length > 0);
+  const conRubrica = $derived(es_sumativa && matriz.criterios.length > 0);
   const rubricaEvaluada = $derived(
-    conRubrica && calificada && criterios.some((c) => c.obtenido !== null),
+    conRubrica && calificada && matriz.marcados > 0,
   );
   const rubricaDeLaEvaluacion = $derived(ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? null);
 
@@ -345,7 +345,7 @@
       { id: 'enunciado', etiqueta: 'Enunciado', detalle: detalleEnunciado || 'Sin archivo todavía', icono: FileText },
     ];
     if (conRubrica || rubricaDeAgenda) {
-      const n = criterios.length;
+      const n = matriz.criterios.length;
       lista.push({
         id: 'rubrica',
         etiqueta: 'Rúbrica',
@@ -379,6 +379,9 @@
     calificada ? (rubricaEvaluada ? 'rubrica' : escritorio.current ? 'enunciado' : 'entrega') : 'enunciado',
   );
   const seccion = $derived<Seccion>(pestanas.find((p) => p.id === pedida)?.id ?? porDefecto);
+  // La pestaña Rúbrica retira la columna derecha: la tabla necesita todo el
+  // ancho y la nota pasa al resumen de la rúbrica.
+  const conLateral = $derived(escritorio.current && seccion !== 'rubrica');
 
   function cambiarSeccion(nueva: string) {
     if (nueva === seccion) return;
@@ -685,7 +688,11 @@
         onCambiar={alElegirPestana}
       />
 
-      <div class="flex flex-col gap-8 px-4 pt-6 pb-10 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:px-10 lg:pt-8">
+      <div
+        class="flex flex-col gap-8 px-4 pt-6 pb-10 lg:grid lg:items-start lg:px-10 lg:pt-8 {conLateral
+          ? 'lg:grid-cols-[minmax(0,1fr)_300px]'
+          : 'lg:grid-cols-1'}"
+      >
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div
           role="tabpanel"
@@ -742,7 +749,11 @@
               puntajeObtenido={rubricaPanel.puntaje_obtenido}
               retroalimentacion={rubricaPanel.retroalimentacion}
               subtitulo={subtituloRubrica}
+              nota={rubricaDeAgenda || !es_sumativa ? null : (ultima_nota ?? null)}
               {exigencia}
+              actividad={nombre_actividad}
+              curso={nombre_curso}
+              estiloCurso={colorCurso}
             />
             {#if id_actividad_asignada_grupo}
               {@render paso(
@@ -766,7 +777,7 @@
           {/if}
         </div>
 
-        {#if escritorio.current}
+        {#if conLateral}
           <aside class="flex min-w-0 flex-col gap-4" aria-label="Tu entrega y tu nota">
             {@render lateral()}
           </aside>

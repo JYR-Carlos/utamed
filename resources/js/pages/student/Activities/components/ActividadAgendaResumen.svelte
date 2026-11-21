@@ -9,7 +9,7 @@
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
   import { btnSecundario, btnSuave, pildora, tono } from '@/lib/dm';
   import { ENTREGA } from '@/lib/agendaHilo';
-  import { puntajeTotal } from '@/lib/rubricaAlumno';
+  import { puntajeTotal } from '@/lib/rubricaMatriz';
   import { formatDiaCorto, initials } from '@/utils/formatters';
   import { titleCase } from '@/lib/utils';
 
