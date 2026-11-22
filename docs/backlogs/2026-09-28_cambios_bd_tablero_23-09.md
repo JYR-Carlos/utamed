@@ -157,14 +157,24 @@ el tipo de mensaje es el mismo si se acoge o si se rechaza.
 
 Está a la espera de la respuesta del director.
 
+**Avance (noviembre de 2026):**
+
+- La conversación privada entre el alumno y cada docente o ayudante (OBS-49)
+  se resolvió sin cambiar el esquema: el par sale del emisor y del receptor de
+  `curso.mensaje`.
+- Los mensajes entre compañeros y por grupo de trabajo no se aplican, porque
+  UTAmed no es una red social. Quedan para debatir (OBS-53, decisión del
+  22-11-2026). Por eso la lista de abajo ya no incluye «permitir mensajes entre
+  alumnos».
+
 **Qué cambia:** hoy `curso.mensaje` cuelga de un componente
 (`id_componente NOT NULL`) y tiene un solo receptor (`id_usuario_receptor`,
-nulo si es un mensaje grupal). Para escribir al curso, a un grupo, al profesor
-o a un compañero habrá que cambiar ese modelo, por ejemplo:
+nulo si es un mensaje grupal). Si más adelante se abren otros canales (por
+ejemplo, al curso completo o a un grupo), habrá que cambiar ese modelo, por
+ejemplo:
 
 - un tipo de canal;
-- una referencia al grupo;
-- permitir mensajes entre alumnos.
+- una referencia al grupo.
 
 **Qué falta definir:** la tarjeta también pide migrar y limpiar «tablas
 deprecadas», pero nadie ha dicho todavía cuáles son. La pregunta original de

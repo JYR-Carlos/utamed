@@ -26,6 +26,11 @@ use Illuminate\Support\Facades\DB;
  *    Los mensajes de cuando el canal era compartido por todo el equipo quedan en
  *    la conversación del par que los escribió.
  *
+ * NO HAY MENSAJES ENTRE ESTUDIANTES. Uno de los dos lados de cada conversación
+ * es siempre alguien del equipo del componente. El chat entre compañeros y por
+ * grupos de trabajo (OBS-53, T50) no se aplica porque UTAmed no es una red
+ * social; queda para debatir (decisión del 22-11-2026).
+ *
  * QUIÉN ES EL ALUMNO: se resuelve por la inscripción a ESE componente
  * (curso.inscripcion_componente), no por el rol global. Así un ayudante que
  * además sea alumno avanzado no puede confundirse con el alumno de la

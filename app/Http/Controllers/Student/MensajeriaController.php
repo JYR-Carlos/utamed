@@ -62,7 +62,8 @@ class MensajeriaController extends Controller
         $receptor = (int) $datos['id_usuario_receptor'];
 
         // Sólo a quien está hoy en el equipo: con quien ya no está, la
-        // conversación queda de sólo lectura.
+        // conversación queda de sólo lectura. Nunca a otro estudiante: no hay
+        // mensajes entre compañeros (OBS-53, ver MensajeriaService).
         $esDelEquipo = $receptor !== $idUsuario && $this->mensajeria->equipoDeComponente($componente)
             ->contains(fn(array $p) => $p['id_usuario'] === $receptor);
 

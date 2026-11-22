@@ -300,8 +300,9 @@ it('el ayudante tiene su propia conversación y el alumno lo ve en el equipo', f
         ->and($conTitular['panel']['conversacion']['mensajes'])->toBeEmpty();
 });
 
-it('el alumno sólo puede escribirle a alguien del equipo', function () {
-    // Otro alumno del componente: no es del equipo.
+it('el alumno sólo puede escribirle a alguien del equipo, no a un compañero', function () {
+    // Otro alumno del componente: no es del equipo. No hay mensajes entre
+    // compañeros (OBS-53, decisión del 22-11-2026).
     $otro = DB::selectOne("
         SELECT e.id_usuario
         FROM curso.inscripcion_componente ic
