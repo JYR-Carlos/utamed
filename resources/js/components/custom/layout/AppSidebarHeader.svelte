@@ -19,6 +19,7 @@
     ChevronLeft,
   } from 'lucide-svelte';
   import { page, router } from '@inertiajs/svelte';
+  import { cerrarSesion } from '@/lib/sesion';
   import * as Command from '@/components/ui/command';
   import { onMount } from 'svelte';
   import { useSidebar } from '@/components/ui/sidebar/context.svelte';
@@ -140,7 +141,7 @@
       group: 'Configuración',
       items: [
         { icon: Settings, label: 'Perfil', href: '/settings' },
-        { icon: LogOut, label: 'Cerrar Sesión', action: () => router.post('/logout') },
+        { icon: LogOut, label: 'Cerrar Sesión', action: cerrarSesion },
       ],
     });
 

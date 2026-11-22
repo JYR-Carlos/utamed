@@ -11,9 +11,9 @@
    * muestran su código y cada fila conserva su nombre para lectores de
    * pantalla y en el texto emergente.
    */
-  import { Link, page, router } from '@inertiajs/svelte';
+  import { Link, page } from '@inertiajs/svelte';
   import { CalendarDays, ChevronRight, House, LayoutGrid, LogOut, MessageSquare } from 'lucide-svelte';
-  import { logout } from '@/routes';
+  import { cerrarSesion } from '@/lib/sesion';
   import { titleCase } from '@/lib/utils';
   import { usePermissions } from '@/lib/composables/usePermissions';
   import { AMBIENTES, ambientesDisponibles } from '@/lib/ambientes';
@@ -61,11 +61,6 @@
     ),
   );
   const foto = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
-
-  function cerrarSesion() {
-    router.flushAll();
-    router.post(logout.url());
-  }
 
   const fila = $derived(
     `relative flex min-h-11 items-center rounded-lg py-2 text-sm no-underline transition-colors lg:min-h-10 ${
