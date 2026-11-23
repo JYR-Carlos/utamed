@@ -8,6 +8,11 @@
    * (docentes, categoría, créditos, horas y cómo se evalúa) y el documento
    * íntegro, una tarjeta por sección, con las Unidades primero (T24).
    *
+   * Las secciones se numeran 1, 2, 3… en el orden en que se leen. Los
+   * números romanos son la numeración del documento oficial y, con las
+   * Unidades (VI) adelante, el índice quedaba «VI, I, II…» (OBS-44); la
+   * versión para imprimir los conserva.
+   *
    * En escritorio un índice lateral fijo marca la sección que se está
    * leyendo; en móvil el índice es una fila de chips que se desliza. La
    * versión para imprimir es otra página (Courses/Syllabus.svelte).
@@ -22,6 +27,7 @@
     mesYAgno,
     porcentaje,
     seccionesParaLeer,
+    tituloParaAlumno,
     type DocenteSyllabus,
     type ProgramaPublicado,
     type SeccionPrograma,
@@ -151,7 +157,7 @@
       aria-label="Secciones del programa"
       class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
     >
-      {#each ordenadas as s (idDe(s))}
+      {#each ordenadas as s, i (idDe(s))}
         {@const id = idDe(s)}
         <a
           href="#{id}"
@@ -161,7 +167,7 @@
             ? 'border-dm-amarillo bg-dm-activo-suave text-dm-activo-texto'
             : 'border-dm-control bg-dm-tarjeta text-dm-ink'}"
         >
-          <span class="font-dm-cond font-extrabold text-dm-ink-3">{s.numeral_romano}</span>{s.nombre_seccion}
+          <span class="font-dm-cond font-extrabold text-dm-ink-3">{i + 1}</span>{tituloParaAlumno(s)}
         </a>
       {/each}
     </nav>
@@ -173,7 +179,7 @@
         class="{tarjeta} sticky top-4 hidden w-60 shrink-0 flex-col gap-0.5 p-3 lg:flex"
       >
         <span class="{etiqueta} px-2.5 pt-1 pb-2 text-dm-ink-3">En este programa</span>
-        {#each ordenadas as s (idDe(s))}
+        {#each ordenadas as s, i (idDe(s))}
           {@const id = idDe(s)}
           <a
             href="#{id}"
@@ -185,20 +191,20 @@
             {#if activa === id}
               <span aria-hidden="true" class="absolute top-2 left-0 h-6 w-[3px] rounded-sm bg-dm-amarillo"></span>
             {/if}
-            <span class="w-7.5 shrink-0 font-dm-cond text-[15px] font-extrabold text-dm-ink-3">{s.numeral_romano}</span>
-            {s.nombre_seccion}
+            <span class="w-5 shrink-0 font-dm-cond text-[15px] font-extrabold text-dm-ink-3">{i + 1}</span>
+            {tituloParaAlumno(s)}
           </a>
         {/each}
       </nav>
 
       <div class="flex min-w-0 flex-1 flex-col gap-4">
-        {#each ordenadas as s (idDe(s))}
+        {#each ordenadas as s, i (idDe(s))}
           {@const id = idDe(s)}
           <article {id} aria-labelledby="titulo-{id}" class="scroll-mt-4 overflow-hidden {tarjeta}">
             <header class="flex items-baseline gap-2.5 border-b border-dm-linea px-4 py-3.5 lg:gap-3 lg:px-6 lg:py-4">
-              <span class="font-dm-cond text-xl font-black text-(--curso-t) lg:text-[22px]">{s.numeral_romano}</span>
+              <span class="font-dm-cond text-xl font-black text-(--curso-t) lg:text-[22px]">{i + 1}</span>
               <h3 id="titulo-{id}" class="font-dm-cond text-[22px] leading-[26px] font-extrabold uppercase lg:text-2xl lg:leading-7">
-                {s.nombre_seccion}
+                {tituloParaAlumno(s)}
               </h3>
             </header>
             <div class="p-4 lg:px-6 lg:py-5">

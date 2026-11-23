@@ -62,6 +62,15 @@ export function seccionesParaLeer(secciones: SeccionPrograma[]): SeccionPrograma
     ];
 }
 
+/**
+ * Título de la sección para el alumno. Las Unidades (VI) van primero y se
+ * llaman «Lo que aprenderás»: el título oficial es largo y técnico para quien
+ * recién empieza (OBS-44). La versión para imprimir conserva el oficial.
+ */
+export function tituloParaAlumno(seccion: Pick<SeccionPrograma, 'numeral_romano' | 'nombre_seccion'>): string {
+    return seccion.numeral_romano === 'VI' ? 'Lo que aprenderás' : seccion.nombre_seccion;
+}
+
 /** «60 %»; guion si no hay dato. */
 export function porcentaje(v: number | string | null | undefined): string {
     return v === null || v === undefined || v === '' ? '—' : `${Number(v).toLocaleString('es-CL')} %`;
@@ -138,7 +147,9 @@ export interface Recurso {
     cita?: string;
     tipo: TipoRecurso;
     href?: string;
-    /** Dirección legible del enlace (sin https://). */
+    /** Sólo los archivos subidos: la misma ruta, pero forzando la descarga. */
+    descarga?: string;
+    /** Dirección legible del enlace (sin https://), o dónde encontrar el libro. */
     direccion?: string;
 }
 
@@ -168,19 +179,28 @@ function recursoDe(texto: string, cita?: string): Recurso {
 
     // El enlace se ofrece aparte («Abrir enlace»), así que sale del texto:
     // «[Enlace web: https://…]» entero, o la URL suelta.
+    // «[Biblioteca UTA]» tampoco es parte de la referencia: dice dónde está el libro.
+    const enBibliotecaUta = /\[[^\]]*Biblioteca UTA[^\]]*\]/.test(texto);
     const limpio =
         texto
             .replace(/\s*\[[^\]]*(?:https?:\/\/|\/api\/bibliografias\/)[^\]]*\]/g, '')
             .replace(/\s*(?:https?:\/\/[^\s,\])>]+|\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo)/g, '')
+            .replace(/\s*\[Biblioteca UTA\]/g, '')
             .trim() || texto.trim();
 
+    // La cita se muestra si agrega algo («Páginas 45-60»). Si es la misma
+    // referencia escrita de otra forma, repetía autor y año (OBS-46).
     const citaLimpia = cita?.replace(/^«\s*/, '').replace(/\s*»$/, '').trim();
-    const citaUtil =
-        citaLimpia && !comparable(limpio).includes(comparable(citaLimpia)) ? citaLimpia : undefined;
+    const ref = comparable(limpio);
+    const otra = citaLimpia ? comparable(citaLimpia) : '';
+    const citaUtil = citaLimpia && !ref.includes(otra) && otra.slice(0, 20) !== ref.slice(0, 20) ? citaLimpia : undefined;
 
-    if (archivo) return { texto: limpio, cita: citaUtil, tipo: 'archivo', href: archivo.href };
+    if (archivo) {
+        const descarga = archivo.href!.replace(/\/archivo$/, '/descarga');
+        return { texto: limpio, cita: citaUtil, tipo: 'archivo', href: archivo.href, descarga };
+    }
     if (url) return { texto: limpio, cita: citaUtil, tipo: 'enlace', href: url.href, direccion: direccionDe(url.href!) };
-    return { texto: limpio, cita: citaUtil, tipo: 'libro' };
+    return { texto: limpio, cita: citaUtil, tipo: 'libro', direccion: enBibliotecaUta ? 'En la Biblioteca UTA' : undefined };
 }
 
 /**

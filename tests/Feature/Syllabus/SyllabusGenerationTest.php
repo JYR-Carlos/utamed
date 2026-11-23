@@ -421,6 +421,17 @@ describe('Syllabus - Generación y Sincronización de Bibliografías', function 
                                 'uuid_archivo' => null,
                             ],
                             [
+                                // El título ya trae autor y año: no se repiten (OBS-46).
+                                'id_unidad' => 1,
+                                'titulo' => 'Sandoval Yáñez, C. (2025). Documento de Ruta',
+                                'autor' => 'Sandoval Yáñez, C',
+                                'anio' => 2025,
+                                'cita' => null,
+                                'editorial' => 'Taller Profesional IV',
+                                'es_bibliografia_uta' => true,
+                                'uuid_archivo' => null,
+                            ],
+                            [
                                 'id_unidad' => 2,
                                 'titulo' => 'Libro 2',
                                 'autor' => 'Gómez, Ana',
@@ -444,6 +455,8 @@ describe('Syllabus - Generación y Sincronización de Bibliografías', function 
         // Debe separar por unidad con títulos en mayúsculas, \n en citas sin em dash
         expect($texto)->toContain("UNIDAD 1: INTRODUCCIÓN\n• Pérez, Juan (2025). Libro 1. [Enlace web: https://ejemplo.com/libro1]\n  «Páginas 45-60»");
         expect($texto)->toContain("UNIDAD 2: FARMACOLOGÍA\n• Gómez, Ana (2026). Libro 2. [Biblioteca UTA · Archivo adjunto: /api/bibliografias/{$uuidArchivo}/archivo]");
+        expect($texto)->toContain("\n• Sandoval Yáñez, C. (2025). Documento de Ruta. Taller Profesional IV. [Biblioteca UTA]");
+        expect($texto)->not->toContain('Sandoval Yáñez, C (2025). Sandoval');
         expect($texto)->not->toContain(' — ');
     });
 

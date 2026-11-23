@@ -354,7 +354,7 @@
   </div>
 
   <!-- ── Footer: NavUser ──────────────────────────────────── -->
-  <div class="p-6 border-t border-slate-100 bg-white z-10">
+  <div class="px-3 py-4 border-t border-slate-100 bg-white z-10">
     <NavUser />
   </div>
 </div>

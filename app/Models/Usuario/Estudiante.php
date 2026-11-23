@@ -24,8 +24,13 @@ class Estudiante extends BaseEstudiante
 {
     use HasFactory;
 
-    /** Redes que el alumno puede declarar en su perfil (T10, iteración 1). */
-    public const REDES_SOCIALES = ['youtube', 'x', 'instagram', 'linkedin'];
+    /**
+     * Redes que el alumno puede declarar en su perfil (T10). X se quitó por
+     * decisión del equipo (OBS-20): sólo redes útiles para lo académico y el
+     * portafolio. Un enlace a X guardado antes ya no se muestra y se descarta
+     * la próxima vez que el alumno guarde su contacto.
+     */
+    public const REDES_SOCIALES = ['youtube', 'instagram', 'linkedin'];
 
     /**
      * Contacto personal del alumno: sólo lo ven él y sus docentes. Va oculto

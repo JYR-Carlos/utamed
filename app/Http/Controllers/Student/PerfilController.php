@@ -27,9 +27,15 @@ class PerfilController extends Controller
     /** Dominios aceptados por red: sólo enlaces al perfil en esa red. */
     private const DOMINIOS_REDES = [
         'youtube' => ['youtube.com', 'youtu.be'],
-        'x' => ['x.com', 'twitter.com'],
         'instagram' => ['instagram.com'],
         'linkedin' => ['linkedin.com'],
+    ];
+
+    /** Enlace al perfil cuando el alumno escribe sólo su usuario (OBS-19). */
+    private const PERFIL_POR_USUARIO = [
+        'youtube' => 'https://www.youtube.com/@',
+        'instagram' => 'https://www.instagram.com/',
+        'linkedin' => 'https://www.linkedin.com/in/',
     ];
 
    
@@ -74,6 +80,15 @@ class PerfilController extends Controller
         $user = Auth::user();
         $estudiante = $user->estudiante()->firstOrFail();
 
+        // «@usuario», «usuario» o el enlace sin https:// pasan a enlace completo
+        // antes de validar: se guarda y se valida siempre la URL.
+        $redesRecibidas = $request->input('redes_sociales');
+        if (is_array($redesRecibidas)) {
+            $request->merge(['redes_sociales' => collect($redesRecibidas)
+                ->map(fn (mixed $valor, string|int $red) => self::enlaceDeRed((string) $red, $valor))
+                ->all()]);
+        }
+
         $reglasRed = fn (string $red) => [
             'nullable',
             'string',
@@ -94,14 +109,13 @@ class PerfilController extends Controller
             'celular' => ['nullable', 'string', 'max:30', 'regex:/^\+?[0-9 ]{8,20}$/'],
             'redes_sociales' => ['nullable', 'array:' . implode(',', Estudiante::REDES_SOCIALES)],
             'redes_sociales.youtube' => $reglasRed('youtube'),
-            'redes_sociales.x' => $reglasRed('x'),
             'redes_sociales.instagram' => $reglasRed('instagram'),
             'redes_sociales.linkedin' => $reglasRed('linkedin'),
         ], [
             'correo_personal.email' => 'Ingresa un correo válido.',
             'celular.regex' => 'Ingresa sólo números, con + y código de país si quieres (por ejemplo +56 9 1234 5678).',
-            'redes_sociales.array' => 'Sólo se aceptan YouTube, X, Instagram y LinkedIn.',
-            'redes_sociales.*.url' => 'Ingresa el enlace completo, empezando por https://.',
+            'redes_sociales.array' => 'Sólo se aceptan YouTube, Instagram y LinkedIn.',
+            'redes_sociales.*.url' => 'Escribe tu usuario (por ejemplo @tu-usuario) o pega el enlace a tu perfil.',
         ]);
 
         $redes = collect(Estudiante::REDES_SOCIALES)
@@ -117,5 +131,35 @@ class PerfilController extends Controller
         $estudiante->save();
 
         return back()->with('success', 'Tus datos de contacto se guardaron.');
+    }
+
+    /**
+     * Arma el enlace de una red a partir de lo que escribió el alumno:
+     * «@usuario» o «usuario» → enlace al perfil; «instagram.com/usuario» →
+     * con https:// delante; un enlace completo queda igual. Lo que no es texto
+     * o es de una red no soportada pasa tal cual y lo rechaza la validación.
+     */
+    private static function enlaceDeRed(string $red, mixed $valor): mixed
+    {
+        if (!is_string($valor) || !isset(self::PERFIL_POR_USUARIO[$red])) {
+            return $valor;
+        }
+
+        $valor = trim($valor);
+        if ($valor === '') {
+            return $valor;
+        }
+
+        $usuario = ltrim($valor, '@');
+        $esSoloDominio = in_array(
+            preg_replace('/^(www\.|m\.)/', '', strtolower($usuario)),
+            self::DOMINIOS_REDES[$red],
+            true,
+        );
+        if (!$esSoloDominio && preg_match('/^[A-Za-z0-9._-]{1,100}$/', $usuario)) {
+            return self::PERFIL_POR_USUARIO[$red] . $usuario;
+        }
+
+        return preg_match('#^[a-z][a-z0-9+.-]*://#i', $valor) ? $valor : 'https://' . $valor;
     }
 }

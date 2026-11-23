@@ -3,7 +3,8 @@
    * Menú del docente (dirección institucional UTA).
    *
    * Arriba los destinos generales; después los cursos del semestre vigente
-   * (los anteriores están en «Ver todos los cursos») y al pie «Mi perfil».
+   * (los anteriores están en «Ver todos los cursos») y al pie «Mi perfil» con
+   * la puerta para cerrar sesión al lado, como en el menú del estudiante.
    * El activo lleva fondo dorado claro y una barra de oro de 3 px. El curso
    * abierto despliega debajo sus seis secciones (las mismas pestañas de su
    * cabecera).
@@ -12,11 +13,12 @@
    * escritorio están en la barra superior.
    */
   import { Link, page } from '@inertiajs/svelte';
-  import { Calendar, ChevronRight, ClipboardCheck, House, MessageSquare, User, UserCheck } from 'lucide-svelte';
+  import { Calendar, ChevronRight, ClipboardCheck, House, LogOut, MessageSquare, User, UserCheck } from 'lucide-svelte';
   import IssueReport from '@/components/custom/IssueReport.svelte';
+  import { cerrarSesion } from '@/lib/sesion';
   import { usePermissions } from '@/lib/composables/usePermissions';
   import { AMBIENTES, ambientesDisponibles } from '@/lib/ambientes';
-  import { etiqueta, codigo } from '@/lib/inst';
+  import { chip, codigo, etiqueta, tono } from '@/lib/inst';
   import { nombreSemestre, seccionDeUrl, seccionesCurso } from '@/lib/cursoDocente';
   import type { SidebarCourse } from '@/types';
 
@@ -31,13 +33,14 @@
   const destinos = [
     { href: '/docente/dashboard', label: 'Inicio', icon: House },
     { href: '/docente/calendario', label: 'Calendario', icon: Calendar },
-    // «Mensajes para» (cursos); la bandeja de actividades cuelga de ella.
-    { href: '/docente/mensajeria', label: 'Mensajes', icon: MessageSquare, tambien: '/docente/mensajes' },
+    // Buzón: la mensajería de los cursos y la agenda de las actividades, como el del alumno.
+    { href: '/docente/mensajes', label: 'Mensajes', icon: MessageSquare, buzon: true },
     { href: '/docente/calificaciones', label: 'Calificaciones', icon: ClipboardCheck },
     { href: '/docente/asistencia', label: 'Asistencia', icon: UserCheck },
   ];
 
   const cursos = $derived(($page.props.auth?.docente_courses as SidebarCourse[]) ?? []);
+  const sinLeerBuzon = $derived(Number($page.props.auth?.docente_buzon_no_leidos ?? 0));
 
   // Semestre vigente = el más reciente con cursos; los anteriores quedan en «Mis cursos».
   const vigente = $derived.by(() => {
@@ -108,11 +111,15 @@
 
   <div class="flex flex-col gap-0.5">
     {#each destinos as destino (destino.href)}
-      {@const activo = enRuta(destino.href) || (!!destino.tambien && enRuta(destino.tambien))}
+      {@const activo = enRuta(destino.href)}
+      {@const cifra = destino.buzon ? sinLeerBuzon : 0}
       <Link href={destino.href} class="{fila} {activo ? filaActiva : ''}" aria-current={activo ? 'page' : undefined}>
         {#if activo}{@render marcaActiva()}{/if}
         <destino.icon size={18} aria-hidden="true" class="shrink-0 text-inst-ink-2" />
         {destino.label}
+        {#if cifra > 0}
+          <span class="{chip} {tono.solido} ml-auto min-w-6 justify-center">{cifra}<span class="sr-only">{' '}sin leer</span></span>
+        {/if}
       </Link>
     {/each}
   </div>
@@ -168,14 +175,25 @@
     {#if movil}
       <IssueReport etiqueta="Sugerencias" class="min-h-11 w-full justify-start gap-3 rounded-md border-0 bg-transparent px-3 text-sm font-medium text-inst-ink hover:bg-inst-sutil max-sm:size-auto max-sm:px-3 [&>span]:inline" />
     {/if}
-    <Link
-      href="/docente/perfil"
-      class="{fila} {enPerfil ? filaActiva : ''}"
-      aria-current={enPerfil ? 'page' : undefined}
-    >
-      {#if enPerfil}{@render marcaActiva()}{/if}
-      <User size={18} aria-hidden="true" class="shrink-0 text-inst-ink-2" />
-      Mi perfil
-    </Link>
+    <div class="flex items-center gap-1">
+      <Link
+        href="/docente/perfil"
+        class="{fila} min-w-0 flex-1 {enPerfil ? filaActiva : ''}"
+        aria-current={enPerfil ? 'page' : undefined}
+      >
+        {#if enPerfil}{@render marcaActiva()}{/if}
+        <User size={18} aria-hidden="true" class="shrink-0 text-inst-ink-2" />
+        Mi perfil
+      </Link>
+      <button
+        type="button"
+        onclick={cerrarSesion}
+        aria-label="Cerrar sesión"
+        title="Cerrar sesión"
+        class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-inst-ink-2 transition-colors hover:bg-inst-sutil hover:text-inst-ink lg:size-10"
+      >
+        <LogOut size={18} aria-hidden="true" />
+      </button>
+    </div>
   </div>
 </nav>

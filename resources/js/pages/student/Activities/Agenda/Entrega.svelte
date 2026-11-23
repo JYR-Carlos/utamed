@@ -82,8 +82,8 @@
         : 'Queda registrada la hora de este envío como tu entrega.',
       esReemplazo ? 'Reemplaza la entrega anterior: la anterior deja de contar.' : null,
       esGrupal && nombresGrupo
-        ? `${nombresGrupo} ${companeros.length === 1 ? 'la ve' : 'la ven'} en la agenda de la actividad.`
-        : 'Tu equipo docente la ve en la agenda de la actividad.',
+        ? `${nombresGrupo} ${companeros.length === 1 ? 'la ve' : 'la ven'} en Consultas de la actividad.`
+        : 'Tu equipo docente la ve en Consultas de la actividad.',
       esGrupal
         ? 'Mientras el plazo siga abierto, cualquiera del grupo puede reemplazarla.'
         : 'Mientras el plazo siga abierto, puedes reemplazarla.',
@@ -385,7 +385,7 @@
       <span class="flex flex-col">
         <span class="text-lg leading-6 font-bold">Entrega registrada</span>
         <span class="text-sm leading-5 text-dm-ink-2">
-          {esGrupal ? 'Tu grupo la ve en la agenda de la actividad.' : 'Tu equipo docente la ve en la agenda de la actividad.'}
+          {esGrupal ? 'Tu grupo la ve en Consultas de la actividad.' : 'Tu equipo docente la ve en Consultas de la actividad.'}
         </span>
       </span>
     </div>

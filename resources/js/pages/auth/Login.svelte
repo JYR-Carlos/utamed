@@ -78,6 +78,12 @@
     switch (loginError.code) {
       case 'INVALID_CREDENTIALS':
         return { tono: 'error', titulo: 'Credenciales incorrectas' };
+      case 'SESSION_EXPIRED':
+        return {
+          tono: 'warn',
+          titulo: 'Tu sesión terminó por inactividad',
+          texto: 'Vuelve a ingresar para seguir. Lo que no alcanzaste a enviar no quedó guardado.',
+        };
       case 'USER_INACTIVE':
         return {
           tono: 'error',
@@ -178,7 +184,7 @@
     <main class="flex min-w-0 flex-1 flex-col gap-5 px-4 pt-7 pb-8 lg:px-10 lg:pt-6 lg:pb-7">
       <div class="flex items-center justify-end gap-4 max-lg:hidden">
         <BotonTema
-          class="size-10! border border-dm-linea bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil"
+          class="h-10 border border-dm-linea bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil"
         />
       </div>
 
@@ -214,7 +220,6 @@
                 required
                 maxlength="10"
                 autocomplete="username"
-                placeholder="12345678-5"
                 aria-invalid={rutError ? true : undefined}
                 aria-describedby="rut-ayuda"
                 disabled={deshabilitado}
@@ -235,8 +240,9 @@
                   {rutError}
                 </span>
               {:else}
+                <!-- El ejemplo va aquí y no dentro de la casilla: escrito adentro parecía un RUT ya ingresado. -->
                 <span id="rut-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">
-                  Sin puntos; el guion antes del dígito verificador se agrega solo.
+                  Ej.: 12345678-5. Sin puntos; el guion antes del dígito verificador se agrega solo.
                 </span>
               {/if}
             </div>
@@ -282,9 +288,15 @@
                   type="checkbox"
                   disabled={deshabilitado}
                   bind:checked={$form.remember}
+                  aria-describedby="recordar-ayuda"
                   class="size-5 shrink-0 accent-dm-accion"
                 />
-                Mantener la sesión iniciada
+                <span class="flex flex-col">
+                  Mantener la sesión iniciada
+                  <span id="recordar-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">
+                    Sólo en tu computador personal
+                  </span>
+                </span>
               </label>
               {#if canResetPassword}
                 <Link href={request()} class="{enlace} lg:min-h-11!">¿Olvidaste tu contraseña?</Link

@@ -100,6 +100,8 @@
   let aprobacionObligatoriaPorComponente = $state<Record<number, boolean>>({});
   let porcentajeAprobacionPorComponente = $state<Record<number, number>>({});
   let porcentajeAsistenciaPorComponente = $state<Record<number, number>>({});
+  // 70 %, la asistencia mínima acordada (OBS-45); igual que Componente::ASISTENCIA_MINIMA_POR_DEFECTO.
+  const ASISTENCIA_POR_DEFECTO = 70;
   let inscribirAutomaticamente = $state(false);
   
   let excedeSumaAprobacionPorComponentes = $derived.by(() =>
@@ -591,7 +593,7 @@
       docentesPorComponenteFinal[tc.id_tipo_componente] = docentesPorComponente[tc.id_tipo_componente] ?? [];
       generaActaFinal[tc.id_tipo_componente] = generaActaPorComponente[tc.id_tipo_componente] ?? (i === 0);
       porcentajeAprobacionFinal[tc.id_tipo_componente] = porcentajeAprobacionPorComponente[tc.id_tipo_componente] ?? 60;
-      porcentajeAsistenciaFinal[tc.id_tipo_componente] = porcentajeAsistenciaPorComponente[tc.id_tipo_componente] ?? 75;
+      porcentajeAsistenciaFinal[tc.id_tipo_componente] = porcentajeAsistenciaPorComponente[tc.id_tipo_componente] ?? ASISTENCIA_POR_DEFECTO;
       aprobacionObligatoriaFinal[tc.id_tipo_componente] = aprobacionObligatoriaPorComponente[tc.id_tipo_componente] ?? false;
       const pc = previewComponentes.find((p) => p.id_tipo_componente === tc.id_tipo_componente);
       if (pc?.cur_codigo) {
@@ -620,7 +622,7 @@
       // Fallbacks retrocompatibles basados en el componente principal
       aprobacion_obligatoria: aprobacionObligatoriaFinal[principalTipo.id_tipo_componente] ?? false,
       porcentaje_aprobacion: porcentajeAprobacionFinal[principalTipo.id_tipo_componente] ?? 60,
-      porcentaje_asistencia_obligatoria: porcentajeAsistenciaFinal[principalTipo.id_tipo_componente] ?? 75,
+      porcentaje_asistencia_obligatoria: porcentajeAsistenciaFinal[principalTipo.id_tipo_componente] ?? ASISTENCIA_POR_DEFECTO,
       inscribir_automaticamente: inscribirAutomaticamente,
     } as any);
 
@@ -1507,7 +1509,7 @@
                         <input
                           id="wiz-pct-asistencia-{tc.id_tipo_componente}"
                           type="number"
-                          value={porcentajeAsistenciaPorComponente[tc.id_tipo_componente] ?? 75}
+                          value={porcentajeAsistenciaPorComponente[tc.id_tipo_componente] ?? ASISTENCIA_POR_DEFECTO}
                           oninput={(e) => {
                             porcentajeAsistenciaPorComponente = {
                               ...porcentajeAsistenciaPorComponente,

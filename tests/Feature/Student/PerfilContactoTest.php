@@ -91,6 +91,61 @@ test('rechaza enlaces que no son de la red indicada y redes no soportadas', func
         ->assertSessionHasErrors(['redes_sociales', 'redes_sociales.instagram']);
 });
 
+test('X ya no se acepta y un enlace a X guardado antes se descarta al guardar', function () {
+    [$user, $estudiante] = alumnoConPerfil();
+    $estudiante->forceFill(['redes_sociales' => [
+        'x' => 'https://x.com/alguien',
+        'instagram' => 'https://www.instagram.com/alguien',
+    ]])->save();
+
+    expect($estudiante->fresh()->contacto()['redes_sociales'])->not->toHaveKey('x');
+
+    $this->actingAs($user)
+        ->patch('/estudiante/perfil/contacto', ['redes_sociales' => ['x' => 'https://x.com/alguien']])
+        ->assertSessionHasErrors(['redes_sociales']);
+
+    $this->actingAs($user)
+        ->patch('/estudiante/perfil/contacto', [
+            'redes_sociales' => ['instagram' => 'https://www.instagram.com/alguien'],
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($estudiante->fresh()->redes_sociales)->toBe(['instagram' => 'https://www.instagram.com/alguien']);
+});
+
+test('basta el usuario: se guarda el enlace completo de cada red', function () {
+    [$user, $estudiante] = alumnoConPerfil();
+
+    $this->actingAs($user)
+        ->patch('/estudiante/perfil/contacto', [
+            'redes_sociales' => [
+                'youtube' => '@mi-canal',
+                'instagram' => ' alumno.dm ',
+                'linkedin' => 'linkedin.com/in/alumno-dm',
+            ],
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($estudiante->fresh()->contacto()['redes_sociales'])->toBe([
+        'youtube' => 'https://www.youtube.com/@mi-canal',
+        'instagram' => 'https://www.instagram.com/alumno.dm',
+        'linkedin' => 'https://linkedin.com/in/alumno-dm',
+    ]);
+});
+
+test('un usuario con caracteres no válidos o un enlace de otra red se rechaza', function () {
+    [$user] = alumnoConPerfil();
+
+    $this->actingAs($user)
+        ->patch('/estudiante/perfil/contacto', [
+            'redes_sociales' => [
+                'instagram' => '@no vale',
+                'linkedin' => 'instagram.com/alguien',
+            ],
+        ])
+        ->assertSessionHasErrors(['redes_sociales.instagram', 'redes_sociales.linkedin']);
+});
+
 test('rechaza un celular o correo con formato inválido', function () {
     [$user] = alumnoConPerfil();
 

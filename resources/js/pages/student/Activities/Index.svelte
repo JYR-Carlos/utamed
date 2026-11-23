@@ -2,8 +2,11 @@
   /**
    * Página de una actividad para el alumno (guía dm): una tarjeta con la
    * cabecera noche y, debajo, pestañas. En escritorio, Enunciado · Rúbrica ·
-   * Agenda, con la entrega, la nota y el grupo fijos en la columna derecha;
-   * en el móvil, Enunciado · Rúbrica · Entrega · Agenda. La pestaña viaja en
+   * Consultas, con la entrega, la nota y el grupo fijos en la columna derecha;
+   * en el móvil, Enunciado · Rúbrica · Entrega · Consultas. «Consultas» es la
+   * agenda de la actividad: el alumno la ve con ese nombre porque «Agenda» se
+   * leía como calendario (OBS-40); en el código y para el docente sigue siendo
+   * la agenda. La pestaña viaja en
    * ?seccion= (como en la ficha del curso). Por entregar se abre en el
    * enunciado; calificada, en la rúbrica evaluada.
    */
@@ -42,7 +45,7 @@
   import { btnSecundario, btnSuave, etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import { fechaLimiteTexto, porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
-  import { criteriosDe, puntajeTotal } from '@/lib/rubricaAlumno';
+  import { matrizDe, puntajeTotal } from '@/lib/rubricaMatriz';
   import { claveDia, formatBytes, formatDiaCorto, initials } from '@/utils/formatters';
   import { titleCase } from '@/lib/utils';
 
@@ -229,11 +232,11 @@
   // La rúbrica que se usó al evaluar; si no hay evaluación, la vigente.
   const rubricaVista = $derived(ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? rubrica?.rubrica ?? null);
   const resultado = $derived(ultima_evaluacion?.resultado ?? ultimaEvaluacion?.resultado ?? null);
-  const criterios = $derived(criteriosDe(rubricaVista, resultado));
+  const matriz = $derived(matrizDe(rubricaVista, resultado));
   // Como antes: la rúbrica es cosa de las sumativas.
-  const conRubrica = $derived(es_sumativa && criterios.length > 0);
+  const conRubrica = $derived(es_sumativa && matriz.criterios.length > 0);
   const rubricaEvaluada = $derived(
-    conRubrica && calificada && criterios.some((c) => c.obtenido !== null),
+    conRubrica && calificada && matriz.marcados > 0,
   );
   const rubricaDeLaEvaluacion = $derived(ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? null);
 
@@ -254,10 +257,16 @@
         : `Grupal · ${resto_integrantes.length + 1} integrantes`
       : 'Individual',
   );
-  const chips = $derived(
-    [es_sumativa ? 'Sumativa' : 'Formativa', modalidad, componente_tipo, entrega_obligatoria ? null : 'Sin entrega'].filter(
-      (c): c is string => !!c,
-    ),
+  // «Actividad sumativa · individual · Taller»: el tipo define si hay nota y tiene que leerse sin esfuerzo.
+  const tipoActividad = $derived(
+    [
+      `Actividad ${es_sumativa ? 'sumativa' : 'formativa'}`,
+      modalidad.toLowerCase(),
+      componente_tipo,
+      entrega_obligatoria ? null : 'sin entrega',
+    ]
+      .filter(Boolean)
+      .join(' · '),
   );
 
   // El grupo completo, con el alumno primero.
@@ -336,7 +345,7 @@
       { id: 'enunciado', etiqueta: 'Enunciado', detalle: detalleEnunciado || 'Sin archivo todavía', icono: FileText },
     ];
     if (conRubrica || rubricaDeAgenda) {
-      const n = criterios.length;
+      const n = matriz.criterios.length;
       lista.push({
         id: 'rubrica',
         etiqueta: 'Rúbrica',
@@ -351,7 +360,7 @@
     if (id_actividad_asignada_grupo) {
       lista.push({
         id: 'agenda',
-        etiqueta: 'Agenda',
+        etiqueta: 'Consultas',
         detalle: mensajesAgenda === 0 ? 'Sin mensajes' : `${mensajesAgenda} ${mensajesAgenda === 1 ? 'mensaje' : 'mensajes'}`,
         nuevos: nuevosAgenda,
         icono: MessagesSquare,
@@ -370,6 +379,9 @@
     calificada ? (rubricaEvaluada ? 'rubrica' : escritorio.current ? 'enunciado' : 'entrega') : 'enunciado',
   );
   const seccion = $derived<Seccion>(pestanas.find((p) => p.id === pedida)?.id ?? porDefecto);
+  // La pestaña Rúbrica retira la columna derecha: la tabla necesita todo el
+  // ancho y la nota pasa al resumen de la rúbrica.
+  const conLateral = $derived(escritorio.current && seccion !== 'rubrica');
 
   function cambiarSeccion(nueva: string) {
     if (nueva === seccion) return;
@@ -401,6 +413,15 @@
   }
 
   const abrirAgenda = () => (showAgendaModal = true);
+  // «Escribir a mi docente» / «Abrir y escribir»: Consultas con el campo del mensaje enfocado (OBS-41).
+  let escribirAlAbrir = $state(false);
+  function escribirADocente() {
+    escribirAlAbrir = true;
+    showAgendaModal = true;
+  }
+  $effect(() => {
+    if (!showAgendaModal) escribirAlAbrir = false;
+  });
   const abrirEntrega = () => (showEntregaModal = true);
   const abrirEnunciado = () => (showEnunciadoModal = true);
 
@@ -501,7 +522,7 @@
   <title>{nombre_actividad} | UTAmed</title>
 </svelte:head>
 
-<!-- Un aviso de «siguiente paso» al pie de una pestaña. -->
+<!-- Un acceso a otra pestaña, al pie de la que se está leyendo. -->
 {#snippet paso(rotulo: string, texto: string, boton: string, destino: Seccion)}
   <div class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-dm-linea bg-dm-sutil p-4">
     <span class="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
@@ -514,14 +535,40 @@
   </div>
 {/snippet}
 
+<!--
+  Retroalimentación, ancha y en tamaño de lectura: en la columna lateral se
+  perdía (OBS-39). En escritorio va bajo el enunciado; en el móvil, bajo la
+  nota en la pestaña Entrega, que es la que abre una actividad calificada.
+-->
+{#snippet comentarioDocente()}
+  {#if calificada && (retroalimentacion || !es_sumativa)}
+    <section aria-labelledby="t-retroalimentacion" class="flex flex-col gap-3">
+      <h2 id="t-retroalimentacion" class="text-xl leading-7 font-bold lg:text-[22px]">Retroalimentación de tu docente</h2>
+      {#if retroalimentacion}
+        <blockquote class="m-0 rounded-r-xl border-l-4 border-dm-amarillo bg-dm-sutil px-4 py-3.5 lg:px-5 lg:py-4">
+          <p class="text-base leading-6 break-words whitespace-pre-line text-dm-ink">{retroalimentacion}</p>
+        </blockquote>
+      {:else}
+        <p class="text-[15px] leading-[22px] text-dm-ink-2">
+          Tu docente no dejó comentarios escritos{rubricaEvaluada ? '; el detalle está en la rúbrica evaluada' : ''}.
+        </p>
+      {/if}
+    </section>
+  {/if}
+{/snippet}
+
 <!-- Columna derecha en escritorio; pestaña Entrega en el móvil. -->
 {#snippet lateral()}
-  {#if calificada}
+  <!-- Una sola tarjeta: la nota o el estado arriba y en grande, la entrega debajo (OBS-38, OBS-43). -->
+  <section aria-labelledby="t-nota" class="{tarjeta} overflow-hidden">
     <ActividadNota
       esSumativa={es_sumativa}
       esGrupal={es_grupal}
       nota={es_sumativa ? (ultima_nota ?? null) : null}
-      evaluada
+      evaluada={calificada}
+      entregada={tieneEntregaRegistrada}
+      cerrada={estado === 'CERRADA'}
+      conEntrega={entrega_obligatoria}
       notaGrupo={nota_grupo}
       ajusteDecimas={ajuste_decimas}
       fecha={ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision ?? null}
@@ -529,13 +576,11 @@
       puntaje={puntajeEvaluacion}
       puntajeTotal={puntajeTotal(rubricaDeLaEvaluacion)}
       resultado={es_sumativa ? null : ultima_evaluacion?.evaluacion_obtenida ? String(ultima_evaluacion.evaluacion_obtenida) : null}
-      retroalimentacion={rubricaEvaluada ? null : retroalimentacion}
       onVerRubrica={rubricaEvaluada && seccion !== 'rubrica' ? () => irA('rubrica') : undefined}
     />
-  {/if}
 
-  {#if entrega_obligatoria || sinGrupo}
-    <ActividadEntrega
+    {#if entrega_obligatoria || sinGrupo}
+      <ActividadEntrega
       fechaLimite={fecha_limite}
       {estado}
       esGrupal={es_grupal}
@@ -549,12 +594,11 @@
       hrefMensajeria={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
       onSubir={abrirEntrega}
       onBorrar={handleBorrarEntrega}
+      onEscribirDocente={id_actividad_asignada_grupo ? escribirADocente : undefined}
     />
-  {/if}
-
-  {#if !calificada}
-    <ActividadNota esSumativa={es_sumativa} esGrupal={es_grupal} nota={null} evaluada={false} />
-  {/if}
+    {/if}
+  </section>
+  {#if !escritorio.current}{@render comentarioDocente()}{/if}
 
   {#if es_grupal && !sinGrupo}
     <section aria-labelledby="t-grupo" class="{tarjeta} overflow-hidden">
@@ -636,7 +680,7 @@
         codigo={cod_asignatura ?? ''}
         nombreCurso={nombre_curso}
         nombre={nombre_actividad}
-        {chips}
+        tipo={tipoActividad}
         {destacado}
         {pestanas}
         seleccion={seccion}
@@ -644,7 +688,11 @@
         onCambiar={alElegirPestana}
       />
 
-      <div class="flex flex-col gap-8 px-4 pt-6 pb-10 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:px-10 lg:pt-8">
+      <div
+        class="flex flex-col gap-8 px-4 pt-6 pb-10 lg:grid lg:items-start lg:px-10 lg:pt-8 {conLateral
+          ? 'lg:grid-cols-[minmax(0,1fr)_300px]'
+          : 'lg:grid-cols-1'}"
+      >
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div
           role="tabpanel"
@@ -684,10 +732,12 @@
                 <p class="text-[15px] leading-[22px] text-dm-ink-2">Tu docente todavía no adjunta el enunciado de esta actividad.</p>
               {/if}
             </section>
+            {#if escritorio.current}{@render comentarioDocente()}{/if}
             {#if pestanas.some((p) => p.id === 'rubrica')}
+              <!-- La rúbrica se mira antes de hacer el trabajo, no como paso siguiente (OBS-42). -->
               {@render paso(
-                'Siguiente paso',
-                rubricaEvaluada ? 'Revisa cómo te evaluaron' : 'Revisa cómo se evaluará la entrega',
+                'Rúbrica',
+                rubricaEvaluada ? 'Cómo te evaluaron, criterio por criterio' : 'Cómo se evalúa esta actividad',
                 rubricaEvaluada ? 'Ver la rúbrica evaluada' : 'Ver la rúbrica',
                 'rubrica',
               )}
@@ -699,13 +749,17 @@
               puntajeObtenido={rubricaPanel.puntaje_obtenido}
               retroalimentacion={rubricaPanel.retroalimentacion}
               subtitulo={subtituloRubrica}
+              nota={rubricaDeAgenda || !es_sumativa ? null : (ultima_nota ?? null)}
               {exigencia}
+              actividad={nombre_actividad}
+              curso={nombre_curso}
+              estiloCurso={colorCurso}
             />
             {#if id_actividad_asignada_grupo}
               {@render paso(
                 calificada ? '¿Dudas sobre la nota?' : '¿Dudas sobre un criterio?',
-                calificada ? 'Escríbele a tu docente en la agenda' : 'Pregúntale a tu docente en la agenda',
-                'Ir a la agenda',
+                calificada ? 'Escríbele a tu docente en Consultas' : 'Pregúntale a tu docente en Consultas',
+                'Ir a Consultas',
                 'agenda',
               )}
             {/if}
@@ -717,13 +771,13 @@
               esGrupal={es_grupal}
               {calificada}
               vista={agendaVista}
-              onAbrir={abrirAgenda}
+              onAbrir={escribirADocente}
               onVerRubrica={verRubricaDesdeAgenda}
             />
           {/if}
         </div>
 
-        {#if escritorio.current}
+        {#if conLateral}
           <aside class="flex min-w-0 flex-col gap-4" aria-label="Tu entrega y tu nota">
             {@render lateral()}
           </aside>
@@ -735,11 +789,12 @@
 
 <ModalAlumno
   bind:open={showAgendaModal}
-  etiqueta="Agenda de la actividad"
+  etiqueta="Consultas · con tu equipo docente"
   titulo={nombre_actividad}
   subtitulo={subtituloAgenda}
   estilo={colorCurso}
-  rotuloCerrar="Cerrar agenda"
+  rotuloCerrar="Cerrar consultas"
+  enfocar={escribirAlAbrir ? 'agenda-mensaje' : undefined}
 >
   <Agenda
     idCurso={id_curso}

@@ -262,6 +262,16 @@ class HandleInertiaRequests extends Middleware
                     ? fn() => $this->userCourses->getEstudianteCourses($estudiante)  // Cursos inscritos
                     : [],
 
+                // Sin leer del buzón del alumno (OBS-48): la cifra junto a «Mensajes» del menú.
+                'estudiante_buzon_no_leidos' => $isNavigationRequest && $estudiante
+                    ? fn() => app(\App\Services\Student\BuzonEstudiante::class)->noLeidos((int) $user->id_usuario)
+                    : 0,
+
+                // Sin leer del buzón del docente: la cifra junto a «Mensajes» de su menú.
+                'docente_buzon_no_leidos' => $isNavigationRequest && $docente
+                    ? fn() => app(\App\Services\Docente\BuzonDocente::class)->noLeidos((int) $user->id_usuario, (int) $docente->id_docente)
+                    : 0,
+
                 'ayudante_courses'   => $isNavigationRequest && in_array('ayudante', array_map('strtolower', $roles))
                     ? fn() => $this->userCourses->getAyudanteCourses($user)  // Cursos donde asiste
                     : [],

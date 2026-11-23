@@ -97,6 +97,27 @@ test('proximasAVencer excluye actividades vencidas antiguas de mas de 14 dias', 
     expect($ids)->not->toContain($actividad->id_actividad);
 });
 
+test('con el período, proximasAVencer muestra las vencidas sin entrega hasta fin de semestre', function () {
+    $f = resumen_fixtureEstudianteConActividad();
+    expect($f)->not->toBeNull();
+
+    $actividad = Actividad::findOrFail($f['id_actividad']);
+    $actividad->visible = true;
+    $actividad->fecha_limite = Carbon::now()->subDays(60);
+    $actividad->nro_dias_adicionales_para_bloqueo = 0;
+    $actividad->tipo_entrega = 'Con entrega';
+    $actividad->save();
+
+    $curso = DB::table('curso.curso')->where('id_curso', $f['id_curso'])->first(['semestre_real', 'agno_real']);
+
+    $resumen = new ResumenActividadesEstudiante();
+    $pendientes = $resumen->proximasAVencer($f['estudiante'], (int) $curso->semestre_real, (int) $curso->agno_real);
+
+    $item = collect($pendientes)->firstWhere('id_actividad', $actividad->id_actividad);
+    expect($item)->not->toBeNull();
+    expect($item['es_vencida'])->toBeTrue();
+});
+
 test('proximasAVencer excluye actividades vencidas que ya fueron entregadas', function () {
     $f = resumen_fixtureEstudianteConActividad();
     expect($f)->not->toBeNull();

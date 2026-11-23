@@ -47,11 +47,14 @@
    */
   import { onMount } from 'svelte';
   import { Link, page, router } from '@inertiajs/svelte';
-  import { ChevronDown, ClipboardCheck, Clock, FileText, Info, ListChecks, Lock, MessageSquare, Pencil, Send, Upload } from 'lucide-svelte';
+  import { ChevronDown, ClipboardCheck, Clock, FileText, Info, ListChecks, Lock, MessageSquare, Pencil, Printer, Send, Upload } from 'lucide-svelte';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
   import type { Actividad } from '@/types/actividad';
   import ModalInst from '@/components/docente/ModalInst.svelte';
+  import RubricaMatriz from '@/components/docente/RubricaMatriz.svelte';
+  import { imprimirRubrica } from '@/lib/imprimirRubrica';
+  import { puntajeMinimoAprobacion } from '@/lib/notas';
   import EnunciadoModal from '@/components/docente/EnunciadoModal.svelte';
   import AgendaDocente, { type EnvioAgenda } from '../Agenda/AgendaDocente.svelte';
   import { conOptimistas, fmtDecimas as fmtDec, guardarEvaluacion, mensajeOptimista, primerError, urlFeedback, visitaInertia } from '../Agenda/guardarAgenda';
@@ -313,6 +316,9 @@
   }
 
   // ── Rúbrica y enunciado ──────────────────────────────────────────────────
+  // «Ver rúbrica» abre la tabla entera; desde ahí se edita, si todavía se puede.
+  let verRubrica = $state(false);
+  let errorImprimir = $state(false);
   let editorRubrica = $state(false);
   let showEnunciado = $state(false);
   const puntajeRubrica = $derived(
@@ -397,8 +403,8 @@
         {/if}
       </span>
       {#if rubrica}
-        <button type="button" class="{btnSecundario} {chico}" onclick={() => (editorRubrica = true)}>
-          {puede_editar_rubrica ? 'Editar rúbrica' : 'Ver rúbrica'}
+        <button type="button" class="{btnSecundario} {chico}" aria-haspopup="dialog" onclick={() => ((errorImprimir = false), (verRubrica = true))}>
+          Ver rúbrica
         </button>
       {:else if actividad.es_titular}
         <button type="button" class="{btnPrimario} {chico}" onclick={() => (editorRubrica = true)}>Crear rúbrica</button>
@@ -626,6 +632,63 @@
       <button type="button" class={btnPrimario} disabled={!mensajeTodos?.trim() || enviandoTodos} onclick={enviarATodos}>
         <Send size={16} aria-hidden="true" />Enviar
       </button>
+    {/snippet}
+  </ModalInst>
+{/if}
+
+{#if verRubrica && rubrica}
+  <ModalInst
+    titulo="Rúbrica · {actividad.nombre}"
+    subtitulo="{rubrica.niveles?.length ?? 0} criterios · {puntajeRubrica} puntos{actividad.es_sumativa
+      ? ` · nota 4,0 con ${puntajeMinimoAprobacion(puntajeRubrica)}`
+      : ''}"
+    ancho={1376}
+    onCerrar={() => (verRubrica = false)}
+  >
+    {#if tiene_evaluaciones}
+      <div id="rubrica-bloqueo" class="{aviso} {avisoTono.info} items-center">
+        <Lock size={18} class="shrink-0 text-inst-info" aria-hidden="true" />
+        <span class="min-w-0 flex-1">
+          <strong>No se puede editar una rúbrica con evaluaciones ya registradas.</strong> Tus estudiantes ven esta misma tabla en la
+          pestaña «Rúbrica» de la actividad.
+        </span>
+      </div>
+    {/if}
+    <RubricaMatriz {rubrica} esSumativa={actividad.es_sumativa} />
+    {#if errorImprimir}
+      <p class="m-0 text-[13px] text-inst-error" role="alert">El navegador no dejó abrir la ventana para imprimir. Permite las ventanas emergentes de este sitio e inténtalo otra vez.</p>
+    {/if}
+    {#snippet pie()}
+      <button
+        type="button"
+        class={btnSecundario}
+        onclick={() => {
+          errorImprimir = !imprimirRubrica(
+            rubrica,
+            { titulo: actividad.nombre, subtitulo: curso.asignatura_nombre ?? curso.nombre },
+            { esSumativa: actividad.es_sumativa },
+          );
+        }}
+      >
+        <Printer size={16} aria-hidden="true" />Imprimir
+      </button>
+      {#if actividad.es_titular}
+        <button
+          type="button"
+          class={btnSecundario}
+          aria-disabled={!puede_editar_rubrica}
+          aria-describedby={tiene_evaluaciones ? 'rubrica-bloqueo' : undefined}
+          title={tiene_evaluaciones ? 'No se puede editar una rúbrica con evaluaciones ya registradas' : undefined}
+          onclick={() => {
+            if (!puede_editar_rubrica) return;
+            verRubrica = false;
+            editorRubrica = true;
+          }}
+        >
+          {#if puede_editar_rubrica}<Pencil size={16} aria-hidden="true" />{:else}<Lock size={16} aria-hidden="true" />{/if}Editar rúbrica
+        </button>
+      {/if}
+      <button type="button" class="{btnPrimario} ml-auto" onclick={() => (verRubrica = false)}>Cerrar</button>
     {/snippet}
   </ModalInst>
 {/if}

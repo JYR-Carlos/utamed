@@ -2,13 +2,13 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import { Link, page } from '@inertiajs/svelte';
-  import { BookOpen, CalendarClock, ChevronRight, FileText, MessageSquare } from 'lucide-svelte';
+  import { BookOpen, CalendarClock, ChevronRight, CircleAlert, FileText, MessageSquare } from 'lucide-svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import { useFormatName } from '@/hooks';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import { enlace, etiqueta, pildora, tarjeta, tituloCond, tono } from '@/lib/dm';
-  import { plazoDe, type ActividadPorVencer } from '@/lib/plazoAlumno';
+  import { abiertas, hrefAtrasadas, plazoDe, textoVencidas, vencidas, type ActividadPorVencer } from '@/lib/plazoAlumno';
 
   interface CursoAlumno {
     id_curso: number;
@@ -64,13 +64,12 @@
   const noLeidos = $derived(new Map((mensajeria?.cursos ?? []).map((c) => [c.id_curso, c.no_leidos])));
 
   /** Primera entrega que todavía se puede hacer en el curso. */
-  function proximaDe(idCurso: number): ActividadPorVencer | null {
-    return (
-      proximasAVencer
-        .filter((a) => a.id_curso === idCurso && plazoDe(a).abierta)
-        .sort((a, b) => (a.plazo_hasta ?? a.fecha_limite).localeCompare(b.plazo_hasta ?? b.fecha_limite))[0] ?? null
-    );
-  }
+  const pendientes = $derived(abiertas(proximasAVencer));
+  const proximaDe = (idCurso: number): ActividadPorVencer | null => pendientes.find((a) => a.id_curso === idCurso) ?? null;
+
+  /** Vencidas sin entrega en el semestre: no desaparecen de la tarjeta. */
+  const todasVencidas = $derived(vencidas(proximasAVencer));
+  const vencidasDelCurso = (idCurso: number) => todasVencidas.filter((a) => a.id_curso === idCurso).length;
 
   const docente = (c: CursoAlumno) =>
     !c.profesor || c.profesor === '(sin docente asignado)' ? 'Sin docente asignado' : formatName(c.profesor);
@@ -116,6 +115,7 @@
                 {@const proxima = proximaDe(c.id_curso)}
                 {@const plazo = proxima ? plazoDe(proxima) : null}
                 {@const sinLeer = noLeidos.get(c.id_curso) ?? 0}
+                {@const nVencidas = vencidasDelCurso(c.id_curso)}
                 <article
                   style={colorDe(c.id_curso)}
                   class="flex flex-col gap-2 rounded-xl border border-t-6 border-dm-linea border-t-(--curso) bg-dm-tarjeta p-4 lg:p-5"
@@ -127,11 +127,16 @@
                   <h3 class="text-lg leading-6 font-semibold">{nombre(c)}</h3>
                   <span class="text-[13px] leading-[18px] text-dm-ink-2">{docente(c)}</span>
                   <span class="mt-1 flex flex-wrap items-center gap-2">
+                    {#if nVencidas > 0}
+                      <Link href={hrefAtrasadas(c.id_curso)} class="{pildora} {tono.error} no-underline hover:underline">
+                        <CircleAlert size={14} aria-hidden="true" />{textoVencidas(nVencidas)}
+                      </Link>
+                    {/if}
                     {#if plazo}
                       <span class="{pildora} {plazo.urgente ? tono.warn : tono.neutro}">
                         <CalendarClock size={14} aria-hidden="true" />{plazo.texto}
                       </span>
-                    {:else}
+                    {:else if nVencidas === 0}
                       <span class="{pildora} {tono.neutro}">Nada por entregar esta semana</span>
                     {/if}
                     {#if sinLeer > 0}
@@ -159,12 +164,17 @@
           {/if}
         </section>
 
-        {#if anteriores.length > 0}
-          <section aria-labelledby="t-anteriores" class="flex flex-col gap-3">
-            <div class="flex items-baseline gap-3">
-              <h2 id="t-anteriores" class="text-[22px] leading-7 font-bold">Semestres anteriores</h2>
-              <span class="text-[13px] leading-[18px] text-dm-ink-3">Sólo lectura</span>
-            </div>
+        <!-- Siempre a la vista: aunque esté vacía, el alumno sabe que aquí quedarán sus cursos al terminar el semestre. -->
+        <section aria-labelledby="t-anteriores" class="flex flex-col gap-3">
+          <div class="flex items-baseline gap-3">
+            <h2 id="t-anteriores" class="text-[22px] leading-7 font-bold">Semestres anteriores</h2>
+            {#if anteriores.length > 0}<span class="text-[13px] leading-[18px] text-dm-ink-3">Sólo lectura</span>{/if}
+          </div>
+          {#if anteriores.length === 0}
+            <p class="text-sm text-dm-ink-2">
+              Aquí quedarán tus cursos de semestres anteriores, con sus notas y su material, cuando termine el semestre.
+            </p>
+          {:else}
             <div class="overflow-hidden {tarjeta}">
               {#each anteriores as grupo (grupo.titulo)}
                 <div class="{etiqueta} border-b border-dm-linea bg-dm-sutil px-4 py-3 text-dm-ink-3 lg:px-5">{grupo.titulo}</div>
@@ -184,8 +194,8 @@
                 {/each}
               {/each}
             </div>
-          </section>
-        {/if}
+          {/if}
+        </section>
       {/if}
     </div>
   </div>

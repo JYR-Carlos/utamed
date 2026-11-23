@@ -4,24 +4,33 @@
    * como lista de recursos, agrupada por sus subtítulos (bibliografía
    * obligatoria, complementaria, o por unidad).
    *
-   * En escritorio una columna lateral resume los grupos y lleva a cada uno; en
-   * móvil eso mismo es una fila de chips.
+   * Con varios grupos, en escritorio una columna lateral los resume y lleva a
+   * cada uno; en móvil eso mismo es una fila de chips. Con tres o menos la
+   * columna no aparece: la página casi no se mueve y parecía que no hacía nada
+   * (OBS-47).
+   *
+   * Al final, un acceso directo a la Mensajería del curso para avisar si un
+   * recurso no abre, en vez de un texto que pedía ir a buscarla.
    */
-  import { BookMarked } from 'lucide-svelte';
+  import { BookMarked, MessageSquare } from 'lucide-svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import ListaRecursos from '@/components/student/programa/ListaRecursos.svelte';
-  import { tarjeta } from '@/lib/dm';
+  import { btnSecundario, tarjeta } from '@/lib/dm';
   import type { GrupoRecursos } from '@/lib/programaAlumno';
 
   interface Props {
     grupos: GrupoRecursos[];
     /** Hay programa aprobado (cambia el texto cuando no hay recursos). */
     hayPrograma: boolean;
+    /** Pestaña Mensajería del curso. */
+    hrefMensajeria: string;
+    onIrAMensajeria: () => void;
   }
 
-  let { grupos, hayPrograma }: Props = $props();
+  let { grupos, hayPrograma, hrefMensajeria, onIrAMensajeria }: Props = $props();
 
   const cuenta = (n: number) => `${n} ${n === 1 ? 'recurso' : 'recursos'}`;
+  const conPanel = $derived(grupos.length > 3);
 </script>
 
 {#if grupos.length === 0}
@@ -33,7 +42,7 @@
       : 'La bibliografía se publica con el programa del curso, que aún no ha sido aprobado.'}
   />
 {:else}
-  <nav
+  {#if grupos.length > 1}<nav
     aria-label="Grupos de la biblioteca"
     class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] xl:hidden [&::-webkit-scrollbar]:hidden"
   >
@@ -45,9 +54,9 @@
         {g.corto}<span class="rounded-full bg-dm-sutil px-1.5 text-[13px] leading-[18px] font-bold text-dm-ink-2">{g.recursos.length}</span>
       </a>
     {/each}
-  </nav>
+  </nav>{/if}
 
-  <div class="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
+  <div class="flex flex-col gap-6 {conPanel ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start' : ''}">
     <div class="flex min-w-0 flex-col gap-4">
       {#each grupos as g (g.id)}
         <section id={g.id} aria-labelledby="t-{g.id}" class="scroll-mt-4 overflow-hidden {tarjeta}">
@@ -58,9 +67,23 @@
           <ListaRecursos recursos={g.recursos} />
         </section>
       {/each}
+
+      <div class="{tarjeta} flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 lg:px-6">
+        <p class="m-0 text-[15px] leading-[22px] text-dm-ink-2">¿Un enlace o un archivo no abre? Avísale a tu docente.</p>
+        <a
+          href={hrefMensajeria}
+          onclick={(e) => {
+            e.preventDefault();
+            onIrAMensajeria();
+          }}
+          class="{btnSecundario} min-h-10 whitespace-nowrap"
+        >
+          <MessageSquare size={16} aria-hidden="true" />Escribir a mi docente
+        </a>
+      </div>
     </div>
 
-    <aside aria-labelledby="t-resumen-biblioteca" class="sticky top-4 hidden overflow-hidden xl:block {tarjeta}">
+    {#if conPanel}<aside aria-labelledby="t-resumen-biblioteca" class="sticky top-4 hidden overflow-hidden xl:block {tarjeta}">
       <h3 id="t-resumen-biblioteca" class="border-b border-dm-linea px-5 py-3.5 text-base leading-[22px] font-bold">
         En esta biblioteca
       </h3>
@@ -78,10 +101,7 @@
           </li>
         {/each}
       </ul>
-      <p class="px-5 pt-3 pb-4 text-[13px] leading-[18px] text-dm-ink-2">
-        Sale de la sección VIII del programa. Si un enlace no abre, avísale a tu docente por Mensajería.
-      </p>
-    </aside>
+    </aside>{/if}
   </div>
 {/if}
 

@@ -260,8 +260,8 @@ class DashboardController extends Controller
         $componentes = $mensajeria->componentesDeAyudante($idUsuario);
         $componenteIds = $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all();
 
-        $noLeidos = $mensajeria->noLeidosPorComponente($componenteIds, $idUsuario, esStaff: true);
-        $ultimos = $mensajeria->ultimoNoLeidoPorComponente($componenteIds, $idUsuario, esStaff: true);
+        $noLeidos = $mensajeria->noLeidosPorComponente($componenteIds, $idUsuario);
+        $ultimos = $mensajeria->ultimoNoLeidoPorComponente($componenteIds, $idUsuario);
 
         $porCurso = $componentes->groupBy('id_curso');
 

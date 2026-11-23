@@ -9,7 +9,7 @@
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
   import { btnSecundario, btnSuave, pildora, tono } from '@/lib/dm';
   import { ENTREGA } from '@/lib/agendaHilo';
-  import { puntajeTotal } from '@/lib/rubricaAlumno';
+  import { puntajeTotal } from '@/lib/rubricaMatriz';
   import { formatDiaCorto, initials } from '@/utils/formatters';
   import { titleCase } from '@/lib/utils';
 
@@ -78,7 +78,7 @@
 
 <section aria-labelledby="t-agenda" class="flex flex-col gap-4">
   <div class="flex flex-wrap items-center gap-2.5">
-    <h2 id="t-agenda" class="text-xl leading-7 font-bold lg:text-[22px]">Agenda de la actividad</h2>
+    <h2 id="t-agenda" class="text-xl leading-7 font-bold lg:text-[22px]">Consultas con tu equipo docente</h2>
     {#if nuevos > 0}
       <span class="{pildora} {tono.accion} font-bold">{nuevos} {nuevos === 1 ? 'nuevo' : 'nuevos'}</span>
     {/if}
@@ -149,10 +149,10 @@
 
   <div class="flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-3">
     <span class="text-[13px] leading-[18px] text-dm-ink-2">
-      {calificada ? '¿Dudas sobre la nota? Escríbele a tu docente.' : 'La conversación completa y el campo para escribir están en la agenda.'}
+      {calificada ? '¿Dudas sobre la nota? Escríbele a tu docente.' : 'Aquí quedan tus preguntas, tus entregas y las respuestas de tu docente.'}
     </span>
     <button type="button" class={btnSecundario} onclick={onAbrir}>
-      <PenLine size={16} aria-hidden="true" />Abrir la agenda y escribir
+      <PenLine size={16} aria-hidden="true" />Abrir y escribir
     </button>
   </div>
 </section>

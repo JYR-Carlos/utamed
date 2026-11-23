@@ -13,11 +13,8 @@ use Illuminate\Support\Collection;
  * elegido y aquí sólo se navegan sus componentes (Cátedra, Laboratorio…). En
  * cada uno el alumno tiene:
  *  - los avisos del equipo docente (difusiones), y
- *  - su propia conversación con ese equipo.
- *
- * Su conversación es el canal (componente, él mismo). Elige a qué docente dirige
- * el mensaje, pero lo ven todos los docentes del componente, así que puede
- * responderle cualquiera de ellos sin abrir un hilo aparte.
+ *  - una conversación privada con cada persona del equipo: titular, docentes
+ *    y ayudantes (OBS-49). Cada una la ven sólo él y esa persona.
  *
  * Nada de esto pasa por agenda.agenda: los mensajes de entrega y feedback de
  * actividades siguen viviendo allí, separados.
@@ -52,7 +49,6 @@ class MensajeriaCursoEstudiante
             $this->componentesDelCurso($curso, $idUsuario)
                 ->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
             $idUsuario,
-            esStaff: false,
         );
 
         return (int) array_sum($noLeidos);
@@ -60,11 +56,12 @@ class MensajeriaCursoEstudiante
 
     /**
      * Bandeja del curso: sus componentes con badges de no leídos y el panel del
-     * componente activo (el pedido si es suyo; si no, el primero).
+     * componente activo (el pedido si es suyo; si no, el primero), con una
+     * conversación abierta.
      *
      * @return array{componentes: list<array{id_componente:int, tipo:string, no_leidos:int}>, componente_activo: ?int, panel: ?array<string,mixed>}
      */
-    public function bandeja(Curso $curso, int $idUsuario, ?int $idComponentePedido): array
+    public function bandeja(Curso $curso, int $idUsuario, ?int $idComponentePedido, ?int $idInterlocutorPedido = null): array
     {
         $componentes = $this->componentesDelCurso($curso, $idUsuario);
 
@@ -74,12 +71,11 @@ class MensajeriaCursoEstudiante
 
         // Primero el panel (abrirlo marca como leído) y después los contadores,
         // para que la pestaña recién abierta no siga mostrando su badge.
-        $panel = $this->panel($componentes, $activo, $idUsuario);
+        $panel = $this->panel($componentes, $activo, $idUsuario, $idInterlocutorPedido);
 
         $noLeidos = $this->mensajeria->noLeidosPorComponente(
             $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
             $idUsuario,
-            esStaff: false,
         );
 
         return [
@@ -94,13 +90,17 @@ class MensajeriaCursoEstudiante
     }
 
     /**
-     * Panel del componente activo: avisos, su conversación y a qué docentes
-     * puede dirigirse. Abrirlo marca como leído lo que muestra.
+     * Panel del componente activo: avisos, una conversación por persona del
+     * equipo y la abierta. Abrirlo marca como leídos los avisos y la
+     * conversación abierta; las demás conservan sus no leídos.
+     *
+     * Se abre la pedida; si no, la que tiene lo último sin leer; si no, la
+     * última con mensajes; si no, la primera del equipo (el titular).
      *
      * @param  Collection<int,object>  $componentes
      * @return array<string,mixed>|null
      */
-    private function panel(Collection $componentes, ?int $idComponente, int $idUsuario): ?array
+    private function panel(Collection $componentes, ?int $idComponente, int $idUsuario, ?int $idInterlocutorPedido): ?array
     {
         $componente = $idComponente
             ? $componentes->firstWhere('id_componente', $idComponente)
@@ -110,8 +110,17 @@ class MensajeriaCursoEstudiante
             return null;
         }
 
+        $conversaciones = $this->conversaciones($idComponente, $idUsuario);
+
+        $abierta = $conversaciones->firstWhere('id_usuario', $idInterlocutorPedido)
+            ?? $conversaciones->where('no_leidos', '>', 0)->sortByDesc('ultima_fecha')->first()
+            ?? $conversaciones->whereNotNull('ultima_fecha')->sortByDesc('ultima_fecha')->first()
+            ?? $conversaciones->first();
+
         $difusiones = $this->mensajeria->difusionesDeComponente($idComponente, $idUsuario);
-        $mensajes = $this->mensajeria->mensajesDelCanal($idComponente, $idUsuario, $idUsuario);
+        $mensajes = $abierta
+            ? $this->mensajeria->mensajesDeConversacion($idComponente, $idUsuario, $abierta['id_usuario'], $idUsuario)
+            : collect();
 
         // Lo que llega sin abrir se destaca como «Nuevo» en esta visita.
         $ids = $difusiones->pluck('id_mensaje')->merge($mensajes->pluck('id_mensaje'))->all();
@@ -121,11 +130,46 @@ class MensajeriaCursoEstudiante
         $conNuevo = fn(array $m) => $m + ['nuevo' => isset($nuevos[$m['id_mensaje']])];
 
         return [
-            'id_componente' => $idComponente,
-            'componente'    => $componente->tipo_componente,
-            'difusiones'    => $difusiones->map($conNuevo)->values(),
-            'mensajes'      => $mensajes->map($conNuevo)->values(),
-            'docentes'      => $this->mensajeria->docentesDeComponente($idComponente)->values(),
+            'id_componente'  => $idComponente,
+            'componente'     => $componente->tipo_componente,
+            'difusiones'     => $difusiones->map($conNuevo)->values(),
+            'conversaciones' => $conversaciones,
+            'conversacion'   => $abierta ? [
+                'id_usuario' => $abierta['id_usuario'],
+                'mensajes'   => $mensajes->map($conNuevo)->values(),
+            ] : null,
         ];
+    }
+
+    /**
+     * Una conversación por persona del equipo (a quien puede escribirle) más
+     * las de quienes ya no están en el equipo pero tienen mensajes con él, en
+     * sólo lectura. `no_leidos` se cuenta antes de abrir el panel.
+     *
+     * @return Collection<int,array<string,mixed>>
+     */
+    private function conversaciones(int $idComponente, int $idUsuario): Collection
+    {
+        $resumen = $this->mensajeria->conversacionesDeAlumno($idComponente, $idUsuario);
+        $equipo = $this->mensajeria->equipoDeComponente($idComponente)
+            ->reject(fn(array $p) => $p['id_usuario'] === $idUsuario)
+            ->map(fn(array $p) => $p + ['en_equipo' => true]);
+
+        $exEquipo = $resumen->except($equipo->pluck('id_usuario')->all())
+            ->map(fn(array $r, int $id) => [
+                'id_usuario' => $id,
+                'nombre'     => $r['nombre'],
+                'rol'        => null,
+                'en_equipo'  => false,
+            ]);
+
+        return $equipo->concat($exEquipo->values())
+            ->map(fn(array $c) => $c + [
+                'ultimo_mensaje' => $resumen[$c['id_usuario']]['ultimo_mensaje'] ?? null,
+                'ultima_fecha'   => $resumen[$c['id_usuario']]['ultima_fecha'] ?? null,
+                'ultimo_es_mio'  => $resumen[$c['id_usuario']]['ultimo_es_mio'] ?? false,
+                'no_leidos'      => $resumen[$c['id_usuario']]['no_leidos'] ?? 0,
+            ])
+            ->values();
     }
 }

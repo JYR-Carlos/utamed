@@ -3,7 +3,6 @@
 namespace App\Services\Student;
 
 use App\Enums\DB\TipoActividad;
-use App\Enums\DB\TipoMensaje;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Agenda\Agenda;
@@ -14,12 +13,11 @@ use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
- * Actividades del estudiante en todos sus cursos: lo que está por vencer y las
- * notas/retroalimentaciones recientes (dashboard), y las fechas límite del
- * semestre (vista «Semestre» del calendario de la ficha del curso).
+ * Actividades del estudiante en todos sus cursos: lo que está por vencer o ya
+ * venció sin entrega (Inicio y Mis cursos) y las fechas límite del semestre
+ * (vista «Semestre» del calendario de la ficha del curso).
  *
  * Sólo mira cursos con inscripción `INSCRITO` y actividades visibles, igual
  * que `Student\CourseController::show` y `Student\ActivityController::show`.
@@ -29,12 +27,17 @@ class ResumenActividadesEstudiante
     /** Ventana de «próximas a vencer». No se muestra en la UI. */
     public const DIAS_PROXIMAS = 7;
 
-    /** Cuántas notas/retroalimentaciones se listan. */
-    public const MAX_RECIENTES = 5;
+    /** Sin período, cuántos días atrás se siguen mostrando las vencidas sin entrega. */
+    public const DIAS_VENCIDAS_SIN_PERIODO = 14;
 
     /**
-     * Actividades cuyo plazo real (fecha límite + holgura de la actividad +
-     * holgura personal del grupo) cae entre ahora y los próximos 7 días.
+     * Actividades sin entregar cuyo plazo real (fecha límite + holgura de la
+     * actividad + holgura personal del grupo) cae entre ahora y los próximos
+     * 7 días, más las que ya vencieron sin entrega (`es_vencida`).
+     *
+     * Con período (semestre y año), las vencidas se muestran todas, es decir,
+     * hasta que termina el semestre: el alumno tiene que verlas para escribirle
+     * a su docente o apelar. Sin período, sólo las de los últimos 14 días.
      *
      * `plazo_hasta` sólo viene cuando hay holgura: es la fecha que el alumno
      * tiene que mirar, ya calculada, en vez de la fecha límite nominal.
@@ -43,6 +46,7 @@ class ResumenActividadesEstudiante
      */
     public function proximasAVencer(Estudiante $estudiante, ?int $semestre = null, ?int $agno = null): array
     {
+        $delPeriodo = $semestre !== null && $agno !== null;
         $componentes = $this->componentesDelEstudiante($estudiante, $semestre, $agno);
 
         if ($componentes->isEmpty()) {
@@ -103,10 +107,13 @@ class ResumenActividadesEstudiante
                     '_plazo'       => $plazo,
                 ];
             })
-            ->filter(function (array $item) use ($ahora, $tope) {
-                // Incluye próximas a vencer o vencidas no entregadas recientes (hasta 14 días atrás)
-                return $item['_plazo']->between($ahora, $tope)
-                    || ($item['es_vencida'] && $item['_plazo']->greaterThanOrEqualTo($ahora->copy()->subDays(14)));
+            ->filter(function (array $item) use ($ahora, $tope, $delPeriodo) {
+                if ($item['es_vencida']) {
+                    return $delPeriodo
+                        || $item['_plazo']->greaterThanOrEqualTo($ahora->copy()->subDays(self::DIAS_VENCIDAS_SIN_PERIODO));
+                }
+
+                return $item['_plazo']->between($ahora, $tope);
             })
             ->sortBy(function (array $item) {
                 return ($item['es_vencida'] ? '0' : '1') . '_' . $item['_plazo']->timestamp;
@@ -136,6 +143,7 @@ class ResumenActividadesEstudiante
             ->whereNotNull('fecha_limite')
             ->with('componente.tipoComponente')
             ->orderBy('fecha_limite')
+            ->orderBy('id_actividad')
             ->get();
 
         return $this->paraAlumno($estudiante, $actividades)
@@ -178,6 +186,7 @@ class ResumenActividadesEstudiante
             ->where('visible', true)
             ->with(['componente.tipoComponente', 'unidad'])
             ->orderBy('fecha_limite', 'asc')
+            ->orderBy('id_actividad')
             ->get();
 
         return $this->paraAlumno($estudiante, $actividades);
@@ -229,6 +238,7 @@ class ResumenActividadesEstudiante
                     'id_actividad'    => $actividad->id_actividad,
                     'nombre'          => $actividad->nombre,
                     'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                    'id_componente'   => $actividad->id_componente,
                     // «Cómo se evalúa» cuenta las actividades de cada componente.
                     'componente_tipo' => $actividad->componente?->tipoComponente?->tipo,
                     'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
@@ -245,80 +255,6 @@ class ResumenActividadesEstudiante
                 ];
             })
             ->values();
-    }
-
-    /**
-     * Últimas notas y retroalimentaciones que el equipo docente dejó en las
-     * actividades del alumno, una por actividad (la más reciente).
-     *
-     * - Evaluación de una sumativa → la nota vigente del alumno (individual si
-     *   tiene décimas, si no la grupal).
-     * - Evaluación de una formativa → el resultado cualitativo.
-     * - Feedback con texto → el comentario.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public function notasYRetroalimentaciones(Estudiante $estudiante): array
-    {
-        $componentes = $this->componentesDelEstudiante($estudiante);
-
-        if ($componentes->isEmpty()) {
-            return [];
-        }
-
-        $integraciones = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
-            ->whereHas('actividadAsignadaGrupo.actividad', fn ($q) => $q
-                ->whereIn('id_componente', $componentes->keys())
-                ->where('visible', true))
-            ->get()
-            ->keyBy('id_actividad_asignada_grupo');
-
-        if ($integraciones->isEmpty()) {
-            return [];
-        }
-
-        $agendas = Agenda::whereIn('id_actividad_asignada_grupo', $integraciones->keys())
-            ->whereIn('tipo_mensaje', [TipoMensaje::EVALUACIÓN->value, TipoMensaje::FEEDBACK->value])
-            ->where('id_usuario_emisor', '!=', $estudiante->id_usuario)
-            ->with(['evaluacion', 'actividadAsignadaGrupo.actividad'])
-            ->orderByDesc('fecha_envio')
-            ->orderByDesc('id_agenda')
-            ->get()
-            // Un feedback vacío no le dice nada al alumno.
-            ->filter(fn (Agenda $a) => $a->tipo_mensaje === TipoMensaje::EVALUACIÓN
-                || trim((string) $a->mensaje) !== '')
-            ->unique(fn (Agenda $a) => $a->actividadAsignadaGrupo->id_actividad)
-            ->take(self::MAX_RECIENTES);
-
-        return $agendas
-            ->map(function (Agenda $agenda) use ($integraciones, $componentes) {
-                $grupo = $agenda->actividadAsignadaGrupo;
-                $actividad = $grupo->actividad;
-                $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
-                $esEvaluacion = $agenda->tipo_mensaje === TipoMensaje::EVALUACIÓN;
-                $integrante = $integraciones->get($grupo->id_actividad_asignada_grupo);
-                $nota = $integrante?->nota_individual ?? $grupo->nota;
-                $curso = $componentes->get($actividad->id_componente);
-                $comentario = trim((string) $agenda->mensaje);
-
-                return [
-                    'id_agenda'    => $agenda->id_agenda,
-                    'id_actividad' => $actividad->id_actividad,
-                    'id_curso'     => (int) $curso->id_curso,
-                    'curso'        => $curso->cod_asignatura ?: $curso->cod_curso,
-                    'nombre'       => $actividad->nombre,
-                    'es_sumativa'  => $esSumativa,
-                    'tipo'         => $esEvaluacion ? 'evaluacion' : 'retroalimentacion',
-                    'nota'         => $esEvaluacion && $esSumativa && $nota !== null ? (float) $nota : null,
-                    'resultado'    => $esEvaluacion && !$esSumativa
-                        ? ($agenda->evaluacion?->evaluacion_obtenida ?: null)
-                        : null,
-                    'comentario'   => $comentario !== '' ? Str::limit($comentario, 140) : null,
-                    'fecha'        => (string) $agenda->fecha_envio,
-                ];
-            })
-            ->values()
-            ->all();
     }
 
     /**

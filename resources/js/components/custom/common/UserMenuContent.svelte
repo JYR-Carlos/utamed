@@ -3,7 +3,7 @@
     import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
     import { edit } from '@/routes/profile/index';
     import type { User } from '@/types';
-    import { logout } from '@/routes';
+    import { cerrarSesion } from '@/lib/sesion';
     import { router } from '@inertiajs/svelte';
     import { KeyRound, LogOut, User2 } from 'lucide-svelte';
 
@@ -12,16 +12,6 @@
     }
 
     let { user }: Props = $props();
-    
-    /*
-     * El POST se despacha desde onSelect del ítem. Antes el ítem envolvía un
-     * <Link as="button">: el primer clic lo consumía el menú (que se cerraba
-     * y desmontaba el Link) y hacía falta un segundo clic para salir.
-     */
-    const handleLogout = () => {
-        router.flushAll();
-        router.post(logout.url());
-    };
 
     const profileUrl = $derived(
         user.docente
@@ -47,7 +37,12 @@
     <span>Cambiar contraseña</span>
 </DropdownMenuItem>
 <DropdownMenuSeparator />
-<DropdownMenuItem onSelect={handleLogout} class="cursor-pointer">
+<!--
+    La salida se despacha desde onSelect del ítem. Antes el ítem envolvía un
+    <Link as="button">: el primer clic lo consumía el menú (que se cerraba y
+    desmontaba el Link) y hacía falta un segundo clic para salir.
+-->
+<DropdownMenuItem onSelect={cerrarSesion} class="cursor-pointer">
     <LogOut class="mr-2 h-4 w-4" />
     <span>Cerrar Sesión</span>
 </DropdownMenuItem>

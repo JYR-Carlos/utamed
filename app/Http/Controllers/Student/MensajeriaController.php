@@ -38,7 +38,8 @@ class MensajeriaController extends Controller
     }
 
     /**
-     * El alumno escribe al equipo docente del componente.
+     * El alumno escribe a una persona del equipo del componente (titular,
+     * docente o ayudante). La conversación es privada entre los dos (OBS-49).
      * POST /estudiante/cursos/{curso}/mensajeria/componentes/{componente}/mensaje
      */
     public function enviar(Request $request, Curso $curso, int $componente)
@@ -55,29 +56,27 @@ class MensajeriaController extends Controller
         $datos = $request->validate([
             'mensaje'             => 'required|string|max:2000',
             'tema'                => 'nullable|string|max:150',
-            'id_usuario_receptor' => 'nullable|integer',
+            'id_usuario_receptor' => 'required|integer',
         ]);
 
-        $docentes = $this->mensajeria->docentesDeComponente($componente);
+        $receptor = (int) $datos['id_usuario_receptor'];
 
-        if ($docentes->isEmpty()) {
+        // Sólo a quien está hoy en el equipo: con quien ya no está, la
+        // conversación queda de sólo lectura. Nunca a otro estudiante: no hay
+        // mensajes entre compañeros (OBS-53, ver MensajeriaService).
+        $esDelEquipo = $receptor !== $idUsuario && $this->mensajeria->equipoDeComponente($componente)
+            ->contains(fn(array $p) => $p['id_usuario'] === $receptor);
+
+        if (!$esDelEquipo) {
             return back()->withErrors([
-                'mensaje' => 'Este componente todavía no tiene docentes asignados.',
+                'mensaje' => 'Sólo puedes escribirle a alguien del equipo de este componente.',
             ]);
         }
-
-        // Destinatario: el elegido si pertenece al equipo del componente; si no,
-        // el titular (y en su defecto, el primero de la lista).
-        $elegido = $datos['id_usuario_receptor'] ?? null;
-        $receptor = $docentes->firstWhere('id_usuario', $elegido)
-            ?? $docentes->firstWhere('es_titular', true)
-            ?? $docentes->first();
 
         $this->mensajeria->enviarIndividual(
             idComponente: $componente,
             idUsuarioEmisor: $idUsuario,
-            idUsuarioReceptor: (int) $receptor['id_usuario'],
-            idUsuarioAlumno: $idUsuario,
+            idUsuarioReceptor: $receptor,
             mensaje: $datos['mensaje'],
             tema: $datos['tema'] ?? null,
         );

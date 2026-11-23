@@ -7,10 +7,9 @@
    * (Cátedra, Laboratorio…) es una pestaña, y dentro hay dos vistas:
    *
    *  - Curso       : difusiones al componente (MENSAJE_PARA_TODO_EL_CURSO).
-   *  - Estudiantes : un canal por alumno (MENSAJE_INDIVIDUAL). El canal es
-   *                  (componente, alumno) y lo comparten todos los docentes del
-   *                  componente, así que si responde un colegiado o un ayudante
-   *                  el mensaje entra en la misma conversación.
+   *  - Estudiantes : la conversación privada de quien mira con cada alumno
+   *                  (MENSAJE_INDIVIDUAL). Es de dos: los colegiados y los
+   *                  ayudantes tienen cada uno la suya (OBS-49).
    *
    * Textos de la revisión «Mi UTAmed»: «Curso» y «Estudiantes» en vez de
    * Generales e Individuales, y «mensaje» en vez de «aviso».
@@ -553,7 +552,11 @@
                   nombre={panel.canal.alumno}
                   class="size-7 bg-slate-200 text-slate-600"
                 />
-                <span class="text-sm font-bold text-slate-800 truncate">{panel.canal.alumno}</span>
+                <span class="flex min-w-0 flex-col">
+                  <span class="text-sm font-bold text-slate-800 truncate">{panel.canal.alumno}</span>
+                  <!-- OBS-49: cada persona del equipo tiene su propia conversación con el alumno. -->
+                  <span class="text-xs text-slate-600">Conversación privada: sólo la ven tú y el estudiante.</span>
+                </span>
               </div>
 
               <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">

@@ -1,4 +1,5 @@
 import { Monitor, Moon, Sun } from 'lucide-svelte';
+import { MediaQuery } from 'svelte/reactivity';
 
 export type Appearance = 'light' | 'dark' | 'system';
 
@@ -36,6 +37,7 @@ function leer(): Appearance {
 }
 
 let appearance = $state<Appearance>(leer());
+const sistemaOscuro = new MediaQuery('prefers-color-scheme: dark');
 
 export function updateTheme(value: Appearance) {
     if (!enNavegador) return;
@@ -71,6 +73,10 @@ export function useAppearance() {
     return {
         get appearance() {
             return appearance;
+        },
+        /** Lo que se ve: con 'system' depende del sistema operativo. */
+        get oscuro() {
+            return appearance === 'dark' || (appearance === 'system' && sistemaOscuro.current);
         },
         updateAppearance,
     };

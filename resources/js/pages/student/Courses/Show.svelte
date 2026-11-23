@@ -18,7 +18,7 @@
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import ActividadesView, { coincideConFiltro, type FiltroActividad } from '../Activities/ActividadesView.svelte';
+  import ActividadesView, { coincideConFiltro, filtroDeUrl, type FiltroActividad } from '../Activities/ActividadesView.svelte';
   import CursoEncabezado, { SECCIONES_CURSO, type SeccionCurso } from './components/CursoEncabezado.svelte';
   import CursoBitacora, { type Bitacora } from './components/CursoBitacora.svelte';
   import CursoCalendario, { type AlcanceCalendario } from './components/CursoCalendario.svelte';
@@ -56,7 +56,7 @@
     mensajeria?: BandejaMensajeria | null;
     /** Mensajes del curso sin leer, para la pestaña antes de abrirla. */
     mensajes_sin_leer?: number;
-    /** Prop diferida: llega al abrir «Bitácora». */
+    /** Prop diferida: llega al abrir «Historial» (?seccion=bitacora). */
     bitacora?: Bitacora | null;
     /** Prop diferida: llega al elegir «Ver todos» en el calendario. */
     calendario_semestre?: Actividad[] | null;
@@ -187,7 +187,7 @@
   const conComponente = $derived(new Set(actividades.map((a) => a.componente_tipo).filter(Boolean)).size > 1);
 
   // ─── Filtros de actividades ─────────────────────────────────────────────────
-  let filtro = $state<FiltroActividad>('todas');
+  let filtro = $state<FiltroActividad>(filtroDeUrl($page.url));
 
   const actividadesFiltradas = $derived(actividades.filter((a) => coincideConFiltro(a, filtro)));
 
@@ -203,7 +203,7 @@
   <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
     <h2 {id} class="text-[22px] leading-7 font-bold">{texto}</h2>
     {#if detalle}
-      <p class="text-[13px] leading-[18px] text-dm-ink-3">{detalle}</p>
+      <p class="text-sm leading-5 text-dm-ink-2">{detalle}</p>
     {/if}
   </div>
 {/snippet}
@@ -214,8 +214,6 @@
       {curso}
       {seccion}
       {docente}
-      totalActividades={actividades.length}
-      {totalRecursos}
       {mensajesSinLeer}
       onCambiarSeccion={cambiarSeccion}
     />
@@ -308,7 +306,7 @@
           onReintentar={reintentar}
         />
       {:else if seccion === 'bitacora'}
-        {@render titulo('Bitácora', 'Entregas, mensajes, retroalimentaciones y notas de todas tus actividades')}
+        {@render titulo('Historial', 'Todo lo que pasó en este ramo: entregas, mensajes, notas y plazos vencidos')}
         <CursoBitacora idCurso={id_curso} {bitacora} error={diferidaError} onReintentar={reintentar} />
       {:else if seccion === 'biblioteca'}
         {@render titulo(
@@ -317,7 +315,12 @@
             ? `${totalRecursos} ${totalRecursos === 1 ? 'recurso' : 'recursos'} · bibliografía y recursos indicados en el programa`
             : 'Bibliografía y recursos de aprendizaje indicados en el programa.',
         )}
-        <CursoBiblioteca grupos={gruposBiblioteca} hayPrograma={!!programa} />
+        <CursoBiblioteca
+          grupos={gruposBiblioteca}
+          hayPrograma={!!programa}
+          hrefMensajeria={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
+          onIrAMensajeria={() => cambiarSeccion('mensajeria', true)}
+        />
       {/if}
     </div>
   </div>

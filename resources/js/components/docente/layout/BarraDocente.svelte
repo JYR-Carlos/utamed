@@ -4,12 +4,13 @@
    * ambos temas, con la marca UTAMED sobre placa blanca.
    *
    * Escritorio: marca, «Sugerencias» (el reporte de problemas), cambio de rol
-   * (si la cuenta tiene más de uno), tema y la persona con su menú. Teléfono: botón del menú, marca,
+   * (si la cuenta tiene más de uno), el interruptor claro/oscuro y la persona con su menú. Teléfono: botón del menú, marca,
    * tema y persona; el cambio de rol baja al menú desplegable.
    */
   import { Link, page, router } from '@inertiajs/svelte';
   import { ChevronDown, Menu, X } from 'lucide-svelte';
   import IssueReport from '@/components/custom/IssueReport.svelte';
+  import BotonTema from '@/components/ingreso/BotonTema.svelte';
   import UserMenuContent from '@/components/custom/common/UserMenuContent.svelte';
   import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import {
@@ -20,7 +21,6 @@
     DropdownMenuSeparator,
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
-  import { OPCIONES_APARIENCIA, useAppearance } from '@/hooks/useAppearance.svelte';
   import { usePermissions } from '@/lib/composables/usePermissions';
   import { AMBIENTES, ambientesDisponibles } from '@/lib/ambientes';
   import { titleCase } from '@/lib/utils';
@@ -33,14 +33,6 @@
   let { menuAbierto, onAlternarMenu }: Props = $props();
 
   const { can } = usePermissions();
-
-  // Un solo botón de tema: cada clic pasa a la siguiente opción
-  // (Claro → Oscuro → Sistema → Claro) y el ícono muestra la actual.
-  const apariencia = useAppearance();
-  const temaIndice = $derived(Math.max(0, OPCIONES_APARIENCIA.findIndex((o) => o.value === apariencia.appearance)));
-  const temaActual = $derived(OPCIONES_APARIENCIA[temaIndice]);
-  const temaSiguiente = $derived(OPCIONES_APARIENCIA[(temaIndice + 1) % OPCIONES_APARIENCIA.length]);
-  const temaEtiqueta = $derived(`Tema: ${temaActual.label}. Cambiar a ${temaSiguiente.label.toLowerCase()}`);
 
   const ambientes = $derived(ambientesDisponibles($page.props.auth, can));
 
@@ -112,15 +104,8 @@
       </DropdownMenu>
     {/if}
 
-    <button
-      type="button"
-      onclick={() => apariencia.updateAppearance(temaSiguiente.value)}
-      aria-label={temaEtiqueta}
-      title={temaEtiqueta}
-      class="{botonBarra} px-0"
-    >
-      <temaActual.Icon size={18} aria-hidden="true" />
-    </button>
+    <!-- El mismo interruptor sol/luna del alumno: claro u oscuro en un clic. -->
+    <BotonTema class="border border-inst-barra-borde text-inst-barra-texto hover:bg-white/10 lg:h-9" />
 
     <DropdownMenu>
       <DropdownMenuTrigger

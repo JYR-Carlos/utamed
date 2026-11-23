@@ -160,7 +160,7 @@ class CourseController extends Controller
         if ($syllabus['programa']) {
             $data = Programa::find($syllabus['programa']['id_programa'])?->data_syllabus;
             $data = is_array($data) ? $data : json_decode($data ?? '[]', true);
-            $secciones = $this->parseSecciones($data ?? []);
+            $secciones = StudentSyllabusPresenter::conAsistenciaDelCurso($curso, $this->parseSecciones($data ?? []));
         }
 
         return Inertia::render('student/Courses/Show', array_merge(
@@ -173,7 +173,12 @@ class CourseController extends Controller
                 // Pestañas «Mensajería» y «Bitácora»: igual que el rendimiento,
                 // se cargan al abrirlas. Abrir la mensajería marca como leído.
                 'mensajeria' => Inertia::lazy(fn () => app(MensajeriaCursoEstudiante::class)
-                    ->bandeja($curso, (int) $user->id_usuario, request()->integer('componente_id') ?: null)),
+                    ->bandeja(
+                        $curso,
+                        (int) $user->id_usuario,
+                        request()->integer('componente_id') ?: null,
+                        request()->integer('interlocutor_id') ?: null,
+                    )),
                 // Contador de la pestaña Mensajería, sin abrirla (no marca leído).
                 // En closure para que las recargas parciales no lo recalculen.
                 'mensajes_sin_leer' => fn () => app(MensajeriaCursoEstudiante::class)

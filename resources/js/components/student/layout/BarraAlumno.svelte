@@ -4,28 +4,28 @@
    *
    * En escritorio: la ruta de navegación sobre fondo de tarjeta. En móvil: barra
    * noche con el botón del menú y la marca; ahí la ruta no cabe y cada página
-   * trae su «‹ volver» en la cabecera.
+   * trae su «‹ volver» en la cabecera. A la derecha, siempre: reportar un
+   * problema, el tema y la foto del alumno, que lleva a Mi perfil.
    */
-  import { Link } from '@inertiajs/svelte';
-  import { Menu } from 'lucide-svelte';
+  import { Link, page } from '@inertiajs/svelte';
+  import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
   import IssueReport from '@/components/custom/IssueReport.svelte';
-  import { OPCIONES_APARIENCIA, useAppearance } from '@/hooks/useAppearance.svelte';
+  import BotonTema from '@/components/ingreso/BotonTema.svelte';
+  import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import type { BreadcrumbItem } from '@/types';
 
   interface Props {
     breadcrumbs?: BreadcrumbItem[];
     onAbrirMenu: () => void;
+    /** Escritorio: el menú lateral está plegado a íconos. */
+    menuPlegado?: boolean;
+    onPlegarMenu?: () => void;
   }
 
-  let { breadcrumbs = [], onAbrirMenu }: Props = $props();
+  let { breadcrumbs = [], onAbrirMenu, menuPlegado = false, onPlegarMenu }: Props = $props();
 
-  // Un solo botón de tema: cada clic pasa a la siguiente opción
-  // (Claro → Oscuro → Sistema → Claro) y el ícono muestra la actual.
-  const apariencia = useAppearance();
-  const temaIndice = $derived(Math.max(0, OPCIONES_APARIENCIA.findIndex((o) => o.value === apariencia.appearance)));
-  const temaActual = $derived(OPCIONES_APARIENCIA[temaIndice]);
-  const temaSiguiente = $derived(OPCIONES_APARIENCIA[(temaIndice + 1) % OPCIONES_APARIENCIA.length]);
-  const temaEtiqueta = $derived(`Tema: ${temaActual.label}. Cambiar a ${temaSiguiente.label.toLowerCase()}`);
+  const foto = $derived($page.props.auth?.urlFotoPerfil as string | undefined);
+  const enPerfil = $derived(($page.url ?? '').startsWith('/estudiante/perfil'));
 
   // Sobre noche (móvil) el foco va en amarillo; sobre la tarjeta (escritorio), en azul.
   const foco = 'focus-visible:outline-dm-amarillo lg:focus-visible:outline-dm-enlace';
@@ -43,9 +43,28 @@
     <Menu size={22} aria-hidden="true" />
   </button>
 
+  {#if onPlegarMenu}
+    <button
+      type="button"
+      onclick={onPlegarMenu}
+      aria-label={menuPlegado ? 'Mostrar el menú completo' : 'Plegar el menú'}
+      title={menuPlegado ? 'Mostrar el menú completo' : 'Plegar el menú'}
+      aria-expanded={!menuPlegado}
+      aria-controls="menu-alumno"
+      class="-ml-4 hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-dm-ink-2 hover:bg-dm-sutil hover:text-dm-ink lg:flex {foco}"
+    >
+      {#if menuPlegado}
+        <PanelLeftOpen size={20} aria-hidden="true" />
+      {:else}
+        <PanelLeftClose size={20} aria-hidden="true" />
+      {/if}
+    </button>
+  {/if}
+
   <Link href="/estudiante/dashboard" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 no-underline lg:hidden {foco}">
     <img src="/icon.png" alt="" width="28" height="28" class="size-7 shrink-0 object-contain" />
-    <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] text-dm-noche-texto">UTAMED</span>
+    <!-- En teléfonos angostos sólo el logo: la barra suma el tema y la foto. -->
+    <span class="font-dm-cond text-[22px] leading-[26px] font-extrabold tracking-[0.02em] text-dm-noche-texto max-[379px]:sr-only">UTAMED</span>
   </Link>
 
   <nav aria-label="Ruta de navegación" class="hidden min-w-0 flex-1 lg:block">
@@ -71,14 +90,23 @@
     <IssueReport
       class="border-dm-control bg-dm-tarjeta text-dm-ink hover:bg-dm-sutil max-lg:border-transparent max-lg:bg-transparent max-lg:text-dm-noche-texto max-lg:hover:bg-dm-noche-activo {foco}"
     />
-    <button
-      type="button"
-      onclick={() => apariencia.updateAppearance(temaSiguiente.value)}
-      aria-label={temaEtiqueta}
-      title={temaEtiqueta}
-      class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-dm-noche-texto hover:bg-dm-noche-activo lg:size-10 lg:rounded-[10px] lg:border lg:border-dm-linea lg:bg-dm-tarjeta lg:text-dm-ink lg:hover:bg-dm-sutil {foco}"
+    <BotonTema
+      class="text-dm-noche-texto hover:bg-dm-noche-activo lg:h-10 lg:border lg:border-dm-linea lg:bg-dm-tarjeta lg:text-dm-ink lg:hover:bg-dm-sutil {foco}"
+    />
+    <Link
+      href="/estudiante/perfil"
+      aria-label="Mi perfil"
+      title="Mi perfil"
+      aria-current={enPerfil ? 'page' : undefined}
+      class="flex size-11 shrink-0 items-center justify-center rounded-full no-underline {foco}"
     >
-      <temaActual.Icon size={18} aria-hidden="true" />
-    </button>
+      <FotoPerfil
+        src={foto}
+        decorativa
+        class="size-9 rounded-full bg-dm-noche-activo ring-2 ring-dm-noche-linea lg:bg-dm-sutil lg:ring-dm-linea {enPerfil
+          ? 'ring-dm-amarillo! lg:ring-dm-enlace!'
+          : ''}"
+      />
+    </Link>
   </div>
 </header>

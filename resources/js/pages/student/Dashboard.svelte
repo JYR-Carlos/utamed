@@ -2,17 +2,23 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
-  import { ArrowUpRight, BookOpen, CalendarClock, ChevronRight, LifeBuoy } from 'lucide-svelte';
+  import { ArrowUpRight, BookOpen, ChevronRight, CircleAlert, LifeBuoy } from 'lucide-svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import SemanaAlumno from '@/components/student/inicio/SemanaAlumno.svelte';
   import MensajesSinLeer from '@/components/student/inicio/MensajesSinLeer.svelte';
-  import NotasRecientes, { type NotaReciente } from '@/components/student/inicio/NotasRecientes.svelte';
   import TarjetaCurso from '@/components/student/inicio/TarjetaCurso.svelte';
+  import DestacadaDelDia from '@/components/student/inicio/DestacadaDelDia.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
-  import { plazoDe, type ActividadPorVencer } from '@/lib/plazoAlumno';
+  import {
+    abiertas as abiertasDe,
+    hrefAtrasadas,
+    textoVencidas,
+    vencidas as vencidasDe,
+    type ActividadPorVencer,
+  } from '@/lib/plazoAlumno';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
-  import { btnNoche, btnPrimario, btnSecundario, enlace, etiqueta, pildora, tituloCond, tono } from '@/lib/dm';
+  import { btnNoche, btnSecundario, enlace, etiqueta, tituloCond } from '@/lib/dm';
   import { claveDia, parseFechaSoloDia } from '@/utils/formatters';
 
   /**
@@ -44,8 +50,6 @@
     };
     /** Actividades cuyo plazo termina pronto (ya con la holgura aplicada). */
     proximasAVencer?: ActividadPorVencer[];
-    /** Últimas notas y retroalimentaciones del equipo docente. */
-    notasRecientes?: NotaReciente[];
     isAyudante?: boolean;
     periodoActual: { semestre: number, agno: number}
     /** El servidor ya evaluó si esta persona puede entrar a SGEQ. */
@@ -57,7 +61,6 @@
     stats,
     mensajeria,
     proximasAVencer = [],
-    notasRecientes = [],
     isAyudante = false,
     puedeAbrirSgeq = false,
     periodoActual
@@ -95,23 +98,32 @@
   });
 
   /** Lo que se puede entregar todavía, de lo que cierra antes a lo que cierra después. */
-  const abiertas = $derived(
-    proximasAVencer
-      .filter((a) => plazoDe(a, hoy).abierta)
-      .sort((a, b) =>
-        (a.plazo_hasta ?? a.fecha_limite).localeCompare(b.plazo_hasta ?? b.fecha_limite) ||
-        a.fecha_limite.localeCompare(b.fecha_limite),
-      ),
-  );
+  const abiertas = $derived(abiertasDe(proximasAVencer, hoy));
   const destacada = $derived(abiertas[0] ?? null);
-  const cierraHoy = $derived(destacada !== null && (destacada.plazo_hasta ?? destacada.fecha_limite).slice(0, 10) === hoy);
+
+  /**
+   * Lo que venció sin entrega en el semestre no desaparece del Inicio: el
+   * alumno tiene que verlo para escribirle a su docente o apelar. Una sola
+   * lleva a la actividad; varias de un curso, a sus actividades atrasadas; de
+   * varios cursos, a las tarjetas, que dicen cuántas tiene cada uno.
+   */
+  const vencidas = $derived(vencidasDe(proximasAVencer));
+  const hrefVencidas = $derived.by(() => {
+    if (vencidas.length === 1) return `/estudiante/cursos/${vencidas[0].id_curso}/actividad/${vencidas[0].id_actividad}`;
+    const cursosConVencidas = new Set(vencidas.map((a) => a.id_curso));
+    return cursosConVencidas.size === 1 ? hrefAtrasadas(vencidas[0].id_curso) : '#t-cursos';
+  });
+  const diaDeCierre = (a: ActividadPorVencer) => (a.plazo_hasta ?? a.fecha_limite).slice(0, 10);
+  const cierraHoy = $derived(destacada !== null && diaDeCierre(destacada) === hoy);
+  /** Las que cierran el mismo día que la destacada: la tarjeta las alterna (OBS-08). */
+  const delDia = $derived(destacada ? abiertas.filter((a) => diaDeCierre(a) === diaDeCierre(destacada)) : []);
 
   function nombreCurso(idCurso: number): string {
     const c = cursos.find((x) => x.id_curso === idCurso);
     return c?.asignatura_nombre || c?.nombre || '';
   }
 
-  /** Una línea con lo urgente: lo que vence hoy, lo atrasado que aún se recibe y los mensajes. */
+  /** Una línea con lo urgente: lo que vence hoy, lo atrasado, lo vencido y los mensajes. */
   const resumen = $derived.by(() => {
     const venceHoy = abiertas.filter((a) => a.fecha_limite.slice(0, 10) === hoy).length;
     const atrasadas = abiertas.filter((a) => a.fecha_limite.slice(0, 10) < hoy).length;
@@ -119,24 +131,27 @@
 
     const tienes: string[] = [];
     if (atrasadas) tienes.push(atrasadas === 1 ? 'una atrasada que todavía se recibe' : `${atrasadas} atrasadas que todavía se reciben`);
+    if (vencidas.length) tienes.push(vencidas.length === 1 ? 'una vencida sin entregar' : `${vencidas.length} vencidas sin entregar`);
     if (mensajes) tienes.push(mensajes === 1 ? 'un mensaje sin leer' : `${mensajes} mensajes sin leer`);
 
     const partes: string[] = [];
     if (venceHoy) partes.push(venceHoy === 1 ? 'Hoy vence una entrega' : `Hoy vencen ${venceHoy} entregas`);
-    if (tienes.length) partes.push(`${partes.length ? 'tienes' : 'Tienes'} ${tienes.join(' y ')}`);
+    if (tienes.length) partes.push(`${partes.length ? 'tienes' : 'Tienes'} ${unir(tienes)}`);
     if (!partes.length) return 'Nada vence hoy y no tienes mensajes sin leer.';
     return partes.join(partes.length === 2 && tienes.length === 1 ? ' y ' : ', ') + '.';
   });
+
+  /** «a», «a y b», «a, b y c». */
+  const unir = (l: string[]) => (l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} y ${l[l.length - 1]}`);
 
   function proximaDe(idCurso: number): ActividadPorVencer | null {
     return abiertas.find((a) => a.id_curso === idCurso) ?? null;
   }
 
-  const hrefCalendario = $derived(
-    cursosPeriodoActual.length > 0
-      ? `/estudiante/cursos/${cursosPeriodoActual[0].id_curso}?seccion=calendario&alcance=semestre`
-      : null,
-  );
+  const vencidasDelCurso = (idCurso: number) => vencidas.filter((a) => a.id_curso === idCurso).length;
+
+  // El calendario general junta todos los cursos (OBS-23); antes llevaba al del primer curso.
+  const hrefCalendario = $derived(cursosPeriodoActual.length > 0 ? '/estudiante/calendario' : null);
 </script>
 
 <StudentLayout {breadcrumbs}>
@@ -168,24 +183,32 @@
           class="flex w-full flex-col gap-3 rounded-xl bg-dm-elevada p-4 text-dm-ink shadow-[0_8px_24px_rgb(11_12_40/0.28)] lg:w-auto lg:flex-[0_1_360px] lg:p-5"
         >
           {#if destacada}
-            {@const plazo = plazoDe(destacada, hoy)}
-            <span class="{etiqueta} text-dm-ink-3">{cierraHoy ? 'Lo de hoy' : 'Lo próximo'}</span>
-            <span class="{pildora} {tono.curso} self-start font-bold" style={colorDe(destacada.id_curso)}>
-              <span aria-hidden="true" class="size-2 rounded-full bg-(--curso)"></span>{destacada.curso}{nombreCurso(destacada.id_curso)
-                ? ` · ${nombreCurso(destacada.id_curso)}`
-                : ''}
-            </span>
-            <span class="text-lg leading-6 font-semibold">{destacada.nombre}</span>
-            <span class="{pildora} {plazo.urgente ? tono.warn : tono.neutro} self-start">
-              <CalendarClock size={14} aria-hidden="true" />{destacada.es_sumativa ? 'Sumativa' : 'Formativa'} · {plazo.texto.charAt(0).toLowerCase()}{plazo.texto.slice(1)}
-            </span>
-            <Link href={`/estudiante/cursos/${destacada.id_curso}/actividad/${destacada.id_actividad}`} class="{btnPrimario} mt-1 w-full">
-              Ir a la actividad <ChevronRight size={16} aria-hidden="true" />
-            </Link>
+            <DestacadaDelDia
+              items={delDia}
+              titulo={cierraHoy ? 'Lo de hoy' : 'Lo próximo'}
+              {cierraHoy}
+              {hoy}
+              {colorDe}
+              {nombreCurso}
+            />
           {:else}
             <span class="{etiqueta} text-dm-ink-3">Lo de hoy</span>
-            <span class="text-lg leading-6 font-semibold">Nada pendiente por ahora</span>
-            <span class="text-sm text-dm-ink-2">No tienes entregas pendientes en los próximos 7 días.</span>
+            {#if vencidas.length}
+              <span class="text-lg leading-6 font-semibold">Nada por entregar en los próximos 7 días</span>
+            {:else}
+              <span class="text-lg leading-6 font-semibold">Nada pendiente por ahora</span>
+              <span class="text-sm text-dm-ink-2">No tienes entregas pendientes en los próximos 7 días.</span>
+            {/if}
+          {/if}
+          {#if vencidas.length}
+            <a
+              href={hrefVencidas}
+              class="mt-1 flex min-h-11 items-center gap-2 rounded-lg border border-dm-error bg-dm-error-s px-3 py-2 text-sm font-semibold text-dm-error no-underline hover:underline"
+            >
+              <CircleAlert size={16} aria-hidden="true" class="shrink-0" />
+              <span class="min-w-0 flex-1">{textoVencidas(vencidas.length)}</span>
+              <ChevronRight size={16} aria-hidden="true" class="shrink-0" />
+            </a>
           {/if}
         </div>
       </div>
@@ -219,13 +242,13 @@
       {:else}
         <SemanaAlumno items={proximasAVencer} {colorDe} {hrefCalendario} />
 
+        <!-- Sin «Notas recientes» (OBS-07): las notas se leen en cada actividad y en la pestaña Notas del curso. -->
         <div class="flex flex-col gap-6 lg:flex-row-reverse lg:items-start">
-          <aside class="flex min-w-0 flex-col gap-6 lg:w-85 lg:shrink-0">
-            {#if mensajeria && mensajeria.no_leidos > 0}
+          {#if mensajeria && mensajeria.no_leidos > 0}
+            <aside class="flex min-w-0 flex-col gap-6 lg:w-85 lg:shrink-0">
               <MensajesSinLeer total={mensajeria.no_leidos} cursos={mensajeria.cursos} {colorDe} />
-            {/if}
-            <NotasRecientes items={notasRecientes} {colorDe} />
-          </aside>
+            </aside>
+          {/if}
 
           <section aria-labelledby="t-cursos" class="flex min-w-0 flex-1 flex-col gap-3 lg:gap-4">
             <div class="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -245,6 +268,7 @@
                   nombre={curso.asignatura_nombre || curso.nombre}
                   profesor={curso.profesor}
                   proxima={proximaDe(curso.id_curso)}
+                  vencidas={vencidasDelCurso(curso.id_curso)}
                   no_leidos={noLeidosPorCurso.get(curso.id_curso) ?? 0}
                   estilo={colorDe(curso.id_curso)}
                 />

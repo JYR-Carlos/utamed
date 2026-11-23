@@ -14,7 +14,7 @@
   import { btnPrimario, campo, etiqueta, tarjeta, tituloCond } from '@/lib/dm';
   import { titleCase } from '@/lib/utils';
 
-  type Red = 'youtube' | 'x' | 'instagram' | 'linkedin';
+  type Red = 'youtube' | 'instagram' | 'linkedin';
 
   interface Props {
     perfil: {
@@ -37,11 +37,11 @@
 
   let { perfil, urlImagenPerfil, contacto }: Props = $props();
 
-  const REDES: { id: Red; label: string; placeholder: string }[] = [
-    { id: 'youtube', label: 'YouTube', placeholder: 'https://www.youtube.com/@tu-canal' },
-    { id: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/tu-usuario' },
-    { id: 'instagram', label: 'Instagram', placeholder: 'https://www.instagram.com/tu-usuario' },
-    { id: 'linkedin', label: 'LinkedIn', placeholder: 'https://www.linkedin.com/in/tu-perfil' },
+  // Basta el usuario: el servidor arma el enlace (OBS-19). También se puede pegar el enlace.
+  const REDES: { id: Red; label: string; placeholder: string; enlace: string }[] = [
+    { id: 'youtube', label: 'YouTube', placeholder: '@tu-canal', enlace: 'youtube.com/@tu-canal' },
+    { id: 'instagram', label: 'Instagram', placeholder: '@tu-usuario', enlace: 'instagram.com/tu-usuario' },
+    { id: 'linkedin', label: 'LinkedIn', placeholder: 'tu-perfil', enlace: 'linkedin.com/in/tu-perfil' },
   ];
 
   // svelte-ignore state_referenced_locally
@@ -50,7 +50,6 @@
     celular: contacto?.celular ?? '',
     redes_sociales: {
       youtube: contacto?.redes_sociales?.youtube ?? '',
-      x: contacto?.redes_sociales?.x ?? '',
       instagram: contacto?.redes_sociales?.instagram ?? '',
       linkedin: contacto?.redes_sociales?.linkedin ?? '',
     } as Record<Red, string>,
@@ -63,7 +62,12 @@
     guardado = false;
     $form.patch('/estudiante/perfil/contacto', {
       preserveScroll: true,
-      onSuccess: () => (guardado = true),
+      onSuccess: (pagina) => {
+        guardado = true;
+        // Lo escrito como @usuario vuelve como el enlace que quedó guardado.
+        const redes = (pagina.props.contacto as Props['contacto'] | undefined)?.redes_sociales;
+        for (const red of REDES) $form.redes_sociales[red.id] = redes?.[red.id] ?? '';
+      },
     });
   }
 
@@ -184,7 +188,8 @@
           </div>
 
           <fieldset class="min-w-0">
-            <legend class="{etiqueta} mb-3 text-dm-ink-3">Redes sociales</legend>
+            <legend class="{etiqueta} mb-1 text-dm-ink-3">Redes sociales</legend>
+            <p class="mb-4 text-sm leading-5 text-dm-ink-2">Escribe tu usuario o pega el enlace a tu perfil.</p>
             <div class="grid gap-5 sm:grid-cols-2">
               {#each REDES as red (red.id)}
                 {@const mensaje = errores[`redes_sociales.${red.id}`]}
@@ -192,13 +197,17 @@
                   <label for="red_{red.id}" class={ETIQUETA_CAMPO}>{red.label}</label>
                   <input
                     id="red_{red.id}"
-                    type="url"
+                    type="text"
+                    autocomplete="off"
+                    autocapitalize="none"
+                    spellcheck="false"
                     placeholder={red.placeholder}
                     bind:value={$form.redes_sociales[red.id]}
                     aria-invalid={mensaje ? 'true' : undefined}
-                    aria-describedby={mensaje ? `red_${red.id}-error` : undefined}
+                    aria-describedby="red_{red.id}-ayuda{mensaje ? ` red_${red.id}-error` : ''}"
                     class={campo}
                   />
+                  <span id="red_{red.id}-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">Queda como {red.enlace}</span>
                   {@render error(`red_${red.id}-error`, mensaje)}
                 </div>
               {/each}

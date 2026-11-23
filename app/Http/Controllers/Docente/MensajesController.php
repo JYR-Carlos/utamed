@@ -7,50 +7,30 @@ use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Curso\Curso;
 use App\Enums\DB\TipoMensaje;
-use App\Services\Agenda\LecturaAgendaService;
+use App\Services\Docente\BuzonDocente;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**
- * Centro de mensajes del docente (bandeja transversal a todos sus cursos).
+ * Mensajes del docente: el buzón de todos sus cursos y el envío de mensajes a
+ * los grupos de una actividad.
  *
- * Modelo de datos:
- * - Los "mensajes" son filas de agenda.agenda. Cada fila cuelga obligatoriamente
- *   de un grupo (agenda.actividad_asignada_grupo) → actividad (agenda.actividad)
- *   → componente (curso.componente) → curso. No existe el concepto de mensaje
- *   "general" sin actividad: un mensaje "general"/grupal es el que se envía a
- *   TODOS los grupos de una actividad; uno "individual" va a un solo grupo
- *   (que puede estar conformado por un único estudiante).
- *
- * Visibilidad (recepción):
- * - Un docente sólo ve los mensajes de los cursos donde es titular
- *   (curso.id_docente_titular) más, implícitamente, lo que él mismo envió en
- *   esos cursos. Nunca ve los cursos de otros docentes.
- *
- * Tipos de mensaje considerados como conversación docente↔estudiante:
- * - "Mensaje al profesor" (lo envía el estudiante)
- * - "Feedback"            (lo envía el docente)
+ * El buzón ({@see BuzonDocente}) junta la mensajería de los cursos
+ * (curso.mensaje) y la agenda de las actividades (agenda.agenda), como el del
+ * alumno. El envío escribe en la agenda, que cuelga siempre de un grupo
+ * (agenda.actividad_asignada_grupo → actividad → componente → curso): un
+ * mensaje grupal es el que va a TODOS los grupos de una actividad y uno
+ * individual va a un solo grupo, que puede ser de un único estudiante.
  */
 class MensajesController extends Controller
 {
-    use ContaPendientesMensajes;
-
-    /** Tipos de agenda que constituyen la conversación docente ↔ estudiante. */
-    private const TIPOS_CONVERSACION = ['Mensaje al profesor', 'Feedback'];
-
     /**
-     * Bandeja de mensajes: las actividades de los cursos del docente, cada una
-     * con los mensajes que aún no ha visto. Las conversaciones no se leen aquí:
-     * cada fila lleva a la página de la actividad y abre la agenda del grupo
-     * (ahí se marcan como vistas). Así hay una sola forma de ver la agenda.
-     *
-     * El estado de cada actividad (Actividad::calcularEstadoBase) deja separar
-     * las activas de las que ya no admiten conversación (cerradas, no visibles
-     * o planificadas), que la pantalla esconde salvo que se pidan.
+     * El buzón: una fila por conversación, con su origen. Es sólo un índice;
+     * cada fila abre la conversación en su lugar, que es donde se marca leída.
      */
-    public function index()
+    public function index(BuzonDocente $buzon)
     {
         $docente = Auth::user()->docente;
 
@@ -58,70 +38,8 @@ class MensajesController extends Controller
             return redirect('/dashboard')->with('error', 'No tienes acceso a esta sección');
         }
 
-        // Cursos donde el docente es titular (actuales + históricos).
-        $cursos = Curso::where('id_docente_titular', $docente->id_docente)
-            ->whereNull('fecha_eliminacion')
-            ->select('id_curso', 'nombre', 'cod_curso', 'letra_grupo', 'id_asignacion_plan', 'agno_real', 'semestre_real')
-            ->with('asignacionPlan.asignatura')
-            ->get()
-            ->keyBy('id_curso');
-
-        $cursoIds = $cursos->keys()->all();
-
-        // Actividades con al menos un grupo: sin grupos no hay con quién hablar.
-        $actividades = empty($cursoIds) ? collect() : Actividad::query()
-            ->whereHas('componente', fn ($q) => $q->whereIn('id_curso', $cursoIds))
-            ->whereHas('actividadAsignadaGrupos')
-            ->with('componente:id_componente,id_curso')
-            ->get();
-
-        // No vistos por grupo; por actividad se suman y se recuerda el grupo
-        // más reciente, que es la agenda que abre el clic.
-        $noLeidos = empty($cursoIds) ? collect() : (new LecturaAgendaService)->noLeidosPorGrupo(
-            Auth::id(),
-            self::TIPOS_CONVERSACION,
-            fn ($q) => $q->whereIn('c.id_curso', $cursoIds),
-        )->groupBy('id_actividad');
-
-        $conversaciones = $this->conversacionesPorActividad($cursoIds);
-
-        $filas = $actividades->map(function (Actividad $act) use ($cursos, $noLeidos, $conversaciones) {
-            $curso = $cursos[$act->componente->id_curso];
-            $grupos = $noLeidos[$act->id_actividad] ?? collect();
-            $masReciente = $grupos->sortByDesc('ultima_fecha')->first();
-            $conversacion = $conversaciones[$act->id_actividad] ?? ['grupos' => 0, 'pendientes' => 0];
-
-            return [
-                'id_actividad'  => $act->id_actividad,
-                'nombre'        => $act->nombre,
-                'estado'        => $act->calcularEstadoBase(),
-                'fecha_limite'  => $act->fecha_limite?->format('Y-m-d'),
-                'no_leidos'     => (int) $grupos->sum('no_leidos'),
-                'grupos_con_no_leidos' => $grupos->count(),
-                'grupo_a_abrir' => $masReciente?->grupo,
-                'ultima_fecha'  => $masReciente?->ultima_fecha,
-                'pendientes'    => $conversacion['pendientes'],
-                // Con conversación y sin pendientes = «Respondido».
-                'con_conversacion' => $conversacion['grupos'] > 0,
-                'curso' => [
-                    'id_curso'      => $curso->id_curso,
-                    'nombre'        => $curso->nombre,
-                    'letra_grupo'   => $curso->letra_grupo,
-                    'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
-                    'cod_curso'     => $curso->cod_curso,
-                    'agno_real'     => $curso->agno_real,
-                    'semestre_real' => $curso->semestre_real,
-                ],
-            ];
-        })->values();
-
-        return Inertia::render('docente/Mensajes', [
-            'actividades' => $filas,
-        ]);
+        return Inertia::render('docente/Mensajes', $buzon->bandeja((int) Auth::id(), (int) $docente->id_docente));
     }
-
-    // El cálculo de "pendientes por actividad" vive en el trait ContaPendientesMensajes
-    // (compartido con DashboardController) para evitar duplicar el DISTINCT ON.
 
     /**
      * El docente envía un mensaje a TODOS los grupos de una actividad (grupal)

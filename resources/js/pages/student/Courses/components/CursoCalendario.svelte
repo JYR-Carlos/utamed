@@ -1,6 +1,25 @@
 <script lang="ts" module>
   /** Qué fechas muestra el calendario: las del curso o las de todo el semestre. */
   export type AlcanceCalendario = 'curso' | 'semestre';
+
+  /** Una fecha límite tal como la arma ResumenActividadesEstudiante::paraAlumno. */
+  export interface ActividadCalendario {
+    id_actividad: number;
+    nombre: string;
+    es_sumativa: boolean;
+    con_entrega: boolean;
+    es_grupal: boolean;
+    fecha_limite: string;
+    visible: boolean;
+    estado?: string;
+    ya_entregada?: boolean;
+    ya_evaluada?: boolean;
+    /** Sólo en la vista del semestre: el curso al que pertenece. */
+    id_curso?: number;
+    /** Código del curso (DM301). */
+    curso?: string;
+    asignatura?: string | null;
+  }
 </script>
 
 <script lang="ts">
@@ -13,10 +32,23 @@
    * período, que se piden al elegirlo). En esa vista cada fecha lleva el
    * punto del color de su curso y su código o nombre.
    *
+   * `general`: el calendario de /estudiante/calendario (FEAT-06). Las fechas
+   * del semestre llegan con la página y, en vez de elegir alcance, se filtra
+   * por curso.
+   *
    * Es de solo lectura y sólo dibuja lo que el alumno puede actuar: la fecha
-   * límite de cada actividad visible, con su estado (vencida, cierra pronto,
-   * entregada, sumativa, formativa, sin entrega). El estado nunca va sólo en
-   * el color: cada marca lleva ícono y el detalle lo dice en palabras.
+   * límite de cada actividad visible, con su estado de entrega en semáforo
+   * (OBS-25): rojo vencida, ámbar cierra pronto, verde entregada; el resto,
+   * con plazo abierto o sin entrega, en gris. Un color dice una sola cosa: el
+   * tipo (sumativa, formativa) va en palabras en el detalle, no en el color.
+   * El estado nunca va sólo en el color: cada marca lleva ícono y el detalle
+   * lo dice en palabras.
+   *
+   * Cada actividad se numera dentro de su curso por orden de plazo: la marca
+   * del día dice «Act. 02», que cabe en la celda, donde el nombre se cortaba
+   * en «Activida…» (OBS-24). En la vista del semestre el borde de la marca
+   * lleva el color del curso. El nombre completo y el curso van en el detalle
+   * del día y al pasar el mouse.
    *
    * - Escritorio: grilla del mes (o agenda) y, al lado, el detalle del día
    *   elegido y la leyenda. Las flechas mueven el foco entre días.
@@ -34,33 +66,22 @@
   import type { SidebarCourse } from '@/types';
   import { diasHasta, formatDiaCorto } from '@/utils/formatters';
 
-  interface Actividad {
-    id_actividad: number;
-    nombre: string;
-    es_sumativa: boolean;
-    con_entrega: boolean;
-    es_grupal: boolean;
-    fecha_limite: string;
-    visible: boolean;
-    estado?: string;
-    ya_entregada?: boolean;
-    ya_evaluada?: boolean;
-    /** Sólo en la vista del semestre: el curso al que pertenece. */
-    id_curso?: number;
-    /** Código del curso (DM301). */
-    curso?: string;
-    asignatura?: string | null;
-  }
+  type Actividad = ActividadCalendario;
 
   interface Props {
-    idCurso: number;
+    /** El curso de la ficha; en el calendario general no hay. */
+    idCurso?: number;
     actividades?: Actividad[];
-    /** Prop diferida: llega al elegir «Todo el semestre». */
+    /** Prop diferida: llega al elegir «Todo el semestre». En el general, llega con la página. */
     semestre?: Actividad[] | null;
     alcance?: AlcanceCalendario;
+    /** Calendario general: todas las fechas del semestre, con filtro por curso. */
+    general?: boolean;
   }
 
-  let { idCurso, actividades = [], semestre = null, alcance = $bindable('curso') }: Props = $props();
+  let { idCurso = 0, actividades = [], semestre = null, alcance = $bindable('curso'), general = false }: Props = $props();
+
+  const listaMenu = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
 
   // ─── Alcance ────────────────────────────────────────────────────────────────
   let cargandoSemestre = $state(false);
@@ -78,14 +99,31 @@
 
   // Las fechas del semestre se piden una vez, la primera vez que se eligen.
   $effect(() => {
-    if (alcance === 'semestre' && semestre === null && !cargandoSemestre && !errorSemestre) cargarSemestre();
+    if (!general && alcance === 'semestre' && semestre === null && !cargandoSemestre && !errorSemestre) cargarSemestre();
   });
 
-  const esSemestre = $derived(alcance === 'semestre');
-  const fuente = $derived(esSemestre ? (semestre ?? []) : actividades);
+  const esSemestre = $derived(general || alcance === 'semestre');
+  const todas = $derived(esSemestre ? (semestre ?? []) : actividades);
+
+  // Filtro del calendario general: los cursos que tienen fechas, en el orden del menú.
+  let filtroCurso = $state<number | null>(null);
+  const cursosConFechas = $derived.by(() => {
+    const vistos = new Map<number, { id: number; codigo: string; nombre: string }>();
+    for (const a of todas) {
+      if (a.id_curso != null && !vistos.has(a.id_curso)) {
+        vistos.set(a.id_curso, { id: a.id_curso, codigo: a.curso || '', nombre: a.asignatura || a.curso || '' });
+      }
+    }
+    const orden = (id: number) => {
+      const i = listaMenu.findIndex((c) => c.id_curso === id);
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...vistos.values()].sort((a, b) => orden(a.id) - orden(b.id));
+  });
+  const fuente = $derived(general && filtroCurso !== null ? todas.filter((a) => a.id_curso === filtroCurso) : todas);
 
   // ─── Estados ────────────────────────────────────────────────────────────────
-  type Estado = 'vencida' | 'urgente' | 'entregada' | 'sumativa' | 'formativa' | 'informativa';
+  type Estado = 'vencida' | 'urgente' | 'entregada' | 'abierta' | 'informativa';
 
   function estadoDe(a: Actividad): Estado {
     if (a.ya_entregada || a.ya_evaluada) return 'entregada';
@@ -93,24 +131,19 @@
     const dias = diasHasta(a.fecha_limite);
     if (dias < 0) return 'vencida';
     if (dias <= 3) return 'urgente';
-    return a.es_sumativa ? 'sumativa' : 'formativa';
+    return 'abierta';
   }
 
   /** `marca`: relleno, texto y borde izquierdo de la marca del día. */
   const ESTILOS: Record<Estado, { etiqueta: string; marca: string; punto: string; icono: typeof Clock }> = {
-    vencida: { etiqueta: 'Vencida', marca: 'bg-dm-warn text-dm-tarjeta border-dm-warn', punto: 'bg-dm-warn', icono: CircleAlert },
+    vencida: { etiqueta: 'Vencida', marca: 'bg-dm-error-s text-dm-error border-dm-error', punto: 'bg-dm-error', icono: CircleAlert },
     urgente: { etiqueta: 'Cierra pronto', marca: 'bg-dm-warn-s text-dm-warn border-dm-warn', punto: 'bg-dm-warn', icono: Clock },
     entregada: { etiqueta: 'Entregada', marca: 'bg-dm-ok-s text-dm-ok border-dm-ok', punto: 'bg-dm-ok', icono: CircleCheck },
-    sumativa: {
-      etiqueta: 'Sumativa',
-      marca: 'bg-dm-accion-suave text-dm-accion-texto border-dm-accion',
-      punto: 'bg-dm-accion',
-      icono: Clock,
-    },
-    formativa: { etiqueta: 'Formativa', marca: 'bg-dm-info-s text-dm-info border-dm-info', punto: 'bg-dm-info', icono: Clock },
-    informativa: { etiqueta: 'Sin entrega', marca: 'bg-dm-off-s text-dm-off border-dm-off', punto: 'bg-dm-off', icono: Clock },
+    abierta: { etiqueta: 'Por entregar', marca: 'bg-dm-off-s text-dm-ink-2 border-dm-control', punto: 'bg-dm-control', icono: Clock },
+    informativa: { etiqueta: 'Sin entrega', marca: 'bg-dm-off-s text-dm-ink-2 border-dm-control', punto: 'bg-dm-control', icono: Clock },
   };
-  const LEYENDA: Estado[] = ['vencida', 'urgente', 'entregada', 'sumativa', 'formativa', 'informativa'];
+  // Sólo los tres colores del semáforo: lo gris se explica en una línea.
+  const LEYENDA: Estado[] = ['vencida', 'urgente', 'entregada'];
 
   /** «Vencida» si ya no se recibe; «Atrasada» si la holgura todavía la recibe. */
   function etiquetaDe(a: Actividad): string {
@@ -131,9 +164,25 @@
   const totalFechas = $derived(Object.values(porDia).reduce((n, l) => n + l.length, 0));
 
   // Color de cada curso del semestre, el mismo del menú.
-  const listaMenu = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
   const colorDe = (a: Actividad) => `var(--color-dm-c${numeroColorCurso(a.id_curso ?? idCurso, listaMenu)})`;
   const cursoDe = (a: Actividad) => a.asignatura || a.curso || '';
+
+  // «Act. 02»: posición dentro de su curso. Las actividades llegan ordenadas
+  // por plazo (las sin plazo al final), así que el número no cambia entre la
+  // vista del curso y la del semestre.
+  const numeros = $derived.by(() => {
+    const mapa = new Map<number, string>();
+    const porCurso = new Map<number, number>();
+    for (const a of todas) {
+      if (!a.visible) continue;
+      const curso = a.id_curso ?? idCurso;
+      const n = (porCurso.get(curso) ?? 0) + 1;
+      porCurso.set(curso, n);
+      mapa.set(a.id_actividad, `Act. ${String(n).padStart(2, '0')}`);
+    }
+    return mapa;
+  });
+  const numeroDe = (a: Actividad) => numeros.get(a.id_actividad) ?? '';
 
   // ─── Navegación ─────────────────────────────────────────────────────────────
   const hoy = todayKey();
@@ -214,7 +263,9 @@
     {/if}
     <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
     <span class="text-[13px] leading-[18px] text-dm-ink-2">
-      {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(fechaLimiteTexto(a.fecha_limite))}
+      {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
+        fechaLimiteTexto(a.fecha_limite),
+      )}
     </span>
     <span class="{pildora} {e.marca} self-start"><Icono size={14} aria-hidden="true" />{etiquetaDe(a)}</span>
   </Link>
@@ -223,16 +274,38 @@
 <div class="flex flex-col gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex flex-wrap gap-3 max-md:w-full">
-      <div role="group" aria-label="Qué fechas mostrar" class="{SEGMENTO} max-md:w-full">
-        {#each [{ id: 'curso', etiqueta: 'Este curso' }, { id: 'semestre', etiqueta: 'Todo el semestre' }] as a (a.id)}
-          <button
-            type="button"
-            aria-pressed={alcance === a.id}
-            onclick={() => (alcance = a.id as AlcanceCalendario)}
-            class={opcion(alcance === a.id)}>{a.etiqueta}</button
-          >
-        {/each}
-      </div>
+      {#if general}
+        {#if cursosConFechas.length > 1}
+          <div role="group" aria-label="Qué curso mostrar" class="{SEGMENTO} flex-wrap max-md:w-full">
+            <button type="button" aria-pressed={filtroCurso === null} onclick={() => (filtroCurso = null)} class={opcion(filtroCurso === null)}>
+              Todos
+            </button>
+            {#each cursosConFechas as c (c.id)}
+              <button
+                type="button"
+                aria-pressed={filtroCurso === c.id}
+                title={c.nombre}
+                onclick={() => (filtroCurso = filtroCurso === c.id ? null : c.id)}
+                class="{opcion(filtroCurso === c.id)} gap-1.5"
+              >
+                <span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: var(--color-dm-c{numeroColorCurso(c.id, listaMenu)})"
+                ></span>{c.codigo || c.nombre}<span class="sr-only">{c.codigo ? ` · ${c.nombre}` : ''}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      {:else}
+        <div role="group" aria-label="Qué fechas mostrar" class="{SEGMENTO} max-md:w-full">
+          {#each [{ id: 'curso', etiqueta: 'Este curso' }, { id: 'semestre', etiqueta: 'Todo el semestre' }] as a (a.id)}
+            <button
+              type="button"
+              aria-pressed={alcance === a.id}
+              onclick={() => (alcance = a.id as AlcanceCalendario)}
+              class={opcion(alcance === a.id)}>{a.etiqueta}</button
+            >
+          {/each}
+        </div>
+      {/if}
       <div role="group" aria-label="Vista del calendario" class="{SEGMENTO} max-md:hidden">
         {#each [{ id: 'mes', etiqueta: 'Mes' }, { id: 'agenda', etiqueta: 'Agenda' }] as v (v.id)}
           <button
@@ -281,6 +354,7 @@
       texto={esSemestre
         ? 'Las fechas límite aparecen aquí cuando los docentes de tus cursos del semestre publican actividades con plazo.'
         : 'Las fechas límite aparecen aquí cuando tu docente publica actividades con plazo.'}
+      class={general ? 'min-h-60' : undefined}
     />
   {:else}
     <div class="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start xl:gap-6">
@@ -358,10 +432,11 @@
                             {@const Icono = e.icono}
                             <span
                               class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-[13px] leading-4 font-semibold {e.marca}"
+                              style={esSemestre ? `border-left-color: ${colorDe(a)}` : undefined}
                               title="{cursoDe(a) ? `${cursoDe(a)} · ` : ''}{a.nombre} · {etiquetaDe(a)}"
                             >
                               <Icono size={12} class="shrink-0" />
-                              <span class="truncate">{esSemestre && a.curso ? `${a.curso} · ${a.nombre}` : a.nombre}</span>
+                              <span class="truncate">{numeroDe(a)}</span>
                             </span>
                           {/each}
                           {#if lista.length > 2}
@@ -418,7 +493,7 @@
                           {/if}
                           <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
                           <span class="text-[13px] leading-[18px] text-dm-ink-2 max-md:hidden">
-                            {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
+                            {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
                               fechaLimiteTexto(a.fecha_limite),
                             )}
                           </span>
@@ -463,12 +538,14 @@
         </section>
 
         <section aria-labelledby="t-leyenda" class="{tarjeta} order-4 flex flex-col gap-2.5 px-4 py-4 xl:px-5">
-          <h3 id="t-leyenda" class="{etiqueta} text-dm-ink-3">Leyenda</h3>
+          <h3 id="t-leyenda" class="text-base leading-[22px] font-bold">Estado de entregas</h3>
           <ul class="flex flex-wrap gap-2">
             {#each LEYENDA as e (e)}
-              <li class="{pildora} {ESTILOS[e].marca}">{ESTILOS[e].etiqueta}</li>
+              {@const Icono = ESTILOS[e].icono}
+              <li class="{pildora} {ESTILOS[e].marca}"><Icono size={14} aria-hidden="true" />{ESTILOS[e].etiqueta}</li>
             {/each}
           </ul>
+          <p class="text-[13px] leading-[18px] text-dm-ink-2">En gris, las que siguen con plazo abierto o no llevan entrega.</p>
         </section>
       </aside>
     </div>

@@ -8,12 +8,13 @@
     actividades_evaluadas: number;
     ponderacion_evaluada: number | null;
     asistencia: { presentes: number; total: number; porcentaje: number | null };
+    /** La del componente: la misma que el alumno lee en el programa. */
+    asistencia_minima: number;
     syllabus: { porcentaje: number | null; aprobacion_obligatoria: boolean };
     exigencia: number | null;
   }
 
   export interface Rendimiento {
-    asistencia_minima: number;
     mi_promedio: number | null;
     promedio_curso: number | null;
     componentes: ComponenteRendimiento[];
@@ -109,7 +110,7 @@
         <div class="grid gap-4 lg:grid-cols-2">
           {#each rendimiento.componentes as c (c.id_componente)}
             {@const asis = c.asistencia.porcentaje}
-            {@const minimo = rendimiento.asistencia_minima}
+            {@const minimo = c.asistencia_minima}
             {@const bajo = asis != null && asis < minimo}
             <article class="{tarjeta} flex min-w-0 flex-col overflow-hidden">
               <div class="flex items-center justify-between gap-3 border-b border-dm-linea px-5 py-4 lg:px-6">

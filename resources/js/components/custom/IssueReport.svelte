@@ -1,7 +1,7 @@
 <script lang="ts">
   import Toast from '@/components/admin/Toast.svelte';
   import { router } from '@inertiajs/svelte'
-  import { Bug, Flag, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
+  import { Bug, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
   import { cn } from '@/lib/utils';
 
   interface Props {
@@ -15,16 +15,14 @@
   const esSugerencia = $derived(etiqueta === 'Sugerencias');
 
   let isOpen = $state(false);
-  let showConfirmModal = $state(false);
   let isUploading = $state(false);
+  let arrastrando = $state(false);
   let toast = $state<{ type: 'success' | 'error'; message: string } | null>(null);
   let file = $state<File | null>(null);
 
   let formData = $state({
     title: '',
     description: '',
-    expected: '',
-    actual: '',
   });
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -34,35 +32,46 @@
   function closeModal() {
     if (isUploading) return;
     isOpen = false;
-    showConfirmModal = false;
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      if (showConfirmModal) {
-        showConfirmModal = false;
-      } else if (isOpen) {
-        closeModal();
-      }
+    if (event.key === 'Escape' && isOpen) closeModal();
+  }
+
+  /** Valida y adjunta la captura, venga del selector, de arrastrarla o de pegarla. */
+  function adjuntar(seleccionada: File | null | undefined): boolean {
+    if (!seleccionada) return false;
+    if (!seleccionada.type.startsWith('image/')) {
+      toast = { type: 'error', message: 'Solo se permite subir una imagen (PNG o JPG).' };
+      return false;
     }
+    if (seleccionada.size > MAX_FILE_SIZE) {
+      toast = { type: 'error', message: 'La imagen debe pesar como máximo 10 MB.' };
+      return false;
+    }
+    file = seleccionada;
+    return true;
   }
 
   function handleFile(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
-    const selected = input.files?.[0];
+    if (!adjuntar(input.files?.[0])) input.value = '';
+  }
 
-    if (!selected) return;
-    if (!selected.type.startsWith('image/')) {
-      toast = { type: 'error', message: 'Solo se permite subir una imagen (PNG o JPG).' };
-      input.value = '';
-      return;
-    }
-    if (selected.size > MAX_FILE_SIZE) {
-      toast = { type: 'error', message: 'La imagen debe pesar como máximo 10 MB.' };
-      input.value = '';
-      return;
-    }
-    file = selected;
+  function soltar(event: DragEvent) {
+    event.preventDefault();
+    arrastrando = false;
+    adjuntar(event.dataTransfer?.files?.[0]);
+  }
+
+  // Con el modal abierto, una imagen pegada (Impr Pant, Win+Shift+S) queda como
+  // captura aunque el cursor esté en un campo de texto; el texto pegado sigue igual.
+  function pegar(event: ClipboardEvent) {
+    if (!isOpen || isUploading) return;
+    const imagen = Array.from(event.clipboardData?.files ?? []).find((f) => f.type.startsWith('image/'));
+    if (!imagen) return;
+    event.preventDefault();
+    adjuntar(imagen);
   }
 
   function removeFile() {
@@ -70,31 +79,23 @@
   }
 
   function resetForm() {
-    formData = { title: '', description: '', expected: '', actual: '' };
+    formData = { title: '', description: '' };
     file = null;
   }
 
-  function handlePreSubmit(event: SubmitEvent) {
+  function enviar(event: SubmitEvent) {
     event.preventDefault();
     if (isUploading) return;
 
     if (!formData.title.trim() || !formData.description.trim()) {
-      toast = { type: 'error', message: 'Completa el título y la descripción del error.' };
+      toast = { type: 'error', message: 'Completa el título y la descripción.' };
       return;
     }
-
-    showConfirmModal = true;
-  }
-
-  function handleConfirmSubmit() {
-    if (isUploading) return;
 
     router.post('/reportes', {
       title: formData.title.trim(),
       description: formData.description.trim(),
-      expected: formData.expected.trim(),
-      actual: formData.actual.trim(),
-      image: file, 
+      image: file,
     }, {
       forceFormData: true,
       preserveScroll: true,
@@ -104,12 +105,15 @@
       },
       onSuccess: () => {
         resetForm();
-        showConfirmModal = false;
         isOpen = false;
-        toast = { type: 'success', message: 'Reporte enviado correctamente.' };
+        toast = {
+          type: 'success',
+          message: esSugerencia
+            ? 'Recibimos tu sugerencia. Gracias por ayudarnos a mejorar.'
+            : 'Recibimos tu reporte. Gracias por avisarnos.',
+        };
       },
       onError: (errors) => {
-        showConfirmModal = false;
         const firstErrorMessage = Object.values(errors)[0] as string;
         toast = {
           type: 'error',
@@ -123,7 +127,7 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onpaste={pegar} />
 
 
 <!-- Botón disparador -->
@@ -187,12 +191,12 @@
         </button>
       </header>
 
-      <form onsubmit={handlePreSubmit} class="flex min-h-0 flex-1 flex-col">
+      <form onsubmit={enviar} class="flex min-h-0 flex-1 flex-col">
         <div class="space-y-4 overflow-y-auto px-6 py-4 text-left">
-          <div class="bg-amber-100 border-2 text-amber-900 border-amber-200 p-4 gap-5 flex flex-col rounded-3xl text-justify font-semibold">
-            <p class="text-sm">Tu reporte será revisado por el equipo de desarrollo de UTAmed. Por favor, envía únicamente incidencias reales y comprobables.  </p>
-            <p class="text-sm">El spam o envío masivo de reportes falsos o inapropiados resultará en el bloqueo de tu cuenta o IP y será notificado.</p>
-          </div>
+          <p class="text-sm leading-relaxed text-slate-700">
+            Gracias por ayudarnos a mejorar <span class="font-semibold">UTAmed</span>. El equipo de desarrollo
+            lee cada {esSugerencia ? 'mensaje' : 'reporte'} y lo usa para corregir la plataforma.
+          </p>
           <div>
             <label for="bug-title" class="mb-1 block text-xs font-semibold text-slate-700">
               Título <span class="text-red-500">*</span>
@@ -218,47 +222,31 @@
               required
               rows="3"
               maxlength="2000"
-              placeholder="Describe qué ocurrió y los pasos para reproducir el fallo..."
+              placeholder="¿En qué página estabas, qué hiciste y qué pasó?"
               class="{campoBase} resize-y text-sm"
             ></textarea>
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label for="bug-expected" class="mb-1 block text-xs font-semibold text-slate-700">
-                Resultado esperado
-              </label>
-              <textarea
-                id="bug-expected"
-                bind:value={formData.expected}
-                rows="2"
-                placeholder="¿Qué debería suceder?"
-                class="{campoBase} resize-none text-xs"
-              ></textarea>
-            </div>
-
-            <div>
-              <label for="bug-actual" class="mb-1 block text-xs font-semibold text-slate-700">
-                Resultado actual
-              </label>
-              <textarea
-                id="bug-actual"
-                bind:value={formData.actual}
-                rows="2"
-                placeholder="¿Qué sucede realmente?"
-                class="{campoBase} resize-none text-xs"
-              ></textarea>
-            </div>
           </div>
 
           <div>
             <span class="mb-1 block text-xs font-semibold text-slate-700">Captura de pantalla (opcional)</span>
             {#if !file}
               <label
-                class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-4 py-3 text-xs text-slate-500 transition hover:border-blue-400 hover:bg-blue-50/30 dark:border-slate-400/70 dark:bg-slate-100/70 dark:text-slate-700 dark:hover:border-blue-400 dark:hover:bg-slate-100"
+                ondragover={(e) => {
+                  e.preventDefault();
+                  arrastrando = true;
+                }}
+                ondragleave={() => (arrastrando = false)}
+                ondrop={soltar}
+                class={cn(
+                  'flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-4 py-3 text-xs text-slate-500 transition hover:border-blue-400 hover:bg-blue-50/30 dark:border-slate-400/70 dark:bg-slate-100/70 dark:text-slate-700 dark:hover:border-blue-400 dark:hover:bg-slate-100',
+                  arrastrando && 'border-blue-500 bg-blue-50 dark:bg-slate-100',
+                )}
               >
-                <Upload size={16} class="text-slate-400" />
-                <span>Haz clic para adjuntar imagen <span class="text-slate-400">(máx. 10 MB)</span></span>
+                <Upload size={16} class="shrink-0 text-slate-400" />
+                <span>
+                  Arrástrala aquí, pégala con <kbd class="font-sans font-semibold">Ctrl+V</kbd> o haz clic para elegirla
+                  <span class="text-slate-400">(máx. 10 MB)</span>
+                </span>
                 <input type="file" accept="image/*" onchange={handleFile} class="sr-only" />
               </label>
             {:else}
@@ -278,6 +266,10 @@
               </div>
             {/if}
           </div>
+
+          <p class="text-xs leading-relaxed text-slate-500">
+            Envía sólo problemas reales: un reporte falso o con contenido inapropiado puede recibir una advertencia.
+          </p>
         </div>
 
         <footer class="flex items-center justify-end gap-2.5 border-t border-slate-100 bg-slate-50/50 px-6 py-3.5">
@@ -295,60 +287,15 @@
             disabled={isUploading}
             class="cursor-pointer flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50"
           >
-            Continuar
+            {#if isUploading}
+              <Loader2 size={14} class="animate-spin" />
+              <span>Enviando…</span>
+            {:else}
+              <span>{esSugerencia ? 'Enviar sugerencia' : 'Enviar reporte'}</span>
+            {/if}
           </button>
         </footer>
       </form>
-    </div>
-  </div>
-{/if}
-
-<!-- Modal de confirmación -->
-{#if showConfirmModal}
-  <div class="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
-    <div
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="confirm-title"
-      aria-describedby="confirm-desc"
-      class="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 text-slate-900 shadow-2xl"
-    >
-      <div class="mb-4 flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-        <MessageCircleWarning size={20} />
-      </div>
-
-      <h3 id="confirm-title" class="text-base font-bold text-slate-900">
-        Confirmar envío de reporte
-      </h3>
-
-      <p id="confirm-desc" class="mt-2 text-xs leading-relaxed text-slate-600">
-        Recuerda que tu reporte será revisado por los administradores de UTAMED. Cualquier contenido inapropiado o no válido será notificado.
-      </p>
-
-      <div class="mt-6 flex justify-end gap-2.5">
-        <button
-          type="button"
-          onclick={() => (showConfirmModal = false)}
-          disabled={isUploading}
-          class="cursor-pointer rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-        >
-          Volver
-        </button>
-
-        <button
-          type="button"
-          onclick={handleConfirmSubmit}
-          disabled={isUploading}
-          class="cursor-pointer flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50"
-        >
-          {#if isUploading}
-            <Loader2 size={14} class="animate-spin" />
-            <span>Enviando...</span>
-          {:else}
-            <span>Confirmar y enviar</span>
-          {/if}
-        </button>
-      </div>
     </div>
   </div>
 {/if}

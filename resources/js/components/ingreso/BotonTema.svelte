@@ -1,26 +1,34 @@
 <script lang="ts">
   /**
-   * Botón único de tema del ingreso, igual que en la barra del alumno: cada
-   * clic pasa a la siguiente opción (Claro → Oscuro → Sistema → Claro) y el
-   * ícono muestra la actual. El color y el borde los pone quien lo usa.
+   * Interruptor de tema de dos estados, con sol y luna a la vista: el que está
+   * activo va resaltado y un clic pasa al otro. Lo usan el ingreso y las barras
+   * del alumno y del docente; el color, el borde y el alto los pone quien lo usa.
+   *
+   * Si la persona eligió «Sistema» en Ajustes, muestra lo que se ve en ese
+   * momento y el clic fija claro u oscuro.
    */
-  import { OPCIONES_APARIENCIA, useAppearance } from '@/hooks/useAppearance.svelte';
+  import { Moon, Sun } from 'lucide-svelte';
+  import { useAppearance } from '@/hooks/useAppearance.svelte';
 
   let { class: clase = '' }: { class?: string } = $props();
 
   const apariencia = useAppearance();
-  const temaIndice = $derived(Math.max(0, OPCIONES_APARIENCIA.findIndex((o) => o.value === apariencia.appearance)));
-  const temaActual = $derived(OPCIONES_APARIENCIA[temaIndice]);
-  const temaSiguiente = $derived(OPCIONES_APARIENCIA[(temaIndice + 1) % OPCIONES_APARIENCIA.length]);
-  const temaEtiqueta = $derived(`Tema: ${temaActual.label}. Cambiar a ${temaSiguiente.label.toLowerCase()}`);
+  const oscuro = $derived(apariencia.oscuro);
+
+  const opcion = 'flex size-8 items-center justify-center rounded-full transition-colors';
+  const activa = 'bg-current/15';
+  const inactiva = 'opacity-60';
 </script>
 
 <button
   type="button"
-  onclick={() => apariencia.updateAppearance(temaSiguiente.value)}
-  aria-label={temaEtiqueta}
-  title={temaEtiqueta}
-  class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[10px] {clase}"
+  role="switch"
+  aria-checked={oscuro}
+  aria-label="Modo oscuro"
+  title={oscuro ? 'Modo oscuro activado' : 'Modo claro activado'}
+  onclick={() => apariencia.updateAppearance(oscuro ? 'light' : 'dark')}
+  class="flex h-11 shrink-0 cursor-pointer items-center gap-0.5 rounded-full px-1 {clase}"
 >
-  <temaActual.Icon size={18} aria-hidden="true" />
+  <span aria-hidden="true" class="{opcion} {oscuro ? inactiva : activa}"><Sun size={16} /></span>
+  <span aria-hidden="true" class="{opcion} {oscuro ? activa : inactiva}"><Moon size={16} /></span>
 </button>
