@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
    * Interruptor de tema de dos estados, con sol y luna a la vista: el que está
-   * activo va resaltado y un clic pasa al otro. Lo usan el ingreso y la barra
-   * del alumno; el color, el borde y el alto los pone quien lo usa.
+   * activo va resaltado y un clic pasa al otro. Lo usan el ingreso y las barras
+   * del alumno y del docente; el color, el borde y el alto los pone quien lo usa.
    *
    * Si la persona eligió «Sistema» en Ajustes, muestra lo que se ve en ese
    * momento y el clic fija claro u oscuro.
