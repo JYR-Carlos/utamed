@@ -2,9 +2,12 @@
   /**
    * Mis cursos del docente — /docente/cursos (dirección institucional UTA).
    *
-   * Todos los cursos donde es titular o imparte un componente, agrupados por
-   * período (2026-2, 2026-1…) del más reciente al más antiguo, en grilla o en
-   * lista. Buscar por código, nombre o carrera y ordenar.
+   * Todos los cursos donde es titular o imparte un componente, como en Mis
+   * cursos del alumno: arriba los del semestre vigente (el más reciente con
+   * cursos, el mismo del menú), en grilla o en lista; abajo «Semestres
+   * anteriores», siempre a la vista, en una lista compacta con una franja por
+   * año y semestre, del más reciente al más antiguo. Buscar por código, nombre
+   * o carrera y ordenar vale para las dos partes.
    *
    * Sólo se muestra lo que entrega el controlador: estudiantes inscritos y si
    * el curso ya tiene programa. «Por revisar» y «sin leer» por curso no tienen
@@ -104,49 +107,73 @@
     return [cod, cod + letra, cod + 'grupo' + letra, compacto(c.cod_curso)].some((k) => k.includes(buscado));
   }
 
+  const todos = $derived([...cursosSemestre1, ...cursosSemestre2]);
+  const total = $derived(todos.length);
+
   const filtrados = $derived.by(() => {
     const q = busqueda.trim().toLowerCase();
-    const todos = [...cursosSemestre1, ...cursosSemestre2].filter((c) => !q || coincide(c, q));
-    return todos.sort((a, b) => {
+    return todos.filter((c) => !q || coincide(c, q)).sort((a, b) => {
       if (orden === 'nombre') return a.nombre.localeCompare(b.nombre, 'es');
       if (orden === 'estudiantes') return b.total_estudiantes - a.total_estudiantes;
       return codigoConGrupo(a).localeCompare(codigoConGrupo(b), 'es');
     });
   });
 
-  // Períodos del más reciente al más antiguo; un curso sin año va al final.
-  const periodos = $derived.by(() => {
-    const grupos = new Map<string, { clave: string; nombre: string; agno: number; sem: number; cursos: CursoDocente[] }>();
-    for (const c of filtrados) {
-      const agno = c.agno_real ?? 0;
-      const clave = agno ? `${agno}-${c.semestre_real}` : 'sin-periodo';
-      const nombre = agno ? nombreSemestre(c.semestre_real, agno) : 'Sin período';
-      if (!grupos.has(clave)) grupos.set(clave, { clave, nombre, agno, sem: c.semestre_real, cursos: [] });
-      grupos.get(clave)!.cursos.push(c);
-    }
-    const ordenados = [...grupos.values()].sort((a, b) => b.agno - a.agno || b.sem - a.sem);
-    // Como en el Inicio y el menú: el período más reciente es el vigente
-    // (salvo que todos sus cursos ya hayan terminado) y los anteriores están
-    // cerrados. Un curso sin período no lleva estado.
-    const masReciente = ordenados.find((g) => g.agno);
-    return ordenados.map((g) => {
-      let estado: 'En curso' | 'Cerrado' | null = null;
-      if (g.agno) {
-        const terminado = g.cursos.every((c) => c.fecha_fin && c.fecha_fin.slice(0, 10) < hoy);
-        estado = g === masReciente && !terminado ? 'En curso' : 'Cerrado';
-      }
-      return { ...g, estado };
-    });
+  const claveDe = (c: CursoDocente) => (c.agno_real ? `${c.agno_real}-${c.semestre_real}` : 'sin-periodo');
+  const pesoDe = (c: CursoDocente) => (c.agno_real ? c.agno_real * 10 + c.semestre_real : 0);
+
+  /**
+   * El semestre vigente, como en el Inicio y el menú: el más reciente con
+   * cursos. Sale de todos los cursos, no de los filtrados, para que buscar no
+   * cambie qué semestre es el actual. «En curso» salvo que todos sus cursos
+   * ya hayan terminado.
+   */
+  const vigente = $derived.by(() => {
+    const conPeriodo = todos.filter((c) => c.agno_real);
+    if (conPeriodo.length === 0) return null;
+    const ultimo = conPeriodo.reduce((a, c) => (pesoDe(c) > pesoDe(a) ? c : a));
+    const clave = claveDe(ultimo);
+    const cursos = todos.filter((c) => claveDe(c) === clave);
+    const terminado = cursos.every((c) => c.fecha_fin && c.fecha_fin.slice(0, 10) < hoy);
+    return {
+      clave,
+      nombre: nombreSemestre(ultimo.semestre_real, ultimo.agno_real!),
+      estado: terminado ? 'Cerrado' : 'En curso',
+      total: cursos.length,
+    };
   });
 
-  const total = $derived(cursosSemestre1.length + cursosSemestre2.length);
-  const resumen = $derived.by(() => {
-    if (periodos.length === 0 || busqueda.trim()) return `${filtrados.length} de ${total} cursos`;
-    const [actual, ...anteriores] = periodos;
-    const nAnteriores = anteriores.filter((p) => p.agno).reduce((n, p) => n + p.cursos.length, 0);
-    const base = `${actual.cursos.length} ${actual.cursos.length === 1 ? 'curso' : 'cursos'} en el ${actual.nombre.toLowerCase()}`;
-    return nAnteriores > 0 ? `${base} · ${nAnteriores} en semestres anteriores` : base;
+  // Sin ningún curso con período (caso raro) todos van arriba.
+  const esVigente = (c: CursoDocente) => !vigente || claveDe(c) === vigente.clave;
+
+  const actuales = $derived(filtrados.filter(esVigente));
+
+  /** Semestres anteriores, del más reciente al más antiguo; un curso sin año va al final. */
+  const anteriores = $derived.by(() => {
+    const grupos = new Map<string, { clave: string; nombre: string; peso: number; cursos: CursoDocente[] }>();
+    for (const c of filtrados) {
+      if (esVigente(c)) continue;
+      const clave = claveDe(c);
+      if (!grupos.has(clave)) {
+        const nombre = c.agno_real ? nombreSemestre(c.semestre_real, c.agno_real) : 'Sin período';
+        grupos.set(clave, { clave, nombre, peso: pesoDe(c), cursos: [] });
+      }
+      grupos.get(clave)!.cursos.push(c);
+    }
+    return [...grupos.values()].sort((a, b) => b.peso - a.peso);
   });
+
+  const totalAnteriores = $derived(todos.filter((c) => !esVigente(c)).length);
+  const nAnteriores = $derived(anteriores.reduce((n, g) => n + g.cursos.length, 0));
+
+  const resumen = $derived.by(() => {
+    if (!vigente || busqueda.trim()) return `${filtrados.length} de ${total} cursos`;
+    const base = `${vigente.total} ${vigente.total === 1 ? 'curso' : 'cursos'} en el ${vigente.nombre.toLowerCase()}`;
+    return totalAnteriores > 0 ? `${base} · ${totalAnteriores} en semestres anteriores` : base;
+  });
+
+  const cantidad = (n: number) => `${n} ${n === 1 ? 'curso' : 'cursos'}`;
+  const estudiantes = (n: number) => `${n} ${n === 1 ? 'estudiante' : 'estudiantes'}`;
 
   const botonSeg =
     'inline-flex min-h-11 cursor-pointer items-center gap-1.5 border-0 border-r border-inst-linea px-3.5 text-[13px] font-bold last:border-r-0 lg:min-h-9';
@@ -192,34 +219,32 @@
       </div>
     </div>
 
-    {#if periodos.length === 0}
+    {#if total === 0 || filtrados.length === 0}
       <div class="{tarjeta} px-6 py-10 text-center">
         <p class="m-0 font-bold">{busqueda.trim() ? 'Sin resultados' : 'Sin cursos asignados'}</p>
         <p class="m-0 mt-1 text-inst-ink-2">
           {busqueda.trim() ? `No hay cursos que coincidan con «${busqueda.trim()}».` : 'Todavía no tienes cursos asignados.'}
         </p>
       </div>
-    {/if}
-
-    {#each periodos as periodo (periodo.clave)}
-      <section aria-labelledby="p-{periodo.clave}" class="flex flex-col gap-3.5">
+    {:else}
+      <section aria-labelledby="t-actual" class="flex flex-col gap-3.5">
         <div class={seccionTitulo}>
-          <h2 id="p-{periodo.clave}" class="{titulo} m-0 text-[19px] leading-6">{periodo.nombre}</h2>
-          {#if periodo.estado}
-            <span class="{chip} {periodo.estado === 'Cerrado' ? tono.off : tono.ok}">{periodo.estado}</span>
+          <h2 id="t-actual" class="{titulo} m-0 text-[19px] leading-6">Este semestre</h2>
+          {#if vigente}
+            <span class="text-[13px] font-bold text-inst-ink-2">{vigente.nombre}</span>
+            <span class="{chip} {vigente.estado === 'Cerrado' ? tono.off : tono.ok}">{vigente.estado}</span>
           {/if}
-          <span class="ml-auto text-[13px] text-inst-ink-2">
-            {periodo.cursos.length}
-            {periodo.cursos.length === 1 ? 'curso' : 'cursos'}
-          </span>
+          <span class="ml-auto text-[13px] text-inst-ink-2">{cantidad(actuales.length)}</span>
         </div>
 
-        {#if vista === 'grilla'}
+        {#if actuales.length === 0}
+          <p class="m-0 text-inst-ink-2">Ningún curso de este semestre coincide con «{busqueda.trim()}».</p>
+        {:else if vista === 'grilla'}
           <div class="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
-            {#each periodo.cursos as curso (curso.id_curso)}
+            {#each actuales as curso (curso.id_curso)}
               <Link
                 href="/docente/cursos/{curso.id_curso}"
-                class="{tarjeta} flex flex-col gap-3.5 px-5 pt-4.5 text-inst-ink no-underline transition-shadow hover:text-inst-ink hover:shadow-md {periodo.estado ===
+                class="{tarjeta} flex flex-col gap-3.5 px-5 pt-4.5 text-inst-ink no-underline transition-shadow hover:text-inst-ink hover:shadow-md {vigente?.estado ===
                 'Cerrado'
                   ? ''
                   : curso.es_titular_curso
@@ -274,7 +299,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each periodo.cursos as curso (curso.id_curso)}
+                {#each actuales as curso (curso.id_curso)}
                   <tr>
                     <td data-l="Curso">
                       <span class="flex min-w-0 flex-col">
@@ -307,6 +332,55 @@
           </div>
         {/if}
       </section>
-    {/each}
+
+      <!-- Siempre a la vista, como en Mis cursos del alumno: aunque esté vacía, deja claro dónde quedarán. -->
+      <section aria-labelledby="t-anteriores" class="flex flex-col gap-3.5">
+        <div class={seccionTitulo}>
+          <h2 id="t-anteriores" class="{titulo} m-0 text-[19px] leading-6">Semestres anteriores</h2>
+          {#if nAnteriores > 0}<span class="ml-auto text-[13px] text-inst-ink-2">{cantidad(nAnteriores)}</span>{/if}
+        </div>
+
+        {#if totalAnteriores === 0}
+          <p class="m-0 text-inst-ink-2">Aquí quedarán tus cursos de semestres anteriores, cuando termine el semestre.</p>
+        {:else if anteriores.length === 0}
+          <p class="m-0 text-inst-ink-2">Ningún curso de semestres anteriores coincide con «{busqueda.trim()}».</p>
+        {:else}
+          <div class="{tarjeta} overflow-hidden">
+            {#each anteriores as grupo (grupo.clave)}
+              <div class="border-b border-inst-linea last:border-b-0">
+                <h3 class="{etiqueta} m-0 flex items-center justify-between gap-2 border-b border-inst-linea bg-inst-sutil px-4 py-2.5 lg:px-5">
+                  {grupo.nombre}<span class="font-bold tracking-normal normal-case">{cantidad(grupo.cursos.length)}</span>
+                </h3>
+                <ul class="m-0 list-none p-0">
+                  {#each grupo.cursos as curso (curso.id_curso)}
+                    <li class="border-b border-inst-linea last:border-b-0">
+                      <Link
+                        href="/docente/cursos/{curso.id_curso}"
+                        class="flex min-h-14 items-center gap-3 px-4 py-2.5 text-inst-ink no-underline hover:bg-inst-sutil hover:text-inst-ink lg:gap-4 lg:px-5"
+                      >
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span class={codigo}>{codigoConGrupo(curso)}</span>
+                          <span class="font-bold">{curso.nombre}</span>
+                          <span class="text-[13px] text-inst-ink-2 md:hidden">{carrera(curso)} · {estudiantes(curso.total_estudiantes)}</span>
+                        </span>
+                        <span class="hidden w-60 shrink-0 text-[13px] text-inst-ink-2 md:block">
+                          {carrera(curso)}<br />{estudiantes(curso.total_estudiantes)}
+                        </span>
+                        <span class="flex w-24 shrink-0 justify-end">
+                          <span class="{chip} {curso.es_titular_curso ? tono.accion : tono.oro}">
+                            {curso.es_titular_curso ? 'Titular' : 'Componente'}
+                          </span>
+                        </span>
+                        <ChevronRight size={16} aria-hidden="true" class="shrink-0 text-inst-ink-3 max-sm:hidden" />
+                      </Link>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    {/if}
   </div>
 </DocenteLayout>
