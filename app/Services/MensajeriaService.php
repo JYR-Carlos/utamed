@@ -405,20 +405,23 @@ class MensajeriaService
      */
     public function conversacionesDeAlumno(int $idComponente, int $idUsuarioAlumno): Collection
     {
-        return $this->conversacionesDeAlumnoEn([$idComponente], $idUsuarioAlumno)
+        return $this->conversacionesEn([$idComponente], $idUsuarioAlumno)
             ->keyBy('id_usuario');
     }
 
     /**
-     * Las conversaciones de un alumno en varios componentes a la vez: una fila
-     * por (componente, interlocutor) con el asunto, el último mensaje y lo que
-     * le falta por leer. Sólo las que ya tienen mensajes. Es la base de
-     * {@see conversacionesDeAlumno()} y del buzón del alumno.
+     * Las conversaciones de una persona en varios componentes a la vez: una
+     * fila por (componente, interlocutor) con el asunto, el último mensaje y lo
+     * que le falta por leer. Sólo las que ya tienen mensajes, y sólo las suyas:
+     * cada conversación es de dos, así que para el alumno el interlocutor es
+     * alguien del equipo y para el docente o el ayudante, un alumno. Es la base
+     * de {@see conversacionesDeAlumno()} y de los buzones del alumno y del
+     * docente.
      *
      * @param  int[]  $componenteIds
      * @return Collection<int,array{id_componente:int, id_usuario:int, nombre:string, tema:?string, ultimo_mensaje:?string, ultima_fecha:string, ultimo_es_mio:bool, no_leidos:int}>
      */
-    public function conversacionesDeAlumnoEn(array $componenteIds, int $idUsuarioAlumno): Collection
+    public function conversacionesEn(array $componenteIds, int $idUsuario): Collection
     {
         if (empty($componenteIds)) {
             return collect();
@@ -427,20 +430,20 @@ class MensajeriaService
         $filas = DB::select("
             WITH suyos AS (
                 SELECT m.id_mensaje, m.id_componente, m.tema, m.mensaje, m.fecha_creacion, m.id_usuario_emisor,
-                       CASE WHEN m.id_usuario_emisor = :id_alumno
+                       CASE WHEN m.id_usuario_emisor = :id_yo
                             THEN m.id_usuario_receptor
                             ELSE m.id_usuario_emisor END AS interlocutor,
-                       (m.id_usuario_emisor <> :id_alumno2 AND NOT EXISTS (
+                       (m.id_usuario_emisor <> :id_yo2 AND NOT EXISTS (
                             SELECT 1 FROM curso.interaccion_mensaje im
                             WHERE im.id_mensaje = m.id_mensaje
-                              AND im.id_usuario_lector = :id_alumno3
+                              AND im.id_usuario_lector = :id_yo3
                               AND im.fecha_eliminacion IS NULL
                        )) AS sin_leer
                 FROM curso.mensaje m
                 WHERE m.id_componente = ANY(string_to_array(:ids, ',')::int[])
                   AND m.tipo_mensaje = 'MENSAJE_INDIVIDUAL'
                   AND m.fecha_eliminacion IS NULL
-                  AND :id_alumno4 IN (m.id_usuario_emisor, m.id_usuario_receptor)
+                  AND :id_yo4 IN (m.id_usuario_emisor, m.id_usuario_receptor)
             )
             SELECT DISTINCT ON (s.id_componente, s.interlocutor)
                    s.id_componente,
@@ -457,10 +460,10 @@ class MensajeriaService
             ORDER BY s.id_componente, s.interlocutor, s.fecha_creacion DESC, s.id_mensaje DESC
         ", [
             'ids'        => $this->pgIntArray($componenteIds),
-            'id_alumno'  => $idUsuarioAlumno,
-            'id_alumno2' => $idUsuarioAlumno,
-            'id_alumno3' => $idUsuarioAlumno,
-            'id_alumno4' => $idUsuarioAlumno,
+            'id_yo'  => $idUsuario,
+            'id_yo2' => $idUsuario,
+            'id_yo3' => $idUsuario,
+            'id_yo4' => $idUsuario,
         ]);
 
         return collect($filas)->map(fn($f) => [
@@ -470,7 +473,7 @@ class MensajeriaService
             'tema'           => $f->tema,
             'ultimo_mensaje' => $f->ultimo_mensaje,
             'ultima_fecha'   => $f->ultima_fecha,
-            'ultimo_es_mio'  => (int) $f->ultimo_emisor === $idUsuarioAlumno,
+            'ultimo_es_mio'  => (int) $f->ultimo_emisor === $idUsuario,
             'no_leidos'      => (int) $f->no_leidos,
         ]);
     }
@@ -481,7 +484,7 @@ class MensajeriaService
      * tienen avisos.
      *
      * @param  int[]  $componenteIds
-     * @return Collection<int,array{id_componente:int, tema:?string, mensaje:?string, fecha:string, emisor:string, no_leidos:int}>
+     * @return Collection<int,array{id_componente:int, tema:?string, mensaje:?string, fecha:string, emisor:string, id_emisor:int, no_leidos:int}>
      */
     public function avisosEn(array $componenteIds, int $idUsuario): Collection
     {
@@ -491,7 +494,7 @@ class MensajeriaService
 
         $filas = DB::select("
             SELECT DISTINCT ON (m.id_componente)
-                   m.id_componente, m.tema, m.mensaje, m.fecha_creacion,
+                   m.id_componente, m.tema, m.mensaje, m.fecha_creacion, m.id_usuario_emisor,
                    TRIM(CONCAT(u.nombre1, ' ', COALESCE(u.apellido1, ''))) AS emisor,
                    COUNT(*) FILTER (WHERE m.id_usuario_emisor <> :id_emisor AND NOT EXISTS (
                         SELECT 1 FROM curso.interaccion_mensaje im
@@ -517,6 +520,7 @@ class MensajeriaService
             'mensaje'       => $f->mensaje,
             'fecha'         => $f->fecha_creacion,
             'emisor'        => $f->emisor,
+            'id_emisor'     => (int) $f->id_usuario_emisor,
             'no_leidos'     => (int) $f->no_leidos,
         ]);
     }

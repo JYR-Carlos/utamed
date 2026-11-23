@@ -515,7 +515,7 @@
               <p class="m-0 px-4.5 py-4 text-inst-ink-2">No hay mensajes nuevos en tus cursos.</p>
             {/if}
             <Link
-              href="/docente/mensajeria"
+              href="/docente/mensajes"
               class="flex min-h-11 items-center justify-center border-t border-inst-linea bg-inst-sutil font-bold text-inst-enlace no-underline hover:underline"
             >
               Abrir bandeja

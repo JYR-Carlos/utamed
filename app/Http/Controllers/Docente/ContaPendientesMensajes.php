@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  * no ha respondido).  Se usa DISTINCT ON de PostgreSQL para obtener eficientemente
  * el último mensaje por grupo.
  *
- * Usado por: MensajesController, DashboardController.
+ * Usado por: DashboardController, DocenteActivityController.
  */
 trait ContaPendientesMensajes
 {

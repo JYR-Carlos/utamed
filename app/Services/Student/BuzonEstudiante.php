@@ -62,7 +62,7 @@ class BuzonEstudiante
         $hrefMensajeria = fn(object $c, string $extra) =>
             "/estudiante/cursos/{$c->id_curso}?seccion=mensajeria&componente_id={$c->id_componente}{$extra}";
 
-        $conversaciones = $this->mensajeria->conversacionesDeAlumnoEn($ids, $idUsuario);
+        $conversaciones = $this->mensajeria->conversacionesEn($ids, $idUsuario);
         $roles = $this->rolesDelEquipo($conversaciones);
 
         $conversaciones = $conversaciones

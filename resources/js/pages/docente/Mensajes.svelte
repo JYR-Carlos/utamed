@@ -1,291 +1,306 @@
 <script lang="ts">
   /**
-   * Mensajes de actividades del docente — bandeja transversal a todos sus cursos
-   * (dirección institucional UTA).
+   * Buzón del docente — /docente/mensajes (dirección institucional UTA).
    *
-   * Es la mensajería de NIVEL ACTIVIDAD (agenda.agenda). La de nivel curso vive
-   * dentro de cada curso, en /docente/cursos/{id}/mensajeria (curso.mensaje).
+   * Lo mismo que el buzón del alumno (OBS-48), visto desde el otro lado: todo
+   * lo que le escribieron, de todos sus cursos, en una lista, para llegar a
+   * cada conversación en un clic. Cada fila dice de dónde viene, porque son
+   * dos mensajerías distintas:
+   *  - Mensajes: la mensajería del curso, de tema libre (la conversación
+   *    privada con cada estudiante, o los avisos del curso).
+   *  - Actividades: la agenda de una actividad (consultas, feedback,
+   *    evaluaciones y apelaciones), que abre la agenda del grupo.
    *
-   * La bandeja no muestra las conversaciones: es un índice de actividades en
-   * dos pestañas, «Nuevos» (con mensajes sin ver) y «Vistos». Cada fila lleva
-   * a la página de la actividad y, si hay algo sin ver, abre la agenda del
-   * grupo con el mensaje más reciente (?grupo=…). Así la agenda se ve de una
-   * sola forma, la del modal de la actividad.
+   * Es sólo un índice: la fila abre la conversación en su lugar, donde se lee
+   * y se responde. Abrir esta página no marca nada como leído.
    *
-   * Las actividades que ya no están activas (cerradas, no visibles o
-   * planificadas) no tienen conversación que atender: se esconden salvo que se
-   * pidan al pie, y entonces llevan su estado. Una con mensajes sin ver se
-   * muestra igual, para que nada quede sin leer.
-   *
-   * Visibilidad: el backend sólo entrega cursos donde el docente es titular.
+   * Al pie, los cursos del semestre vigente para escribir un mensaje nuevo
+   * (lo que antes era la página «Mensajes para»).
    */
   import { Link } from '@inertiajs/svelte';
-  import { ChevronRight, EyeOff, MessageSquare, Search } from 'lucide-svelte';
+  import { ChevronRight, ClipboardList, Megaphone, MessageSquare, Search } from 'lucide-svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import { btnFantasma, campo, chico, chip, codigo, cuerpo, tarjeta, tono } from '@/lib/inst';
+  import { nombreSemestre } from '@/lib/cursoDocente';
+  import { campo, chip, codigo, cuerpo, seccionTitulo, tarjeta, titulo, tono } from '@/lib/inst';
+  import { titleCase } from '@/lib/utils';
   import type { BreadcrumbItem } from '@/types';
+  import { formatDiaCorto } from '@/utils/formatters';
 
-  interface ActividadItem {
-    id_actividad: number;
+  type Origen = 'mensaje' | 'aviso' | 'actividad';
+
+  interface CursoHilo {
+    id_curso: number;
     nombre: string;
-    estado: 'ACTIVA' | 'CERRADA' | 'PLANIFICADA' | 'NO VISIBLE' | string;
-    fecha_limite: string | null;
+    codigo: string | null;
+    letra_grupo: string | null;
+  }
+
+  interface Hilo {
+    clave: string;
+    origen: Origen;
+    curso: CursoHilo;
+    componente: string;
+    /** El estudiante, «Avisos del curso» o la actividad. */
+    titulo: string;
+    /** En una actividad: «En 3 grupos» cuando hay nuevos en más de uno. */
+    detalle: string | null;
+    /** Tipo del último mensaje de la agenda. */
+    tipo: string | null;
+    tema: string | null;
+    texto: string | null;
+    emisor: string | null;
+    es_mio: boolean;
+    fecha: string;
     no_leidos: number;
-    grupos_con_no_leidos: number;
-    grupo_a_abrir: number | null;
-    ultima_fecha: string | null;
-    pendientes: number;
-    con_conversacion: boolean;
-    curso: {
-      id_curso: number;
-      nombre: string;
-      letra_grupo: string | null;
-      cod_asignatura: string | null;
-      cod_curso: string;
-      agno_real: number;
-      semestre_real: number;
-    };
+    /** Conversaciones (o grupos) cuyo último mensaje es del estudiante. */
+    por_responder: number;
+    href: string;
+  }
+
+  interface CursoVigente extends CursoHilo {
+    no_leidos: number;
   }
 
   interface Props {
-    actividades: ActividadItem[];
+    periodo: { sem: number; ano: number } | null;
+    hilos: Hilo[];
+    cursos: CursoVigente[];
   }
 
-  let { actividades = [] }: Props = $props();
+  let { periodo, hilos = [], cursos = [] }: Props = $props();
+
+  const ORIGEN = {
+    mensaje: { etiqueta: 'Mensaje privado', icono: MessageSquare },
+    aviso: { etiqueta: 'Aviso del curso', icono: Megaphone },
+    actividad: { etiqueta: 'Actividad', icono: ClipboardList },
+  } as const;
+
+  /** Cómo se llama cada tipo de la agenda. */
+  const TIPO_AGENDA: Record<string, string> = {
+    'Mensaje al profesor': 'Consulta',
+    Feedback: 'Feedback',
+    Evaluación: 'Evaluación',
+    'Solicitud de apelación': 'Apelación',
+    'Resolución de apelación': 'Respuesta a la apelación',
+  };
+
+  type Filtro = 'todo' | 'mensajes' | 'actividades';
+  const FILTROS: { id: Filtro; etiqueta: string; origenes: Origen[] }[] = [
+    { id: 'todo', etiqueta: 'Todo', origenes: ['mensaje', 'aviso', 'actividad'] },
+    { id: 'mensajes', etiqueta: 'Mensajes', origenes: ['mensaje', 'aviso'] },
+    { id: 'actividades', etiqueta: 'Actividades', origenes: ['actividad'] },
+  ];
+  let filtro = $state<Filtro>('todo');
+  let busqueda = $state('');
+
+  const delFiltro = (f: Filtro) => hilos.filter((h) => FILTROS.find((x) => x.id === f)!.origenes.includes(h.origen));
+  const sinLeerDe = (f: Filtro) => delFiltro(f).reduce((total, h) => total + h.no_leidos, 0);
+  const sinLeer = $derived(sinLeerDe('todo'));
+
+  const sinTildes = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const visibles = $derived.by(() => {
+    const q = sinTildes(busqueda.trim());
+    const delOrigen = delFiltro(filtro);
+    if (!q) return delOrigen;
+    return delOrigen.filter((h) =>
+      sinTildes([h.titulo, h.curso.nombre, h.curso.codigo ?? '', h.componente].join(' ')).includes(q),
+    );
+  });
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/docente/dashboard' },
     { title: 'Mensajes', href: '/docente/mensajes' },
   ];
 
-  const CLAVE_VER_TODAS = 'docente.mensajes.verTodas';
-
-  let query = $state('');
-  let verTodas = $state(leerVerTodas());
-
-  function leerVerTodas(): boolean {
-    try {
-      return localStorage.getItem(CLAVE_VER_TODAS) === '1';
-    } catch {
-      return false;
-    }
+  function codigoCurso(c: CursoHilo): string {
+    const cod = c.codigo ?? c.nombre;
+    return c.letra_grupo ? `${cod} · Grupo ${c.letra_grupo}` : cod;
   }
 
-  $effect(() => {
-    try {
-      localStorage.setItem(CLAVE_VER_TODAS, verTodas ? '1' : '0');
-    } catch {
-      /* sin almacenamiento: la elección sólo dura la visita */
-    }
-  });
-
-  const esActiva = (a: ActividadItem) => a.estado === 'ACTIVA';
-
-  const filtradas = $derived.by(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return actividades;
-    return actividades.filter(
-      (a) =>
-        a.nombre.toLowerCase().includes(q) ||
-        a.curso.nombre.toLowerCase().includes(q) ||
-        (a.curso.cod_asignatura ?? '').toLowerCase().includes(q) ||
-        a.curso.cod_curso.toLowerCase().includes(q),
-    );
-  });
-
-  // Nuevos: lo más reciente arriba.
-  const nuevas = $derived(
-    filtradas
-      .filter((a) => a.no_leidos > 0)
-      .sort((a, b) => (b.ultima_fecha ?? '').localeCompare(a.ultima_fecha ?? '')),
-  );
-
-  // Vistos: primero las activas por fecha límite más próxima; las demás al
-  // final (y sólo si se piden), de la más reciente a la más antigua.
-  const vistas = $derived.by(() => {
-    const sinNuevos = filtradas.filter((a) => a.no_leidos === 0);
-    const porFecha = (x: ActividadItem, y: ActividadItem) =>
-      (x.fecha_limite ?? '9999').localeCompare(y.fecha_limite ?? '9999') || x.nombre.localeCompare(y.nombre);
-    const activas = sinNuevos.filter(esActiva).sort(porFecha);
-    const otras = verTodas ? sinNuevos.filter((a) => !esActiva(a)).sort((x, y) => porFecha(y, x)) : [];
-    return [...activas, ...otras];
-  });
-
-  const ocultas = $derived(filtradas.filter((a) => a.no_leidos === 0 && !esActiva(a)).length);
-
-  // Abre en «Nuevos» si hay algo sin ver; si no, en «Vistos».
-  type Pestana = 'nuevos' | 'vistos';
-  let pestanaElegida = $state<Pestana | null>(null);
-  const pestana = $derived<Pestana>(pestanaElegida ?? (nuevas.length > 0 ? 'nuevos' : 'vistos'));
-  const lista = $derived(pestana === 'nuevos' ? nuevas : vistas);
-
-  const PESTANAS: { id: Pestana; label: string }[] = [
-    { id: 'nuevos', label: 'Nuevos' },
-    { id: 'vistos', label: 'Vistos' },
-  ];
-
-  // Flechas izquierda/derecha entre pestañas (patrón tablist de ARIA).
-  function teclaPestana(e: KeyboardEvent) {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    const siguiente: Pestana = pestana === 'nuevos' ? 'vistos' : 'nuevos';
-    pestanaElegida = siguiente;
-    document.getElementById(`tab-${siguiente}`)?.focus();
+  /** «Mié 18 nov, 11:43». */
+  function fecha(iso: string): string {
+    const d = new Date(iso.replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return '';
+    const dia = formatDiaCorto(d);
+    const hora = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}, ${hora}`;
   }
 
-  function href(a: ActividadItem) {
-    const base = `/docente/cursos/${a.curso.id_curso}/actividades/${a.id_actividad}/evaluacion`;
-    return a.grupo_a_abrir ? `${base}?grupo=${a.grupo_a_abrir}` : base;
+  /** Quién escribió lo último y, en la agenda, de qué tipo es. */
+  function quien(h: Hilo): string {
+    const persona = h.es_mio ? 'Tú' : titleCase(h.emisor ?? '');
+    const tipo = h.tipo ? (TIPO_AGENDA[h.tipo] ?? h.tipo) : null;
+    return tipo ? `${persona} · ${tipo}` : persona;
   }
 
-  function etiquetaEstado(estado: string) {
-    return ({ CERRADA: 'Cerrada', 'NO VISIBLE': 'No visible', PLANIFICADA: 'Planificada' } as Record<string, string>)[estado] ?? estado;
+  function texto(h: Hilo): string {
+    const cuerpo = (h.texto ?? '').replace(/\s+/g, ' ').trim();
+    if (!cuerpo && h.tipo === 'Evaluación') return h.es_mio ? 'Publicaste la evaluación.' : 'Publicó la evaluación.';
+    return (h.tema?.trim() ? `${h.tema.trim()} · ` : '') + cuerpo;
   }
 
-  function codigoCurso(a: ActividadItem) {
-    const cod = a.curso.cod_asignatura || a.curso.cod_curso;
-    return a.curso.letra_grupo ? `${cod} · Grupo ${a.curso.letra_grupo}` : cod;
+  function porResponder(h: Hilo): string {
+    return h.origen === 'actividad' && h.por_responder > 1 ? `${h.por_responder} por responder` : 'Por responder';
   }
 
-  /** «hace 2 h», «ayer», «hace 3 días» o la fecha. */
-  function hace(iso: string): string {
-    const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-    if (min < 1) return 'ahora';
-    if (min < 60) return `hace ${min} min`;
-    const h = Math.round(min / 60);
-    if (h < 24) return `hace ${h} h`;
-    const d = Math.round(h / 24);
-    if (d === 1) return 'ayer';
-    if (d < 7) return `hace ${d} días`;
-    return new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
-  }
+  const botonFiltro =
+    'inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 border-0 border-r border-inst-linea px-3.5 text-[13px] font-bold last:border-r-0 lg:min-h-9';
 </script>
 
-<DocenteLayout {breadcrumbs} ceja="Agenda de las actividades" titulo="Mensajes">
+<svelte:head>
+  <title>Mensajes | UTAmed</title>
+</svelte:head>
+
+<DocenteLayout {breadcrumbs} ceja={periodo ? nombreSemestre(periodo.sem, periodo.ano) : undefined} titulo="Mensajes">
   {#snippet acciones()}
-    <p class="m-0 max-w-[360px] text-[13px] text-inst-ink-2">
-      Lo que estudiantes y grupos te escriben dentro de cada actividad. Al abrir una vas a la actividad con su agenda
-      abierta.
+    <p class="m-0 max-w-[380px] text-[13px] text-inst-ink-2">
+      {#if sinLeer > 0}
+        {sinLeer} sin leer: {sinLeerDe('mensajes')} en mensajes y {sinLeerDe('actividades')} en actividades.
+      {:else}
+        La mensajería de tus cursos y la agenda de tus actividades, en un solo lugar.
+      {/if}
     </p>
   {/snippet}
 
-  <div class={cuerpo}>
-    <section aria-label="Bandeja" class="{tarjeta} overflow-hidden">
-      <div class="flex flex-wrap items-end gap-x-4 gap-y-3 border-b border-inst-linea px-4 pt-2">
-        <div role="tablist" aria-label="Bandeja" class="flex gap-1">
-          {#each PESTANAS as t (t.id)}
-            {@const sel = pestana === t.id}
-            {@const cuenta = t.id === 'nuevos' ? nuevas.length : vistas.length}
-            <button
-              type="button"
-              role="tab"
-              id="tab-{t.id}"
-              aria-selected={sel}
-              aria-controls="panel-bandeja"
-              tabindex={sel ? 0 : -1}
-              onclick={() => (pestanaElegida = t.id)}
-              onkeydown={teclaPestana}
-              class="-mb-px inline-flex min-h-11 cursor-pointer items-center gap-2 border-0 border-b-[3px] bg-transparent px-3 text-sm {sel
-                ? 'border-inst-oro font-extrabold text-inst-ink'
-                : 'border-transparent font-semibold text-inst-ink-2 hover:text-inst-ink'}"
-            >
-              {t.label}
-              <span class="{chip} {t.id === 'nuevos' && cuenta > 0 ? tono.solido : tono.off}">{cuenta}</span>
-            </button>
-          {/each}
-        </div>
-        <label class="relative mb-2 ml-auto flex w-full items-center max-sm:order-first max-sm:mt-2 sm:w-72">
-          <Search size={16} aria-hidden="true" class="pointer-events-none absolute left-3 text-inst-ink-3" />
-          <span class="sr-only">Buscar curso o actividad</span>
-          <input type="search" bind:value={query} placeholder="Buscar curso o actividad" class="{campo} pl-9.5" />
-        </label>
-      </div>
-
-      <div id="panel-bandeja" role="tabpanel" aria-labelledby="tab-{pestana}">
-        {#if lista.length === 0}
-          <p class="m-0 px-5 py-8 text-center text-inst-ink-2">
-            {#if query.trim()}
-              Sin resultados para «{query.trim()}».
-            {:else if pestana === 'nuevos'}
-              Estás al día: no hay mensajes sin ver.
-            {:else}
-              No hay actividades activas sin mensajes nuevos.
-            {/if}
-          </p>
-        {:else}
-          <ul class="m-0 list-none p-0">
-            {#each lista as a (a.id_actividad)}
-              {@const activa = esActiva(a)}
-              {@const nuevo = a.no_leidos > 0}
-              <li class="border-b border-inst-linea last:border-b-0">
-                <Link
-                  href={href(a)}
-                  class="group flex items-center gap-3.5 px-4 py-3.5 text-inst-ink no-underline transition-colors hover:text-inst-ink {nuevo
-                    ? 'bg-inst-info-s hover:bg-inst-accion-s'
-                    : 'hover:bg-inst-sutil'}"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="flex size-10 shrink-0 items-center justify-center rounded-full {nuevo
-                      ? 'bg-inst-accion text-inst-sobre-accion'
-                      : 'bg-inst-off-s text-inst-ink-2'}"
+  <div class="{cuerpo} max-w-[1040px]">
+    <section aria-label="Buzón" class="{tarjeta} overflow-hidden">
+      <div class="flex flex-col gap-2.5 border-b border-inst-linea px-4 py-3">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div role="group" aria-label="Mostrar" class="grid grid-cols-3 overflow-hidden rounded-md border border-inst-control sm:inline-flex">
+            {#each FILTROS as f (f.id)}
+              {@const activo = filtro === f.id}
+              {@const n = sinLeerDe(f.id)}
+              <button
+                type="button"
+                aria-pressed={activo}
+                onclick={() => (filtro = f.id)}
+                class="{botonFiltro} {activo ? 'bg-inst-accion text-inst-sobre-accion' : 'bg-inst-tarjeta text-inst-ink hover:bg-inst-sutil'}"
+              >
+                {f.etiqueta}
+                {#if n > 0}
+                  <span class="{chip} {activo ? 'bg-inst-tarjeta text-inst-accion-t' : tono.solido}"
+                    >{n}<span class="sr-only">{' '}sin leer</span></span
                   >
-                    {#if activa}<MessageSquare size={18} />{:else}<EyeOff size={18} />{/if}
-                  </span>
-                  <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <!-- Dos líneas: con truncate, dos actividades de títulos parecidos se leían iguales. -->
-                    <span class="line-clamp-2 leading-snug {nuevo ? 'font-extrabold' : 'font-semibold'} {activa ? '' : 'text-inst-ink-2'}">
-                      {a.nombre}
-                    </span>
-                    <span class={codigo}>
-                      {codigoCurso(a)}{a.curso.agno_real && a.curso.semestre_real
-                        ? ` · ${a.curso.agno_real}-${a.curso.semestre_real}`
-                        : ''}
-                    </span>
-                    {#if nuevo && a.grupos_con_no_leidos > 1}
-                      <span class="text-[13px] text-inst-ink-2">En {a.grupos_con_no_leidos} grupos</span>
-                    {/if}
-                  </span>
-                  <span class="flex shrink-0 flex-col items-end gap-1.5">
-                    {#if nuevo && a.ultima_fecha}
-                      <span class="text-[13px] text-inst-ink-2">{hace(a.ultima_fecha)}</span>
-                    {/if}
-                    {#if nuevo}
-                      <span class="{chip} {tono.solido}">{a.no_leidos} {a.no_leidos === 1 ? 'nuevo' : 'nuevos'}</span>
-                    {:else if !activa}
-                      <span class="{chip} {tono.off}">{etiquetaEstado(a.estado)}</span>
-                    {:else if a.pendientes > 0}
-                      <span class="{chip} {tono.warn}">{a.pendientes} por responder</span>
-                    {:else if a.con_conversacion}
-                      <span class="{chip} {tono.ok}">Respondido</span>
-                    {/if}
-                  </span>
-                  <ChevronRight size={18} aria-hidden="true" class="shrink-0 text-inst-ink-3 group-hover:text-inst-ink" />
-                </Link>
-              </li>
+                {/if}
+              </button>
             {/each}
-          </ul>
-        {/if}
+          </div>
+          <label class="relative flex w-full items-center sm:ml-auto sm:w-72">
+            <Search size={16} aria-hidden="true" class="pointer-events-none absolute left-3 text-inst-ink-3" />
+            <span class="sr-only">Buscar estudiante, curso o actividad</span>
+            <input type="search" bind:value={busqueda} placeholder="Estudiante, curso o actividad" class="{campo} pl-9.5" />
+          </label>
+        </div>
+        <p class="m-0 text-[13px] text-inst-ink-2">
+          <span class="font-bold text-inst-ink">Mensajes</span>: tu conversación privada con cada estudiante y los avisos de
+          cada curso. <span class="font-bold text-inst-ink">Actividades</span>: las consultas, el feedback, las evaluaciones
+          y las apelaciones de cada actividad.
+        </p>
       </div>
 
-      {#if pestana === 'vistos' && (ocultas > 0 || verTodas)}
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-inst-linea bg-inst-sutil px-4 py-2.5 text-[13px] text-inst-ink-2">
-          <span class="flex min-w-0 flex-1 items-start gap-2.5">
-            <EyeOff size={16} aria-hidden="true" class="mt-0.5 shrink-0" />
-            <span>
-            {#if verTodas}
-              Se muestran también las actividades cerradas, no visibles o planificadas.
-            {:else}
-              {ocultas}
-              {ocultas === 1 ? 'actividad cerrada, no visible o planificada no aparece' : 'actividades cerradas, no visibles o planificadas no aparecen'}
-              aquí.
-            {/if}
-            </span>
-          </span>
-          <button type="button" onclick={() => (verTodas = !verTodas)} class="{btnFantasma} {chico} ml-auto">
-            {verTodas ? 'Ocultarlas' : 'Mostrar'}
-          </button>
+      {#if visibles.length === 0}
+        <div class="px-6 py-10 text-center">
+          {#if hilos.length === 0}
+            <p class="m-0 font-bold">Aún no tienes mensajes</p>
+            <p class="m-0 mt-1 text-inst-ink-2">Cuando un estudiante te escriba o haya consultas en tus actividades, aparecerán aquí.</p>
+          {:else if busqueda.trim()}
+            <p class="m-0 font-bold">Sin resultados</p>
+            <p class="m-0 mt-1 text-inst-ink-2">Nada coincide con «{busqueda.trim()}».</p>
+          {:else}
+            <p class="m-0 font-bold">Nada por aquí</p>
+            <p class="m-0 mt-1 text-inst-ink-2">
+              {filtro === 'actividades'
+                ? 'Todavía no hay consultas ni feedback en tus actividades.'
+                : 'Todavía no hay mensajes ni avisos en tus cursos.'}
+            </p>
+          {/if}
         </div>
+      {:else}
+        <ul class="m-0 list-none p-0" aria-label="Conversaciones">
+          {#each visibles as h (h.clave)}
+            {@const o = ORIGEN[h.origen]}
+            {@const Icono = o.icono}
+            {@const nuevo = h.no_leidos > 0}
+            <li class="border-b border-inst-linea last:border-b-0">
+              <Link
+                href={h.href}
+                class="group flex items-start gap-3.5 px-4 py-3.5 text-inst-ink no-underline transition-colors hover:text-inst-ink lg:px-5 {nuevo
+                  ? 'bg-inst-info-s hover:bg-inst-accion-s'
+                  : 'hover:bg-inst-sutil'}"
+              >
+                <!-- En el teléfono el ícono va chico junto al origen: el texto necesita el ancho. -->
+                <span
+                  aria-hidden="true"
+                  class="mt-0.5 hidden size-10 shrink-0 items-center justify-center rounded-full sm:flex {nuevo
+                    ? 'bg-inst-accion text-inst-sobre-accion'
+                    : 'bg-inst-off-s text-inst-ink-2'}"
+                >
+                  <Icono size={18} />
+                </span>
+                <span class="flex min-w-0 flex-1 flex-col gap-1">
+                  <span class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <span class={codigo}>{codigoCurso(h.curso)} · {h.componente}</span>
+                    <span class="inline-flex items-center gap-1 text-[13px] font-semibold text-inst-ink-2">
+                      <Icono size={14} aria-hidden="true" class="sm:hidden" />{o.etiqueta}
+                    </span>
+                    <span class="ml-auto text-[13px] text-inst-ink-2 tabular-nums">{fecha(h.fecha)}</span>
+                  </span>
+                  <span class="flex items-start gap-2">
+                    <span class="min-w-0 flex-1 leading-snug text-pretty {nuevo ? 'font-extrabold' : 'font-semibold'}">
+                      {h.origen === 'mensaje' ? titleCase(h.titulo) : h.titulo}{#if h.detalle}<span class="font-normal text-inst-ink-2">{' '}· {h.detalle}</span>{/if}
+                    </span>
+                    {#if nuevo}
+                      <span class="{chip} {tono.solido} shrink-0">{h.no_leidos === 1 ? '1 nuevo' : `${h.no_leidos} nuevos`}</span>
+                    {:else if h.por_responder > 0}
+                      <span class="{chip} {tono.warn} shrink-0">{porResponder(h)}</span>
+                    {/if}
+                  </span>
+                  <span class="line-clamp-2 text-sm leading-5 {nuevo ? 'text-inst-ink' : 'text-inst-ink-2'}">
+                    <span class="font-semibold">{quien(h)}:</span>{' '}{texto(h)}
+                  </span>
+                </span>
+                <ChevronRight size={18} aria-hidden="true" class="hidden shrink-0 self-center text-inst-ink-3 group-hover:text-inst-ink sm:block" />
+              </Link>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section aria-labelledby="t-escribir" class="flex flex-col gap-3">
+      <div class={seccionTitulo}>
+        <h2 id="t-escribir" class="{titulo} m-0 text-[19px] leading-6">Escribir un mensaje nuevo</h2>
+      </div>
+      {#if cursos.length > 0}
+        <p class="m-0 text-inst-ink-2">
+          Elige el curso para abrir su mensajería: ahí envías un aviso a todo el curso o le escribes a un estudiante. A los grupos
+          de una actividad se les escribe desde la actividad.
+        </p>
+        <ul class="{tarjeta} m-0 list-none overflow-hidden p-0">
+          {#each cursos as c (c.id_curso)}
+            <li class="border-b border-inst-linea last:border-b-0">
+              <Link
+                href="/docente/cursos/{c.id_curso}/mensajeria"
+                class="flex min-h-16 items-center gap-4 px-5 py-3 text-inst-ink no-underline hover:bg-inst-sutil hover:text-inst-ink"
+              >
+                <span aria-hidden="true" class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-inst-accion-s text-inst-accion-t">
+                  <MessageSquare size={20} />
+                </span>
+                <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span class={codigo}>{codigoCurso(c)}</span>
+                  <span class="{titulo} text-[17px] leading-[22px]">{c.nombre}</span>
+                </span>
+                {#if c.no_leidos > 0}
+                  <span class="{chip} {tono.solido} shrink-0">{c.no_leidos} sin leer</span>
+                {/if}
+                <ChevronRight size={18} aria-hidden="true" class="shrink-0 text-inst-ink-3" />
+              </Link>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="m-0 text-inst-ink-2">Cuando tengas cursos asignados este semestre, su mensajería aparecerá aquí.</p>
       {/if}
     </section>
   </div>

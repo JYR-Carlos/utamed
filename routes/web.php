@@ -535,7 +535,8 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas', [DocenteActivityController::class, 'entregasPorGrupo'])->name('cursos.actividades.entregas.grupo');
     Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas/{agenda}/descargar', [DocenteActivityController::class, 'descargarEntrega'])->name('cursos.actividades.entregas.descargar');
 
-    // Centro de mensajes del docente (bandeja transversal a todos sus cursos)
+    // Buzón del docente: la mensajería de sus cursos y la agenda de sus
+    // actividades en una lista, como el del alumno.
     Route::get('mensajes', [MensajesController::class, 'index'])->name('mensajes.index');
     Route::post('mensajes/cursos/{curso}/actividades/{actividad}/enviar', [MensajesController::class, 'send'])->name('mensajes.send');
 
@@ -543,7 +544,8 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     // Se entra desde el curso: la bandeja abre acotada a ese curso y muestra sus
     // componentes como pestañas, con difusiones y un canal por alumno que
     // comparten todos los docentes del componente (colegiados incl.).
-    Route::get('mensajeria', [MensajeriaController::class, 'cursos'])->name('mensajeria.cursos');
+    // «Mensajes para» quedó dentro del buzón (los cursos vigentes, para escribir uno nuevo).
+    Route::redirect('mensajeria', '/docente/mensajes');
     Route::get('cursos/{curso}/mensajeria', [MensajeriaController::class, 'index'])->name('cursos.mensajeria.index');
     Route::post('cursos/{curso}/mensajeria/componentes/{componente}/difusion', [MensajeriaController::class, 'enviarDifusion'])->name('cursos.mensajeria.difusion');
     Route::post('cursos/{curso}/mensajeria/componentes/{componente}/alumnos/{alumno}/mensaje', [MensajeriaController::class, 'enviarMensaje'])->name('cursos.mensajeria.mensaje');

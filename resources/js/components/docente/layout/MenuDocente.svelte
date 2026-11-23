@@ -18,7 +18,7 @@
   import { cerrarSesion } from '@/lib/sesion';
   import { usePermissions } from '@/lib/composables/usePermissions';
   import { AMBIENTES, ambientesDisponibles } from '@/lib/ambientes';
-  import { etiqueta, codigo } from '@/lib/inst';
+  import { chip, codigo, etiqueta, tono } from '@/lib/inst';
   import { nombreSemestre, seccionDeUrl, seccionesCurso } from '@/lib/cursoDocente';
   import type { SidebarCourse } from '@/types';
 
@@ -33,13 +33,14 @@
   const destinos = [
     { href: '/docente/dashboard', label: 'Inicio', icon: House },
     { href: '/docente/calendario', label: 'Calendario', icon: Calendar },
-    // «Mensajes para» (cursos); la bandeja de actividades cuelga de ella.
-    { href: '/docente/mensajeria', label: 'Mensajes', icon: MessageSquare, tambien: '/docente/mensajes' },
+    // Buzón: la mensajería de los cursos y la agenda de las actividades, como el del alumno.
+    { href: '/docente/mensajes', label: 'Mensajes', icon: MessageSquare, buzon: true },
     { href: '/docente/calificaciones', label: 'Calificaciones', icon: ClipboardCheck },
     { href: '/docente/asistencia', label: 'Asistencia', icon: UserCheck },
   ];
 
   const cursos = $derived(($page.props.auth?.docente_courses as SidebarCourse[]) ?? []);
+  const sinLeerBuzon = $derived(Number($page.props.auth?.docente_buzon_no_leidos ?? 0));
 
   // Semestre vigente = el más reciente con cursos; los anteriores quedan en «Mis cursos».
   const vigente = $derived.by(() => {
@@ -110,11 +111,15 @@
 
   <div class="flex flex-col gap-0.5">
     {#each destinos as destino (destino.href)}
-      {@const activo = enRuta(destino.href) || (!!destino.tambien && enRuta(destino.tambien))}
+      {@const activo = enRuta(destino.href)}
+      {@const cifra = destino.buzon ? sinLeerBuzon : 0}
       <Link href={destino.href} class="{fila} {activo ? filaActiva : ''}" aria-current={activo ? 'page' : undefined}>
         {#if activo}{@render marcaActiva()}{/if}
         <destino.icon size={18} aria-hidden="true" class="shrink-0 text-inst-ink-2" />
         {destino.label}
+        {#if cifra > 0}
+          <span class="{chip} {tono.solido} ml-auto min-w-6 justify-center">{cifra}<span class="sr-only">{' '}sin leer</span></span>
+        {/if}
       </Link>
     {/each}
   </div>
