@@ -7,6 +7,7 @@
    * general de la actividad. El plazo vence a las 23:59 del día elegido (la
    * base guarda días, no horas).
    */
+  import { untrack } from 'svelte';
   import { ChevronLeft, ChevronRight } from 'lucide-svelte';
   import ModalInst from '@/components/docente/ModalInst.svelte';
   import { btnFantasma, btnPrimario, btnSecundario, chico, etiqueta, tarjeta } from '@/lib/inst';
@@ -47,16 +48,10 @@
 
   /** Cierre de la actividad para todos (fecha límite + holgura general). */
   const cierre = $derived(aUtc(fechaLimite) + holguraGeneral * DIA);
-  let elegida = $state(0);
-  let mesVisto = $state(0);
-
-  $effect.pre(() => {
-    if (elegida === 0) {
-      elegida = cierre + holguraPersonal * DIA;
-      const d = new Date(elegida);
-      mesVisto = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
-    }
-  });
+  // Sólo el valor inicial: el modal se monta de nuevo cada vez que se abre.
+  const inicial = untrack(() => cierre + holguraPersonal * DIA);
+  let elegida = $state(inicial);
+  let mesVisto = $state(Date.UTC(new Date(inicial).getUTCFullYear(), new Date(inicial).getUTCMonth(), 1));
 
   const dias = $derived(Math.max(0, Math.round((elegida - cierre) / DIA)));
 
