@@ -439,7 +439,7 @@ class ProgramaController extends Controller
                 'curso' => [
                     'id_curso'           => $curso->id_curso,
                     'nombre'             => $curso->nombre,
-                    'cod_curso'          => $curso->cod_curso,
+                    'cod_asignatura'     => $asignatura?->cod_asignatura,
                     'id_asignacion_plan' => $curso->id_asignacion_plan,
                     'id_contexto'        => $curso->id_contexto,
                     'asignatura_nombre'  => $asignatura?->nombre,
@@ -498,7 +498,7 @@ class ProgramaController extends Controller
             'curso' => [
                 'id_curso'           => $curso->id_curso,
                 'nombre'             => $curso->nombre,
-                'cod_curso'          => $curso->cod_curso,
+                'cod_asignatura'     => $asignatura?->cod_asignatura,
                 'id_asignacion_plan' => $curso->id_asignacion_plan,
                 'id_contexto'        => $curso->id_contexto,
                 'asignatura_nombre'  => $asignatura?->nombre,

@@ -3,10 +3,10 @@
    * Ficha del curso para el alumno.
    *
    * Navegación por pestañas, como la UTAMED anterior a la que los alumnos
-   * están habituados: Actividades · Programa · Resumen de notas · Biblioteca ·
-   * Calendario · Mensajería · Bitácora. Todas cargan aquí mismo; las que
-   * dependen de datos que cambian (notas, mensajes, bitácora) los piden al
-   * abrirse.
+   * están habituados: Programa · Actividades · Biblioteca · Calendario ·
+   * Mensajería · Historial · Resumen de notas. Todas cargan aquí mismo; las
+   * que dependen de datos que cambian (mensajes, historial, notas) los piden
+   * al abrirse.
    * Antes la ficha resumía el syllabus («Sobre el curso»: descripción,
    * ponderaciones, unidades, equipo docente) y luego enlazaba al syllabus
    * completo, así que todo se veía dos veces; ahora el programa se lee una

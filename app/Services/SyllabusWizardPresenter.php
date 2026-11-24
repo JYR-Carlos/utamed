@@ -81,7 +81,6 @@ class SyllabusWizardPresenter
             'curso' => array_merge(
                 [
                     'id_curso'          => $curso->id_curso,
-                    'cod_curso'         => $curso->cod_curso,
                     'nombre'            => $curso->nombre,
                     'id_contexto'       => $curso->id_contexto,
                     'asignatura_nombre' => $asignatura?->nombre,

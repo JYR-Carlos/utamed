@@ -22,7 +22,7 @@
   // ─── Props ───────────────────────────────────────────────────────────────
   interface CursoSyllabus {
     id_curso: number;
-    cod_curso: string;
+    cod_asignatura: string | null;
     nombre: string;
     agno_real: number | null;
     semestre_real: string | null;
@@ -330,7 +330,7 @@
           <div>
             <p class="font-medium text-slate-900 leading-tight">{item.nombre}</p>
             <p class="text-xs text-slate-500 mt-0.5">
-              {item.cod_curso} · {item.asignatura}
+              {[item.cod_asignatura, item.asignatura].filter(Boolean).join(' · ')}
             </p>
             {#if item.agno_real || item.semestre_real}
               <p class="text-xs text-slate-400">

@@ -93,7 +93,7 @@
     tipo,
     editable,
     curso,
-    codigo = $bindable(),
+    codigo,
     creditos_sct = $bindable(),
     horas_catedra = $bindable(),
     horas_taller = $bindable(),

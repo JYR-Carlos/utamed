@@ -57,7 +57,7 @@ class ProgramaController extends Controller
         $cursoData = [
             'id_curso'   => $curso->id_curso,
             'nombre'     => $curso->nombre,
-            'cod_curso'  => $curso->cod_curso,
+            'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
             'etiqueta'   => $curso->etiqueta(),
             'asignatura' => $curso->asignacionPlan?->asignatura,
             'carrera'    => $curso->asignacionPlan?->plan?->carrera,

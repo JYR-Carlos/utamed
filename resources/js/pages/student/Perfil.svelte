@@ -9,7 +9,7 @@
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { ChevronRight, CircleAlert, CircleCheck, ExternalLink, Info, KeyRound, Lock, UserRound } from 'lucide-svelte';
+  import { Check, ChevronRight, CircleAlert, CircleCheck, Copy, ExternalLink, Info, KeyRound, Lock, UserRound } from 'lucide-svelte';
   import { Link, useForm } from '@inertiajs/svelte';
   import { btnPrimario, campo, etiqueta, tarjeta, tituloCond } from '@/lib/dm';
   import { titleCase } from '@/lib/utils';
@@ -38,24 +38,66 @@
   let { perfil, urlImagenPerfil, contacto }: Props = $props();
 
   // Basta el usuario: el servidor arma el enlace (OBS-19). También se puede pegar el enlace.
-  const REDES: { id: Red; label: string; placeholder: string; enlace: string }[] = [
-    { id: 'youtube', label: 'YouTube', placeholder: '@tu-canal', enlace: 'youtube.com/@tu-canal' },
-    { id: 'instagram', label: 'Instagram', placeholder: '@tu-usuario', enlace: 'instagram.com/tu-usuario' },
-    { id: 'linkedin', label: 'LinkedIn', placeholder: 'tu-perfil', enlace: 'linkedin.com/in/tu-perfil' },
+  const REDES: { id: Red; label: string; placeholder: string; prefijo: string; ejemplo: string; dominios: string[] }[] = [
+    { id: 'youtube', label: 'YouTube', placeholder: '@tu-canal', prefijo: 'youtube.com/@', ejemplo: 'tu-canal', dominios: ['youtube.com', 'youtu.be'] },
+    { id: 'instagram', label: 'Instagram', placeholder: '@tu-usuario', prefijo: 'instagram.com/', ejemplo: 'tu-usuario', dominios: ['instagram.com'] },
+    { id: 'linkedin', label: 'LinkedIn', placeholder: 'tu-perfil', prefijo: 'linkedin.com/in/', ejemplo: 'tu-perfil', dominios: ['linkedin.com'] },
   ];
+
+  const PATRON_USUARIO: Record<Red, RegExp> = {
+    youtube: /^(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/(@[A-Za-z0-9._-]+)\/?$/i,
+    instagram: /^(?:https?:\/\/)?(?:www\.|m\.)?instagram\.com\/([A-Za-z0-9._-]+)\/?$/i,
+    linkedin: /^(?:https?:\/\/)?(?:www\.|m\.)?linkedin\.com\/in\/([A-Za-z0-9._-]+)\/?$/i,
+  };
+
+  function extraerUsuario(red: Red, valor: string | null | undefined): string {
+    const limpio = (valor ?? '').trim();
+    if (!limpio) return '';
+    return limpio.match(PATRON_USUARIO[red])?.[1] ?? limpio;
+  }
+
+  function vistaPreviaEnlace(red: (typeof REDES)[number], valor: string | null | undefined): string {
+    const limpio = (valor ?? '').trim();
+    if (!limpio) return `${red.prefijo}${red.ejemplo}`;
+
+    const usuario = limpio.replace(/^@+/, '');
+    const sinSubdominio = usuario.toLowerCase().replace(/^(www\.|m\.)/, '');
+    if (!red.dominios.includes(sinSubdominio) && /^[A-Za-z0-9._-]{1,100}$/.test(usuario)) {
+      return `${red.prefijo}${usuario}`;
+    }
+
+    return limpio.replace(/^https?:\/\/(www\.)?/i, '');
+  }
 
   // svelte-ignore state_referenced_locally
   const form = useForm({
     correo_personal: contacto?.correo_personal ?? '',
     celular: contacto?.celular ?? '',
     redes_sociales: {
-      youtube: contacto?.redes_sociales?.youtube ?? '',
-      instagram: contacto?.redes_sociales?.instagram ?? '',
-      linkedin: contacto?.redes_sociales?.linkedin ?? '',
+      youtube: extraerUsuario('youtube', contacto?.redes_sociales?.youtube),
+      instagram: extraerUsuario('instagram', contacto?.redes_sociales?.instagram),
+      linkedin: extraerUsuario('linkedin', contacto?.redes_sociales?.linkedin),
     } as Record<Red, string>,
   });
 
   let guardado = $state(false);
+  let copiado = $state<Red | null>(null);
+  let temporizadorCopiado: ReturnType<typeof setTimeout> | undefined;
+
+  async function copiarEnlace(red: (typeof REDES)[number], valor: string | null | undefined) {
+    const vista = vistaPreviaEnlace(red, valor);
+    const url = /^https?:\/\//i.test(vista) ? vista : `https://${vista}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      copiado = red.id;
+      clearTimeout(temporizadorCopiado);
+      temporizadorCopiado = setTimeout(() => {
+        if (copiado === red.id) copiado = null;
+      }, 2000);
+    } catch {
+      // Sin acceso al portapapeles en contextos no seguros.
+    }
+  }
 
   function guardarContacto(e: SubmitEvent) {
     e.preventDefault();
@@ -64,9 +106,9 @@
       preserveScroll: true,
       onSuccess: (pagina) => {
         guardado = true;
-        // Lo escrito como @usuario vuelve como el enlace que quedó guardado.
+        // Se mantiene sólo el usuario en el input; el enlace completo sigue visible abajo.
         const redes = (pagina.props.contacto as Props['contacto'] | undefined)?.redes_sociales;
-        for (const red of REDES) $form.redes_sociales[red.id] = redes?.[red.id] ?? '';
+        for (const red of REDES) $form.redes_sociales[red.id] = extraerUsuario(red.id, redes?.[red.id]);
       },
     });
   }
@@ -85,7 +127,6 @@
   const intranet = $derived([
     ['RUT', perfil.rut],
     ['Correo institucional', perfil.email],
-    ['Usuario', perfil.username],
     ['Carrera', perfil.carrera_nombre],
     ['Año de ingreso', perfil.agno_ingreso],
     ['Cursos inscritos', perfil.total_cursos],
@@ -148,12 +189,11 @@
       <section aria-labelledby="t-contacto" class="{tarjeta} flex min-w-0 flex-col lg:col-start-1 lg:row-span-2 lg:row-start-1">
         <div class="flex flex-col gap-1 border-b border-dm-linea px-4 py-4 lg:px-6 lg:py-5">
           <h2 id="t-contacto" class="text-lg leading-6 font-bold">Datos de contacto</h2>
-          <span class="text-sm leading-5 text-dm-ink-2">Es lo único del perfil que editas aquí. Todos los campos son opcionales.</span>
         </div>
         <form aria-labelledby="t-contacto" class="flex flex-col gap-6 p-4 lg:p-6" onsubmit={guardarContacto} novalidate>
           <p class="flex items-start gap-2.5 rounded-lg bg-dm-info-s px-3.5 py-3 text-sm leading-5">
             <Info size={18} aria-hidden="true" class="mt-px shrink-0 text-dm-info" />
-            <span>Sólo tus docentes ven estos datos; tus compañeros no.</span>
+            <span>Sólo tus docentes ven estos datos; no tus compañeros.</span>
           </p>
 
           <div class="grid gap-5 sm:grid-cols-2">
@@ -207,7 +247,26 @@
                     aria-describedby="red_{red.id}-ayuda{mensaje ? ` red_${red.id}-error` : ''}"
                     class={campo}
                   />
-                  <span id="red_{red.id}-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">Queda como {red.enlace}</span>
+                  <div class="flex items-center justify-between gap-2">
+                    <span id="red_{red.id}-ayuda" class="min-w-0 text-[13px] leading-[18px] text-dm-ink-2 [overflow-wrap:anywhere]">
+                      {vistaPreviaEnlace(red, $form.redes_sociales[red.id])}
+                    </span>
+                    {#if ($form.redes_sociales[red.id] ?? '').trim()}
+                      <button
+                        type="button"
+                        onclick={() => copiarEnlace(red, $form.redes_sociales[red.id])}
+                        aria-label="Copiar enlace de {red.label}"
+                        title="Copiar enlace"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors {copiado === red.id ? 'bg-dm-ok/10 text-dm-ok' : 'text-dm-ink-2 hover:bg-dm-sutil hover:text-dm-ink'}"
+                      >
+                        {#if copiado === red.id}
+                          <Check size={14} aria-hidden="true" />Copiado
+                        {:else}
+                          <Copy size={14} aria-hidden="true" />Copiar
+                        {/if}
+                      </button>
+                    {/if}
+                  </div>
                   {@render error(`red_${red.id}-error`, mensaje)}
                 </div>
               {/each}
@@ -241,7 +300,7 @@
           {/each}
         </dl>
         <p class="flex items-start gap-2 border-t border-dm-linea bg-dm-sutil px-4 py-3 text-[13px] leading-[18px] text-dm-ink-2 lg:px-5">
-          <Lock size={16} aria-hidden="true" class="mt-px shrink-0" />No se editan aquí. Si algo está mal, avisa a tu jefatura de carrera.
+          <Lock size={16} aria-hidden="true" class="mt-px shrink-0" />Si algun dato está mal, avisa a jefatura de carrera.
         </p>
       </section>
     </div>

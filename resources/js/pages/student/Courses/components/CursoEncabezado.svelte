@@ -1,22 +1,22 @@
 <script lang="ts" module>
   /** Pestañas que se resuelven dentro de la ficha, sin cambiar de página. */
   export type SeccionCurso =
-    | 'actividades'
     | 'programa'
-    | 'notas'
+    | 'actividades'
     | 'biblioteca'
     | 'calendario'
     | 'mensajeria'
-    | 'bitacora';
+    | 'bitacora'
+    | 'notas';
 
   export const SECCIONES_CURSO: readonly SeccionCurso[] = [
-    'actividades',
     'programa',
-    'notas',
+    'actividades',
     'biblioteca',
     'calendario',
     'mensajeria',
     'bitacora',
+    'notas',
   ];
 </script>
 
@@ -72,9 +72,8 @@
   );
 
   const PESTANAS: Array<{ id: SeccionCurso; etiqueta: string; icono?: typeof History }> = [
-    { id: 'actividades', etiqueta: 'Actividades' },
     { id: 'programa', etiqueta: 'Programa' },
-    { id: 'notas', etiqueta: 'Resumen de notas' },
+    { id: 'actividades', etiqueta: 'Actividades' },
     { id: 'biblioteca', etiqueta: 'Biblioteca' },
     { id: 'calendario', etiqueta: 'Calendario' },
     { id: 'mensajeria', etiqueta: 'Mensajería' },
@@ -82,6 +81,7 @@
     // alumno se llama «Historial», con el reloj de su estado vacío: «Bitácora»
     // no decía qué había adentro (OBS-56). La URL sigue siendo ?seccion=bitacora.
     { id: 'bitacora', etiqueta: 'Historial', icono: History },
+    { id: 'notas', etiqueta: 'Resumen de notas' },
   ];
 
   // Sin totales en Actividades ni Biblioteca (OBS-35): una burbuja con número se

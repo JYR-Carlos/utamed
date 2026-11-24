@@ -1,12 +1,15 @@
 <script lang="ts">
   /**
-   * Holgura personal por fecha (revisión «Mi UTAmed»): el docente elige en el
-   * calendario hasta qué día puede entregar el estudiante (o el grupo) y la
-   * pantalla calcula los días. Se guarda lo mismo de siempre:
-   * `nro_dias_adicionales_para_bloqueo_personal`, que se suma a la holgura
-   * general de la actividad. El plazo vence a las 23:59 del día elegido (la
-   * base guarda días, no horas).
+   * Holgura por fecha (revisión «Mi UTAmed»): el docente elige en el calendario
+   * hasta qué día se puede entregar y la pantalla calcula los días. Se guarda
+   * lo mismo de siempre:
+   *  - personal (un estudiante o grupo): `nro_dias_adicionales_para_bloqueo_personal`,
+   *    que se suma a la holgura general de la actividad;
+   *  - de todo el curso (`paraTodos`): `nro_dias_adicionales_para_bloqueo`, que
+   *    se cuenta desde la fecha límite.
+   * El plazo vence a las 23:59 del día elegido (la base guarda días, no horas).
    */
+  import { untrack } from 'svelte';
   import { ChevronLeft, ChevronRight } from 'lucide-svelte';
   import ModalInst from '@/components/docente/ModalInst.svelte';
   import { btnFantasma, btnPrimario, btnSecundario, chico, etiqueta, tarjeta } from '@/lib/inst';
@@ -14,6 +17,10 @@
   interface Props {
     nombre: string;
     subtitulo?: string;
+    /** La holgura es de todo el curso y no de un estudiante o grupo. */
+    paraTodos?: boolean;
+    /** Aviso sobre el alcance (p. ej., quiénes ya tienen holgura personal). */
+    nota?: string;
     /** Fecha límite de la actividad (YYYY-MM-DD). */
     fechaLimite: string;
     /** Días de holgura general de la actividad. */
@@ -28,6 +35,8 @@
   let {
     nombre,
     subtitulo,
+    paraTodos = false,
+    nota,
     fechaLimite,
     holguraGeneral = 0,
     holguraPersonal = 0,
@@ -45,18 +54,14 @@
   const fmtCorto = new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
   const fmtMes = new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-  /** Cierre de la actividad para todos (fecha límite + holgura general). */
-  const cierre = $derived(aUtc(fechaLimite) + holguraGeneral * DIA);
-  let elegida = $state(0);
-  let mesVisto = $state(0);
-
-  $effect.pre(() => {
-    if (elegida === 0) {
-      elegida = cierre + holguraPersonal * DIA;
-      const d = new Date(elegida);
-      mesVisto = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
-    }
-  });
+  /** Desde dónde corre: la fecha límite o, en la personal, el cierre para todos. */
+  const cierre = $derived(aUtc(fechaLimite) + (paraTodos ? 0 : holguraGeneral) * DIA);
+  const actual = $derived(paraTodos ? holguraGeneral : holguraPersonal);
+  const rotuloCierre = $derived(paraTodos ? 'Fecha límite' : 'Cierre de la actividad');
+  // Sólo el valor inicial: el modal se monta de nuevo cada vez que se abre.
+  const inicial = untrack(() => cierre + actual * DIA);
+  let elegida = $state(inicial);
+  let mesVisto = $state(Date.UTC(new Date(inicial).getUTCFullYear(), new Date(inicial).getUTCMonth(), 1));
 
   const dias = $derived(Math.max(0, Math.round((elegida - cierre) / DIA)));
 
@@ -103,12 +108,12 @@
 
 <ModalInst titulo="Holgura · {nombre}" {subtitulo} {onCerrar}>
   <div class="{tarjeta} flex flex-wrap items-center gap-2 px-3.5 py-3">
-    <span class={etiqueta}>Cierre de la actividad</span>
+    <span class={etiqueta}>{rotuloCierre}</span>
     <span class="ml-auto font-bold">{fmtCorto.format(cierre)}, 23:59</span>
   </div>
 
   <div class="flex flex-col gap-2.5">
-    <span class="font-bold">Elige hasta qué fecha puede entregar</span>
+    <span class="font-bold">Elige hasta qué fecha {paraTodos ? 'pueden' : 'puede'} entregar</span>
     <div class="{tarjeta} p-3.5">
       <div class="mb-2.5 flex items-center gap-2">
         <button type="button" class="{btnFantasma} {chico} px-0! size-11 lg:size-9" aria-label="Mes anterior" onclick={() => moverMes(-1)}>
@@ -131,7 +136,7 @@
               disabled={c.t < cierre}
               aria-pressed={c.t === elegida}
               aria-label={fmtLargo.format(c.t)}
-              title={c.t === cierre ? 'Cierre de la actividad' : undefined}
+              title={c.t === cierre ? rotuloCierre : undefined}
               onclick={() => (elegida = c.t)}
             >
               {c.dia}
@@ -141,7 +146,7 @@
       </div>
       <div class="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] text-inst-ink-2">
         <span class="inline-flex items-center gap-1.5">
-          <span aria-hidden="true" class="size-3.5 rounded-full border-2 border-inst-accion bg-inst-tarjeta"></span>Cierre
+          <span aria-hidden="true" class="size-3.5 rounded-full border-2 border-inst-accion bg-inst-tarjeta"></span>{paraTodos ? 'Fecha límite' : 'Cierre'}
         </span>
         <span class="inline-flex items-center gap-1.5">
           <span aria-hidden="true" class="h-3.5 w-6 rounded-full bg-inst-accion-s"></span>Holgura
@@ -159,22 +164,24 @@
       <span class="font-bold">{dias === 1 ? 'día de holgura' : 'días de holgura'}</span>
       <span class="text-[13px]">
         {#if dias === 0}
-          Sin holgura: entrega hasta el cierre de la actividad.
+          Sin holgura: {paraTodos ? 'entregan hasta la fecha límite' : 'entrega hasta el cierre de la actividad'}.
         {:else}
-          Podrá entregar hasta el {fmtLargo.format(elegida)} a las 23:59.
+          {paraTodos ? 'Todos podrán' : 'Podrá'} entregar hasta el {fmtLargo.format(elegida)} a las 23:59.
         {/if}
       </span>
     </span>
   </div>
 
+  {#if nota}<p class="m-0 text-[13px] text-inst-ink-2">{nota}</p>{/if}
+
   {#snippet pie()}
-    {#if holguraPersonal > 0}
+    {#if actual > 0}
       <button type="button" class="{btnFantasma} {chico} text-inst-error hover:text-inst-error" disabled={guardando} onclick={() => onGuardar(0)}>
         Quitar holgura
       </button>
     {/if}
     <button type="button" class="{btnSecundario} ml-auto" disabled={guardando} onclick={onCerrar}>Cancelar</button>
-    <button type="button" class={btnPrimario} disabled={guardando || dias === holguraPersonal} onclick={() => onGuardar(dias)}>
+    <button type="button" class={btnPrimario} disabled={guardando || dias === actual} onclick={() => onGuardar(dias)}>
       Guardar holgura
     </button>
   {/snippet}
