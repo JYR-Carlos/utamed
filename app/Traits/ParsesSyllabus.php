@@ -111,9 +111,11 @@ trait ParsesSyllabus
      * servidor). El que guarda la sección I puede ser el código interno del
      * curso en los syllabus antiguos, y los aprobados ya no se editan.
      *
-     * Las horas presenciales se desglosan en cátedra, taller y laboratorio; las
-     * de dedicación (trabajo autónomo) vienen de metadata.asignatura.horas; si
-     * el programa no las trae (o trae 0, que es el valor sin llenar) se dice.
+     * Las horas presenciales (semanales) van con su desglose abajo. Las de
+     * dedicación son el trabajo autónomo: metadata.asignatura.horas las trae por
+     * semana; los programas cargados desde el EVEA las guardan en la sección I
+     * como total del semestre. Un 0 es el valor sin llenar: si no hay ninguna,
+     * se dice.
      */
     private function formatSeccionI(SeccionIContenido $c, array $asignatura = []): string
     {
@@ -123,19 +125,18 @@ trait ParsesSyllabus
             "Asignatura: {$c->nombreAsignatura}",
             "Código: {$codigo}",
             "Créditos SCT: {$c->creditosSct}",
-            sprintf(
-                'Horas presenciales: %d horas semanales · cátedra %d · taller %d · laboratorio %d',
-                $h->catedra + $h->taller + $h->laboratorio,
-                $h->catedra,
-                $h->taller,
-                $h->laboratorio,
-            ),
+            sprintf('Horas presenciales: %d horas semanales', $h->catedra + $h->taller + $h->laboratorio),
+            "Cátedra: {$h->catedra}",
+            "Taller: {$h->taller}",
+            "Laboratorio: {$h->laboratorio}",
         ];
 
-        $autonomas = (int) ($asignatura['horas']['autonomas'] ?? 0);
-        $lineas[] = $autonomas > 0
-            ? "Horas dedicación: {$autonomas} horas semanales de trabajo autónomo"
-            : 'Horas dedicación: sin registrar en la asignatura';
+        $semanales = (int) ($asignatura['horas']['autonomas'] ?? 0);
+        $lineas[] = match (true) {
+            $semanales > 0 => "Horas dedicación: {$semanales} horas semanales de trabajo autónomo",
+            (int) $h->autonomas > 0 => "Horas dedicación: {$h->autonomas} horas semestrales de trabajo autónomo",
+            default => 'Horas dedicación: sin registrar en la asignatura',
+        };
 
         if (trim($c->categoria) !== '') {
             $lineas[] = "Categoría: {$c->categoria}";
