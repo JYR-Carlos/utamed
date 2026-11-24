@@ -1,14 +1,17 @@
 <?php
 
 /**
- * «Imprimir» del docente abre el programa como PDF: lo ve quien puede ver el
- * programa, y sale con las viñetas, los campos y las horas en su lugar.
+ * «Imprimir» abre el programa como PDF (docente, ayudante y administrador): lo
+ * ve quien puede ver el programa, y sale con las viñetas y los campos en su lugar.
  */
 
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Services\Authorization\PermissionCache;
 use App\Services\ProgramaService;
+use App\Support\Permissions;
 use App\Syllabus\SyllabusBloques;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +104,70 @@ test('sin programa vigente responde 404 y sin sesión manda a ingresar', functio
     Programa::where('id_curso', $f->id_curso)->update(['es_actual' => false]);
     comoUsuario($f->titular);
     $this->get("/docente/cursos/{$f->id_curso}/programa/pdf")->assertNotFound();
+});
+
+test('el administrador abre el PDF desde su panel', function () {
+    $f = cursoConTitular();
+    programaDePrueba($f);
+    $admin = Usuario::where('username', 'superadmin')->first() ?? $this->markTestSkipped('Sin superadmin.');
+    comoUsuario($admin->id_usuario);
+
+    $respuesta = $this->get("/admin/cursos/{$f->id_curso}/programa/pdf")->assertOk();
+
+    expect($respuesta->headers->get('content-type'))->toBe('application/pdf');
+});
+
+test('el ayudante abre el PDF de su curso sólo con el permiso de ver programas', function () {
+    $f = cursoConTitular();
+    programaDePrueba($f);
+    $idContexto = DB::table('curso.curso')->where('id_curso', $f->id_curso)->value('id_contexto');
+    $idRol = DB::table('usuario.rol')->whereRaw("LOWER(nombre) = 'ayudante'")->value('id_rol');
+    $idUsuario = DB::selectOne('
+        SELECT u.id_usuario FROM usuario.usuario u
+        WHERE NOT EXISTS (SELECT 1 FROM usuario.usuario_rol_asignacion ura WHERE ura.id_usuario = u.id_usuario)
+        ORDER BY u.id_usuario LIMIT 1
+    ')?->id_usuario
+        ?? DB::selectOne('SELECT e.id_usuario FROM usuario.estudiante e ORDER BY e.id_usuario LIMIT 1')?->id_usuario;
+    if (! $idContexto || ! $idRol || ! $idUsuario) {
+        $this->markTestSkipped('Sin contexto, rol o usuario para un ayudante.');
+    }
+    UsuarioRolAsignacion::create([
+        'id_usuario' => $idUsuario,
+        'id_rol' => $idRol,
+        'id_contexto' => $idContexto,
+        'asignado_por' => $f->titular,
+        'fecha_inicio_planificada' => now()->subMinute(),
+        'fecha_fin_planificada' => now()->addYear(),
+        'esta_activo' => true,
+        'fue_eliminado' => false,
+        'creado_por' => $f->titular,
+    ]);
+    comoUsuario($idUsuario);
+    $url = "/ayudante/cursos/{$f->id_curso}/programa/pdf";
+
+    // El rol por sí solo no trae el permiso: se concede sobre el curso.
+    $this->get($url)->assertRedirect(route('ayudante.cursos.index'));
+
+    DB::table('usuario.usuario_permiso_especial')->insert([
+        'id_usuario' => $idUsuario,
+        'id_permiso' => DB::table('usuario.permiso')->where('slug', Permissions::CURSOS_PROGRAMAS_VER_TODOS->value)->value('id_permiso'),
+        'id_contexto' => $idContexto,
+        'esta_permitido' => true,
+        'puede_delegar' => false,
+        'esta_activo' => true,
+        'fue_borrado' => false,
+        'fecha_inicio_planificada' => now()->subMinute(),
+        'fecha_fin_planificada' => now()->addYear(),
+        'creado_por' => $f->titular,
+    ]);
+    // El insert directo no dispara el evento que vacía la caché de permisos.
+    app(PermissionCache::class)->olvidarUsuario($idUsuario);
+    comoUsuario($idUsuario);
+
+    expect($this->get($url)->assertOk()->headers->get('content-type'))->toBe('application/pdf');
+
+    $otro = DB::table('curso.curso')->where('id_curso', '<>', $f->id_curso)->whereNull('fecha_eliminacion')->value('id_curso');
+    $this->get("/ayudante/cursos/{$otro}/programa/pdf")->assertRedirect(route('ayudante.cursos.index'));
 });
 
 test('los campos seguidos quedan juntos y las viñetas a mano son viñetas', function () {

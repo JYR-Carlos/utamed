@@ -188,21 +188,10 @@
   const rotuloCurso = $derived([codigo, titulo].filter(Boolean).join(' '));
   const semestreTexto = $derived(nombreSemestre(curso?.semestre_real, curso?.agno_real));
 
-  /**
-   * «Imprimir» del docente abre el PDF que arma el servidor (ProgramaPdf). El
-   * administrador y el ayudante imprimen esta página, con las reglas de
-   * `@media print`; el título del documento pasa a ser el nombre del archivo
-   * que el navegador propone al guardar como PDF.
-   */
-  function imprimir() {
-    const anterior = document.title;
-    document.title = ['Programa', codigo, titulo, curso?.agno_real && curso?.semestre_real ? `${curso.agno_real}-${curso.semestre_real}` : null]
-      .filter(Boolean)
-      .join(' ')
-      .replace(/\s+/g, '_');
-    window.print();
-    document.title = anterior;
-  }
+  /** «Imprimir» abre el PDF que arma el servidor (ProgramaPdf), en otra pestaña. */
+  const urlPdf = $derived(
+    programa && layoutType !== 'estudiante' ? `/${layoutType}/cursos/${curso.id_curso}/programa/pdf` : null,
+  );
 
   // ── Estado del documento ──────────────────────────────────────────────────
 
@@ -598,9 +587,9 @@
                 Historial
               </button>
             {/if}
-            {#if programa}
+            {#if urlPdf}
               <a
-                href="/docente/cursos/{curso.id_curso}/programa/pdf"
+                href={urlPdf}
                 target="_blank"
                 rel="noopener"
                 class="{btnPrimario} {chico}"
@@ -646,14 +635,17 @@
             </div>
 
             <div class="flex max-w-full flex-wrap items-center gap-2.5 sm:ml-auto sm:flex-none">
-              <button
-                type="button"
-                onclick={imprimir}
-                class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand print:hidden"
-              >
-                <Printer size={15} class="text-ink-2" aria-hidden="true" />
-                Imprimir
-              </button>
+              {#if urlPdf}
+                <a
+                  href={urlPdf}
+                  target="_blank"
+                  rel="noopener"
+                  class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink no-underline transition-colors hover:bg-sand print:hidden"
+                >
+                  <Printer size={15} class="text-ink-2" aria-hidden="true" />
+                  Imprimir
+                </a>
+              {/if}
               {#if programa && historial.length > 0}
                 <button
                   type="button"

@@ -11,6 +11,7 @@ use App\Models\Curso\Unidad;
 use App\Models\Agenda\Actividad;
 use App\Enums\DB\TipoActividad;
 use App\Services\Agenda\GrupoIndividualService;
+use App\Services\ProgramaPdf;
 use App\Services\ProgramaService;
 use App\Services\SyllabusViewerPresenter;
 use App\Services\SyllabusWizardPresenter;
@@ -225,6 +226,17 @@ class ProgramaController extends Controller
             'backUrl'         => '/admin/cursos',
             'userId'          => $user->id_usuario,
         ]);
+    }
+
+    /** El programa vigente como PDF, en el navegador — `/admin/cursos/{curso}/programa/pdf`. */
+    public function pdf(Curso $curso, ProgramaPdf $pdf): \Illuminate\Http\Response
+    {
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->firstOrFail();
+        $this->authorize('view', $programa);
+
+        return $pdf->generar($curso, $programa)->stream($pdf->nombreArchivo($curso));
     }
 
     /**

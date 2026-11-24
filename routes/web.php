@@ -139,6 +139,8 @@ Route::prefix('admin')->middleware(['auth', 'is_admin'])->name('admin.')->group(
         ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [AdminProgramaController::class, 'show'])
         ->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/pdf', [AdminProgramaController::class, 'pdf'])
+        ->name('cursos.programa.pdf');
     Route::get('cursos/{curso}/programa/revisar', [AdminProgramaController::class, 'show'])
         ->name('cursos.programa.revisar');
     // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
@@ -668,6 +670,7 @@ Route::prefix('ayudante')->middleware(['auth', 'is_ayudante'])->name('ayudante.'
 
     // Programa (Syllabus) View - MUST be before generic {curso} route
     Route::get('cursos/{curso}/programa', [App\Http\Controllers\Ayudante\ProgramaController::class, 'show'])->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/pdf', [App\Http\Controllers\Ayudante\ProgramaController::class, 'pdf'])->name('cursos.programa.pdf');
     Route::get('cursos/{curso}/programa/create', [App\Http\Controllers\Ayudante\ProgramaController::class, 'create'])->name('cursos.programa.create');
     Route::get('cursos/{curso}/programa/editar', [App\Http\Controllers\Ayudante\ProgramaController::class, 'edit'])->name('cursos.programa.edit');
     Route::get('cursos/{curso}/programa/json', [AdminProgramaController::class, 'getJson'])->name('cursos.programa.json');
