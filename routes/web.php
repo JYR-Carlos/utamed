@@ -573,6 +573,8 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
         ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [ProgramaController::class, 'show'])
         ->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/pdf', [ProgramaController::class, 'pdf'])
+        ->name('cursos.programa.pdf');
     // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
     // `?tipo=BASICO|COMPLETO` elige el tipo al crear o al promover un básico.
     Route::get('cursos/{curso}/programa/editar', [ProgramaController::class, 'edit'])

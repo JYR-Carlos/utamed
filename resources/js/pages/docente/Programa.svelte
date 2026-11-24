@@ -189,9 +189,10 @@
   const semestreTexto = $derived(nombreSemestre(curso?.semestre_real, curso?.agno_real));
 
   /**
-   * «Imprimir» saca el programa diagramado (cabecera institucional, títulos
-   * oficiales, número de página). El título del documento pasa a ser el
-   * nombre del archivo que el navegador propone al guardar como PDF.
+   * «Imprimir» del docente abre el PDF que arma el servidor (ProgramaPdf). El
+   * administrador y el ayudante imprimen esta página, con las reglas de
+   * `@media print`; el título del documento pasa a ser el nombre del archivo
+   * que el navegador propone al guardar como PDF.
    */
   function imprimir() {
     const anterior = document.title;
@@ -598,10 +599,15 @@
               </button>
             {/if}
             {#if programa}
-              <button type="button" class="{btnPrimario} {chico}" onclick={imprimir}>
+              <a
+                href="/docente/cursos/{curso.id_curso}/programa/pdf"
+                target="_blank"
+                rel="noopener"
+                class="{btnPrimario} {chico}"
+              >
                 <Printer size={15} aria-hidden="true" />
                 Imprimir
-              </button>
+              </a>
             {/if}
           </div>
         {:else}
