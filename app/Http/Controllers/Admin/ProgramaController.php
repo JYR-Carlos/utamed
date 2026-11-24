@@ -642,7 +642,8 @@ class ProgramaController extends Controller
         if ($busqueda) {
             $query->where(function ($q) use ($busqueda) {
                 $q->where('nombre', 'ilike', "%{$busqueda}%")
-                  ->orWhere('cod_curso', 'ilike', "%{$busqueda}%");
+                  ->orWhere('cod_curso', 'ilike', "%{$busqueda}%")
+                  ->orWhereHas('asignacionPlan.asignatura', fn ($a) => $a->where('cod_asignatura', 'ilike', "%{$busqueda}%"));
             });
         }
 
@@ -693,7 +694,7 @@ class ProgramaController extends Controller
 
             return [
                 'id_curso'                      => $c->id_curso,
-                'cod_curso'                     => $c->cod_curso,
+                'cod_asignatura'                => $c->asignacionPlan?->asignatura?->cod_asignatura,
                 'nombre'                        => $c->nombre,
                 'id_asignacion_plan'            => $c->id_asignacion_plan,
                 'id_asignatura'                 => $c->asignacionPlan?->id_asignatura,

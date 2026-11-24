@@ -62,7 +62,6 @@
   interface Props {
     curso: {
       id_curso: number;
-      cod_curso?: string | number | null;
       cod_asignatura?: string | null;
       nombre?: string | null;
       asignatura_nombre?: string | null;
@@ -118,7 +117,7 @@
       : `${basePath}/${curso.id_curso}/programa`,
   );
 
-  const codigoAsignatura = $derived(curso.cod_asignatura ?? String(curso.cod_curso ?? ''));
+  const codigoAsignatura = $derived(curso.cod_asignatura ?? '');
   const nombreAsignatura = $derived(curso.asignatura_nombre ?? curso.nombre ?? '');
 
   // ── Estado del formulario ─────────────────────────────────────────────────
@@ -127,7 +126,6 @@
 
   const sec = (n: string) => programa?.secciones?.[n]?.contenido ?? {};
 
-  let codigo = $state(String(sec('I').codigo ?? curso.cod_asignatura ?? curso.cod_curso ?? ''));
   let creditos_sct = $state(String(sec('I').creditos_sct ?? curso.creditos_sct ?? ''));
   let horas_catedra = $state(String(sec('I').horas?.catedra ?? curso.horas_catedra ?? ''));
   let horas_taller = $state(String(sec('I').horas?.taller ?? curso.horas_taller ?? ''));
@@ -291,7 +289,7 @@
   function tieneContenido(numeral: string): boolean {
     switch (numeral) {
       case 'I':
-        return !!codigo.trim() && !!creditos_sct.trim() && !!categoria.trim();
+        return !!codigoAsignatura && !!creditos_sct.trim() && !!categoria.trim();
       case 'II':
         return !!presentacion.trim();
       case 'III':
@@ -332,7 +330,7 @@
 
     sumar(
       'I',
-      [codigo.trim(), creditos_sct.trim(), horas_catedra.trim(), categoria.trim()].filter(
+      [codigoAsignatura, creditos_sct.trim(), horas_catedra.trim(), categoria.trim()].filter(
         (v) => !v,
       ).length,
     );
@@ -424,7 +422,7 @@
       I: {
         contenido: {
           nombre_asignatura: nombreAsignatura,
-          codigo: codigo.trim(),
+          codigo: codigoAsignatura,
           creditos_sct: parseInt(creditos_sct) || 0,
           horas: {
             catedra: parseInt(horas_catedra) || 0,
@@ -767,7 +765,7 @@
               tipo={tipoSyllabus}
               editable={puedeEditarPaso}
               {curso}
-              bind:codigo
+              codigo={codigoAsignatura}
               bind:creditos_sct
               bind:horas_catedra
               bind:horas_taller

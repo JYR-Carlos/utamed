@@ -54,7 +54,7 @@
 
   const ordenadas = $derived(seccionesParaLeer(secciones));
 
-  const codigo = $derived(curso?.cod_asignatura || curso?.cod_curso || '');
+  const codigo = $derived(curso?.cod_asignatura ?? '');
 
   const lineaPrograma = $derived(
     [
