@@ -37,14 +37,14 @@
    * tome todo el ancho; el botón «Conversación» la vuelve a abrir. En una
    * formativa se califica con Bueno, Regular o Malo.
    */
-  import { router } from '@inertiajs/svelte';
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { Check, ChevronRight, ClipboardCheck, FileText, GripVertical, Info, MessageSquare, Pencil, Save, Send, X } from 'lucide-svelte';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
   import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
   import RubricaMatriz from '@/components/docente/RubricaMatriz.svelte';
   import { calcularNotaChilena } from '@/lib/notas';
+  import { sondear } from '@/lib/sondeo';
   import { matrizDe } from '@/lib/rubricaMatriz';
   import { formatNota } from '@/utils/formatters';
   import {
@@ -77,7 +77,6 @@
     integrantes?: IntegranteAgenda[];
     notaActual?: number | null;
     rubrica?: Rubrica | null;
-    idGrupo: number;
     urlEntrega: (idAgenda: number, ver?: boolean) => string;
     listado_interacciones: InteraccionItem[];
     isLoading?: boolean;
@@ -87,6 +86,8 @@
     pieCerrar: string;
     guardando?: boolean;
     onEnviar: (data: EnvioAgenda) => void;
+    /** Vuelve a pedir la conversación; los datos los tiene el padre. */
+    onRefrescar: () => Promise<void>;
     onCerrar: () => void;
     onCrearRubrica?: () => void;
   }
@@ -101,7 +102,6 @@
     integrantes = [],
     notaActual = null,
     rubrica = null,
-    idGrupo,
     urlEntrega,
     listado_interacciones,
     isLoading = false,
@@ -110,6 +110,7 @@
     pieCerrar,
     guardando = false,
     onEnviar,
+    onRefrescar,
     onCerrar,
     onCrearRubrica,
   }: Props = $props();
@@ -126,17 +127,7 @@
   );
 
   // Mensajes nuevos y «Visto por» sin recargar la pantalla.
-  $effect(() => {
-    if (!idGrupo) return;
-    const poll = router.poll(3000, {
-      only: ['interaccionesGrupo'],
-      data: { grupo_id: idGrupo },
-      preserveUrl: true,
-      replace: true,
-      showProgress: false,
-    });
-    return () => poll.stop();
-  });
+  onMount(() => sondear(() => onRefrescar()));
 
   // ── Pestañas y conversación ────────────────────────────────────────────────
   let pestana = $state<'escribir' | 'evaluar'>('escribir');

@@ -2342,9 +2342,9 @@ class DocenteActivityController extends Controller
     }
 
     /**
-     * Devuelve SÓLO los mensajes/feedback de un grupo específico de una actividad
-     * (filtra por tipo "Mensaje al profesor" y "Feedback"), sin incluir entregas de archivos.
-     * Usado en el panel de mensajes de la vista Activities/Index (nivel 2).
+     * Hilo completo de un grupo como JSON, sin recalcular la pantalla. Lo pide la
+     * agenda del docente cada pocos segundos mientras está abierta; leerlo marca
+     * como vistos los mensajes nuevos.
      */
     public function mensajesGrupo(Curso $curso, Actividad $actividad, int $grupo)
     {

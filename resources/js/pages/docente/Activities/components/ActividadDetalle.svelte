@@ -79,6 +79,7 @@
     fmtDecimas as fmtDec,
     guardarEvaluacion,
     mensajeOptimista,
+    pedirHilo,
     primerError,
     urlFeedback,
     visitaInertia,
@@ -244,8 +245,11 @@
   let optimistas = $state<InteraccionItem[]>([]);
   let guardando = $state(false);
 
+  // En un $derived: sólo cuando llega otro hilo, no cada vez que Inertia
+  // reemplaza las props (pisaría el que trajo el refresco).
+  const hiloDePagina = $derived(interaccionesGrupo);
   $effect(() => {
-    if (Array.isArray(interaccionesGrupo)) hilo = [...interaccionesGrupo];
+    if (Array.isArray(hiloDePagina)) hilo = [...hiloDePagina];
   });
 
   const hiloVisible = $derived(conOptimistas(hilo, optimistas));
@@ -285,6 +289,16 @@
         cargandoHilo = false;
       },
     });
+  }
+
+  async function refrescarHilo() {
+    const abierto = agenda?.grupo.grupo;
+    if (!abierto) return;
+    const previo = hilo;
+    const recibido = await pedirHilo(`${base}/grupos/${abierto}`);
+    // Si entretanto se abrió otro grupo o un guardado trajo el hilo, esta
+    // respuesta es más vieja que lo que se ve.
+    if (agenda?.grupo.grupo === abierto && hilo === previo) hilo = recibido;
   }
 
   function cerrarAgenda() {
@@ -816,7 +830,6 @@
     integrantes={g.integrantes}
     notaActual={g.nota}
     {rubrica}
-    idGrupo={g.grupo}
     urlEntrega={(id, ver) =>
       `${base}/grupos/${g.grupo}/entregas/${id}/descargar${ver ? '?ver=1' : ''}`}
     listado_interacciones={hiloVisible}
@@ -826,6 +839,7 @@
     pieCerrar=""
     {guardando}
     onEnviar={enviarDesdeAgenda}
+    onRefrescar={refrescarHilo}
     onCerrar={cerrarAgenda}
     onCrearRubrica={actividad.es_titular ? () => (editorRubrica = true) : undefined}
   />
