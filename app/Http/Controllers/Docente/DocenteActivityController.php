@@ -546,9 +546,11 @@ class DocenteActivityController extends Controller
      */
     private function sincronizarEstadosDeGrupos(Actividad $actividad): void
     {
-        $actividad->actividadAsignadaGrupos->each(
-            fn (ActividadAsignadaGrupo $grupo) => $grupo->sincronizarEstado($actividad)
-        );
+        // Sin each(): se corta con el primer `false`, que es lo que devuelve
+        // sincronizarEstado() cuando ese grupo no cambió.
+        foreach ($actividad->actividadAsignadaGrupos as $grupo) {
+            $grupo->sincronizarEstado($actividad);
+        }
     }
 
     /**
