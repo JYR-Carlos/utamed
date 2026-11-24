@@ -38,6 +38,7 @@ use \Illuminate\Support\Facades\Auth;
  */
 class DocenteCursoController extends Controller
 {
+    use \App\Http\Controllers\Concerns\AutorizaEvaluacion;
     use \App\Traits\ParsesSyllabus;
 
     /**
@@ -753,9 +754,9 @@ class DocenteCursoController extends Controller
      * Gestión de grupos — /docente/cursos/{curso}/gestion/grupos (revisión
      * «Mi UTAmed»). Primero se elige la actividad grupal; luego se arman y
      * modifican sus grupos con los endpoints de siempre de
-     * DocenteActivityController (crear, agregar, quitar, renombrar, eliminar
-     * y reutilizar los de otra actividad). Los grupos viven por actividad:
-     * la base no tiene grupos de curso.
+     * DocenteActivityController (crear, agregar, quitar, renombrar, eliminar,
+     * reutilizar los de otra actividad y copiarlos a otras). Un grupo pertenece
+     * a una actividad: la base no tiene grupos de curso.
      */
     public function gestionGrupos(Request $request, Curso $curso)
     {
@@ -764,8 +765,9 @@ class DocenteCursoController extends Controller
         $actividades = \App\Models\Agenda\Actividad::whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
             ->where('es_grupal', true)
             ->withCount('actividadAsignadaGrupos')
+            ->with('componente')
             ->orderBy('fecha_limite')
-            ->get(['id_actividad', 'nombre', 'fecha_limite', 'max_integrantes']);
+            ->get(['id_actividad', 'id_componente', 'nombre', 'fecha_limite', 'max_integrantes']);
 
         $elegida = $actividades->firstWhere('id_actividad', $request->integer('actividad')) ?? $actividades->first();
 
@@ -819,6 +821,7 @@ class DocenteCursoController extends Controller
                 'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
                 'max_integrantes' => $a->max_integrantes,
                 'cantidad_grupos' => $a->actividad_asignada_grupos_count,
+                'editable' => $this->puedeEditarEvaluacion($request->user(), $curso, $a),
             ])->values(),
             'actividad' => $elegida?->id_actividad,
             'grupos' => $grupos,

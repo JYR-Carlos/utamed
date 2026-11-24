@@ -11,8 +11,9 @@
    *    desinscrito o el grupo puede haberse desintegrado — y el docente debe
    *    decidir grupo por grupo, no de forma automática.
    *
-   * Al copiar, sólo se traen los integrantes que siguen inscritos en el curso;
-   * si un grupo no tiene ninguno vigente queda deshabilitado.
+   * Al copiar, sólo se traen los integrantes que siguen inscritos en el curso y
+   * que no tienen ya grupo en la actividad; si un grupo no tiene ninguno vigente
+   * queda deshabilitado.
    */
   import { X, Users } from 'lucide-svelte';
 
@@ -152,8 +153,8 @@
         <!-- Paso 2: grupos concretos a copiar -->
         {#if seleccionada !== null}
           <p class="text-xs text-gray-500 mb-3">
-            2. Elige los grupos a copiar. Sólo se traen los integrantes que siguen inscritos en
-            el curso.
+            2. Elige los grupos a copiar. Se traen los integrantes que siguen inscritos en el curso y
+            que no tienen grupo en esta actividad; sus grupos y entregas no cambian.
           </p>
 
           {#if loadingGrupos}

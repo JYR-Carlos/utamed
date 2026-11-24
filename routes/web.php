@@ -532,6 +532,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [DocenteActivityController::class, 'gruposPorActividad'])->name('cursos.actividades.grupos.list');
     Route::get('cursos/{curso}/actividades/{actividad}/grupos-origen/{origen}', [DocenteActivityController::class, 'gruposDeActividadOrigen'])->name('cursos.actividades.grupos.origen');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [DocenteActivityController::class, 'copiarGruposDeActividad'])->name('cursos.actividades.grupos.copy');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos-copiar-a', [DocenteActivityController::class, 'copiarGruposAOtras'])->name('cursos.actividades.grupos.copiar-a');
 
     // Gestión de entregas/archivos
     Route::get('cursos/{curso}/actividades/{actividad}/entregas', [DocenteActivityController::class, 'entregasPorActividad'])->name('cursos.actividades.entregas.list');
