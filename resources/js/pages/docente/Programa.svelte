@@ -115,15 +115,15 @@
    * que no viene en el JSONB del programa.
    */
   const NOMBRES_SECCION: Record<string, string> = {
-    I: 'Identificación',
-    II: 'Presentación',
-    III: 'Estándares',
-    IV: 'Competencias',
-    V: 'Evaluación Diagnóstica',
-    VI: 'Unidades',
-    VII: 'Planificación',
-    VIII: 'Recursos',
-    IX: 'Aspectos Administrativos',
+    I: 'Identificación de la asignatura',
+    II: 'Presentación, descripción y propósito formativo',
+    III: 'Estándares de la profesión',
+    IV: 'Áreas, competencias específicas y competencias genéricas',
+    V: 'Evaluación diagnóstica para determinar los aprendizajes previos',
+    VI: 'Unidades y contenidos de aprendizaje',
+    VII: 'Planificación de la enseñanza',
+    VIII: 'Recursos para el aprendizaje',
+    IX: 'Aspectos administrativos y evaluación',
   };
 
   interface Props {

@@ -74,18 +74,18 @@
         href="#seccion-{entrada.numeral}"
         onclick={() => onNavegar?.(entrada.numeral)}
         aria-current={esActiva ? 'true' : undefined}
-        class="flex items-center gap-2.5 rounded-[7px] px-2.5 py-[7px] text-[13px] no-underline transition-colors {esActiva
+        class="flex items-baseline gap-2.5 rounded-[7px] px-2.5 py-[7px] text-[13px] no-underline transition-colors {esActiva
           ? 'bg-uta-blue-light font-semibold text-navy shadow-[inset_2px_0_0_var(--color-navy)]'
           : entrada.completa || !mostrarProgreso
             ? 'text-ink hover:bg-sand'
             : 'text-ink-2 hover:bg-sand'}"
       >
         <span
-          class="w-[22px] shrink-0 font-mono text-[11.5px] {esActiva
+          class="w-[34px] shrink-0 font-mono text-[11.5px] {esActiva
             ? 'text-navy'
             : 'text-gray-400'}">{entrada.numeral}.</span
         >
-        <span class="min-w-0 flex-1 truncate">{entrada.nombre}</span>
+        <span class="min-w-0 flex-1 leading-snug">{entrada.nombre}</span>
         {#if mostrarProgreso && entrada.completa}
           <Check size={14} class="shrink-0 text-emerald-600" aria-label="Con contenido" />
         {/if}
