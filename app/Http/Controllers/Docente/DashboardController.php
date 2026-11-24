@@ -614,7 +614,7 @@ class DashboardController extends Controller
 
     /**
      * Por evaluar: actividades con entregas que esperan nota (sumativas) o
-     * retroalimentación (formativas), con el mismo conteo que la columna
+     * evaluación (formativas), con el mismo conteo que la columna
      * Entregas de Actividades (AvanceEvaluacionService). Sólo lo que el
      * docente puede evaluar: todo el curso si es titular, su componente si no.
      * Las presenciales no reciben entregas y quedan fuera.

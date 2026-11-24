@@ -719,7 +719,7 @@ class DocenteCursoController extends Controller
             ->distinct()
             ->pluck('id_actividad_asignada_grupo')
             ->flip();
-        $conFeedback = (new AvanceEvaluacionService)->gruposConFeedback($idsGrupo, $filas->pluck('id_actividad', 'grupo'));
+        $evaluados = (new AvanceEvaluacionService)->gruposEvaluados($idsGrupo);
 
         // La calificación de una formativa (Bueno, Regular o Malo) es la de su
         // evaluación más reciente.
@@ -731,10 +731,10 @@ class DocenteCursoController extends Controller
             ->unique('grupo')
             ->pluck('evaluacion_obtenida', 'grupo');
 
-        return response()->json($filas->map(function ($f) use ($conEntrega, $conFeedback, $calificacion) {
+        return response()->json($filas->map(function ($f) use ($conEntrega, $evaluados, $calificacion) {
             $esSumativa = $f->tipo_actividad === \App\Enums\DB\TipoActividad::SUMATIVA->value;
             $nota = $f->nota_individual ?? $f->nota;
-            $listo = $esSumativa ? $nota !== null : $conFeedback->has($f->grupo);
+            $listo = $esSumativa ? $nota !== null : $evaluados->has($f->grupo);
             $estado = $listo ? 'ok' : ($conEntrega->has($f->grupo) || $f->tipo_entrega === 'presencial' ? 'pend' : 'no');
 
             return [
@@ -829,8 +829,8 @@ class DocenteCursoController extends Controller
     /**
      * Columna «Pendiente» de la pestaña Estudiantes: por componente y
      * estudiante, cuántas actividades visibles esperan evaluación del docente
-     * (entregó y la sumativa no tiene nota o la formativa no tiene
-     * retroalimentación; mismo criterio que AvanceEvaluacionService) y en
+     * (entregó y la sumativa no tiene nota o la formativa no está
+     * evaluada; mismo criterio que AvanceEvaluacionService) y en
      * cuántas ya cerradas no entregó.
      *
      * @param  \Illuminate\Support\Collection<int,int>  $idsComponente
@@ -860,10 +860,7 @@ class DocenteCursoController extends Controller
             ->distinct()
             ->pluck('a.id_actividad_asignada_grupo')
             ->flip();
-        $conFeedback = app(AvanceEvaluacionService::class)->gruposConFeedback(
-            $idsGrupo,
-            $filas->pluck('id_actividad', 'id_actividad_asignada_grupo'),
-        );
+        $evaluados = app(AvanceEvaluacionService::class)->gruposEvaluados($idsGrupo);
         $hoy = now()->toDateString();
 
         $resultado = [];
@@ -873,7 +870,7 @@ class DocenteCursoController extends Controller
             if ($conEntrega->has($f->id_actividad_asignada_grupo)) {
                 $evaluada = $f->tipo_actividad === 'SUMATIVA'
                     ? $f->nota !== null
-                    : $conFeedback->has($f->id_actividad_asignada_grupo);
+                    : $evaluados->has($f->id_actividad_asignada_grupo);
                 if (! $evaluada) {
                     $celda['por_revisar']++;
                 }

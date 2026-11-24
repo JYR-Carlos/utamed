@@ -17,7 +17,7 @@
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
     no_leidos: number;
-    con_feedback: boolean;
+    evaluado: boolean;
     entrega: { id_agenda: number; fecha: string; fuera_de_plazo: boolean; cantidad: number } | null;
     integrantes: IntegranteData[];
   };
@@ -793,9 +793,7 @@
         class="flex min-h-11 items-center gap-2.5 border-0 bg-transparent px-3.5 text-sm font-bold text-inst-ink hover:bg-inst-sutil lg:min-h-10"
         onclick={() => calificar(f)}
       >
-        <ClipboardCheck size={16} aria-hidden="true" />{actividad.es_sumativa
-          ? 'Calificar'
-          : 'Revisar'}
+        <ClipboardCheck size={16} aria-hidden="true" />Calificar
       </button>
       {#if actividad.fecha_limite}
         <button

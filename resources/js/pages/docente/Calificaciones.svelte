@@ -4,7 +4,7 @@
    * (dirección institucional UTA).
    *
    * Una tabla por curso con todas sus actividades: cuántos grupos entregaron y
-   * esperan nota (sumativas) o feedback (formativas, que con feedback quedan
+   * esperan nota (sumativas) o evaluación (formativas, que al evaluarse quedan
    * revisadas), cuántos ya están listos y el botón para ir a evaluar. Primero
    * aparece lo que tiene entregas esperando.
    *
@@ -41,7 +41,7 @@
     por_calificar: number;
     calificados: number;
     por_revisar: number;
-    con_feedback: number;
+    revisados: number;
   }
 
   interface ComponenteCalif extends ComponenteCentro {
@@ -81,7 +81,7 @@
   // ── Filas ───────────────────────────────────────────────────────────────────
   const esSumativa = (a: ActividadCalif) => a.tipo_actividad === 'SUMATIVA';
   const pendientes = (a: ActividadCalif) => (esSumativa(a) ? a.por_calificar : a.por_revisar);
-  const listas = (a: ActividadCalif) => (esSumativa(a) ? a.calificados : a.con_feedback);
+  const listas = (a: ActividadCalif) => (esSumativa(a) ? a.calificados : a.revisados);
 
   type Fila = ActividadCalif & { componente: string };
 
@@ -190,7 +190,7 @@
         <div class="flex min-w-[180px] flex-1 flex-col gap-1 border-inst-linea px-5 py-4 max-sm:border-t sm:border-l">
           <span class={etiqueta}>Por revisar</span>
           <span class="{titulo} text-[28px] leading-8">{resumen.porRevisar}</span>
-          <span class="text-[13px] text-inst-ink-2">entregas formativas sin feedback</span>
+          <span class="text-[13px] text-inst-ink-2">entregas formativas sin evaluar</span>
         </div>
         <div class="flex min-w-[180px] flex-1 flex-col gap-1 border-inst-linea px-5 py-4 max-sm:border-t sm:border-l">
           <span class={etiqueta}>Calificadas</span>

@@ -54,7 +54,7 @@ test('la agenda de un grupo llega como JSON con la actividad, el grupo, la rúbr
         ->assertJsonStructure([
             'curso' => ['id_curso', 'nombre'],
             'actividad' => ['nombre', 'es_sumativa', 'trae_archivo', 'es_grupal', 'es_titular'],
-            'grupo' => ['etiqueta', 'nota', 'con_feedback', 'entrega', 'integrantes'],
+            'grupo' => ['etiqueta', 'nota', 'evaluado', 'entrega', 'integrantes'],
             'rubrica',
             'rubrica_id',
             'interacciones',

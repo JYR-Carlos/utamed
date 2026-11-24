@@ -328,7 +328,7 @@ class DocenteActivityController extends Controller
             'grupos_con_entrega' => $avance['grupos_con_entrega'] ?? 0,
             'calificados'        => $avance['calificados'] ?? 0,
             'por_calificar'      => $avance['por_calificar'] ?? 0,
-            'con_feedback'       => $avance['con_feedback'] ?? 0,
+            'revisados'          => $avance['revisados'] ?? 0,
             'por_revisar'        => $avance['por_revisar'] ?? 0,
             'promedio_nota'      => $avance['promedio'] ?? null,
         ];
@@ -875,11 +875,11 @@ class DocenteActivityController extends Controller
                             'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
                             'tiene_grupos' => $a->actividad_asignada_grupos_count > 0,
                             // Sumativas: por_calificar / calificados; formativas:
-                            // por_revisar / con_feedback (feedback = revisada).
+                            // por_revisar / revisados (evaluada = revisada).
                             'por_calificar' => $avance[$a->id_actividad]['por_calificar'] ?? 0,
                             'calificados' => $avance[$a->id_actividad]['calificados'] ?? 0,
                             'por_revisar' => $avance[$a->id_actividad]['por_revisar'] ?? 0,
-                            'con_feedback' => $avance[$a->id_actividad]['con_feedback'] ?? 0,
+                            'revisados' => $avance[$a->id_actividad]['revisados'] ?? 0,
                         ])
                         ->values();
 
@@ -1030,18 +1030,16 @@ class DocenteActivityController extends Controller
             ->with(['integranteGrupos.estudiante.usuario'])
             ->get();
 
-        // Feedback dirigido por grupo: en las formativas es lo que marca la
-        // entrega como «Revisada» (mismo criterio que el tablero).
-        $idsGrupo = $gruposActividad->pluck('id_actividad_asignada_grupo');
-        $conFeedback = (new AvanceEvaluacionService)->gruposConFeedback(
-            $idsGrupo,
-            $idsGrupo->mapWithKeys(fn ($id) => [$id => $actividad->id_actividad]),
+        // Grupos ya evaluados: en las formativas es lo que marca la entrega como
+        // «Revisado» (mismo criterio que la lista). Escribir en la agenda no.
+        $evaluados = (new AvanceEvaluacionService)->gruposEvaluados(
+            $gruposActividad->pluck('id_actividad_asignada_grupo'),
         );
 
         $fotoIntranet = app(FotoIntranetService::class);
 
         $grupos = $gruposActividad
-            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback, $fotoIntranet) {
+            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $evaluados, $fotoIntranet) {
                 $estadoCalculado = $g->calcularEstadoGrupo($actividad);
 
                 $integrantes = $g->integranteGrupos
@@ -1065,7 +1063,7 @@ class DocenteActivityController extends Controller
                     'estado_actividad_asignada' => $estadoCalculado,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
-                    'con_feedback' => $conFeedback->has($g->id_actividad_asignada_grupo),
+                    'evaluado' => $evaluados->has($g->id_actividad_asignada_grupo),
                     'entrega' => (function () use ($g, $entregasPorGrupo, $limiteOriginal) {
                         $filas = $entregasPorGrupo->get($g->id_actividad_asignada_grupo);
                         $ultima = $filas?->last();
