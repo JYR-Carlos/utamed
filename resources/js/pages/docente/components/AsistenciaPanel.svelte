@@ -374,7 +374,7 @@
               <h2 id="t-lista-{idComponente}" class="{titulo} m-0 text-lg leading-6 first-letter:uppercase">
                 {modo === 'nueva' && !fDia ? 'Nueva sesión' : fDia ? fechaLarga(fDia) : 'Sin fecha'}
               </h2>
-              <span class="text-inst-ink-2">{fInicio}–{fFin} · {tipoComponente}</span>
+              <span class="text-inst-ink-2">{fInicio}–{fFin}</span>
             </span>
             {#if modo === 'editar'}
               <button

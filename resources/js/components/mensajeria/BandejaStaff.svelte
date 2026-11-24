@@ -287,7 +287,7 @@
             ? 'border-brand text-brand'
             : 'border-transparent text-slate-500 hover:text-slate-700'}"
         >
-          {c.tipo}
+          {componentes.length > 1 ? `Mensajes · ${c.tipo}` : 'Mensajes'}
           {#if c.no_leidos > 0}
             <span
               class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold"

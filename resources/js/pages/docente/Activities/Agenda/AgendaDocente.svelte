@@ -692,7 +692,7 @@
                 {/if}
               </span>
               <button type="button" class="{btnPrimario} ml-auto" disabled={!puedeGrabar} onclick={grabarRubrica}>
-                <Save size={16} aria-hidden="true" />Grabar evaluación
+                <Save size={16} aria-hidden="true" />Grabar rúbrica
               </button>
             </div>
           {/if}

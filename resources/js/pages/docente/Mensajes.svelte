@@ -14,8 +14,8 @@
    * Es sólo un índice: la fila abre la conversación en su lugar, donde se lee
    * y se responde. Abrir esta página no marca nada como leído.
    *
-   * Al pie, los cursos del semestre vigente para escribir un mensaje nuevo
-   * (lo que antes era la página «Mensajes para»).
+   * Al pie, «Mensajes para»: los cursos del semestre vigente, para entrar
+   * directo a la mensajería de uno. «Abrir bandeja» del Inicio llega ahí.
    */
   import { Link } from '@inertiajs/svelte';
   import { ChevronRight, ClipboardList, Megaphone, MessageSquare, Search } from 'lucide-svelte';
@@ -268,9 +268,9 @@
       {/if}
     </section>
 
-    <section aria-labelledby="t-escribir" class="flex flex-col gap-3">
+    <section id="mensajes-para" aria-labelledby="t-escribir" class="flex scroll-mt-24 flex-col gap-3">
       <div class={seccionTitulo}>
-        <h2 id="t-escribir" class="{titulo} m-0 text-[19px] leading-6">Escribir un mensaje nuevo</h2>
+        <h2 id="t-escribir" class="{titulo} m-0 text-[19px] leading-6">Mensajes para</h2>
       </div>
       {#if cursos.length > 0}
         <p class="m-0 text-inst-ink-2">
