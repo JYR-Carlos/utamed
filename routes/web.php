@@ -501,6 +501,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::post('cursos/{curso}/actividades/copiar', [CopiaActividadesController::class, 'copiar'])->name('cursos.actividades.copiar');
     Route::put('cursos/{curso}/actividades/{actividad}', [DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::patch('cursos/{curso}/actividades/{actividad}/visibilidad', [DocenteActivityController::class, 'toggleVisibilidad'])->name('cursos.actividades.visibilidad.toggle');
+    Route::patch('cursos/{curso}/actividades/{actividad}/holgura', [DocenteActivityController::class, 'updateHolgura'])->name('cursos.actividades.holgura.update');
     Route::delete('cursos/{curso}/actividades/{actividad}', [DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
 
     // Enunciado de la actividad (archivo descriptivo)

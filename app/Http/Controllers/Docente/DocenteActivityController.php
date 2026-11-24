@@ -539,6 +539,41 @@ class DocenteActivityController extends Controller
     }
 
     /**
+     * Fija la holgura general de la actividad (la de todo el curso) sin pasar
+     * por el formulario completo de edición. La holgura personal de cada grupo
+     * no se toca: se suma a ésta.
+     */
+    public function updateHolgura(Request $request, Curso $curso, Actividad $actividad)
+    {
+        $this->authorize('manageTeam', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+
+        // La columna es smallint: sin tope, un número mayor llega a la BD y falla.
+        $validated = $request->validate([
+            'nro_dias_adicionales_para_bloqueo' => 'required|integer|min:0|max:32767',
+        ]);
+
+        try {
+            DB::transaction(function () use ($actividad, $validated) {
+                $actividad->update($validated);
+                $this->sincronizarEstadosDeGrupos($actividad);
+            });
+
+            $dias = (int) $validated['nro_dias_adicionales_para_bloqueo'];
+            $mensaje = $dias === 0
+                ? "Se quitó la holgura de todo el curso en '{$actividad->nombre}'."
+                : "Holgura de todo el curso en '{$actividad->nombre}': {$dias} " . ($dias === 1 ? 'día.' : 'días.');
+
+            return redirect()->back()->with('success', $mensaje);
+        } catch (\Exception $e) {
+            Log::error('Error updating activity grace days: ' . $e->getMessage());
+
+            return redirect()->back()
+                ->with('error', 'No se pudo guardar la holgura de la actividad.');
+        }
+    }
+
+    /**
      * Recalcula y persiste el estado (PLANIFICADA/ACTIVA/CERRADA) de cada
      * grupo de la actividad. Se llama justo después de tocar 'visible',
      * 'fecha_limite' o la holgura, que son los campos de los que depende el

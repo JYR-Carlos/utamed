@@ -174,13 +174,12 @@
     const [a, m, d] = iso.slice(0, 10).split('-').map(Number);
     return Date.UTC(a, m - 1, d);
   };
-  const holguraHasta = (g: GrupoData) =>
+  /** Hasta cuándo se entrega: la holgura de todo el curso más la personal, si hay. */
+  const holguraHasta = (personal = 0) =>
     actividad.fecha_limite
       ? fmtCierre.format(
           utc(actividad.fecha_limite) +
-            (actividad.nro_dias_adicionales_para_bloqueo +
-              g.nro_dias_adicionales_para_bloqueo_personal) *
-              DIA,
+            (actividad.nro_dias_adicionales_para_bloqueo + personal) * DIA,
         )
       : null;
 
@@ -381,6 +380,31 @@
     );
   }
 
+  // ── Holgura a todo el curso ──────────────────────────────────────────────
+  let holguraTodos = $state(false);
+  const notaHolguraTodos = $derived.by(() => {
+    const n = grupos.filter((g) => g.nro_dias_adicionales_para_bloqueo_personal > 0).length;
+    if (n === 0) return undefined;
+    const [uno, varios] = actividad.es_grupal ? ['grupo', 'grupos'] : ['estudiante', 'estudiantes'];
+    const quienes = n === 1 ? `1 ${uno} tiene` : `${n} ${varios} tienen`;
+    return `${quienes} holgura personal: sus días se suman a esta fecha.`;
+  });
+
+  function guardarHolguraTodos(dias: number) {
+    guardandoHolgura = true;
+    router.patch(
+      `${base}/holgura`,
+      { nro_dias_adicionales_para_bloqueo: dias },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        replace: true,
+        onSuccess: () => (holguraTodos = false),
+        onFinish: () => (guardandoHolgura = false),
+      },
+    );
+  }
+
   // ── Mensaje a todos ──────────────────────────────────────────────────────
   let mensajeTodos = $state<string | null>(null);
   let enviandoTodos = $state(false);
@@ -460,7 +484,9 @@
       <span class={etiqueta}>Holgura general</span>
       <span class="font-bold"
         >{actividad.nro_dias_adicionales_para_bloqueo}
-        {actividad.nro_dias_adicionales_para_bloqueo === 1 ? 'día' : 'días'}</span
+        {actividad.nro_dias_adicionales_para_bloqueo === 1 ? 'día' : 'días'}{actividad.fecha_limite
+          ? ` · hasta ${holguraHasta()}`
+          : ''}</span
       >
     </span>
   {/if}
@@ -475,6 +501,16 @@
       <button type="button" class="{btnSecundario} {chico}" onclick={onEditar}
         ><Pencil size={16} aria-hidden="true" />Editar actividad</button
       >
+    {/if}
+    {#if actividad.es_titular && actividad.fecha_limite}
+      <button
+        type="button"
+        class="{btnSecundario} {chico}"
+        aria-haspopup="dialog"
+        onclick={() => (holguraTodos = true)}
+      >
+        <Clock size={16} aria-hidden="true" />Holgura a todo el curso
+      </button>
     {/if}
     {#if actividad.es_titular && grupos.length > 0}
       <button
@@ -634,9 +670,11 @@
                   />
                   <span class="flex min-w-0 flex-col">
                     <span class="font-bold">{f.nombre}</span>
-                    {#if f.grupo.nro_dias_adicionales_para_bloqueo_personal > 0 && holguraHasta(f.grupo)}
+                    {#if f.grupo.nro_dias_adicionales_para_bloqueo_personal > 0 && actividad.fecha_limite}
                       <span class="text-[13px] font-bold text-inst-warn"
-                        >Holgura hasta {holguraHasta(f.grupo)}</span
+                        >Holgura hasta {holguraHasta(
+                          f.grupo.nro_dias_adicionales_para_bloqueo_personal,
+                        )}</span
                       >
                     {/if}
                   </span>
@@ -821,6 +859,20 @@
     guardando={guardandoHolgura}
     onGuardar={guardarHolgura}
     onCerrar={() => (holguraDe = null)}
+  />
+{/if}
+
+{#if holguraTodos && actividad.fecha_limite}
+  <HolguraModal
+    nombre="Todo el curso"
+    subtitulo={actividad.nombre}
+    paraTodos
+    nota={notaHolguraTodos}
+    fechaLimite={actividad.fecha_limite}
+    holguraGeneral={actividad.nro_dias_adicionales_para_bloqueo}
+    guardando={guardandoHolgura}
+    onGuardar={guardarHolguraTodos}
+    onCerrar={() => (holguraTodos = false)}
   />
 {/if}
 
