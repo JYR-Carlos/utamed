@@ -172,10 +172,38 @@ test('parseSeccionesEstructuradas soporta formato indexado legado y ordena I a I
 
     expect(array_column($resultado, 'numeral_romano'))->toBe(['I', 'VI'])
         ->and($resultado[0]['tipo_seccion'])->toBe('bloques')
-        ->and($resultado[0]['bloques'][0])->toMatchArray(['tipo' => 'campo', 'etiqueta' => 'Asignatura', 'valor' => 'Prueba'])
+        ->and($resultado[0]['bloques'][0])->toBe(['tipo' => 'campos', 'filas' => [
+            ['etiqueta' => 'Asignatura', 'valor' => 'Prueba'],
+            ['etiqueta' => 'Código', 'valor' => 'DM001'],
+        ]])
         ->and($resultado[1]['bloques'][0])->toMatchArray(['tipo' => 'subtitulo', 'texto' => 'Unidad 1: Intro'])
         ->and($resultado[1]['bloques'][1]['tipo'])->toBe('lista')
         ->and($resultado[1]['bloques'][1]['items'][1]['anidado'])->toBeTrue();
+});
+
+test('el PDF compone las horas y los textos libres igual que la pantalla', function () {
+    $lector = new class
+    {
+        use ParsesSyllabus;
+
+        public function estructuradas(array $data): array
+        {
+            return array_column($this->parseSeccionesEstructuradas($data), null, 'numeral_romano');
+        }
+    };
+
+    $secciones = pdfSyllabusCompletoPayload();
+    $secciones['I']['contenido']['horas']['autonomas'] = 104;
+    $secciones['VII']['contenido']['metodologia']['tipo_estrategia'] = "Unidad 1: Fundamentos\n- Clase guiada: el docente explica.\n- Proyecto simple.";
+    $pdf = $lector->estructuradas(['metadata' => ['tipo_syllabus' => 'COMPLETO'], 'secciones' => $secciones]);
+
+    $campos = array_column($pdf['I']['campos'], 'valor', 'etiqueta');
+    expect(array_slice(array_keys($campos), 3, 5))->toBe(['Horas presenciales', 'Cátedra', 'Taller', 'Laboratorio', 'Horas dedicación'])
+        ->and($campos['Horas presenciales'])->toBe('4 horas semanales')
+        ->and($campos['Horas dedicación'])->toBe('104 horas semestrales de trabajo autónomo')
+        ->and($pdf['VII']['metodologia'][0])->toBe(['tipo' => 'subtitulo', 'texto' => 'Unidad 1: Fundamentos'])
+        ->and(array_column($pdf['VII']['metodologia'][1]['items'], 'texto'))->toBe(['Clase guiada: el docente explica.', 'Proyecto simple.'])
+        ->and($pdf['IX']['descripcion'])->toBe([['tipo' => 'parrafo', 'texto' => 'Normativa de evaluación del curso.']]);
 });
 
 test('ProgramaPdfService genera PDF valido con estado borrador y sincroniza asistencia', function () {

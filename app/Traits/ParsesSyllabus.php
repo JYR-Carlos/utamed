@@ -13,6 +13,7 @@ use App\Syllabus\Secciones\SeccionVIContenido;
 use App\Syllabus\Secciones\SeccionVIIBasico;
 use App\Syllabus\Secciones\SeccionVIICompleto;
 use App\Syllabus\Secciones\SeccionVIIIContenido;
+use App\Syllabus\SyllabusBloques;
 use App\Syllabus\SyllabusSecciones;
 use App\Syllabus\SyllabusTipo;
 
@@ -152,93 +153,14 @@ trait ParsesSyllabus
     }
 
     /**
-     * Convierte texto plano de una sección legada en bloques tipográficos estructurados.
+     * Texto plano en bloques (subtítulos, campos, viñetas y párrafos), con las mismas
+     * reglas que la pantalla.
      *
      * @return list<array<string, mixed>>
      */
     protected function bloquesDesdeTexto(string $texto, ?string $numeral = null): array
     {
-        $bruto = str_replace("\r\n", "\n", $texto);
-        if (trim($bruto) === '') {
-            return [];
-        }
-
-        if (in_array($numeral, ['II', 'III'], true)) {
-            $parrafos = array_values(array_filter(
-                array_map('trim', preg_split('/\n{2,}/', $bruto) ?: []),
-                fn (string $p) => $p !== ''
-            ));
-
-            return array_map(fn (string $p) => ['tipo' => 'parrafo', 'texto' => $p], $parrafos);
-        }
-
-        $bloques = [];
-        $lista = null;
-
-        $cerrarLista = function () use (&$bloques, &$lista): void {
-            if ($lista !== null && count($lista) > 0) {
-                $bloques[] = ['tipo' => 'lista', 'items' => $lista];
-            }
-            $lista = null;
-        };
-
-        foreach (explode("\n", $bruto) as $linea) {
-            $contenido = trim($linea);
-            if ($contenido === '') {
-                $cerrarLista();
-
-                continue;
-            }
-
-            if (str_starts_with($contenido, '•')) {
-                $item = trim((string) preg_replace('/^•\s*/u', '', $contenido));
-                if ($item === '') {
-                    continue;
-                }
-                $anidado = (bool) preg_match('/^\s{2,}/', $linea);
-                $lista ??= [];
-                $lista[] = ['texto' => $item, 'anidado' => $anidado, 'cita' => null];
-
-                continue;
-            }
-
-            if ($lista !== null && count($lista) > 0 && (preg_match('/^\s{2,}/', $linea) || str_starts_with($contenido, '«'))) {
-                $ultimoIdx = count($lista) - 1;
-                if (str_starts_with($contenido, '«')) {
-                    $lista[$ultimoIdx]['cita'] = $contenido;
-                } else {
-                    $lista[$ultimoIdx]['texto'] .= ' ' . $contenido;
-                }
-
-                continue;
-            }
-
-            $cerrarLista();
-
-            if (preg_match('/^Unidad\s+\d+\s*:/i', $contenido)) {
-                $bloques[] = ['tipo' => 'subtitulo', 'texto' => $contenido];
-
-                continue;
-            }
-
-            if (preg_match('/^([^:]{1,40}):[ \t]*$/u', $contenido, $m)) {
-                $bloques[] = ['tipo' => 'subtitulo', 'texto' => trim($m[1])];
-
-                continue;
-            }
-
-            if (preg_match('/^([^:]{1,40}):[ \t]+(.+)$/u', $contenido, $m)) {
-                $bloques[] = ['tipo' => 'campo', 'etiqueta' => trim($m[1]), 'valor' => trim($m[2])];
-
-                continue;
-            }
-
-            $bloques[] = ['tipo' => 'parrafo', 'texto' => $contenido];
-        }
-
-        $cerrarLista();
-
-        return $bloques;
+        return SyllabusBloques::de($texto, $numeral);
     }
 
     /**
@@ -277,38 +199,10 @@ trait ParsesSyllabus
         }
 
         if ($contenido instanceof SeccionIContenido) {
-            $h = $contenido->horas;
-            $codigo = ($asignatura['codigo'] ?? '') ?: $contenido->codigo;
-            $autonomas = (int) ($asignatura['horas']['autonomas'] ?? 0);
-            $campos = [
-                ['etiqueta' => 'Asignatura', 'valor' => $contenido->nombreAsignatura],
-                ['etiqueta' => 'Código', 'valor' => $codigo],
-                ['etiqueta' => 'Créditos SCT', 'valor' => (string) $contenido->creditosSct],
-                [
-                    'etiqueta' => 'Horas presenciales',
-                    'valor' => sprintf(
-                        '%d horas semanales (cátedra %d · taller %d · laboratorio %d)',
-                        $h->catedra + $h->taller + $h->laboratorio,
-                        $h->catedra,
-                        $h->taller,
-                        $h->laboratorio,
-                    ),
-                ],
-                [
-                    'etiqueta' => 'Horas dedicación',
-                    'valor' => $autonomas > 0
-                        ? "{$autonomas} horas semanales de trabajo autónomo"
-                        : 'Sin registrar en la asignatura',
-                ],
-            ];
-            if (trim($contenido->categoria) !== '') {
-                $campos[] = ['etiqueta' => 'Categoría', 'valor' => $contenido->categoria];
-            }
-
             return [
                 'tipo_seccion' => 'identificacion',
-                'campos' => $campos,
-                'tiene_contenido' => trim($contenido->nombreAsignatura) !== '' || trim((string) $codigo) !== '',
+                'campos' => $this->camposSeccionI($contenido, $asignatura),
+                'tiene_contenido' => trim($contenido->nombreAsignatura) !== '' || trim((string) (($asignatura['codigo'] ?? '') ?: $contenido->codigo)) !== '',
             ];
         }
 
@@ -405,8 +299,8 @@ trait ParsesSyllabus
             return [
                 'tipo_seccion' => 'planificacion_completo',
                 'resultados' => $resultados,
-                'metodologia' => $metodologia,
-                'evaluacion' => $evaluacion,
+                'metodologia' => $this->bloquesDesdeTexto($metodologia),
+                'evaluacion' => $this->bloquesDesdeTexto($evaluacion),
                 'tiene_contenido' => !empty($resultados) || $metodologia !== '' || $evaluacion !== '',
             ];
         }
@@ -483,7 +377,7 @@ trait ParsesSyllabus
 
             return [
                 'tipo_seccion' => 'evaluacion',
-                'descripcion' => $descripcion,
+                'descripcion' => $this->bloquesDesdeTexto($descripcion),
                 'tiene_contenido' => $descripcion !== '' || !empty($componentes),
             ];
         }
@@ -531,30 +425,44 @@ trait ParsesSyllabus
      */
     private function formatSeccionI(SeccionIContenido $c, array $asignatura = []): string
     {
+        return implode("\n", array_map(
+            fn (array $campo) => "{$campo['etiqueta']}: {$campo['valor']}",
+            $this->camposSeccionI($c, $asignatura),
+        ));
+    }
+
+    /**
+     * @return list<array{etiqueta: string, valor: string}>
+     */
+    private function camposSeccionI(SeccionIContenido $c, array $asignatura): array
+    {
         $h = $c->horas;
-        $codigo = ($asignatura['codigo'] ?? '') ?: $c->codigo;
-        $lineas = [
-            "Asignatura: {$c->nombreAsignatura}",
-            "Código: {$codigo}",
-            "Créditos SCT: {$c->creditosSct}",
-            sprintf('Horas presenciales: %d horas semanales', $h->catedra + $h->taller + $h->laboratorio),
-            "Cátedra: {$h->catedra}",
-            "Taller: {$h->taller}",
-            "Laboratorio: {$h->laboratorio}",
-        ];
-
         $semanales = (int) ($asignatura['horas']['autonomas'] ?? 0);
-        $lineas[] = match (true) {
-            $semanales > 0 => "Horas dedicación: {$semanales} horas semanales de trabajo autónomo",
-            (int) $h->autonomas > 0 => "Horas dedicación: {$h->autonomas} horas semestrales de trabajo autónomo",
-            default => 'Horas dedicación: sin registrar en la asignatura',
-        };
 
-        if (trim($c->categoria) !== '') {
-            $lineas[] = "Categoría: {$c->categoria}";
+        $campos = [
+            'Asignatura' => $c->nombreAsignatura,
+            'Código' => ($asignatura['codigo'] ?? '') ?: $c->codigo,
+            'Créditos SCT' => $c->creditosSct,
+            'Horas presenciales' => ($h->catedra + $h->taller + $h->laboratorio).' horas semanales',
+            'Cátedra' => $h->catedra,
+            'Taller' => $h->taller,
+            'Laboratorio' => $h->laboratorio,
+            'Horas dedicación' => match (true) {
+                $semanales > 0 => "{$semanales} horas semanales de trabajo autónomo",
+                (int) $h->autonomas > 0 => "{$h->autonomas} horas semestrales de trabajo autónomo",
+                default => 'sin registrar en la asignatura',
+            },
+            'Categoría' => trim($c->categoria),
+        ];
+        if ($campos['Categoría'] === '') {
+            unset($campos['Categoría']);
         }
 
-        return implode("\n", $lineas);
+        return array_map(
+            fn (string $etiqueta, $valor) => ['etiqueta' => $etiqueta, 'valor' => (string) $valor],
+            array_keys($campos),
+            $campos,
+        );
     }
 
     private function formatCompetencias(SeccionIVContenido $c): string
