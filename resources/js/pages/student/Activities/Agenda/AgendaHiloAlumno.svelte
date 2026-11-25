@@ -6,7 +6,7 @@
    * (reemplazos, cancelaciones, reevaluaciones) es la misma del docente:
    * lib/agendaHilo.
    */
-  import { tick } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import { Award, ChevronRight, CircleAlert, CircleCheck, Download, Eye, FileCheck, FileX2, Lock, RotateCcw } from 'lucide-svelte';
   import VistoPor from '@/components/mensajeria/VistoPor.svelte';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
@@ -18,11 +18,13 @@
   interface Props {
     listado_interacciones: InteraccionItem[];
     esGrupal: boolean;
+    /** Abrir en este mensaje (id de la agenda), no en el último. */
+    irAMensaje?: number | null;
     urlDescargaEntrega: (idInteraccion: number, ver?: boolean) => string;
     onVerRubrica?: (detalle: RubricaDetalleEvent) => void;
   }
 
-  let { listado_interacciones, esGrupal, urlDescargaEntrega, onVerRubrica }: Props = $props();
+  let { listado_interacciones, esGrupal, irAMensaje = null, urlDescargaEntrega, onVerRubrica }: Props = $props();
 
   const items = $derived(procesarHilo(listado_interacciones));
   const grupos = $derived(agruparPorDia(items));
@@ -40,8 +42,8 @@
 
   const extension = (nombre?: string | null) => (nombre?.split('.').pop() ?? 'ARC').slice(0, 4).toUpperCase();
 
-  // Lado del alumno: lo suyo y lo de su grupo. Lo del docente, enfrente.
-  const deMiLado = (i: InteraccionDecorada) => !i.es_de_docente && i.tipo_interaccion !== 'Evaluación';
+  // Lado del alumno: lo suyo (aunque la persona también sea docente) y lo de su grupo. Lo del docente, enfrente.
+  const deMiLado = (i: InteraccionDecorada) => i.tipo_interaccion !== 'Evaluación' && (Boolean(i.es_propio) || !i.es_de_docente);
 
   function verRubrica(i: InteraccionDecorada) {
     onVerRubrica?.({
@@ -54,7 +56,26 @@
     });
   }
 
-  // Al abrir, al llegar un mensaje nuevo o si ya se estaba al fondo: al fondo.
+  // El mensaje pedido (desde el Historial): se lo trae a la vista y se marca un
+  // momento. Una cancelación no se dibuja: vale la entrega que retiró.
+  const destino = $derived(
+    irAMensaje === null
+      ? null
+      : (items.find((i) => i.id_interaccion === irAMensaje || i.id_cancelacion === irAMensaje)?.id_interaccion ?? null),
+  );
+  let resaltado = $state<number | null>(null);
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
+  onDestroy(() => clearTimeout(temporizador));
+
+  function irA(id: number) {
+    const el = lista?.querySelector<HTMLElement>(`[data-mensaje="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    resaltado = id;
+    temporizador = setTimeout(() => (resaltado = null), 4000);
+  }
+
+  // Al abrir (salvo que se venga por un mensaje), al llegar uno nuevo o si ya se estaba al fondo: al fondo.
   let lista = $state<HTMLDivElement | null>(null);
   let totalPrevio = 0;
   $effect(() => {
@@ -64,12 +85,19 @@
     const esNuevo = totalPrevio > 0 && total > totalPrevio;
     const cerca = lista.scrollHeight - lista.scrollTop - lista.clientHeight < 80;
     totalPrevio = total;
+    const pedido = untrack(() => destino);
+    if (esInicial && pedido !== null) {
+      tick().then(() => requestAnimationFrame(() => irA(pedido)));
+      return;
+    }
     if (esInicial || esNuevo || cerca) {
       tick().then(() =>
         requestAnimationFrame(() => lista?.scrollTo({ top: lista.scrollHeight, behavior: esNuevo ? 'smooth' : 'auto' })),
       );
     }
   });
+
+  const marca = (i: InteraccionDecorada) => (resaltado === i.id_interaccion ? 'outline-3 outline-offset-2 outline-dm-amarillo' : '');
 
   const PILDORA_FECHA =
     'rounded-full border border-dm-linea bg-dm-tarjeta px-3 py-1 text-[13px] leading-[18px] font-semibold text-dm-ink-2';
@@ -104,16 +132,16 @@
           {@const quien = item.es_propio ? 'Tú' : titleCase(item.emisor)}
 
           {#if item.tipo_interaccion === 'Cierre de actividad'}
-            <div class="flex justify-center">
-              <span class="inline-flex items-center gap-2 rounded-full bg-dm-off-s px-3.5 py-1.5 text-[13px] leading-[18px] font-semibold text-dm-off">
+            <div data-mensaje={item.id_interaccion} class="flex justify-center">
+              <span class="{marca(item)} inline-flex items-center gap-2 rounded-full bg-dm-off-s px-3.5 py-1.5 text-[13px] leading-[18px] font-semibold text-dm-off">
                 <Lock size={14} aria-hidden="true" />Actividad cerrada · {item.mensaje || 'plazo finalizado'} · {hora(item.fecha_emision)}
               </span>
             </div>
           {:else if item.tipo_interaccion === ENTREGA}
             {@const historica = item.fue_cancelada || item.fue_reemplazada}
             {@const archivo = item.archivo}
-            <div class="flex {derecha ? 'justify-end' : 'justify-start'}">
-              <article class="w-110 max-w-full overflow-hidden lg:w-135 rounded-xl border border-dm-linea bg-dm-tarjeta">
+            <div data-mensaje={item.id_interaccion} class="flex {derecha ? 'justify-end' : 'justify-start'}">
+              <article class="{marca(item)} w-110 max-w-full overflow-hidden lg:w-135 rounded-xl border border-dm-linea bg-dm-tarjeta">
                 <div class="flex items-center gap-2 px-3.5 py-2 {historica ? 'bg-dm-off-s text-dm-off' : 'bg-dm-accion-suave text-dm-accion-texto'}">
                   {#if item.fue_cancelada}<FileX2 size={16} aria-hidden="true" />{:else if item.fue_reemplazada}<RotateCcw
                       size={16}
@@ -196,8 +224,8 @@
                 : aprobada
                   ? 'bg-dm-ok-s text-dm-ok'
                   : 'bg-dm-error-s text-dm-error'}
-            <div class="flex {derecha ? 'justify-end' : 'justify-start'}">
-              <article class="w-135 max-w-full overflow-hidden lg:w-170 rounded-xl border border-dm-linea bg-dm-tarjeta">
+            <div data-mensaje={item.id_interaccion} class="flex {derecha ? 'justify-end' : 'justify-start'}">
+              <article class="{marca(item)} w-135 max-w-full overflow-hidden lg:w-170 rounded-xl border border-dm-linea bg-dm-tarjeta">
                 <div class="flex items-center gap-2 px-3.5 py-2 {cabecera}">
                   <Award size={16} aria-hidden="true" />
                   <span class="min-w-0 truncate text-[13px] leading-[18px] font-bold text-dm-ink">Evaluación · {titleCase(item.emisor)}</span>
@@ -259,9 +287,9 @@
             </div>
           {:else}
             {@const docente = item.tipo_interaccion === 'Feedback' || item.es_de_docente}
-            <div class="flex flex-col gap-1 {derecha ? 'items-end' : 'items-start'}">
+            <div data-mensaje={item.id_interaccion} class="flex flex-col gap-1 {derecha ? 'items-end' : 'items-start'}">
               <div
-                class="max-w-[min(560px,88%)] px-3.5 lg:max-w-[min(720px,80%)] py-2.5 {item.es_propio
+                class="{marca(item)} max-w-[min(560px,88%)] px-3.5 lg:max-w-[min(720px,80%)] py-2.5 {item.es_propio
                   ? 'rounded-[14px_14px_4px_14px] bg-dm-accion-suave'
                   : docente
                     ? 'rounded-[14px_14px_14px_4px] border border-dm-linea bg-dm-tarjeta'
@@ -269,7 +297,7 @@
               >
                 {#if !item.esConsecutivo}
                   {#if item.es_propio}
-                    <span class="block text-[13px] leading-[18px] font-bold text-dm-accion-texto">Tú</span>
+                    <span class="block text-right text-[13px] leading-[18px] font-bold text-dm-accion-texto">Tú</span>
                   {:else}
                     <span class="flex flex-wrap items-center gap-2">
                       <span class="text-[13px] leading-[18px] font-bold">{quien}</span>

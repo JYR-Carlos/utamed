@@ -210,9 +210,13 @@
   });
 
   // Desde el dashboard («Notas y retroalimentaciones recientes») se llega con
-  // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación.
+  // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación; desde
+  // el Historial del curso, con &mensaje= para abrirla en ese mensaje.
+  let mensajePedido = $state<number | null>(null);
   onMount(() => {
-    const abrir = new URLSearchParams(window.location.search).get('abrir');
+    const parametros = new URLSearchParams(window.location.search);
+    const abrir = parametros.get('abrir');
+    mensajePedido = Number(parametros.get('mensaje')) || null;
     if (abrir === 'agenda' || window.location.hash === '#agenda') {
       showAgendaModal = true;
     }
@@ -395,6 +399,7 @@
     const url = new URL($page.url, window.location.origin);
     url.searchParams.set('seccion', nueva);
     url.searchParams.delete('abrir');
+    url.searchParams.delete('mensaje');
     // Visita sólo de cliente: cambia la URL sin pedir nada al servidor.
     router.push({ url: `${url.pathname}${url.search}`, preserveState: true, preserveScroll: true });
   }
@@ -426,8 +431,15 @@
     escribirAlAbrir = true;
     showAgendaModal = true;
   }
+  // Cerrada, se olvida cómo se abrió: la próxima vez va al último mensaje.
+  function alCerrarAgenda() {
+    escribirAlAbrir = false;
+    mensajePedido = null;
+  }
+  let agendaAbierta = false;
   $effect(() => {
-    if (!showAgendaModal) escribirAlAbrir = false;
+    if (agendaAbierta && !showAgendaModal) alCerrarAgenda();
+    agendaAbierta = showAgendaModal;
   });
   const abrirEntrega = () => (showEntregaModal = true);
   const abrirEnunciado = () => (showEnunciadoModal = true);
@@ -814,6 +826,7 @@
     listado_interacciones={interaccionesCombinadas}
     esGrupal={es_grupal}
     entregaPendiente={estaPorEntregar}
+    irAMensaje={mensajePedido}
     onEnviar={(mensaje) => handleGuardarEntrada({ tipo: 'Consulta', mensaje })}
     onVerRubrica={verRubricaDesdeAgenda}
   />

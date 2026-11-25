@@ -43,8 +43,10 @@
   const nuevos = $derived(vista ? 0 : interacciones.filter((i) => i.nuevo).length);
 
   function rol(i: InteraccionItem): string {
-    if (i.es_de_docente || i.tipo_interaccion === 'Evaluación') return 'Docente';
+    if (i.tipo_interaccion === 'Evaluación') return 'Docente';
+    // Antes que «Docente»: quien estudia también puede tener perfil docente.
     if (i.es_propio) return 'Tú';
+    if (i.es_de_docente) return 'Docente';
     return 'Tu grupo';
   }
 
@@ -96,7 +98,9 @@
       {#each recientes as m (m.id_interaccion)}
         {@const nuevo = m.nuevo && !vista}
         {@const docente = rol(m) === 'Docente'}
-        <li class="flex gap-3 border-b border-dm-linea py-3.5 last:border-b-0">
+        {@const propio = rol(m) === 'Tú'}
+        <!-- Lo propio, a la derecha, como en la conversación. -->
+        <li class="flex gap-3 {propio ? 'flex-row-reverse text-right' : ''} border-b border-dm-linea py-3.5 last:border-b-0">
           <span
             aria-hidden="true"
             class="flex size-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold lg:size-9 {docente
@@ -105,7 +109,7 @@
           >
             {initials(m.emisor)}
           </span>
-          <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <div class="flex min-w-0 flex-1 flex-col gap-1 {propio ? 'items-end' : ''}">
             <span class="flex flex-col lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-2">
               <span class="text-sm font-semibold">{titleCase(m.emisor)}</span>
               <span class="text-[13px] leading-[18px] text-dm-ink-3">

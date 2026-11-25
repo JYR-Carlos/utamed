@@ -19,11 +19,13 @@
     esGrupal: boolean;
     /** La actividad aún espera la entrega: se recuerda que un mensaje no lo es. */
     entregaPendiente?: boolean;
+    /** Abrir en este mensaje (id de la agenda), no en el último. */
+    irAMensaje?: number | null;
     onEnviar: (mensaje: string) => void;
     onVerRubrica?: (detalle: RubricaDetalleEvent) => void;
   }
 
-  let { idCurso, codActividad, listado_interacciones, esGrupal, entregaPendiente = false, onEnviar, onVerRubrica }: Props = $props();
+  let { idCurso, codActividad, listado_interacciones, esGrupal, entregaPendiente = false, irAMensaje = null, onEnviar, onVerRubrica }: Props = $props();
 
   const MAXIMO = 2000;
   let mensaje = $state('');
@@ -62,7 +64,7 @@
   const contador = $derived(`${mensaje.length.toLocaleString('es-CL')} / ${MAXIMO.toLocaleString('es-CL')}`);
 </script>
 
-<AgendaHiloAlumno {listado_interacciones} {esGrupal} {urlDescargaEntrega} {onVerRubrica} />
+<AgendaHiloAlumno {listado_interacciones} {esGrupal} {irAMensaje} {urlDescargaEntrega} {onVerRubrica} />
 
 <form class="flex shrink-0 flex-col gap-1.5 border-t border-dm-linea bg-dm-elevada px-3 pt-2.5 pb-3.5 lg:gap-2 lg:px-7 lg:pt-4 lg:pb-4.5" onsubmit={enviar}>
   {#if entregaPendiente}

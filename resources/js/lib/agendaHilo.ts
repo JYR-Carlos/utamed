@@ -11,6 +11,8 @@ export interface InteraccionDecorada extends InteraccionItem {
     esConsecutivo?: boolean;
     /** Hora (o fecha y hora) a mostrar antes del mensaje tras 30 min de pausa. */
     marcaTiempoSeparador?: string | null;
+    /** En una entrega cancelada, la interacción que la canceló (no se dibuja aparte). */
+    id_cancelacion?: number;
 }
 
 export const ENTREGA = 'Entrega de archivo';
@@ -56,6 +58,7 @@ export function procesarHilo(listado: InteraccionItem[]): InteraccionDecorada[] 
         }
         if (entregaIndex !== -1) {
             lista[entregaIndex].fue_cancelada = true;
+            lista[entregaIndex].id_cancelacion = item.id_interaccion;
             lista[entregaIndex].fecha_cancelacion = item.fecha_emision;
             lista[entregaIndex].cancelado_por = item.emisor;
         }
