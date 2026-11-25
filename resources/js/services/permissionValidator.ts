@@ -85,6 +85,26 @@ export function hasAllPermissions(
 }
 
 /**
+ * Valida si un usuario tiene un permiso específico dentro de un mapa de permisos
+ * indexado por identificador de recurso (ej: `userPermissionsByComponent[id_componente]`).
+ *
+ * @param permissionsByKey Mapa `Record<number | string, PermissionContainer>` enviado por el backend
+ * @param key Identificador del recurso (ej: `id_componente`, `id_curso`)
+ * @param requestedSlug Permiso solicitado (ej: 'actividades:crear')
+ */
+export function hasPermissionInContext(
+  permissionsByKey: Record<number | string, PermissionContainer> | null | undefined,
+  key: number | string | null | undefined,
+  requestedSlug: string
+): boolean {
+  if (!permissionsByKey || key === null || key === undefined) {
+    return false;
+  }
+
+  return hasPermission(permissionsByKey[key], requestedSlug);
+}
+
+/**
  * Helper con soporte para alias comunes de cursos
  */
 export function can(

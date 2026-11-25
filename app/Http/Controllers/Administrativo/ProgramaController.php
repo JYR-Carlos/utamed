@@ -159,15 +159,11 @@ class ProgramaController extends Controller
             );
         }
 
-        // Permisos del usuario en el contexto del curso
+        // Permisos efectivos del usuario en el contexto del curso
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
-        $userPermissions = collect($user->getAllPermissions($curso->id_contexto))->map(fn($p) => [
-            'id_permiso'    => $p['id_permiso'],
-            'slug'          => $p['slug'],
-            'esta_permitido' => (bool) $p['esta_permitido'],
-            'puede_delegar' => (bool) ($p['puede_delegar'] ?? false),
-        ])->values()->toArray();
+        $userPermissions = app(\App\Services\Authorization\PermissionValidator::class)
+            ->resolveEffectiveSlugsFor($user, $curso);
 
         $curso->load(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera']);
         $asignatura = $curso->asignacionPlan?->asignatura;

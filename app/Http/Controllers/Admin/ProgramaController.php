@@ -159,19 +159,10 @@ class ProgramaController extends Controller
         }
 
 
-        // Obtener permisos especiales del usuario para el contexto del curso (si está configurado)
-        $userPermissions = [];
-        if ($curso->id_contexto) {
-            $userPermissionsData = $user->getAllPermissions($curso->id_contexto);
-            $userPermissions = collect($userPermissionsData)->map(function ($perm) {
-                return [
-                    'id_permiso' => $perm['id_permiso'],
-                    'slug' => $perm['slug'],
-                    'esta_permitido' => (bool)$perm['esta_permitido'],
-                    'puede_delegar' => (bool)($perm['puede_delegar'] ?? false),
-                ];
-            })->values()->toArray();
-        }
+        // Obtener permisos efectivos del usuario para el contexto del curso
+        $userPermissions = $curso->id_contexto
+            ? app(\App\Services\Authorization\PermissionValidator::class)->resolveEffectiveSlugsFor($user, $curso)
+            : [];
 
         // Sin programa la vista no redirige: dibuja el estado vacío de admin
         // ("el titular aún no ha creado el syllabus"), igual que el del docente.

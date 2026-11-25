@@ -224,7 +224,7 @@
       class="m-0 flex items-center gap-2.5 rounded-lg border border-gray-200 bg-slate-50 px-3.5 py-2.5 text-[13px] text-ink-2"
     >
       <Lock size={15} class="shrink-0" aria-hidden="true" />
-      Esta sección es responsabilidad de otro docente. Puedes leerla, no editarla.
+      No tienes permisos para ver o editar esta sección. Debe ser completada por el Docente Titular o un colega autorizado.
     </p>
 
     {#if seccion === 'I'}
