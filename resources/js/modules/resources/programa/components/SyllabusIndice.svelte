@@ -73,7 +73,7 @@
 
 <aside
   bind:this={caja}
-  class="flex w-full flex-col gap-3 [scrollbar-width:thin] lg:sticky lg:top-[calc(var(--alto-cabecera,0px)+24px)] lg:max-h-[calc(100svh-var(--alto-cabecera,0px)-10.5rem)] lg:w-[240px] lg:flex-none lg:overflow-y-auto print:hidden"
+  class="flex w-full flex-col gap-3 [scrollbar-width:thin] @min-[700px]:sticky @min-[700px]:top-[calc(var(--alto-cabecera,0px)+24px)] @min-[700px]:max-h-[calc(100svh-var(--alto-cabecera,0px)-10.5rem)] @min-[700px]:w-[240px] @min-[700px]:flex-none @min-[700px]:overflow-y-auto print:hidden"
 >
   <nav
     class="flex shrink-0 flex-col gap-px rounded-[10px] border border-gray-200 bg-white px-2 py-2.5"

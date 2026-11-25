@@ -602,8 +602,10 @@
         </p>
       {/if}
 
+      <!-- `@container`: las columnas dependen del ancho de la tarjeta, que cambia
+           según el menú de cada rol. -->
       <div
-        class="overflow-clip rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
+        class="@container overflow-clip rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
       >
         <!-- ── Cabecera del documento ── -->
         {#if esDocente}
@@ -677,7 +679,7 @@
                 <button
                   type="button"
                   onclick={() => (historialAbierto = true)}
-                  class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand print:hidden xl:hidden"
+                  class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand @min-[1200px]:hidden print:hidden"
                 >
                   <Clock size={15} class="text-ink-2" aria-hidden="true" />
                   Historial
@@ -776,7 +778,7 @@
 
           <!-- ── Índice · lectura · contexto ── -->
           <div
-            class="flex flex-col items-start gap-6 bg-sand px-5 py-6 sm:px-7 lg:flex-row print:bg-white print:p-0"
+            class="flex flex-col items-start gap-6 bg-sand px-5 py-6 sm:px-7 @min-[700px]:flex-row print:bg-white print:p-0"
           >
             <SyllabusIndice
               entradas={entradasIndice}
@@ -787,7 +789,7 @@
               onNavegar={irASeccion}
             />
 
-            <div class="flex w-full min-w-0 flex-col gap-3 lg:w-[760px] lg:flex-none print:w-full">
+            <div class="flex w-full min-w-0 flex-col gap-3 @min-[700px]:max-w-[760px] @min-[700px]:flex-1 print:max-w-none">
               {#if sellado && !esDocente}
                 <div class="flex justify-end print:justify-start">
                   <span
@@ -817,7 +819,7 @@
             </div>
 
             {#if historial.length > 0 && !esDocente}
-              <div class="hidden xl:block xl:w-[280px] xl:flex-none print:hidden">
+              <div class="hidden w-[280px] flex-none @min-[1200px]:block print:hidden">
                 <SyllabusHistorial eventos={historial} />
               </div>
             {/if}
