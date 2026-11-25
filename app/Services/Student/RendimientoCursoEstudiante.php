@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\DB;
  * - Asistencia mínima: la de cada componente (`porcentaje_asistencia_obligatoria`),
  *   la misma que ve el docente al pasar lista y la que el alumno lee en el
  *   programa; 70 % si el componente no la tiene (OBS-45).
+ * - Aprobación mínima: la de cada componente (`porcentaje_aprobacion`); 60 % si
+ *   no la tiene.
  * - El total del curso combina los componentes según el % del syllabus
  *   (sección IX), sólo entre los que ya tienen promedio.
  */
@@ -76,12 +78,12 @@ class RendimientoCursoEstudiante
                 'actividades_evaluadas' => $mias->count(),
                 'ponderacion_evaluada' => $ponderacionTotal > 0 ? round($ponderacionEvaluada / $ponderacionTotal * 100) : null,
                 'asistencia' => $this->asistencia($componente, $estudiante),
-                'asistencia_minima' => (float) ($componente->porcentaje_asistencia_obligatoria ?? Componente::ASISTENCIA_MINIMA_POR_DEFECTO),
+                'asistencia_minima' => $componente->asistenciaMinima(),
                 'syllabus' => [
                     'porcentaje' => isset($syllabus['porcentaje']) ? (float) $syllabus['porcentaje'] : null,
                     'aprobacion_obligatoria' => (bool) ($syllabus['aprobacion_obligatoria'] ?? false),
                 ],
-                'exigencia' => $componente->porcentaje_aprobacion !== null ? (float) $componente->porcentaje_aprobacion : null,
+                'aprobacion_minima' => $componente->aprobacionMinima(),
             ];
         })->values();
 

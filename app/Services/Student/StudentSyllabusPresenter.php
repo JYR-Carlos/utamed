@@ -170,9 +170,9 @@ class StudentSyllabusPresenter
         $porTipo = Componente::where('id_curso', $curso->id_curso)
             ->with('tipoComponente')
             ->get()
-            ->filter(fn (Componente $c) => $c->tipoComponente && $c->porcentaje_asistencia_obligatoria !== null)
+            ->filter(fn (Componente $c) => $c->tipoComponente !== null)
             ->mapWithKeys(fn (Componente $c) => [
-                mb_strtoupper(trim($c->tipoComponente->tipo)) => (float) $c->porcentaje_asistencia_obligatoria,
+                mb_strtoupper(trim($c->tipoComponente->tipo)) => $c->asistenciaMinima(),
             ]);
 
         return array_map(function (array $seccion) use ($porTipo) {

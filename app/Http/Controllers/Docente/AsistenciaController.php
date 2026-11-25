@@ -157,7 +157,7 @@ class AsistenciaController extends Controller
         return response()->json([
             'estudiantes'                        => $estudiantes,
             'sesiones'                           => $sesiones,
-            'porcentaje_asistencia_obligatoria'  => $componente->porcentaje_asistencia_obligatoria,
+            'porcentaje_asistencia_obligatoria'  => $componente->asistenciaMinima(),
         ]);
     }
 

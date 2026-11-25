@@ -11,7 +11,8 @@
     /** La del componente: la misma que el alumno lee en el programa. */
     asistencia_minima: number;
     syllabus: { porcentaje: number | null; aprobacion_obligatoria: boolean };
-    exigencia: number | null;
+    /** % del puntaje que da el 4,0 en el componente. */
+    aprobacion_minima: number;
   }
 
   export interface Rendimiento {
@@ -137,12 +138,11 @@
                   </dd>
                 </div>
                 <div class="flex flex-col gap-0.5">
-                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Aprobación</dt>
+                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Aprobación mínima</dt>
                   <dd class="m-0 text-[15px] leading-[22px] font-semibold">
-                    {c.syllabus.aprobacion_obligatoria ? 'Obligatoria por separado' : 'No obligatoria por separado'}{c.exigencia !=
-                    null
-                      ? ` · exigencia ${c.exigencia} %`
-                      : ''}
+                    {c.aprobacion_minima} % · {c.syllabus.aprobacion_obligatoria
+                      ? 'obligatoria por separado'
+                      : 'no obligatoria por separado'}
                   </dd>
                 </div>
               </dl>

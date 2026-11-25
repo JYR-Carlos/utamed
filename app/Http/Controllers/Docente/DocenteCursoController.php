@@ -264,9 +264,7 @@ class DocenteCursoController extends Controller
             'total_estudiantes' => $misEstudiantes->where('id_componente', $c->id_componente)->count(),
             'total_sesiones'  => (int) ($sesionesPorComponente[$c->id_componente] ?? 0),
             // Mínimo de asistencia (0–100): la ficha marca a quien queda bajo él.
-            'porcentaje_asistencia_obligatoria' => $c->porcentaje_asistencia_obligatoria !== null
-                ? (float) $c->porcentaje_asistencia_obligatoria
-                : null,
+            'porcentaje_asistencia_obligatoria' => $c->asistenciaMinima(),
         ]);
 
         // --- Datos adicionales para el titular ---

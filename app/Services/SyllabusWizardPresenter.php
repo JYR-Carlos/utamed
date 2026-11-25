@@ -190,7 +190,7 @@ class SyllabusWizardPresenter
                 'porcentaje'             => (float) ($c->porcentaje_aprobacion ?? 0),
                 'genera_acta'            => (bool) $c->genera_acta,
                 'aprobacion_obligatoria' => (bool) $c->aprobacion_obligatoria,
-                'asistencia_obligatoria' => (float) ($c->porcentaje_asistencia_obligatoria ?? 0),
+                'asistencia_obligatoria' => $c->asistenciaMinima(),
             ])
             ->values()
             ->all();

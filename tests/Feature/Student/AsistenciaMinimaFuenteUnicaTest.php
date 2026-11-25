@@ -55,6 +55,46 @@ test('sin valor en el componente, el mínimo es 70 %', function () {
     expect(Componente::ASISTENCIA_MINIMA_POR_DEFECTO)->toBe(70.0);
 });
 
+test('un componente guardado con 0 nunca muestra «mínimo 0 %»', function () {
+    $row = componenteConAlumno();
+    if (!$row) {
+        $this->markTestSkipped('No hay alumnos inscritos en componentes.');
+    }
+
+    Componente::whereKey($row->id_componente)->update([
+        'porcentaje_asistencia_obligatoria' => 0,
+        'porcentaje_aprobacion' => 0,
+    ]);
+    $curso = Curso::findOrFail($row->id_curso);
+    $componente = Componente::findOrFail($row->id_componente);
+
+    expect($componente->asistenciaMinima())->toBe(70.0)
+        ->and($componente->aprobacionMinima())->toBe(60.0);
+
+    // El mismo mínimo en la sección IX del programa.
+    $secciones = [['numeral_romano' => 'IX', 'componentes' => [['componente' => $row->tipo, 'asistencia_obligatoria' => 0]]]];
+    $programa = StudentSyllabusPresenter::conAsistenciaDelCurso($curso, $secciones);
+
+    expect($programa[0]['componentes'][0]['asistencia_obligatoria'])->toBe(70.0);
+
+    // Y en el resumen de notas (necesita curso.clase, que una BD atrasada no tiene).
+    if (DB::selectOne("SELECT to_regclass('curso.clase') AS t")->t === null) {
+        return;
+    }
+    $fila = collect(app(RendimientoCursoEstudiante::class)->calcular($curso, Estudiante::findOrFail($row->id_estudiante))['componentes'])
+        ->firstWhere('id_componente', $row->id_componente);
+
+    expect($fila['asistencia_minima'])->toBe(70.0)
+        ->and($fila['aprobacion_minima'])->toBe(60.0);
+});
+
+test('lo que sí se configuró se respeta tal cual', function () {
+    $componente = new Componente(['porcentaje_asistencia_obligatoria' => 85, 'porcentaje_aprobacion' => 50]);
+
+    expect($componente->asistenciaMinima())->toBe(85.0)
+        ->and($componente->aprobacionMinima())->toBe(50.0);
+});
+
 test('el programa del alumno muestra la asistencia del componente, no la que quedó escrita en el syllabus', function () {
     $row = componenteConAlumno();
     if (!$row) {
