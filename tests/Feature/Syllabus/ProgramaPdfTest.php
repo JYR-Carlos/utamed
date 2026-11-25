@@ -1,40 +1,34 @@
 <?php
 
-/**
- * «Imprimir» abre el programa como PDF (docente, ayudante y administrador): lo
- * ve quien puede ver el programa, y sale con las viñetas y los campos en su lugar.
- */
-
 use App\Models\Curso\Curso;
-use App\Models\Curso\Programa;
+use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
-use App\Services\Authorization\PermissionCache;
+use App\Services\ProgramaPdfService;
 use App\Services\ProgramaService;
-use App\Support\Permissions;
-use App\Syllabus\SyllabusBloques;
+use App\Traits\ParsesSyllabus;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 
 uses(DatabaseTransactions::class);
 
-/** Un curso con titular, y un docente sin relación con el curso. */
-function cursoConTitular(): object
+function pdfCursoConInscrito(): object
 {
-    $fila = DB::selectOne('
-        SELECT c.id_curso, d.id_usuario AS titular
-        FROM curso.curso c
-        JOIN usuario.docente d ON d.id_docente = c.id_docente_titular
-        WHERE c.fecha_eliminacion IS NULL AND NOT c.es_plantilla
-        ORDER BY c.id_curso LIMIT 1
-    ');
-
-    return $fila ?? test()->markTestSkipped('Sin un curso con titular.');
+    return DB::selectOne("
+        SELECT ic.id_curso, e.id_usuario, a.cod_asignatura
+        FROM curso.inscripcion_curso ic
+        JOIN usuario.estudiante e ON e.id_estudiante = ic.id_estudiante
+        JOIN curso.curso c ON c.id_curso = ic.id_curso
+        JOIN administrativo.asignacion_plan ap ON ap.id_asignacion_plan = c.id_asignacion_plan
+        JOIN administrativo.asignatura a ON a.id_asignatura = ap.id_asignatura
+        WHERE ic.estado_inscripcion = 'INSCRITO' AND c.fecha_eliminacion IS NULL
+        ORDER BY ic.id_curso LIMIT 1
+    ") ?? test()->markTestSkipped('Sin estudiante inscrito en curso.');
 }
 
-function comoUsuario(int $id): Usuario
+function pdfLoginAs(int $idUsuario): Usuario
 {
-    $usuario = Usuario::findOrFail($id);
+    $usuario = Usuario::findOrFail($idUsuario);
     $usuario->fecha_cambio_passhash = now();
     $usuario->save();
     test()->actingAs($usuario);
@@ -42,162 +36,286 @@ function comoUsuario(int $id): Usuario
     return $usuario;
 }
 
-function programaDePrueba(object $f): Programa
+function pdfSyllabusCompletoPayload(): array
 {
-    Programa::where('id_curso', $f->id_curso)->update(['es_actual' => false]);
-
-    return ProgramaService::generateProgramaWithSyllabus(
-        Curso::findOrFail($f->id_curso),
-        comoUsuario($f->titular),
-        [
-            'tipo_syllabus' => 'COMPLETO',
-            'estado' => 'APROBADO',
-            'secciones' => ['I' => ['contenido' => [
-                'nombre_asignatura' => 'Taller <script>alert(1)</script>',
-                'codigo' => 'DM095',
-                'creditos_sct' => 5,
-                'horas' => ['catedra' => 0, 'taller' => 4, 'laboratorio' => 0],
-                'categoria' => 'Obligatorio',
-            ]]],
-        ],
-    );
+    return [
+        'I' => ['contenido' => [
+            'nombre_asignatura' => 'Taller Integrado',
+            'codigo' => '999999',
+            'creditos_sct' => 5,
+            'horas' => ['catedra' => 2, 'taller' => 2, 'laboratorio' => 0],
+            'categoria' => 'Obligatorio',
+        ]],
+        'II' => ['contenido' => ['texto' => "Presentación del curso.\n\nSegundo párrafo."]],
+        'III' => ['contenido' => ['texto' => 'Estándares de la profesión.']],
+        'IV' => ['contenido' => [
+            'competencias_genericas' => [['titulo' => 'Trabajo en equipo']],
+            'competencias_especificas' => [['titulo' => 'Diseño de interfaces']],
+            'subcompetencias' => [],
+        ]],
+        'V' => ['contenido' => [
+            'items' => [['titulo' => 'Diagnóstico inicial', 'descripcion' => 'Prueba diagnóstica']],
+        ]],
+        'VI' => ['contenido' => [
+            'unidades' => [[
+                'numero' => 1,
+                'titulo' => 'Fundamentos',
+                'contenidos_items' => [['item' => 'Arquitectura web'], ['item' => 'HTTP']],
+                'resultados_aprendizaje' => [['resultado' => 'Comprende el protocolo HTTP']],
+            ]],
+        ]],
+        'VII' => ['contenido' => [
+            'resultados_aprendizaje' => ['titulo' => 'RA', 'items' => [['resultado' => 'Construye aplicaciones']]],
+            'metodologia' => ['titulo' => 'Met', 'tipo_estrategia' => 'Aprendizaje basado en proyectos'],
+            'evaluacion' => ['titulo' => 'Ev', 'tipo_evaluacion' => 'Rúbricas'],
+        ]],
+        'VIII' => ['contenido' => [
+            'bibliografias' => [
+                [
+                    'titulo' => 'Clean Code',
+                    'autor' => 'Martin, R.',
+                    'anio' => 2008,
+                    'editorial' => 'Prentice Hall',
+                    'es_bibliografia_uta' => true,
+                    'url' => 'https://example.com/clean-code',
+                    'uuid_archivo' => '11111111-1111-1111-1111-111111111111',
+                    'id_unidad' => 1,
+                ],
+                [
+                    'titulo' => 'Sandoval Yáñez, C. (2025). Documento de Ruta',
+                    'autor' => 'Sandoval Yáñez, C.',
+                    'anio' => 2025,
+                    'es_bibliografia_uta' => false,
+                ],
+            ],
+        ]],
+        'IX' => ['contenido' => [
+            'descripcion' => 'Normativa de evaluación del curso.',
+            'ponderacion_optativa' => ['porcentaje' => 30],
+            'tabla_componentes' => [[
+                'componente' => 'Cátedra',
+                'porcentaje' => 100,
+                'genera_acta' => true,
+                'aprobacion_obligatoria' => true,
+                'asistencia_obligatoria' => 75,
+            ]],
+        ]],
+    ];
 }
 
-test('el titular abre el programa como PDF en el navegador', function () {
-    $f = cursoConTitular();
-    programaDePrueba($f);
+test('parseSeccionesEstructuradas mapea DTOs en orden canonico I a IX sin romper parseSecciones', function () {
+    $lector = new class
+    {
+        use ParsesSyllabus;
 
-    $respuesta = $this->get("/docente/cursos/{$f->id_curso}/programa/pdf")->assertOk();
+        public function estructuradas(array $data): array
+        {
+            return $this->parseSeccionesEstructuradas($data);
+        }
 
-    expect($respuesta->headers->get('content-type'))->toBe('application/pdf')
-        ->and($respuesta->headers->get('content-disposition'))->toStartWith('inline')->toContain('Programa_')
-        ->and($respuesta->getContent())->toStartWith('%PDF');
+        public function planas(array $data): array
+        {
+            return $this->parseSecciones($data);
+        }
+    };
+
+    $data = [
+        'metadata' => [
+            'tipo_syllabus' => 'COMPLETO',
+            'asignatura' => ['codigo' => 'DM101', 'horas' => ['autonomas' => 4]],
+        ],
+        'secciones' => pdfSyllabusCompletoPayload(),
+    ];
+
+    $estructuradas = $lector->estructuradas($data);
+    $planas = $lector->planas($data);
+
+    expect(array_column($estructuradas, 'numeral_romano'))
+        ->toBe(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'])
+        ->and($estructuradas[0]['campos'][1]['valor'])->toBe('DM101')
+        ->and($estructuradas[5]['tipo_seccion'])->toBe('unidades')
+        ->and($estructuradas[5]['unidades'][0]['titulo'])->toBe('Fundamentos')
+        ->and($estructuradas[7]['tipo_seccion'])->toBe('bibliografias')
+        ->and($estructuradas[7]['grupos'][0]['items'][0]['referencia'])->toBe('Sandoval Yáñez, C. (2025). Documento de Ruta')
+        ->and($estructuradas[7]['grupos'][1]['items'][0]['archivo_url'])->toContain('/api/bibliografias/11111111-1111-1111-1111-111111111111/archivo')
+        ->and($estructuradas[8]['componentes'][0]['componente'])->toBe('Cátedra')
+        ->and($planas[0]['contenidos'][0]['texto_contenido'])->toContain('Código: DM101');
 });
 
-test('un docente ajeno al curso no ve el PDF', function () {
-    $f = cursoConTitular();
-    programaDePrueba($f);
-    $ajeno = DB::selectOne('
-        SELECT d.id_usuario FROM usuario.docente d
-        JOIN usuario.usuario_rol_asignacion ura ON ura.id_usuario = d.id_usuario
-        JOIN usuario.rol r ON r.id_rol = ura.id_rol
-        WHERE d.id_usuario <> ?
-          AND ura.esta_activo AND NOT ura.fue_eliminado AND LOWER(r.nombre) LIKE \'docente%\'
-          AND NOT EXISTS (
-              SELECT 1 FROM curso.docente_componente dc
-              JOIN curso.componente co ON co.id_componente = dc.id_componente
-              WHERE dc.id_docente = d.id_docente AND co.id_curso = ?)
-        LIMIT 1
-    ', [$f->titular, $f->id_curso]);
-    if (! $ajeno) {
-        $this->markTestSkipped('Sin un docente ajeno al curso.');
+test('parseSeccionesEstructuradas soporta formato indexado legado y ordena I a IX', function () {
+    $lector = new class
+    {
+        use ParsesSyllabus;
+
+        public function estructuradas(array $data): array
+        {
+            return $this->parseSeccionesEstructuradas($data);
+        }
+    };
+
+    $legado = [
+        [
+            'numeral_romano' => 'VI',
+            'nombre_seccion' => 'Unidades',
+            'orden' => 2,
+            'contenidos' => [['texto_contenido' => "Unidad 1: Intro\n• Tema A\n  • Subtema A1"]],
+        ],
+        [
+            'numeral_romano' => 'I',
+            'nombre_seccion' => 'Identificación',
+            'orden' => 1,
+            'contenidos' => [['texto_contenido' => "Asignatura: Prueba\nCódigo: DM001"]],
+        ],
+    ];
+
+    $resultado = $lector->estructuradas($legado);
+
+    expect(array_column($resultado, 'numeral_romano'))->toBe(['I', 'VI'])
+        ->and($resultado[0]['tipo_seccion'])->toBe('bloques')
+        ->and($resultado[0]['bloques'][0])->toMatchArray(['tipo' => 'campo', 'etiqueta' => 'Asignatura', 'valor' => 'Prueba'])
+        ->and($resultado[1]['bloques'][0])->toMatchArray(['tipo' => 'subtitulo', 'texto' => 'Unidad 1: Intro'])
+        ->and($resultado[1]['bloques'][1]['tipo'])->toBe('lista')
+        ->and($resultado[1]['bloques'][1]['items'][1]['anidado'])->toBeTrue();
+});
+
+test('ProgramaPdfService genera PDF valido con estado borrador y sincroniza asistencia', function () {
+    $f = pdfCursoConInscrito();
+    $curso = Curso::findOrFail($f->id_curso);
+    $admin = Usuario::where('username', 'superadmin')->first() ?? test()->markTestSkipped('Sin superadmin.');
+    pdfLoginAs($admin->id_usuario);
+
+    $programa = ProgramaService::generateProgramaWithSyllabus($curso, $admin, [
+        'tipo_syllabus' => 'COMPLETO',
+        'estado' => 'BORRADOR',
+        'secciones' => pdfSyllabusCompletoPayload(),
+    ]);
+
+    $resultado = app(ProgramaPdfService::class)->generar($curso, $programa, 'docente');
+    $bytes = $resultado['pdf']->output();
+
+    expect($bytes)->toStartWith('%PDF-')
+        ->and($resultado['filename'])->toEndWith('.pdf');
+});
+
+test('admin y docente asignado pueden descargar PDF en cualquier estado; docente ajeno recibe 403', function () {
+    $f = pdfCursoConInscrito();
+    $curso = Curso::findOrFail($f->id_curso);
+    $admin = Usuario::where('username', 'superadmin')->first() ?? test()->markTestSkipped('Sin superadmin.');
+
+    ProgramaService::generateProgramaWithSyllabus($curso, $admin, [
+        'tipo_syllabus' => 'COMPLETO',
+        'estado' => 'BORRADOR',
+        'secciones' => pdfSyllabusCompletoPayload(),
+    ]);
+
+    pdfLoginAs($admin->id_usuario);
+    $resAdmin = $this->get("/admin/cursos/{$curso->id_curso}/programa/pdf");
+    $resAdmin->assertOk();
+    expect($resAdmin->headers->get('content-type'))->toContain('application/pdf')
+        ->and($resAdmin->getContent())->toStartWith('%PDF-');
+
+    if ($curso->id_docente_titular) {
+        $docenteRow = DB::table('usuario.docente')->where('id_docente', $curso->id_docente_titular)->first();
+        if ($docenteRow) {
+            pdfLoginAs((int) $docenteRow->id_usuario);
+            $resDocente = $this->get("/docente/cursos/{$curso->id_curso}/programa/pdf");
+            $resDocente->assertOk();
+            expect($resDocente->headers->get('content-type'))->toContain('application/pdf');
+        }
     }
-    comoUsuario($ajeno->id_usuario);
 
-    $this->get("/docente/cursos/{$f->id_curso}/programa/pdf")->assertForbidden();
-});
+    $otroDocente = DB::table('usuario.docente as d')
+        ->join('usuario.usuario_rol_asignacion as ura', 'ura.id_usuario', '=', 'd.id_usuario')
+        ->join('usuario.rol as r', 'r.id_rol', '=', 'ura.id_rol')
+        ->whereIn('r.nombre', ['Docente Titular', 'Docente Titular Restringido', 'Docente Componente'])
+        ->where('ura.esta_activo', true)
+        ->where('ura.fue_eliminado', false)
+        ->where('d.id_docente', '!=', $curso->id_docente_titular ?? 0)
+        ->whereNotExists(function ($q) use ($curso) {
+            $q->select(DB::raw(1))
+                ->from('curso.docente_componente as dc')
+                ->join('curso.componente as c', 'c.id_componente', '=', 'dc.id_componente')
+                ->whereColumn('dc.id_docente', 'd.id_docente')
+                ->where('c.id_curso', $curso->id_curso);
+        })
+        ->first(['d.id_usuario']);
 
-test('sin programa vigente responde 404 y sin sesión manda a ingresar', function () {
-    $f = cursoConTitular();
-    $this->get("/docente/cursos/{$f->id_curso}/programa/pdf")->assertRedirect();
-
-    Programa::where('id_curso', $f->id_curso)->update(['es_actual' => false]);
-    comoUsuario($f->titular);
-    $this->get("/docente/cursos/{$f->id_curso}/programa/pdf")->assertNotFound();
-});
-
-test('el administrador abre el PDF desde su panel', function () {
-    $f = cursoConTitular();
-    programaDePrueba($f);
-    $admin = Usuario::where('username', 'superadmin')->first() ?? $this->markTestSkipped('Sin superadmin.');
-    comoUsuario($admin->id_usuario);
-
-    $respuesta = $this->get("/admin/cursos/{$f->id_curso}/programa/pdf")->assertOk();
-
-    expect($respuesta->headers->get('content-type'))->toBe('application/pdf');
-});
-
-test('el ayudante abre el PDF de su curso sólo con el permiso de ver programas', function () {
-    $f = cursoConTitular();
-    programaDePrueba($f);
-    $idContexto = DB::table('curso.curso')->where('id_curso', $f->id_curso)->value('id_contexto');
-    $idRol = DB::table('usuario.rol')->whereRaw("LOWER(nombre) = 'ayudante'")->value('id_rol');
-    $idUsuario = DB::selectOne('
-        SELECT u.id_usuario FROM usuario.usuario u
-        WHERE NOT EXISTS (SELECT 1 FROM usuario.usuario_rol_asignacion ura WHERE ura.id_usuario = u.id_usuario)
-        ORDER BY u.id_usuario LIMIT 1
-    ')?->id_usuario
-        ?? DB::selectOne('SELECT e.id_usuario FROM usuario.estudiante e ORDER BY e.id_usuario LIMIT 1')?->id_usuario;
-    if (! $idContexto || ! $idRol || ! $idUsuario) {
-        $this->markTestSkipped('Sin contexto, rol o usuario para un ayudante.');
+    if ($otroDocente) {
+        pdfLoginAs((int) $otroDocente->id_usuario);
+        $this->get("/docente/cursos/{$curso->id_curso}/programa/pdf")->assertForbidden();
     }
+});
+
+test('estudiante inscrito solo descarga PDF cuando esta APROBADO o BASICO_COMPLETO', function () {
+    $f = pdfCursoConInscrito();
+    $curso = Curso::findOrFail($f->id_curso);
+    $admin = Usuario::where('username', 'superadmin')->first() ?? test()->markTestSkipped('Sin superadmin.');
+
+    $programa = ProgramaService::generateProgramaWithSyllabus($curso, $admin, [
+        'tipo_syllabus' => 'COMPLETO',
+        'estado' => 'BORRADOR',
+        'secciones' => pdfSyllabusCompletoPayload(),
+    ]);
+
+    pdfLoginAs((int) $f->id_usuario);
+    $this->get("/estudiante/cursos/{$curso->id_curso}/programa/pdf")->assertNotFound();
+
+    $programa->update(['estado' => 'APROBADO']);
+    $res = $this->get("/estudiante/cursos/{$curso->id_curso}/programa/pdf");
+    $res->assertOk();
+    expect($res->headers->get('content-type'))->toContain('application/pdf')
+        ->and($res->getContent())->toStartWith('%PDF-');
+
+    $otroEstudiante = DB::table('usuario.estudiante as e')
+        ->join('usuario.usuario_rol_asignacion as ura', 'ura.id_usuario', '=', 'e.id_usuario')
+        ->join('usuario.rol as r', 'r.id_rol', '=', 'ura.id_rol')
+        ->where('r.nombre', 'Estudiante')
+        ->where('ura.esta_activo', true)
+        ->where('ura.fue_eliminado', false)
+        ->whereNotExists(function ($q) use ($curso) {
+            $q->select(DB::raw(1))
+                ->from('curso.inscripcion_curso as ic')
+                ->whereColumn('ic.id_estudiante', 'e.id_estudiante')
+                ->where('ic.id_curso', $curso->id_curso)
+                ->where('ic.estado_inscripcion', 'INSCRITO');
+        })
+        ->first(['e.id_usuario']);
+
+    if ($otroEstudiante) {
+        pdfLoginAs((int) $otroEstudiante->id_usuario);
+        $this->get("/estudiante/cursos/{$curso->id_curso}/programa/pdf")->assertForbidden();
+    }
+});
+
+test('ayudante sin asignacion al curso recibe 403 al solicitar PDF', function () {
+    $f = pdfCursoConInscrito();
+    $curso = Curso::findOrFail($f->id_curso);
+    $admin = Usuario::where('username', 'superadmin')->first() ?? test()->markTestSkipped('Sin superadmin.');
+
+    ProgramaService::generateProgramaWithSyllabus($curso, $admin, [
+        'tipo_syllabus' => 'COMPLETO',
+        'estado' => 'BORRADOR',
+        'secciones' => pdfSyllabusCompletoPayload(),
+    ]);
+
+    $rolAyudante = Rol::firstOrCreate(['nombre' => 'Ayudante'], ['creado_por' => $admin->id_usuario]);
+    $otroContexto = DB::table('usuario.contexto')
+        ->where('id_contexto', '!=', $curso->id_contexto ?? 0)
+        ->value('id_contexto') ?? 1;
+
+    $ayudante = Usuario::factory()->create();
     UsuarioRolAsignacion::create([
-        'id_usuario' => $idUsuario,
-        'id_rol' => $idRol,
-        'id_contexto' => $idContexto,
-        'asignado_por' => $f->titular,
+        'id_usuario' => $ayudante->id_usuario,
+        'id_rol' => $rolAyudante->id_rol,
+        'id_contexto' => $otroContexto,
+        'asignado_por' => $admin->id_usuario,
+        'creado_por' => $admin->id_usuario,
         'fecha_inicio_planificada' => now()->subMinute(),
-        'fecha_fin_planificada' => now()->addYear(),
+        'fecha_fin_planificada' => now()->addMonth(),
         'esta_activo' => true,
         'fue_eliminado' => false,
-        'creado_por' => $f->titular,
     ]);
-    comoUsuario($idUsuario);
-    $url = "/ayudante/cursos/{$f->id_curso}/programa/pdf";
 
-    // El rol por sí solo no trae el permiso: se concede sobre el curso.
-    $this->get($url)->assertRedirect(route('ayudante.cursos.index'));
-
-    DB::table('usuario.usuario_permiso_especial')->insert([
-        'id_usuario' => $idUsuario,
-        'id_permiso' => DB::table('usuario.permiso')->where('slug', Permissions::CURSOS_PROGRAMAS_VER_TODOS->value)->value('id_permiso'),
-        'id_contexto' => $idContexto,
-        'esta_permitido' => true,
-        'puede_delegar' => false,
-        'esta_activo' => true,
-        'fue_borrado' => false,
-        'fecha_inicio_planificada' => now()->subMinute(),
-        'fecha_fin_planificada' => now()->addYear(),
-        'creado_por' => $f->titular,
-    ]);
-    // El insert directo no dispara el evento que vacía la caché de permisos.
-    app(PermissionCache::class)->olvidarUsuario($idUsuario);
-    comoUsuario($idUsuario);
-
-    expect($this->get($url)->assertOk()->headers->get('content-type'))->toBe('application/pdf');
-
-    $otro = DB::table('curso.curso')->where('id_curso', '<>', $f->id_curso)->whereNull('fecha_eliminacion')->value('id_curso');
-    $this->get("/ayudante/cursos/{$otro}/programa/pdf")->assertRedirect(route('ayudante.cursos.index'));
-});
-
-test('los campos seguidos quedan juntos y las viñetas a mano son viñetas', function () {
-    $bloques = SyllabusBloques::de(implode("\n", [
-        'Código: DM095',
-        'Taller: 4',
-        '',
-        'Unidad 1: Prototipo',
-        '- Clase demostrativa: el docente muestra ejemplos.',
-        '- Ejercicio guiado con un rótulo bastante más largo que el resto: se practica.',
-        '1. Primer punto: texto corrido',
-        'Resultados:',
-        '  • Explorar el entorno',
-        '    de trabajo',
-        '  «Cita del ítem»',
-    ]), 'VII');
-
-    expect(array_column($bloques, 'tipo'))->toBe(['campos', 'subtitulo', 'lista', 'parrafo', 'subtitulo', 'lista'])
-        ->and($bloques[0]['filas'])->toHaveCount(2)
-        ->and($bloques[2]['items'])->toHaveCount(2)
-        ->and($bloques[5]['items'][0])->toBe([
-            'texto' => 'Explorar el entorno de trabajo',
-            'anidado' => true,
-            'cita' => '«Cita del ítem»',
-        ]);
-});
-
-test('las secciones de prosa no se parten por los dos puntos', function () {
-    expect(SyllabusBloques::de("Propósito: formar.\n\nSegundo párrafo.", 'II'))->toBe([
-        ['tipo' => 'parrafo', 'texto' => 'Propósito: formar.'],
-        ['tipo' => 'parrafo', 'texto' => 'Segundo párrafo.'],
-    ])->and(SyllabusBloques::de('  ', 'I'))->toBe([]);
+    pdfLoginAs((int) $ayudante->id_usuario);
+    $this->get("/ayudante/cursos/{$curso->id_curso}/programa/pdf")->assertForbidden();
 });

@@ -95,9 +95,14 @@
         <ChevronLeft size={18} aria-hidden="true" />Volver al curso
       </Link>
       {#if programa}
-        <button type="button" class="{btnPrimario} text-[15px] font-bold" onclick={() => window.print()}>
+        <a
+          href={`/estudiante/cursos/${curso?.id_curso}/programa/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="{btnPrimario} text-[15px] font-bold no-underline"
+        >
           <Printer size={18} aria-hidden="true" />Imprimir o guardar como PDF
-        </button>
+        </a>
       {/if}
     </div>
 

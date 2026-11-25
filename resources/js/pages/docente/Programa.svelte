@@ -188,9 +188,18 @@
   const rotuloCurso = $derived([codigo, titulo].filter(Boolean).join(' '));
   const semestreTexto = $derived(nombreSemestre(curso?.semestre_real, curso?.agno_real));
 
-  /** «Imprimir» abre el PDF que arma el servidor (ProgramaPdf), en otra pestaña. */
-  const urlPdf = $derived(
-    programa && layoutType !== 'estudiante' ? `/${layoutType}/cursos/${curso.id_curso}/programa/pdf` : null,
+  /**
+   * «Imprimir» abre el PDF institucional unificado generado en servidor según
+   * el contexto del usuario (`admin`, `docente`, `ayudante` o `estudiante`).
+   */
+  const pdfUrl = $derived(
+    layoutType === 'admin'
+      ? `/admin/cursos/${curso.id_curso}/programa/pdf`
+      : layoutType === 'ayudante'
+        ? `/ayudante/cursos/${curso.id_curso}/programa/pdf`
+        : layoutType === 'estudiante'
+          ? `/estudiante/cursos/${curso.id_curso}/programa/pdf`
+          : `/docente/cursos/${curso.id_curso}/programa/pdf`,
   );
 
   // ── Estado del documento ──────────────────────────────────────────────────
@@ -587,15 +596,16 @@
                 Historial
               </button>
             {/if}
-            {#if urlPdf}
+            {#if programa}
               <a
-                href={urlPdf}
+                href={pdfUrl}
                 target="_blank"
-                rel="noopener"
-                class="{btnPrimario} {chico}"
+                rel="noopener noreferrer"
+                class="{btnPrimario} {chico} no-underline"
               >
                 <Printer size={15} aria-hidden="true" />
                 Imprimir
+              </a>
               </a>
             {/if}
           </div>
@@ -635,11 +645,11 @@
             </div>
 
             <div class="flex max-w-full flex-wrap items-center gap-2.5 sm:ml-auto sm:flex-none">
-              {#if urlPdf}
+              {#if programa}
                 <a
-                  href={urlPdf}
+                  href={pdfUrl}
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink no-underline transition-colors hover:bg-sand print:hidden"
                 >
                   <Printer size={15} class="text-ink-2" aria-hidden="true" />
