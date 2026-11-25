@@ -9,16 +9,16 @@
   import MensajesSinLeer from '@/components/student/inicio/MensajesSinLeer.svelte';
   import TarjetaCurso from '@/components/student/inicio/TarjetaCurso.svelte';
   import DestacadaDelDia from '@/components/student/inicio/DestacadaDelDia.svelte';
+  import VencidasModal from '@/components/student/inicio/VencidasModal.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
   import {
     abiertas as abiertasDe,
-    hrefAtrasadas,
     textoVencidas,
     vencidas as vencidasDe,
     type ActividadPorVencer,
   } from '@/lib/plazoAlumno';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
-  import { btnNoche, btnSecundario, enlace, etiqueta, tituloCond } from '@/lib/dm';
+  import { btnAmarillo, btnSecundario, enlace, etiqueta, tituloCond } from '@/lib/dm';
   import { claveDia, parseFechaSoloDia } from '@/utils/formatters';
 
   /**
@@ -103,16 +103,11 @@
 
   /**
    * Lo que venció sin entrega en el semestre no desaparece del Inicio: el
-   * alumno tiene que verlo para escribirle a su docente o apelar. Una sola
-   * lleva a la actividad; varias de un curso, a sus actividades atrasadas; de
-   * varios cursos, a las tarjetas, que dicen cuántas tiene cada uno.
+   * alumno tiene que verlo para escribirle a su docente o apelar. El aviso
+   * abre una ventana con todas, de cualquier curso.
    */
   const vencidas = $derived(vencidasDe(proximasAVencer));
-  const hrefVencidas = $derived.by(() => {
-    if (vencidas.length === 1) return `/estudiante/cursos/${vencidas[0].id_curso}/actividad/${vencidas[0].id_actividad}`;
-    const cursosConVencidas = new Set(vencidas.map((a) => a.id_curso));
-    return cursosConVencidas.size === 1 ? hrefAtrasadas(vencidas[0].id_curso) : '#t-cursos';
-  });
+  let verVencidas = $state(false);
   const diaDeCierre = (a: ActividadPorVencer) => (a.plazo_hasta ?? a.fecha_limite).slice(0, 10);
   const cierraHoy = $derived(destacada !== null && diaDeCierre(destacada) === hoy);
   /** Las que cierran el mismo día que la destacada: la tarjeta las alterna (OBS-08). */
@@ -175,7 +170,7 @@
             >
               Ver perfil <ChevronRight size={16} aria-hidden="true" />
             </Link>
-            <BotonSgeq visible={puedeAbrirSgeq} class="{btnNoche} bg-transparent shadow-none" />
+            <BotonSgeq visible={puedeAbrirSgeq} class="{btnAmarillo} font-bold" />
           </div>
         </div>
 
@@ -201,14 +196,16 @@
             {/if}
           {/if}
           {#if vencidas.length}
-            <a
-              href={hrefVencidas}
-              class="mt-1 flex min-h-11 items-center gap-2 rounded-lg border border-dm-error bg-dm-error-s px-3 py-2 text-sm font-semibold text-dm-error no-underline hover:underline"
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onclick={() => (verVencidas = true)}
+              class="mt-1 flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-dm-error bg-dm-error-s px-3 py-2 text-left text-sm font-semibold text-dm-error hover:underline"
             >
               <CircleAlert size={16} aria-hidden="true" class="shrink-0" />
               <span class="min-w-0 flex-1">{textoVencidas(vencidas.length)}</span>
               <ChevronRight size={16} aria-hidden="true" class="shrink-0" />
-            </a>
+            </button>
           {/if}
         </div>
       </div>
@@ -282,3 +279,5 @@
     </div>
   </div>
 </StudentLayout>
+
+<VencidasModal bind:open={verVencidas} items={vencidas} {hoy} {colorDe} {nombreCurso} />

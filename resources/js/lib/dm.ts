@@ -27,6 +27,9 @@ export const btnSuave = `${boton} bg-dm-accion-suave text-dm-accion-texto hover:
 /** Botón con borde sobre fondo noche (cabeceras). */
 export const btnNoche = `${boton} border border-dm-noche-texto-2 text-dm-noche-texto hover:bg-dm-noche-activo hover:text-dm-noche-texto`;
 
+/** Acción destacada sobre fondo noche («Préstamo de equipos»). */
+export const btnAmarillo = `${boton} border border-dm-amarillo bg-dm-amarillo text-dm-sobre-amarillo shadow-none hover:border-white hover:bg-white hover:text-dm-sobre-amarillo`;
+
 /** Enlace de acción discreta («Ver todos ›»). */
 export const enlace =
     'inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-dm-enlace no-underline hover:text-dm-enlace-hover hover:underline lg:min-h-9';
