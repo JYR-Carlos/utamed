@@ -13,9 +13,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+use App\Enums\ContextType;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Services\Authorization\DelegationAuthorizer;
 use App\Services\Authorization\GlobalContextService;
+use App\Services\Authorization\PermissionCache;
+use App\Services\Authorization\PermissionContextConstraints;
 use App\Support\Permissions;
 
 /**
@@ -143,11 +146,32 @@ class CourseTeamController extends Controller
             }
         }
 
+        if (!$curso->id_contexto) {
+            return back()->with('error', 'El curso no tiene un contexto asignado.');
+        }
+
         // Case-insensitive role lookup (PostgreSQL is case-sensitive by default)
         $rol = Rol::whereRaw('LOWER(nombre) = ?', [strtolower($validated['role_name'])])->first();
 
         if (!$rol) {
             return back()->with('error', 'El rol especificado no existe.');
+        }
+
+        if (in_array(strtolower($rol->nombre), ['docente componente', 'docente componente colegiado'], true)) {
+            return back()->with('error', "El rol '{$rol->nombre}' pertenece al contexto de un componente y no puede asignarse a nivel de curso.");
+        }
+
+        $rolePermissions = $this->permisosOtorgadosPorRoles([$rol->id_rol]);
+        if (!empty($rolePermissions)) {
+            $compatibleContexts = PermissionContextConstraints::getCompatibleContexts($rolePermissions);
+            $algunoValidoEnCurso = in_array(ContextType::CURSO, $compatibleContexts, true)
+                || collect($rolePermissions)->contains(
+                    fn ($perm) => PermissionContextConstraints::isValidAssignment($perm, ContextType::CURSO)
+                );
+
+            if (!$algunoValidoEnCurso) {
+                return back()->with('error', "El rol '{$rol->nombre}' no es compatible con el contexto de un curso.");
+            }
         }
 
         // Check for existing assignment (including soft deleted)
@@ -184,6 +208,8 @@ class CourseTeamController extends Controller
                 'esta_activo'              => true,
             ]);
         }
+
+        app(PermissionCache::class)->olvidarUsuario((int) $validated['id_usuario']);
 
         return back()->with('success', 'Miembro agregado exitosamente.');
     }
@@ -230,6 +256,8 @@ class CourseTeamController extends Controller
             'fue_eliminado' => true,
             'fecha_fin_real' => now()
         ]);
+
+        app(PermissionCache::class)->olvidarUsuario((int) $usuario->id_usuario);
 
         return back()->with('success', 'Miembro removido exitosamente.');
     }
@@ -579,6 +607,8 @@ class CourseTeamController extends Controller
                     }
                 }
             });
+
+            app(PermissionCache::class)->olvidarUsuario((int) $usuario->id_usuario);
 
             return back()->with('success', 'Permisos actualizados correctamente.');
         } catch (\Exception $e) {

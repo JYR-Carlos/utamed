@@ -16,8 +16,6 @@ use App\Models\Administrativo\Plan;
 use App\Models\Curso\TipoComponente;
 use App\Models\Curso\IntranetSincronizacionLog;
 use App\Models\Usuario\Docente;
-use App\Models\Usuario\Rol;
-use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\CursoService;
 use App\Services\IntranetService;
 use App\Support\LetraGrupo;
@@ -1022,7 +1020,13 @@ class CursoController extends Controller
             'id_docente' => 'required|integer|exists:docente,id_docente',
         ]);
 
+        $idDocenteAnterior = $curso->id_docente_titular;
         $curso->update(['id_docente_titular' => $validated['id_docente']]);
+
+        if ($idDocenteAnterior && (int) $idDocenteAnterior !== (int) $validated['id_docente'] && $curso->id_contexto) {
+            $this->revokeDocenteTitularRol($curso, (int) $idDocenteAnterior);
+        }
+
         $this->syncDocenteTitularRol($curso, $validated['id_docente']);
 
         return back()->with('success', 'Docente Titular asignado exitosamente.');
@@ -1052,47 +1056,21 @@ class CursoController extends Controller
             return;
         }
 
-        $docente = Docente::find($idDocente);
-        $rol = Rol::where('nombre', 'Docente Titular')->first();
-        if (!$docente || !$docente->id_usuario || !$rol) {
-            return;
-        }
-
-        UsuarioRolAsignacion::updateOrCreate(
-            [
-                'id_usuario'  => $docente->id_usuario,
-                'id_contexto' => $curso->id_contexto,
-                'id_rol'      => $rol->id_rol,
-            ],
-            [
-                'asignado_por'             => Auth::id(),
-                'fecha_inicio_planificada' => now(),
-                'fecha_fin_planificada'    => now()->addYears(100),
-                'fecha_fin_real'           => null,
-                'fue_eliminado'            => false,
-                'esta_activo'              => true,
-            ]
+        app(CursoService::class)->asignarRolDocenteComponente(
+            $idDocente,
+            (int) $curso->id_contexto,
+            true,
+            $idDocente,
         );
     }
 
     private function revokeDocenteTitularRol(Curso $curso, int $idDocente): void
     {
-        $docente = Docente::find($idDocente);
-        $rol = Rol::where('nombre', 'Docente Titular')->first();
-        if (!$docente || !$docente->id_usuario || !$rol) {
+        if (!$curso->id_contexto) {
             return;
         }
 
-        UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-            ->where('id_contexto', $curso->id_contexto)
-            ->where('id_rol', $rol->id_rol)
-            ->where('esta_activo', true)
-            ->update([
-                'esta_activo'    => false,
-                'fue_eliminado'  => true,
-                'fecha_fin_real' => now(),
-                'eliminado_por'  => Auth::id(),
-            ]);
+        app(CursoService::class)->revocarRolTitularCurso($idDocente, (int) $curso->id_contexto);
     }
 
     /**

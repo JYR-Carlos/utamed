@@ -203,10 +203,16 @@ describe('wizard: crear curso', function () {
         $rolColegiado = Rol::where('nombre', 'Docente Componente Colegiado')->first();
         if ($rolColegiado) {
             expect(UsuarioRolAsignacion::where('id_usuario', $this->docenteB->id_usuario)
-                ->where('id_contexto', $curso->id_contexto)
+                ->where('id_contexto', $componente->id_contexto)
                 ->where('id_rol', $rolColegiado->id_rol)
                 ->where('esta_activo', true)
                 ->exists())->toBeTrue();
+
+            expect(UsuarioRolAsignacion::where('id_usuario', $this->docenteB->id_usuario)
+                ->where('id_contexto', $curso->id_contexto)
+                ->where('id_rol', $rolColegiado->id_rol)
+                ->where('esta_activo', true)
+                ->exists())->toBeFalse();
         }
     });
 
