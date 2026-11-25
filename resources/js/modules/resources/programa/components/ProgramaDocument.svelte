@@ -89,7 +89,7 @@
     {@const bloques = bloquesDeSeccion(contenidoDe(seccion), seccion.numeral_romano)}
     <section
       id="seccion-{seccion.numeral_romano}"
-      class="flex scroll-mt-6 flex-col gap-3"
+      class="flex scroll-mt-[calc(var(--alto-cabecera,0px)+24px)] flex-col gap-3"
       aria-labelledby="titulo-{seccion.numeral_romano}"
     >
       <h2 id="titulo-{seccion.numeral_romano}" class={TITULO}>

@@ -30,6 +30,7 @@
     let { breadcrumbs = [], ceja, titulo, acciones, detalle, pestanas, children }: Props = $props();
 
     let menuAbierto = $state(false);
+    let altoCabecera = $state(0);
 
     // Cada visita cierra el menú del teléfono: si no, tapaba la página nueva.
     $effect(() => {
@@ -70,15 +71,17 @@
         <!-- `scroll-region`: Inertia guarda y restaura el desplazamiento de este
              contenedor al volver atrás (UI-06). `relative`: lo absoluto de
              adentro (los `sr-only`) se mide contra este contenedor y no alarga
-             el documento con un segundo scroll. -->
+             el documento con un segundo scroll. `--alto-cabecera`: lo que tapa
+             la cabecera fija, para anclas y bloques que se fijan bajo ella. -->
         <main
             id="contenido"
             tabindex="-1"
             class="relative flex min-w-0 flex-1 flex-col overflow-y-auto outline-none"
+            style:--alto-cabecera="{pestanas ? altoCabecera : 0}px"
             scroll-region
         >
             {#if titulo || breadcrumbs.length > 1}
-                <CabeceraDocente {breadcrumbs} {ceja} {titulo} {acciones} {detalle} {pestanas} />
+                <CabeceraDocente {breadcrumbs} {ceja} {titulo} {acciones} {detalle} {pestanas} bind:alto={altoCabecera} />
             {/if}
 
             <div class="flex-1 {titulo ? '' : 'w-full py-6 md:p-8'}">

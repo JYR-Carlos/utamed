@@ -17,12 +17,14 @@
     acciones?: Snippet;
     detalle?: Snippet;
     pestanas?: Snippet;
+    /** Alto dibujado, para lo que se fija debajo de la cabecera. */
+    alto?: number;
   }
 
-  let { breadcrumbs = [], ceja, titulo, acciones, detalle, pestanas }: Props = $props();
+  let { breadcrumbs = [], ceja, titulo, acciones, detalle, pestanas, alto = $bindable(0) }: Props = $props();
 </script>
 
-<div class="border-b border-inst-linea bg-inst-tarjeta {pestanas ? 'sticky top-0 z-30' : ''}">
+<div bind:offsetHeight={alto} class="border-b border-inst-linea bg-inst-tarjeta {pestanas ? 'sticky top-0 z-30' : ''}">
   <div
     class="mx-auto flex w-full max-w-[1200px] flex-wrap items-end justify-between gap-4 px-4 pt-3.5 pb-4.5 lg:px-10 lg:pt-4.5 lg:pb-5.5"
   >
