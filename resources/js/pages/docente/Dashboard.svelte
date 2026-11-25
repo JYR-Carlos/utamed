@@ -372,7 +372,7 @@
               <div class="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4">
                 {#each componentes as comp (comp.id_componente)}
                   <Link
-                    href="/docente/cursos/{comp.id_curso}"
+                    href="/docente/cursos/{comp.id_curso}?componente={comp.id_componente}"
                     class="{tarjeta} flex flex-col gap-3 border-t-4 border-t-inst-oro px-5 py-4.5 text-inst-ink no-underline transition-shadow hover:text-inst-ink hover:shadow-md"
                   >
                     <span class="flex flex-col gap-1">
