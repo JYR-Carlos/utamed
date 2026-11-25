@@ -30,7 +30,7 @@
   } from '@/modules/resources/programa/types/programa.types';
   import type { IdPaso, TipoSyllabus } from '../utils/syllabusPasos';
   import BibliografiaModal from './BibliografiaModal.svelte';
-  import { formatDomainUrl } from '@/utils/formatters';
+  import { formatDomainUrl, nombreUnidad } from '@/utils/formatters';
   import type { BibliografiaSyllabus } from '@/types/syllabus.types';
 
   interface Props {
@@ -288,7 +288,7 @@
         {#each unidades.filter((u) => u.titulo.trim()) as u}
           <div class="flex flex-col gap-1">
             <span class="font-mono text-[12px] text-ink-2">Unidad {u.numero}</span>
-            <span class="text-[15px] font-semibold">{u.titulo}</span>
+            <span class="text-[15px] font-semibold">{nombreUnidad(u.titulo)}</span>
             {#if u.contenidos.trim()}
               <p class="m-0 text-[14px] text-pretty whitespace-pre-wrap">{u.contenidos}</p>
             {/if}
@@ -789,7 +789,7 @@
             <select bind:value={act.nombre_unidad} class={INPUT}>
               <option value="">— Sin unidad —</option>
               {#each unidades.filter((u) => u.titulo.trim()) as u}
-                <option value={u.titulo}>U{u.numero} · {u.titulo}</option>
+                <option value={u.titulo}>U{u.numero} · {nombreUnidad(u.titulo)}</option>
               {/each}
             </select>
           </div>
@@ -945,7 +945,7 @@
         {@const agrupadas = bibliografias.reduce((acc, bib) => {
           const unidadAsociada = unidades.find((u) => u.numero === bib.id_unidad);
           const key = bib.id_unidad
-            ? (unidadAsociada && unidadAsociada.titulo ? `Unidad ${bib.id_unidad}: ${unidadAsociada.titulo}` : `Unidad ${bib.id_unidad}`)
+            ? (unidadAsociada && unidadAsociada.titulo ? `Unidad ${bib.id_unidad}: ${nombreUnidad(unidadAsociada.titulo)}` : `Unidad ${bib.id_unidad}`)
             : 'General';
           if (!acc[key]) acc[key] = [];
           acc[key].push(bib);

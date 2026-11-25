@@ -360,7 +360,7 @@ trait ParsesSyllabus
             $unidades = array_values(array_map(
                 fn ($u) => [
                     'numero' => $u->numero,
-                    'titulo' => trim($u->titulo),
+                    'titulo' => $this->nombreUnidad($u->titulo),
                     'contenidos' => array_values(array_filter(array_map('trim', $u->contenidosItems), fn ($x) => $x !== '')),
                     'resultados' => array_values(array_filter(
                         array_map(fn ($r) => trim($r->resultado), $u->resultadosAprendizaje),
@@ -416,7 +416,7 @@ trait ParsesSyllabus
             $unidadTitulos = [];
             if ($seccionVI instanceof SeccionVIContenido) {
                 foreach ($seccionVI->unidades as $u) {
-                    $unidadTitulos[$u->numero] = $u->titulo;
+                    $unidadTitulos[$u->numero] = $this->nombreUnidad($u->titulo);
                 }
             }
 
@@ -591,6 +591,12 @@ trait ParsesSyllabus
         return implode("\n", array_map(fn ($i) => '• ' . $i->titulo . ': ' . $i->descripcion, $items));
     }
 
+    /** El nombre guardado suele traer el rótulo («Unidad 1 : Fundamentos»), que aquí se escribe aparte. */
+    private function nombreUnidad(string $titulo): string
+    {
+        return trim((string) preg_replace('/^\s*unidad\s+\d+\s*:/iu', '', $titulo));
+    }
+
     private function formatUnidades(SeccionVIContenido $c): string
     {
         $unidades = array_filter($c->unidades, fn ($u) => trim($u->titulo) !== '');
@@ -604,7 +610,7 @@ trait ParsesSyllabus
             return sprintf(
                 "Unidad %d: %s\nContenidos: %s\nResultados:\n  %s",
                 $u->numero,
-                $u->titulo,
+                $this->nombreUnidad($u->titulo),
                 implode(', ', $u->contenidosItems),
                 $resultados
             );
@@ -660,7 +666,7 @@ trait ParsesSyllabus
             $unidadTitulos = [];
             if ($seccionVI) {
                 foreach ($seccionVI->unidades as $u) {
-                    $unidadTitulos[$u->numero] = $u->titulo;
+                    $unidadTitulos[$u->numero] = $this->nombreUnidad($u->titulo);
                 }
             }
 

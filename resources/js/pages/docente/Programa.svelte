@@ -297,25 +297,43 @@
 
   let seccionActiva = $state<string | null>(null);
 
+  /** El próximo desplazamiento es el salto de un ancla, no la lectura. */
+  let saltando = false;
+
+  function irASeccion(numeral: string) {
+    seccionActiva = numeral;
+    saltando = true;
+  }
+
   $effect(() => {
     // Depende del documento renderizado: al cambiar de programa se re-observa.
     void seccionesDelTipo.length;
 
     const nodos = Array.from(document.querySelectorAll<HTMLElement>('[id^="seccion-"]'));
-    if (nodos.length === 0) return;
+    const raiz = nodos[0]?.closest<HTMLElement>('[scroll-region]');
+    if (!raiz) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) seccionActiva = visible.target.id.replace('seccion-', '');
-      },
-      { rootMargin: '-10% 0px -70% 0px', threshold: 0 },
-    );
+    const marcar = () => {
+      if (saltando) {
+        saltando = false;
+        return;
+      }
+      // Se lee a la altura donde un ancla deja el título (bajo la cabecera fija).
+      // Cerca del final esa línea baja hasta el borde: las últimas secciones son
+      // cortas y nunca llegarían arriba.
+      const inicio = parseFloat(getComputedStyle(nodos[0]).scrollMarginTop) + 8;
+      const total = raiz.scrollHeight - raiz.clientHeight;
+      const tramo = Math.min(raiz.clientHeight, total);
+      const avance = tramo > 0 ? Math.max(0, 1 - (total - raiz.scrollTop) / tramo) : 0;
+      const linea =
+        raiz.getBoundingClientRect().top + inicio + avance * (raiz.clientHeight - inicio);
+      const leida = nodos.filter((n) => n.getBoundingClientRect().top <= linea).at(-1) ?? nodos[0];
+      seccionActiva = leida.id.replace('seccion-', '');
+    };
 
-    nodos.forEach((n) => observer.observe(n));
-    return () => observer.disconnect();
+    marcar();
+    raiz.addEventListener('scroll', marcar, { passive: true });
+    return () => raiz.removeEventListener('scroll', marcar);
   });
 
   // ── Asistente ─────────────────────────────────────────────────────────────
@@ -584,8 +602,10 @@
         </p>
       {/if}
 
+      <!-- `@container`: las columnas dependen del ancho de la tarjeta, que cambia
+           según el menú de cada rol. -->
       <div
-        class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
+        class="@container overflow-clip rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
       >
         <!-- ── Cabecera del documento ── -->
         {#if esDocente}
@@ -659,7 +679,7 @@
                 <button
                   type="button"
                   onclick={() => (historialAbierto = true)}
-                  class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand print:hidden xl:hidden"
+                  class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand @min-[1200px]:hidden print:hidden"
                 >
                   <Clock size={15} class="text-ink-2" aria-hidden="true" />
                   Historial
@@ -758,19 +778,18 @@
 
           <!-- ── Índice · lectura · contexto ── -->
           <div
-            class="flex flex-col items-start gap-6 bg-sand px-5 py-6 sm:px-7 lg:flex-row print:bg-white print:p-0"
+            class="flex flex-col items-start gap-6 bg-sand px-5 py-6 sm:px-7 @min-[700px]:flex-row print:bg-white print:p-0"
           >
-            <div class="w-full lg:sticky lg:top-40 lg:w-[240px] lg:flex-none lg:self-start print:hidden">
-              <SyllabusIndice
-                entradas={entradasIndice}
-                activa={seccionActiva}
-                tipo={esDocente ? null : tipoSyllabus}
-                {requeridas}
-                mostrarProgreso={!sellado && !enRevision}
-              />
-            </div>
+            <SyllabusIndice
+              entradas={entradasIndice}
+              activa={seccionActiva}
+              tipo={esDocente ? null : tipoSyllabus}
+              {requeridas}
+              mostrarProgreso={!sellado && !enRevision}
+              onNavegar={irASeccion}
+            />
 
-            <div class="flex w-full min-w-0 flex-col gap-3 lg:w-[760px] lg:flex-none print:w-full">
+            <div class="flex w-full min-w-0 flex-col gap-3 @min-[700px]:max-w-[760px] @min-[700px]:flex-1 print:max-w-none">
               {#if sellado && !esDocente}
                 <div class="flex justify-end print:justify-start">
                   <span
@@ -800,7 +819,7 @@
             </div>
 
             {#if historial.length > 0 && !esDocente}
-              <div class="hidden xl:block xl:w-[280px] xl:flex-none print:hidden">
+              <div class="hidden w-[280px] flex-none @min-[1200px]:block print:hidden">
                 <SyllabusHistorial eventos={historial} />
               </div>
             {/if}

@@ -1,6 +1,7 @@
 <script lang="ts" module>
   export type IntegranteAgenda = {
     id_asignado_actividad: number;
+    nombre_pila: string;
     nombre_completo: string;
     diferencia_decimas: number | null;
     url_foto?: string | null;
@@ -115,7 +116,8 @@
     onCrearRubrica,
   }: Props = $props();
 
-  const corto = $derived(nombre.split(/\s+/)[0] ?? nombre);
+  // La agenda grupal la lee todo el grupo; la individual, el estudiante.
+  const corto = $derived((esGrupal ? nombreGrupo : integrantes[0]?.nombre_pila) || nombre);
   const fotoCabecera = $derived(!esGrupal ? (integrantes[0]?.url_foto ?? null) : null);
   const textos = $derived(textosEntrega(esSumativa));
   const pasos = $derived(
@@ -623,7 +625,7 @@
                     {#each integrantes as i (i.id_asignado_actividad)}
                       {@const d = diferenciar ? (decimas[i.id_asignado_actividad] ?? 0) : 0}
                       {@const n = notaDe(d)}
-                      {@const nombreCorto = i.nombre_completo.split(/\s+/)[0]}
+                      {@const nombreCorto = i.nombre_pila || i.nombre_completo}
                       <li class="flex items-center gap-2.5 border-b border-inst-linea py-2 last:border-b-0">
                         <AvatarAlumno src={i.url_foto ?? null} nombre={i.nombre_completo} class="size-8 bg-inst-sel text-xs font-extrabold text-inst-ink" />
                         <span class="min-w-0 flex-1">{i.nombre_completo}</span>
@@ -688,7 +690,7 @@
                 {:else if notaActual !== null}
                   Ya tiene nota {formatNota(notaActual)}; grabar la reemplaza.
                 {:else}
-                  Al grabar, {esGrupal ? nombreGrupo : corto} pasa a «Calificado».
+                  Al grabar, {corto} pasa a «Calificado».
                 {/if}
               </span>
               <button type="button" class="{btnPrimario} ml-auto" disabled={!puedeGrabar} onclick={grabarRubrica}>

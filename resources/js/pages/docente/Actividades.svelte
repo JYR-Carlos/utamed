@@ -54,7 +54,7 @@
   import type { InteraccionItem } from '@/types/agenda';
   import { ETIQUETA_ESTADO, estadoActividad, type EstadoActividad } from '@/utils/actividadEstado';
   import { BARRA_ENTREGA, ORDEN_ENTREGA, conteoEntregas, textosEntrega } from '@/lib/estadoEntrega';
-  import { formatNota } from '@/utils/formatters';
+  import { formatNota, nombreUnidad } from '@/utils/formatters';
 
   interface ComponenteCurso {
     id_componente: number;
@@ -464,7 +464,7 @@
         Unidad
         <select bind:value={filtroUnidad} class={campo}>
           <option value="todas">Todas</option>
-          {#each unidadesOrdenadas as u (u.id_unidad)}<option value={u.id_unidad}>Unidad {u.num_unidad ?? ''} · {u.nombre}</option>{/each}
+          {#each unidadesOrdenadas as u (u.id_unidad)}<option value={u.id_unidad}>{[`Unidad ${u.num_unidad ?? ''}`.trim(), nombreUnidad(u.nombre)].filter(Boolean).join(' · ')}</option>{/each}
         </select>
       </label>
       <label class="flex flex-[0_1_150px] flex-col gap-1 text-[13px] font-bold">

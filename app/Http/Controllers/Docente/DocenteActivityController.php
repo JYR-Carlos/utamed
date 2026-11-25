@@ -42,6 +42,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -1020,14 +1021,15 @@ class DocenteActivityController extends Controller
 
         // Grupos ya evaluados: en las formativas es lo que marca la entrega como
         // «Revisado» (mismo criterio que la lista). Escribir en la agenda no.
-        $evaluados = (new AvanceEvaluacionService)->gruposEvaluados(
-            $gruposActividad->pluck('id_actividad_asignada_grupo'),
-        );
+        $idsGrupo = $gruposActividad->pluck('id_actividad_asignada_grupo');
+        $avance = new AvanceEvaluacionService;
+        $evaluados = $avance->gruposEvaluados($idsGrupo);
+        $calificaciones = $actividad->tipo_actividad === TipoActividad::SUMATIVA ? collect() : $avance->calificaciones($idsGrupo);
 
         $fotoIntranet = app(FotoIntranetService::class);
 
         $grupos = $gruposActividad
-            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $evaluados, $fotoIntranet) {
+            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $evaluados, $calificaciones, $fotoIntranet) {
                 $estadoCalculado = $g->calcularEstadoGrupo($actividad);
 
                 $integrantes = $g->integranteGrupos
@@ -1038,6 +1040,8 @@ class DocenteActivityController extends Controller
                         'id_estudiante' => $m->id_estudiante,
                         'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
                         'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
+                        // `nombre1` trae a veces los dos nombres.
+                        'nombre_pila' => Str::before(trim($m->estudiante?->usuario?->nombre1 ?? ''), ' '),
                         'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
                         'url_foto' => $m->estudiante?->usuario?->rut
                             ? $fotoIntranet->getImagenPerfilURL($m->estudiante->usuario->rut)
@@ -1052,6 +1056,7 @@ class DocenteActivityController extends Controller
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
                     'evaluado' => $evaluados->has($g->id_actividad_asignada_grupo),
+                    'calificacion' => $calificaciones->get($g->id_actividad_asignada_grupo),
                     'entrega' => (function () use ($g, $entregasPorGrupo, $limiteOriginal) {
                         $filas = $entregasPorGrupo->get($g->id_actividad_asignada_grupo);
                         $ultima = $filas?->last();

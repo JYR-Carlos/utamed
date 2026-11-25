@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
-   * Índice del documento de syllabus — 240 px, pegado al scroll.
+   * Índice del documento de syllabus — 240 px, fijo bajo la cabecera mientras se
+   * lee. Si no cabe en la ventana, se desplaza solo hasta la sección activa.
    *
    * Marca con ✓ las secciones que ya tienen contenido y lleva el progreso justo
    * debajo, no en la cabecera: es información que el docente consulta mientras
@@ -55,12 +56,27 @@
 
   let ayudaVisible = $state(false);
 
+  let caja = $state<HTMLElement>();
+
+  // Se mueve sólo el índice: `scrollIntoView` arrastraría también la lectura.
+  $effect(() => {
+    const enlace = caja?.querySelector<HTMLElement>(`[href="#seccion-${activa}"]`);
+    if (!caja || !enlace) return;
+    const c = caja.getBoundingClientRect();
+    const e = enlace.getBoundingClientRect();
+    if (e.top < c.top) caja.scrollTop -= c.top - e.top + 8;
+    else if (e.bottom > c.bottom) caja.scrollTop += e.bottom - c.bottom + 8;
+  });
+
   const nombresExigidos = $derived(exigidas.map((e) => `${e.numeral}. ${e.nombre}`).join(', '));
 </script>
 
-<aside class="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-[240px] lg:flex-none">
+<aside
+  bind:this={caja}
+  class="flex w-full flex-col gap-3 [scrollbar-width:thin] @min-[700px]:sticky @min-[700px]:top-[calc(var(--alto-cabecera,0px)+24px)] @min-[700px]:max-h-[calc(100svh-var(--alto-cabecera,0px)-10.5rem)] @min-[700px]:w-[240px] @min-[700px]:flex-none @min-[700px]:overflow-y-auto print:hidden"
+>
   <nav
-    class="flex flex-col gap-px rounded-[10px] border border-gray-200 bg-white px-2 py-2.5"
+    class="flex shrink-0 flex-col gap-px rounded-[10px] border border-gray-200 bg-white px-2 py-2.5"
     aria-label="Contenido del syllabus"
   >
     <span

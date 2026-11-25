@@ -54,11 +54,50 @@ test('la agenda de un grupo llega como JSON con la actividad, el grupo, la rúbr
         ->assertJsonStructure([
             'curso' => ['id_curso', 'nombre'],
             'actividad' => ['nombre', 'es_sumativa', 'trae_archivo', 'es_grupal', 'es_titular'],
-            'grupo' => ['etiqueta', 'nota', 'evaluado', 'entrega', 'integrantes'],
+            'grupo' => ['etiqueta', 'nota', 'evaluado', 'calificacion', 'entrega', 'integrantes' => ['*' => ['nombre_pila', 'nombre_completo']]],
             'rubrica',
             'rubrica_id',
             'interacciones',
         ]);
+});
+
+test('la agenda trae el primer nombre del estudiante y, en las formativas, la última calificación', function () {
+    $f = fixtureAgendaGrupoJson() ?? $this->markTestSkipped('Sin curso con titular activo y grupos.');
+    $ids = DB::table('agenda.integrante_grupo as ig')
+        ->join('usuario.estudiante as e', 'e.id_estudiante', '=', 'ig.id_estudiante')
+        ->where('ig.id_actividad_asignada_grupo', $f['id_grupo'])
+        ->pluck('e.id_usuario');
+    if ($ids->isEmpty()) {
+        $this->markTestSkipped('El grupo no tiene integrantes.');
+    }
+    DB::table('usuario.usuario')->whereIn('id_usuario', $ids)->update(['nombre1' => 'Carolina Constanza']);
+
+    foreach (['Malo' => now()->subDays(2), 'Bueno' => now()->subDay()] as $resultado => $fecha) {
+        $idAgenda = DB::table('agenda.agenda')->insertGetId([
+            'id_actividad_asignada_grupo' => $f['id_grupo'],
+            'id_usuario_emisor' => $f['id_usuario'],
+            'tipo_mensaje' => 'Evaluación',
+            'mensaje' => 'Retroalimentación',
+            'fecha_envio' => $fecha,
+        ], 'id_agenda');
+        DB::table('agenda.evaluacion')->insert([
+            'id_agenda' => $idAgenda,
+            'evaluacion_obtenida' => $resultado,
+            'fecha_evaluacion' => $fecha,
+            'id_usuario_evaluador' => $f['id_usuario'],
+        ]);
+    }
+
+    $url = "/docente/cursos/{$f['id_curso']}/actividades/{$f['id_actividad']}/grupos/{$f['id_grupo']}/agenda";
+    $this->actingAs(docenteAgendaGrupoJson($f));
+
+    foreach (['FORMATIVA' => 'Bueno', 'SUMATIVA' => null] as $tipo => $calificacion) {
+        DB::table('agenda.actividad')->where('id_actividad', $f['id_actividad'])->update(['tipo_actividad' => $tipo]);
+
+        expect($this->getJson($url)->assertOk()->json('grupo'))
+            ->calificacion->toBe($calificacion)
+            ->integrantes->{0}->nombre_pila->toBe('Carolina');
+    }
 });
 
 test('un grupo de otra actividad devuelve 404', function () {

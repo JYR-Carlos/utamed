@@ -13,7 +13,7 @@
     WizardActividad,
   } from '@/modules/resources/programa/types/programa.types';
   import type { BibliografiaSyllabus } from '@/types/syllabus.types';
-  import { formatDomainUrl } from '@/utils/formatters';
+  import { formatDomainUrl, nombreUnidad } from '@/utils/formatters';
 
   interface Props {
     codigo: string;
@@ -89,7 +89,7 @@
     for (const [numero, info] of mapaUnidades.entries()) {
       if (info.bibs.length > 0) {
         resultado.push({
-          encabezado: `UNIDAD ${numero}: ${info.titulo.toUpperCase()}`,
+          encabezado: `UNIDAD ${numero}: ${nombreUnidad(info.titulo).toUpperCase()}`,
           bibs: info.bibs,
         });
       }
@@ -192,7 +192,7 @@
           {#each unidadesConTitulo as u (u.numero)}
             <div class="flex flex-col gap-1">
               <span class="font-mono text-[12px] text-ink-2">Unidad {u.numero}</span>
-              <span class="text-[15px] font-semibold">{u.titulo}</span>
+              <span class="text-[15px] font-semibold">{nombreUnidad(u.titulo)}</span>
               {#if u.contenidos.trim()}
                 <p class="m-0 text-pretty whitespace-pre-wrap">{u.contenidos}</p>
               {/if}

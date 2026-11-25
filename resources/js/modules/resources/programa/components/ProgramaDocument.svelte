@@ -48,7 +48,7 @@
   const conContenido = $derived(secciones.filter((s) => contenidoDe(s).trim() !== ''));
 
   // Número y título en la misma letra (formato oficial del programa).
-  const NUM = 'min-w-[36px] shrink-0 whitespace-nowrap';
+  const NUM = 'min-w-[36px] shrink-0 pr-2 whitespace-nowrap';
   const TITULO =
     'm-0 flex min-w-0 items-baseline break-words border-b-2 border-ink pb-2.5 font-inst-titulo text-[19px] leading-[25px] font-bold text-ink';
   /** Etiqueta y valor en columnas. */
@@ -89,7 +89,7 @@
     {@const bloques = bloquesDeSeccion(contenidoDe(seccion), seccion.numeral_romano)}
     <section
       id="seccion-{seccion.numeral_romano}"
-      class="flex scroll-mt-6 flex-col gap-3"
+      class="flex scroll-mt-[calc(var(--alto-cabecera,0px)+24px)] flex-col gap-3"
       aria-labelledby="titulo-{seccion.numeral_romano}"
     >
       <h2 id="titulo-{seccion.numeral_romano}" class={TITULO}>
@@ -128,7 +128,7 @@
                 <li
                   class:ml-5={item.anidado}
                   class="
-                    text-justify hyphens-auto pl-1 transition-colors {esListaBiblio
+                    text-[15px] leading-[1.65] text-justify hyphens-auto pl-1 transition-colors {esListaBiblio
                     ? `px-2 py-0.5 border border-transparent ${esUta ? 'bg-brand-light' : ''}`
                     : ``}"
                 >
