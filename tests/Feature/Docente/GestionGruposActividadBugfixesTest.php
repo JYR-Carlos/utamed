@@ -30,7 +30,7 @@ function fixtureGruposBugfixes(): ?array
         JOIN curso.componente co ON co.id_curso = c.id_curso
         JOIN agenda.actividad a ON a.id_componente = co.id_componente
         WHERE ura.esta_activo AND NOT ura.fue_eliminado
-          AND r.nombre IN ('Docente Titular', 'Docente Titular Restringido')
+          AND r.nombre = 'Docente Titular'
           AND c.es_plantilla = false
           AND a.id_unidad IS NOT NULL
           AND (SELECT count(*) FROM curso.inscripcion_curso i

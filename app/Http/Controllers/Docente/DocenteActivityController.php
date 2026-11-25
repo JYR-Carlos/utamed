@@ -26,6 +26,7 @@ use App\Models\Curso\InscripcionCurso;
 use App\Models\Curso\Unidad;
 use App\Models\Operaciones\Archivo;
 use App\Models\Usuario\Usuario;
+use App\Support\Permissions;
 use App\Services\Agenda\AvanceEvaluacionService;
 use App\Services\Agenda\CopiaGruposService;
 use App\Services\Agenda\GrupoIndividualService;
@@ -97,60 +98,88 @@ class DocenteActivityController extends Controller
      * limita a titular y dejaría al docente de componente sin poder calificar lo
      * que dicta.
      */
-    private function assertPuedeEditarEvaluacion(Curso $curso, Actividad $actividad): void
+    /**
+     * Guard de autorización sobre una actividad en el contexto de su componente (o curso).
+     * Evalúa únicamente permisos efectivos vía `PermissionValidator`, sin bypasses por rol ni tabla.
+     */
+    private function assertPuedeEditarEvaluacion(
+        Curso $curso,
+        Actividad $actividad,
+        Permissions ...$alternativas
+    ): void {
+        $permisos = empty($alternativas) ? [Permissions::ACTIVIDADES_EVALUAR] : $alternativas;
+        $this->assertPermisoEnActividad(
+            $curso,
+            $actividad,
+            $permisos,
+            'ESCRITURA_EVALUACION_SIN_PERMISO',
+            'No puedes modificar la evaluación de un componente sin permiso en su contexto.'
+        );
+    }
+
+    /**
+     * Verifica que el usuario posea al menos uno de `$permisos` efectivos en el contexto
+     * del componente de la actividad (o del curso si corresponde).
+     *
+     * @param Permissions[] $permisos
+     */
+    private function assertPermisoEnActividad(
+        Curso $curso,
+        Actividad $actividad,
+        array $permisos,
+        string $eventoLog = 'ACCESO_ACTIVIDAD_SIN_PERMISO',
+        string $mensaje403 = 'No tienes permiso para realizar esta acción sobre la actividad.'
+    ): void {
+        /** @var Usuario $user */
+        $user = Auth::user();
+
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
+        if (!$user->docente) {
+            abort(403, 'Solo un docente con permiso puede operar sobre actividades.');
+        }
+
+        $actividad->loadMissing('componente');
+        $target = $actividad->componente ?? $curso;
+
+        foreach ($permisos as $permiso) {
+            if ($user->can($permiso, $target)) {
+                return;
+            }
+        }
+
+        Log::channel('seguridad')->warning(
+            'Acceso denegado: operación sobre actividad sin permiso efectivo en contexto',
+            [
+                'evento'        => $eventoLog,
+                'permisos'      => array_map(fn (Permissions $p) => $p->value, $permisos),
+                'id_usuario'    => $user->id_usuario,
+                'id_docente'    => $user->docente->id_docente,
+                'id_curso'      => $curso->id_curso,
+                'id_actividad'  => $actividad->id_actividad,
+                'id_componente' => $actividad->componente?->id_componente,
+                'ip'            => request()->ip(),
+            ]
+        );
+
+        abort(403, $mensaje403);
+    }
+
+    /**
+     * Resuelve los slugs efectivos del usuario sobre el contexto del componente
+     * (si aplica) o sobre el curso.
+     *
+     * @return string[]
+     */
+    private function userPermissionsParaCurso(Curso $curso, ?Componente $componente = null): array
     {
         /** @var Usuario $user */
         $user = Auth::user();
 
-        if ($this->puedeEditarEvaluacion($user, $curso, $actividad)) {
-            return;
-        }
-
-        $docente = $user->docente;
-
-        if (!$docente) {
-            abort(403, 'Solo un docente puede modificar la evaluación de una actividad.');
-        }
-
-        Log::channel('seguridad')->warning(
-            'Acceso denegado: escritura de evaluación fuera del componente propio',
-            [
-                'evento' => 'ESCRITURA_EVALUACION_FUERA_DE_COMPONENTE',
-                'id_usuario' => $user->id_usuario,
-                'id_docente' => $docente->id_docente,
-                'id_curso' => $curso->id_curso,
-                'id_actividad' => $actividad->id_actividad,
-                'id_componente' => $actividad->componente?->id_componente,
-                'ip' => request()->ip(),
-            ]
-        );
-
-        abort(403, 'No puedes modificar la evaluación de un componente que no dictas.');
-    }
-
-    /**
-     * Construye el arreglo de permisos granulares del docente en el contexto del
-     * curso, replicando el patrón de DocenteCursoController::show (B-02).
-     *
-     * El titular del curso no necesita permisos explícitos (acceso completo),
-     * por lo que se devuelve un arreglo vacío en ese caso.
-     *
-     * @return array<int, array{id_permiso: int, slug: string, esta_permitido: bool}>
-     */
-    private function userPermissionsParaCurso(Curso $curso, bool $esTitular): array
-    {
-        if ($esTitular) {
-            return [];
-        }
-
-        return collect(Auth::user()->getAllPermissions($curso->id_contexto))
-            ->map(fn ($perm) => [
-                'id_permiso' => $perm['id_permiso'],
-                'slug' => $perm['slug'],
-                'esta_permitido' => (bool) $perm['esta_permitido'],
-            ])
-            ->values()
-            ->all();
+        return app(\App\Services\Authorization\PermissionValidator::class)
+            ->resolveEffectiveSlugsFor($user, $componente ?? $curso);
     }
 
     /**
@@ -178,8 +207,8 @@ class DocenteActivityController extends Controller
     private function propsListaActividades(Curso $curso): array
     {
         $user = Auth::user();
-        $idDocente = $user->docente->id_docente;
-        $esTitular = $curso->id_docente_titular === $idDocente;
+        $idDocente = $user->docente?->id_docente;
+        $esTitular = $idDocente !== null && $curso->id_docente_titular === $idDocente;
 
         // La cabecera de la lámina nombra la asignatura y el periodo; ambos
         // cuelgan de asignacion_plan, no de curso.
@@ -233,8 +262,16 @@ class DocenteActivityController extends Controller
             ->map(fn($e) => ['value' => $e->value, 'label' => $e->value])
             ->values()->all();
 
-        // Permisos granulares del docente en el contexto de este curso (B-02)
-        $userPermissions = $this->userPermissionsParaCurso($curso, $esTitular);
+        // Permisos efectivos del usuario sobre el curso y por cada componente del curso
+        /** @var Usuario $user */
+        $user = Auth::user();
+        $permissionValidator = app(\App\Services\Authorization\PermissionValidator::class);
+        $userPermissions = $permissionValidator->resolveEffectiveSlugsFor($user, $curso);
+        $componentesModelos = Componente::where('id_curso', $curso->id_curso)->get();
+        $userPermissionsByComponent = $permissionValidator->resolveEffectiveSlugsForResources(
+            $user,
+            $componentesModelos->keyBy('id_componente')
+        );
 
         // Mensajería de agenda: vive DENTRO de la actividad, así que el badge de
         // "por responder" se entrega junto a cada tarjeta. La mensajería de nivel
@@ -289,6 +326,7 @@ class DocenteActivityController extends Controller
         return [
             'curso' => array_merge($curso->toArray(), [
                 'userPermissions' => $userPermissions,
+                'userPermissionsByComponent' => $userPermissionsByComponent,
                 'es_titular_curso' => $esTitular,
                 // El header mostraba «{cod_asignatura} - {asignatura_nombre}» y
                 // ambas claves llegaban vacías: no son columnas de curso.
@@ -342,7 +380,15 @@ class DocenteActivityController extends Controller
      */
     public function store(Request $request, Curso $curso)
     {
-        $this->authorize('manageTeam', $curso);
+        /** @var Usuario $user */
+        $user = Auth::user();
+        $puedeCrearEnCurso = $user->isSuperAdmin()
+            || $user->can(Permissions::ACTIVIDADES_CREAR, $curso)
+            || $curso->componentes()->get()->contains(fn (Componente $c) => $user->can(Permissions::ACTIVIDADES_CREAR, $c));
+
+        if (!$puedeCrearEnCurso) {
+            abort(403, 'No tienes permiso para crear actividades en este curso.');
+        }
 
         Log::info('[DocenteActivity::store] Inicio', [
             'id_curso' => $curso->id_curso,
@@ -364,6 +410,13 @@ class DocenteActivityController extends Controller
             'id_componente' => 'required|integer|min:1',
             'id_unidad' => 'required|integer|min:1',
         ]);
+
+        $componente = Componente::where('id_curso', $curso->id_curso)
+            ->findOrFail($validated['id_componente']);
+
+        if (!$user->isSuperAdmin() && !$user->can(Permissions::ACTIVIDADES_CREAR, $componente)) {
+            abort(403, 'No tienes permiso para crear actividades en este componente.');
+        }
 
         $validated['es_plantilla'] = false;
 
@@ -407,8 +460,8 @@ class DocenteActivityController extends Controller
      */
     public function update(Request $request, Curso $curso, Actividad $actividad)
     {
-        $this->authorize('manageTeam', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPermisoEnActividad($curso, $actividad, [Permissions::ACTIVIDADES_EDITAR], 'EDICION_ACTIVIDAD_SIN_PERMISO');
 
         // tipo_entrega NO se valida al editar: el formulario lo muestra
         // deshabilitado —no es editable— y lo reenvía tal como está guardado. Los
@@ -506,9 +559,8 @@ class DocenteActivityController extends Controller
      */
     public function toggleVisibilidad(Curso $curso, Actividad $actividad)
     {
-        $this->authorize('manageTeam', $curso);
-
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPermisoEnActividad($curso, $actividad, [Permissions::ACTIVIDADES_EDITAR], 'EDICION_VISIBILIDAD_SIN_PERMISO');
 
         try {
             $actividad->update(['visible' => !$actividad->visible]);
@@ -582,8 +634,8 @@ class DocenteActivityController extends Controller
      */
     public function destroy(Curso $curso, Actividad $actividad)
     {
-        $this->authorize('manageTeam', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPermisoEnActividad($curso, $actividad, [Permissions::ACTIVIDADES_ELIMINAR], 'ELIMINACION_ACTIVIDAD_SIN_PERMISO');
 
         try {
             $nombreActividad = $actividad->nombre;
@@ -673,8 +725,8 @@ class DocenteActivityController extends Controller
      */
     public function subirEnunciado(ActivityFileRequest $request, Curso $curso, Actividad $actividad)
     {
-        $this->authorize('manageTeam', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPermisoEnActividad($curso, $actividad, [Permissions::ACTIVIDADES_EDITAR], 'SUBIDA_ENUNCIADO_SIN_PERMISO');
 
         try {
             $result = ActivityArchiveHandler::store(
@@ -806,20 +858,23 @@ class DocenteActivityController extends Controller
      */
     public function centroCalificaciones()
     {
-        $docente = Auth::user()->docente;
-        if (!$docente) {
+        /** @var Usuario $user */
+        $user = Auth::user();
+        $docente = $user->docente;
+        if (!$docente && !$user->isSuperAdmin()) {
             return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
         }
 
-        $idDocente = $docente->id_docente;
+        $idDocente = $docente?->id_docente;
 
-        $cursos = Curso::where(function ($q) use ($idDocente) {
+        $cursos = Curso::when($idDocente !== null && !$user->isSuperAdmin(), function ($q) use ($idDocente) {
             $q->where('id_docente_titular', $idDocente)
                 ->orWhereHas('componentes.docenteComponentes', fn ($dq) => $dq->where('id_docente', $idDocente));
         })
             ->whereNull('fecha_eliminacion')
             ->with(['asignacionPlan.asignatura', 'componentes' => function ($q) use ($idDocente) {
-                $q->with(['tipoComponente', 'docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]);
+                $q->with(['tipoComponente'])
+                    ->when($idDocente !== null, fn ($cq) => $cq->with(['docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]));
             }])
             ->orderByDesc('agno_real')
             ->orderByDesc('semestre_real')
@@ -847,12 +902,11 @@ class DocenteActivityController extends Controller
             $actividadesPorComponente->flatten(1)->pluck('id_actividad')
         );
 
-        $data = $cursos->map(function ($curso) use ($idDocente, $actividadesPorComponente, $avance) {
-            $esTitularCurso = $curso->id_docente_titular === $idDocente;
+        $data = $cursos->map(function ($curso) use ($idDocente, $user, $actividadesPorComponente, $avance) {
+            $esTitularCurso = $idDocente !== null && $curso->id_docente_titular === $idDocente;
 
             $componentes = $curso->componentes
-                // Titular del curso ve todos; el resto sólo los que imparte.
-                ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
+                ->filter(fn ($c) => $user->can(Permissions::ACTIVIDADES_VER, $c) || $user->can(Permissions::ACTIVIDADES_EVALUAR, $c))
                 ->map(function ($c) use ($actividadesPorComponente, $avance) {
                     $actividades = $actividadesPorComponente
                         ->get($c->id_componente, collect())
@@ -915,11 +969,18 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $user = Auth::user();
-        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
+        $esTitular = $user->docente !== null && $curso->id_docente_titular === $user->docente->id_docente;
 
         $actividad->load(['componente', 'unidad']);
+
+        $esDocenteComponente = (bool) ($user->docente && $actividad->componente
+            ? $actividad->componente->docenteComponentes()
+                ->where('id_docente', $user->docente->id_docente)
+                ->exists()
+            : false);
 
         // Aquí se reparaban al vuelo los grupos individuales faltantes, con un
         // bucle de consultas en cada carga de la pantalla (B-7). Ahora los crea
@@ -931,8 +992,11 @@ class DocenteActivityController extends Controller
 
         [$rubricaData, $rubricaId, $estadoRubrica] = $this->rubricaDeActividad($actividad);
 
+        /** @var Usuario $user */
+        $user = Auth::user();
         $tieneEvaluaciones = $actividad->hanComenzadoEvaluaciones();
-        $puedeEditarRubrica = $esTitular && !$tieneEvaluaciones;
+        $puedeEditarRubrica = ($user->isSuperAdmin() || $user->can(Permissions::ACTIVIDADES_EVALUAR, $actividad->componente ?? $curso))
+            && !$tieneEvaluaciones;
 
         // Revisión «Mi UTAmed»: la hoja de la actividad ya no es una pantalla
         // aparte; es la fila desplegada de la lista de actividades del curso.
@@ -1371,7 +1435,7 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_GRUPOS_ELIMINAR, Permissions::ACTIVIDADES_EVALUAR);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -1414,7 +1478,7 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_GRUPOS_EDITAR, Permissions::ACTIVIDADES_EVALUAR);
 
         ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -1458,7 +1522,7 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_GRUPOS_EDITAR, Permissions::ACTIVIDADES_EVALUAR);
 
         if ($asignado->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Integrante no encontrado en este grupo.');
@@ -1530,7 +1594,7 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_GRUPOS_EDITAR, Permissions::ACTIVIDADES_EVALUAR);
 
         $validated = $request->validate([
             'nro_dias_adicionales_para_bloqueo_personal' => 'nullable|integer|min:0',
@@ -1556,7 +1620,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_GRUPOS_CREAR, Permissions::ACTIVIDADES_EVALUAR);
 
         // Verificar que la actividad es grupal
         if (!$actividad->es_grupal) {
@@ -1643,7 +1707,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_GRUPOS_EDITAR, Permissions::ACTIVIDADES_EVALUAR);
 
         // Obtener el grupo
         $actividadGrupo = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
@@ -1886,6 +1950,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_DESCARGAR_ENTREGAS, Permissions::ACTIVIDADES_EVALUAR);
 
         $entregas = $this->listarEntregas(
             Agenda::whereHas('actividadAsignadaGrupo', function ($query) use ($actividad) {
@@ -1906,6 +1971,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_DESCARGAR_ENTREGAS, Permissions::ACTIVIDADES_EVALUAR);
 
         // Verificar que el grupo pertenece a la actividad
         $grupoExiste = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
@@ -1976,7 +2042,7 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad, Permissions::ACTIVIDADES_DESCARGAR_ENTREGAS, Permissions::ACTIVIDADES_EVALUAR);
 
         // Verificar que la agenda pertenece al grupo y actividad correctos
         if ($agenda->id_actividad_asignada_grupo !== $grupo) {
@@ -2310,8 +2376,8 @@ class DocenteActivityController extends Controller
             abort(404, 'Grupo no encontrado en este curso.');
         }
 
-        // …y que el docente pueda escribir sobre el componente de esa actividad.
-        $this->assertPuedeEditarEvaluacion($curso, $grupoModel->actividad);
+        // …y que el docente pueda escribir feedback/evaluar sobre el componente de esa actividad.
+        $this->assertPuedeEditarEvaluacion($curso, $grupoModel->actividad, Permissions::ACTIVIDADES_DAR_FEEDBACK, Permissions::ACTIVIDADES_EVALUAR);
 
         // 1. Autor: Juan Y.
         // 2. Fecha: 02/06/2026

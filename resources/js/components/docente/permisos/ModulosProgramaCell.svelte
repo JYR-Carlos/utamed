@@ -2,56 +2,97 @@
   /**
    * Celda compuesta "Modificar secciones I a IX": nueve permisos
    * (cursos/programas/modificar:modulo_1..9) resumidos en una etiqueta, con
-   * un popover para el detalle fino. Evita que el bloque "Programas" abra
-   * nueve columnas de 34px sólo para esto.
+   * un popover flotante (`position: fixed`) para no quedar recortado por
+   * `overflow-hidden` / `overflow-x-auto` ni activar scrollbars en la tabla.
    */
   import { ChevronDown } from 'lucide-svelte';
-  import PermisoSwitch from './PermisoSwitch.svelte';
-
-  type Estado = 'reposo' | 'guardando' | 'confirmado' | 'error';
+  import PermisoTriState, {
+    type ValorPermiso,
+    type EstadoTransitorio,
+    type TipoBloqueo,
+  } from './PermisoTriState.svelte';
 
   interface Modulo {
     slug: string;
     numero: number;
-    activo: boolean;
-    estado: Estado;
+    valor: ValorPermiso;
+    activoPorRol?: boolean;
+    bloqueo?: TipoBloqueo;
+    motivoBloqueo?: string | null;
+    estado: EstadoTransitorio;
   }
 
   interface Props {
     modulos: Modulo[];
     nombrePersona: string;
-    onToggle: (slug: string, next: boolean) => void;
+    onChange: (slug: string, next: ValorPermiso) => void;
   }
 
-  let { modulos, nombrePersona, onToggle }: Props = $props();
+  let { modulos, nombrePersona, onChange }: Props = $props();
 
   const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
 
   let abierto = $state(false);
-  let contenedorRef = $state<HTMLDivElement | null>(null);
+  let botonRef = $state<HTMLButtonElement | null>(null);
+  let panelRef = $state<HTMLDivElement | null>(null);
+  let panelPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  const activos = $derived(modulos.filter((m) => m.activo));
+  const activos = $derived(modulos.filter((m) => m.valor === 'asignado'));
+  const revocados = $derived(modulos.filter((m) => m.valor === 'revocado'));
 
   const etiqueta = $derived.by(() => {
+    if (activos.length === 0 && revocados.length > 0) return `${revocados.length} rev.`;
     if (activos.length === 0) return 'ninguna';
     if (activos.length === modulos.length) return `todas (${modulos.length})`;
     return `${activos.map((m) => ROMANOS[m.numero - 1]).join(', ')} de ${ROMANOS[modulos.length - 1]}`;
   });
 
-  function manejarClickFuera(event: MouseEvent) {
-    if (abierto && contenedorRef && !contenedorRef.contains(event.target as Node)) {
+  function calcularPosicion() {
+    if (!botonRef) return;
+    const rect = botonRef.getBoundingClientRect();
+    const panelWidth = 264;
+    const estimatedHeight = 310;
+    const left = Math.max(8, Math.min(rect.right - panelWidth, window.innerWidth - panelWidth - 8));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top =
+      spaceBelow >= estimatedHeight || spaceBelow >= rect.top
+        ? rect.bottom + 6
+        : Math.max(8, rect.top - estimatedHeight - 6);
+    panelPos = { top, left };
+  }
+
+  function alternarPopover() {
+    if (!abierto) {
+      calcularPosicion();
+      abierto = true;
+    } else {
       abierto = false;
     }
   }
+
+  function manejarClickFuera(event: MouseEvent) {
+    if (!abierto) return;
+    const target = event.target as Node;
+    if (botonRef?.contains(target) || panelRef?.contains(target)) return;
+    abierto = false;
+  }
 </script>
 
-<svelte:window onclick={manejarClickFuera} onkeydown={(e) => e.key === 'Escape' && (abierto = false)} />
+<svelte:window
+  onclick={manejarClickFuera}
+  onkeydown={(e) => e.key === 'Escape' && (abierto = false)}
+  onscroll={() => abierto && (abierto = false)}
+  onresize={() => abierto && calcularPosicion()}
+/>
 
-<div class="relative inline-block" bind:this={contenedorRef}>
+<div class="inline-block">
   <button
     type="button"
-    class="inline-flex items-center gap-1 rounded-lg border border-transparent px-1.5 py-1 text-xs font-semibold text-navy transition-colors hover:bg-slate-50"
-    onclick={() => (abierto = !abierto)}
+    bind:this={botonRef}
+    class="inline-flex items-center gap-1 rounded-lg border border-transparent px-1.5 py-1 text-xs font-semibold transition-colors hover:bg-slate-50 {activos.length === 0 && revocados.length > 0
+      ? 'text-red-700'
+      : 'text-navy'}"
+    onclick={alternarPopover}
   >
     {etiqueta}
     <ChevronDown class="h-3 w-3" />
@@ -59,19 +100,25 @@
 
   {#if abierto}
     <div
-      class="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-2.5 shadow-lg"
+      bind:this={panelRef}
+      class="fixed z-50 w-[264px] rounded-lg border border-gray-200 bg-white p-2.5 shadow-xl"
+      style="top:{panelPos.top}px; left:{panelPos.left}px;"
     >
-      <span class="mb-1.5 block px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-2">
+      <span class="mb-1.5 block px-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-2">
         Módulos de {nombrePersona}
       </span>
       <div class="flex flex-col gap-1.5">
         {#each modulos as modulo (modulo.slug)}
           <div class="flex items-center justify-between gap-2 px-1">
             <span class="text-[12.5px] text-ink">Módulo {ROMANOS[modulo.numero - 1]}</span>
-            <PermisoSwitch
-              checked={modulo.activo}
+            <PermisoTriState
+              valor={modulo.valor}
+              activoPorRol={modulo.activoPorRol ?? false}
+              bloqueo={modulo.bloqueo ?? null}
+              motivoBloqueo={modulo.motivoBloqueo ?? null}
               estado={modulo.estado}
-              onToggle={(next) => onToggle(modulo.slug, next)}
+              compact
+              onChange={(next) => onChange(modulo.slug, next)}
               label={`Módulo ${ROMANOS[modulo.numero - 1]} — ${nombrePersona}`}
             />
           </div>

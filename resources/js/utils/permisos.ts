@@ -20,3 +20,59 @@ export function numeroModuloPrograma(slug: string): number | null {
     const match = slug.match(/:modulo_(\d+)$/);
     return match ? Number(match[1]) : null;
 }
+
+/**
+ * Resuelve recursivamente todos los prerrequisitos que deben otorgarse junto a $slugs (upstream).
+ */
+export function resolveRequiredToGrant(
+    slugs: string | string[],
+    dependencias: Record<string, string[]> = {},
+): string[] {
+    const input = Array.isArray(slugs) ? slugs : [slugs];
+    const resolved: string[] = [];
+    const queue = [...input];
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        if (!resolved.includes(current)) {
+            resolved.push(current);
+            const deps = dependencias[current] ?? [];
+            for (const dep of deps) {
+                if (!resolved.includes(dep) && !queue.includes(dep)) {
+                    queue.push(dep);
+                }
+            }
+        }
+    }
+
+    return resolved;
+}
+
+/**
+ * Resuelve recursivamente todos los dependientes que deben revocarse en cascada si se apagan $slugs (downstream).
+ */
+export function resolveCascadeToRevoke(
+    slugs: string | string[],
+    dependencias: Record<string, string[]> = {},
+): string[] {
+    const input = Array.isArray(slugs) ? slugs : [slugs];
+    const toRevoke = [...input];
+
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const [candidate, prereqs] of Object.entries(dependencias)) {
+            if (toRevoke.includes(candidate)) continue;
+            for (const prereq of prereqs) {
+                if (toRevoke.includes(prereq)) {
+                    toRevoke.push(candidate);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    return toRevoke;
+}
+

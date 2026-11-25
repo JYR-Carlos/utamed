@@ -27,6 +27,9 @@ uses(TestCase::class);
 
 beforeEach(function () {
     // ========== LIMPIAR DATOS DE TESTS PREVIOS PRIMERO ==========
+    DB::table('curso.componente')->whereIn('id_curso', function ($q) {
+        $q->select('id_curso')->from('curso')->where('nombre', 'Matemática I');
+    })->delete();
     DB::table('curso')->where('nombre', 'Matemática I')->delete();
 
     // Eliminar todos los usuarios de test creados en iteraciones previas
@@ -156,15 +159,17 @@ beforeEach(function () {
     }
 
     // Eliminar permisos de roles antes de eliminar roles (FK constraint)
-    $rolIds = Rol::whereIn('nombre', ['Super Admin', 'Profesor', 'Coordinador'])->pluck('id_rol');
+    $testRoleNames = ['Super Admin', 'Profesor', 'Coordinador', 'Rol Componente PIR Test', 'Rol Wildcard PIR Test'];
+    $rolIds = Rol::whereIn('nombre', $testRoleNames)->pluck('id_rol');
     if ($rolIds->isNotEmpty()) {
+        UsuarioRolAsignacion::whereIn('id_rol', $rolIds)->forceDelete();
         DB::table('asignacion_rol_permiso')
             ->whereIn('id_rol', $rolIds)
             ->delete();
     }
 
     // Eliminar roles de test
-    Rol::whereIn('nombre', ['Super Admin', 'Profesor', 'Coordinador'])
+    Rol::whereIn('nombre', $testRoleNames)
         ->forceDelete();
 
     // Eliminar usuarios de test (forceDelete para evitar UniqueConstraintViolation)
@@ -919,6 +924,187 @@ test('permiso delegable en múltiples contextos se valida correctamente', functi
 
     expect($upeCarrera)->toBeInstanceOf(UsuarioPermisoEspecial::class);
     expect($upeCarrera->puede_delegar)->toBeTrue();
+});
+
+test('precedencia jerárquica real DB: DENY en carrera revoca GRANT y ROL en curso hijo y se refleja en getUserPermissions', function () {
+    $this->actingAs($this->superadmin);
+
+    // Conceder cursos:ver directamente en el curso hijo (UPE) y además tener ROL en el curso ($this->profesor ya lo tiene)
+    $this->user_a->givePermission(Permissions::CURSOS_VER)
+        ->on($this->curso)
+        ->for(30)
+        ->save();
+
+    $permisoVerCurso = Permiso::where('slug', Permissions::CURSOS_VER->value)->firstOrFail();
+
+    // Superadmin registra DENY explícito en Carrera (padre del Curso) para ambos usuarios
+    foreach ([$this->user_a, $this->profesor] as $objetivo) {
+        UsuarioPermisoEspecial::create([
+            'id_usuario'            => $objetivo->id_usuario,
+            'id_permiso'            => $permisoVerCurso->id_permiso,
+            'id_contexto'           => $this->carrera->id_contexto,
+            'esta_permitido'        => false,
+            'puede_delegar'         => false,
+            'fecha_inicio_planificada' => now()->subMinute(),
+            'fecha_fin_planificada' => now()->addDays(30),
+            'creado_por'            => $this->superadmin->id_usuario,
+            'esta_activo'           => true,
+            'fue_borrado'           => false,
+        ]);
+    }
+
+    app(\App\Services\Authorization\PermissionCache::class)->olvidarUsuario($this->user_a->id_usuario);
+    app(\App\Services\Authorization\PermissionCache::class)->olvidarUsuario($this->profesor->id_usuario);
+
+    $validator = app(\App\Services\Authorization\PermissionValidator::class);
+
+    expect($validator->validate($this->user_a->fresh(), Permissions::CURSOS_VER, $this->curso))->toBeFalse();
+    expect($validator->validate($this->profesor->fresh(), Permissions::CURSOS_VER, $this->curso))->toBeFalse();
+
+    // getUserPermissions($profesor, $curso->id_contexto) NO debe descartar el DENY del padre por tener ROL en hijo
+    $permRow = $validator->getUserPermissions($this->profesor->fresh(), $this->curso->id_contexto)
+        ->first(fn($p) => $p['slug'] === Permissions::CURSOS_VER);
+    expect($permRow)->not->toBeNull();
+    expect($permRow['esta_permitido'])->toBeFalse();
+    expect($permRow['id_contexto'])->toBe($this->carrera->id_contexto);
+
+    // getContextsFromPermission tampoco debe retornar ni carrera ni curso para cursos:ver
+    expect($validator->getContextsFromPermission($this->profesor->fresh(), Permissions::CURSOS_VER))
+        ->not->toContain($this->curso->id_contexto)
+        ->not->toContain($this->carrera->id_contexto);
+});
+
+test('precedencia jerárquica real DB: DENY en curso revoca ROL en componente hijo y getContextsFromPermission lo excluye', function () {
+    $this->actingAs($this->superadmin);
+
+    $tipoId = DB::table('curso.tipo_componente')->value('id_tipo_componente')
+        ?? DB::table('curso.tipo_componente')->insertGetId(['tipo' => 'Cátedra'], 'id_tipo_componente');
+
+    $componente = \App\Models\Curso\Componente::create([
+        'id_curso'                        => $this->curso->id_curso,
+        'id_tipo_componente'              => $tipoId,
+        'genera_acta'                     => false,
+        'porcentaje_aprobacion'           => 60,
+        'aprobacion_obligatoria'          => true,
+        'porcentaje_asistencia_obligatoria' => 75,
+    ]);
+    $componente->refresh();
+
+    $permVerActividad = Permiso::firstOrCreate(
+        ['slug' => Permissions::ACTIVIDADES_VER->value],
+        ['nombre' => 'Ver Actividades', 'descripcion' => 'Test']
+    );
+
+    $rolComp = Rol::create([
+        'nombre'     => 'Rol Componente PIR Test',
+        'creado_por' => $this->adminSistemaId,
+    ]);
+    $rolComp->permisos()->attach($permVerActividad->id_permiso, ['puede_delegar_permiso' => false]);
+
+    // Asignar rol al usuario_b en el Componente hijo
+    UsuarioRolAsignacion::create([
+        'id_usuario'               => $this->user_b->id_usuario,
+        'id_contexto'              => $componente->id_contexto,
+        'id_rol'                   => $rolComp->id_rol,
+        'asignado_por'             => $this->superadmin->id_usuario,
+        'fecha_inicio_planificada' => now()->subMinute(),
+        'fecha_fin_planificada'    => now()->addDays(30),
+        'esta_activo'              => true,
+        'fue_eliminado'            => false,
+        'creado_por'               => $this->superadmin->id_usuario,
+    ]);
+
+    $validator = app(\App\Services\Authorization\PermissionValidator::class);
+    expect($validator->validate($this->user_b->fresh(), Permissions::ACTIVIDADES_VER, null, $componente->id_contexto))
+        ->toBeTrue();
+    expect($validator->getContextsFromPermission($this->user_b->fresh(), Permissions::ACTIVIDADES_VER))
+        ->toContain($componente->id_contexto);
+
+    // Registrar DENY en el Curso padre -> debe revocar inmediatamente el rol en el Componente hijo
+    UsuarioPermisoEspecial::create([
+        'id_usuario'               => $this->user_b->id_usuario,
+        'id_permiso'               => $permVerActividad->id_permiso,
+        'id_contexto'              => $this->curso->id_contexto,
+        'esta_permitido'           => false,
+        'puede_delegar'            => false,
+        'fecha_inicio_planificada' => now()->subMinute(),
+        'fecha_fin_planificada'    => now()->addDays(30),
+        'creado_por'               => $this->superadmin->id_usuario,
+        'esta_activo'              => true,
+        'fue_borrado'              => false,
+    ]);
+
+    app(\App\Services\Authorization\PermissionCache::class)->olvidarUsuario($this->user_b->id_usuario);
+
+    expect($validator->validate($this->user_b->fresh(), Permissions::ACTIVIDADES_VER, null, $componente->id_contexto))
+        ->toBeFalse();
+    expect($validator->getContextsFromPermission($this->user_b->fresh(), Permissions::ACTIVIDADES_VER))
+        ->not->toContain($componente->id_contexto);
+});
+
+test('resolveEffectiveSlugsForContext real DB coincide 1-a-1 con validate() para permisos concretos', function () {
+    $this->actingAs($this->superadmin);
+
+    // Asignar wildcard cursos:* vía rol en curso y un DENY exacto cursos:editar en carrera padre
+    $permCursosWildcard = Permiso::firstOrCreate(
+        ['slug' => 'cursos:*'],
+        ['nombre' => 'Todos Cursos', 'descripcion' => 'Test']
+    );
+    $permCursosEditar = Permiso::where('slug', Permissions::CURSOS_EDITAR->value)->firstOrFail();
+
+    $rolCursoWild = Rol::create([
+        'nombre'     => 'Rol Wildcard PIR Test',
+        'creado_por' => $this->adminSistemaId,
+    ]);
+    $rolCursoWild->permisos()->attach($permCursosWildcard->id_permiso, ['puede_delegar_permiso' => false]);
+
+    UsuarioRolAsignacion::create([
+        'id_usuario'               => $this->user_c->id_usuario,
+        'id_contexto'              => $this->curso->id_contexto,
+        'id_rol'                   => $rolCursoWild->id_rol,
+        'asignado_por'             => $this->superadmin->id_usuario,
+        'fecha_inicio_planificada' => now()->subMinute(),
+        'fecha_fin_planificada'    => now()->addDays(30),
+        'esta_activo'              => true,
+        'fue_eliminado'            => false,
+        'creado_por'               => $this->superadmin->id_usuario,
+    ]);
+
+    UsuarioPermisoEspecial::create([
+        'id_usuario'               => $this->user_c->id_usuario,
+        'id_permiso'               => $permCursosEditar->id_permiso,
+        'id_contexto'              => $this->carrera->id_contexto,
+        'esta_permitido'           => false,
+        'puede_delegar'            => false,
+        'fecha_inicio_planificada' => now()->subMinute(),
+        'fecha_fin_planificada'    => now()->addDays(30),
+        'creado_por'               => $this->superadmin->id_usuario,
+        'esta_activo'              => true,
+        'fue_borrado'              => false,
+    ]);
+
+    app(\App\Services\Authorization\PermissionCache::class)->olvidarUsuario($this->user_c->id_usuario);
+
+    $validator = app(\App\Services\Authorization\PermissionValidator::class);
+    $effectiveSlugs = $validator->resolveEffectiveSlugsFor($this->user_c->fresh(), $this->curso);
+
+    expect($effectiveSlugs)
+        ->toContain(Permissions::CURSOS_VER->value)
+        ->toContain(Permissions::CURSOS_INSCRIPCIONES_VER->value)
+        ->not->toContain(Permissions::CURSOS_EDITAR->value);
+
+    // Paridad exacta contra validate() sobre todos los slugs concretos de Permissions
+    $concrete = array_filter(
+        Permissions::cases(),
+        static fn(Permissions $p) => !\App\Services\Authorization\WildcardMatcher::isGlobalWildcard($p)
+            && !\App\Services\Authorization\WildcardMatcher::isResourceWildcard($p)
+    );
+
+    foreach ($concrete as $perm) {
+        $expected = $validator->validate($this->user_c->fresh(), $perm, null, $this->curso->id_contexto);
+        expect(in_array($perm->value, $effectiveSlugs, true))
+            ->toBe($expected, "Discrepancia entre resolveEffectiveSlugsForContext y validate() para {$perm->value}");
+    }
 });
 
 

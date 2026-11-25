@@ -189,15 +189,9 @@ class HandleInertiaRequests extends Middleware
                 ->values()
                 ->toArray();
 
-            // Recopilar y expandir slugs de permisos a nivel servidor (evita duplicar motor de wildcards en frontend)
-            $rawPermissions = $user->rolesAsignados
-                ->flatMap(fn($r) => $r->permisos->pluck('slug'))
-                ->unique()
-                ->values()
-                ->toArray();
-
+            // Permisos efectivos en contexto Global (respeta jerarquía, UPE y revocaciones)
             $permissions = app(\App\Services\Authorization\PermissionValidator::class)
-                ->expandToConcreteSlugs($rawPermissions);
+                ->resolveEffectiveSlugsFor($user);
 
             // Guardar referencias al perfil actual del usuario
             $docente = $user->docente;

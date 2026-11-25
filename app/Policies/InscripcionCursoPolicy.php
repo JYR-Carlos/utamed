@@ -2,184 +2,94 @@
 
 namespace App\Policies;
 
-use App\Policies\Base\BaseInscripcionCursoPolicy;
+use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Usuario;
+use App\Policies\Base\BaseInscripcionCursoPolicy;
+use App\Support\Permissions;
 
 /**
- * Policy para autorización de operaciones sobre el modelo InscripcionCurso.
- * 
- * Extiende BaseInscripcionCursoPolicy (autogenerada) con lógica personalizada.
- * 
- * Implementa control de acceso basado en roles (RBAC) para gestión de inscripciones de estudiantes en cursos.
- * 
- * Reglas de autorización:
- * - Administradores: Acceso completo a todas las inscripciones
- * - Docentes: Pueden inscribir/gestionar estudiantes en sus cursos (donde dictan secciones)
- * - Estudiantes: No pueden gestionar inscripciones (solo ver las suyas propias)
- * - Otros usuarios: Sin acceso
+ * Policy para autorización de InscripcionCurso basada en permisos efectivos.
  */
 class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
 {
-    /**
-     * Determina si el usuario puede ver todas las inscripciones.
-     *
-     * @param Usuario $user
-     * @return bool
-     */
     public function viewAny(Usuario $user): bool
     {
-        // Admins siempre pueden ver
-        if ($user->is_admin) {
-            return true;
-        }
-
-        // Docentes pueden ver inscripciones de sus cursos
-        if ($user->docente) {
-            return true;
-        }
-
-        return false;
+        return $this->validator()->isSuperAdmin($user)
+            || !empty($this->validator()->getContextsFromPermission($user, Permissions::CURSOS_INSCRIPCIONES_VER));
     }
 
-    /**
-     * Determina si el usuario puede ver una inscripción específica.
-     *
-     * @param Usuario $user
-     * @param InscripcionCurso $inscripcion
-     * @return bool
-     */
     public function view(Usuario $user, InscripcionCurso $inscripcion): bool
     {
-        // Admin puede ver todas
-        if ($user->is_admin) {
+        if ($this->validator()->isSuperAdmin($user)) {
             return true;
         }
 
-        // Docente puede ver si es titular del curso
-        if ($user->docente) {
-            $dictaSecciones = \App\Models\Curso\Curso::where('id_curso', $inscripcion->id_curso)
-                ->where('id_docente_titular', $user->docente->id_docente)
-                ->exists();
-
-            if ($dictaSecciones) {
-                return true;
-            }
-        }
-
-        // El estudiante puede ver su propia inscripción
-        if ($user->estudiante && $inscripcion->id_estudiante === $user->estudiante->id_estudiante) {
+        $curso = $inscripcion->curso;
+        if ($curso && $this->validator()->validate($user, Permissions::CURSOS_INSCRIPCIONES_VER, $curso)) {
             return true;
         }
 
-        return false;
+        return (bool) ($user->estudiante && $inscripcion->id_estudiante === $user->estudiante->id_estudiante);
     }
 
-    /**
-     * Determina si el usuario puede crear una inscripción.
-     *
-     * @param Usuario $user
-     * @param mixed $parent
-     * @return bool
-     */
     public function create(Usuario $user, $parent = null): bool
     {
-        // Admins siempre pueden crear
-        if ($user->is_admin) {
+        if ($this->validator()->isSuperAdmin($user)) {
             return true;
         }
 
-        // Docentes pueden crear inscripciones
-        if ($user->docente) {
-            return true;
+        if ($parent instanceof Curso) {
+            return $this->validator()->validate($user, Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS, $parent);
         }
 
-        return false;
+        return !empty($this->validator()->getContextsFromPermission($user, Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS));
     }
 
-    /**
-     * Determina si el usuario puede crear inscripciones en un curso específico.
-     * 
-     * @param Usuario $user
-     * @param int $idCurso
-     * @return bool
-     */
     public function createForCurso(Usuario $user, int $idCurso): bool
     {
-        // Admin puede crear para cualquier curso
-        if ($user->is_admin) {
+        if ($this->validator()->isSuperAdmin($user)) {
             return true;
         }
 
-        // Docente solo puede crear si es titular del curso
-        if ($user->docente) {
-            $dictaSecciones = \App\Models\Curso\Curso::where('id_curso', $idCurso)
-                ->where('id_docente_titular', $user->docente->id_docente)
-                ->exists();
-
-            return $dictaSecciones;
+        $curso = Curso::find($idCurso);
+        if (!$curso) {
+            return false;
         }
 
-        return false;
+        return $this->validator()->validate($user, Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS, $curso);
     }
 
-    /**
-     * Determina si el usuario puede actualizar una inscripción.
-     *
-     * @param Usuario $user
-     * @param InscripcionCurso $inscripcion
-     * @return bool
-     */
     public function update(Usuario $user, InscripcionCurso $inscripcion): bool
     {
-        // Admin puede actualizar todas
-        if ($user->is_admin) {
+        if ($this->validator()->isSuperAdmin($user)) {
             return true;
         }
 
-        // Docente puede actualizar si es titular del curso
-        if ($user->docente) {
-            $dictaSecciones = \App\Models\Curso\Curso::where('id_curso', $inscripcion->id_curso)
-                ->where('id_docente_titular', $user->docente->id_docente)
-                ->exists();
-
-            return $dictaSecciones;
+        $curso = $inscripcion->curso;
+        if (!$curso) {
+            return false;
         }
 
-        return false;
+        return $this->validator()->validate($user, Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS, $curso);
     }
 
-    /**
-     * Determina si el usuario puede eliminar una inscripción.
-     *
-     * @param Usuario $user
-     * @param InscripcionCurso $inscripcion
-     * @return bool
-     */
     public function delete(Usuario $user, InscripcionCurso $inscripcion): bool
     {
-        // Solo admins pueden eliminar inscripciones
-        return $user->is_admin;
+        if ($this->validator()->isSuperAdmin($user)) {
+            return true;
+        }
+
+        $curso = $inscripcion->curso;
+        if (!$curso) {
+            return false;
+        }
+
+        return $this->validator()->validate($user, Permissions::CURSOS_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES, $curso);
     }
 
-    /**
-     * Determina si el usuario puede exportar inscripciones a CSV.
-     *
-     * @param Usuario $user
-     * @return bool
-     */
     public function export(Usuario $user): bool
     {
-        // Admins pueden exportar todo
-        if ($user->is_admin) {
-            return true;
-        }
-
-        // Docentes pueden exportar inscripciones de sus propios cursos
-        if ($user->docente) {
-            return true;
-        }
-
-        return false;
+        return $this->viewAny($user);
     }
 }

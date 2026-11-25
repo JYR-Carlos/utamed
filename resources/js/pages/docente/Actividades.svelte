@@ -47,8 +47,7 @@
   import ActividadEliminarDialog from '@/components/docente/ActividadEliminarDialog.svelte';
   import CopiarActividadesModal from '@/components/docente/CopiarActividadesModal.svelte';
   import ActividadDetalle, { type ActividadAbierta, type GrupoData } from './Activities/components/ActividadDetalle.svelte';
-  import { hasPermission } from '@/services/permissionValidator';
-  import type { Permission } from '@/types/permissions/permissions';
+  import { hasPermission, hasPermissionInContext, type PermissionItem } from '@/services/permissionValidator';
   import type { Actividad } from '@/types/actividad';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
@@ -83,7 +82,8 @@
       asignatura_nombre?: string | null;
       es_titular_curso?: boolean;
       mis_componentes_ids?: number[];
-      userPermissions?: Permission[];
+      userPermissions?: PermissionItem[];
+      userPermissionsByComponent?: Record<number, string[]>;
     };
     actividades: Actividad[];
     componentes: ComponenteCurso[];
@@ -126,10 +126,21 @@
   // ── Rol y permisos ────────────────────────────────────────────────────────
   const esTitular = $derived(curso.es_titular_curso ?? false);
   const misComponentesIds = $derived(curso.mis_componentes_ids ?? []);
-  const canCreate = $derived(esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:crear'));
-  const canEdit = $derived(esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:editar'));
-  const canDelete = $derived(esTitular || hasPermission(curso.userPermissions ?? [], 'actividades:eliminar'));
 
+  const hasPermInCourseOrComponent = (slug: string): boolean => {
+    if (hasPermission(curso.userPermissions, slug)) {
+      return true;
+    }
+    const byComp = curso.userPermissionsByComponent;
+    if (!byComp) {
+      return false;
+    }
+    return Object.keys(byComp).some((compId) => hasPermissionInContext(byComp, compId, slug));
+  };
+
+  const canCreate = $derived(esTitular || hasPermInCourseOrComponent('actividades:crear'));
+  const canEdit = $derived(esTitular || hasPermInCourseOrComponent('actividades:editar'));
+  const canDelete = $derived(esTitular || hasPermInCourseOrComponent('actividades:eliminar'));
   const actividadesDelRol = $derived(
     esTitular ? actividades : actividades.filter((a) => misComponentesIds.includes(a.id_componente ?? -1)),
   );

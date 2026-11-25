@@ -50,162 +50,102 @@ return [
   ],
 
   // ===========================================================================
-  // DOCENTE TITULAR (Completo)
+  // DOCENTE TITULAR (Gobierno a nivel de Curso)
   // ===========================================================================
-  // Gestiona sus cursos, secciones, unidades, actividades y programas
-  // Máximos permisos para docente titular
-  // NOTA: No incluye cursos:crear/crear_plantilla porque son _parent_actions
-  //       (solo válidos en global o carrera, no en curso específico)
+  // Unifica el antiguo 'Docente Titular Restringido' con el ownership del curso:
+  // cursos, inscripciones, unidades, programas/syllabus, visualización de componentes
+  // e inscripciones de componente. La gestión interna de componentes/actividades
+  // vive en 'Docente Componente' sobre el id_contexto del componente correspondiente.
   'Docente Titular' => [
     'es_administrativo' => false,
     'permisos' => [
       // Cursos: ver y gestionar propios
-      [Permissions::CURSOS_VER, false],
-      [Permissions::CURSOS_EDITAR, false],
+      [Permissions::CURSOS_VER, true],
+      [Permissions::CURSOS_EDITAR, true],
       [Permissions::CURSOS_ELIMINAR, false],
 
       // Cursos > Inscripciones
-      [Permissions::CURSOS_INSCRIPCIONES_VER, false],
+      [Permissions::CURSOS_INSCRIPCIONES_VER, true],
 
       // Cursos > Unidades
-      [Permissions::CURSOS_UNIDADES_VER, false],
-      [Permissions::CURSOS_UNIDADES_CREAR, false],
-      [Permissions::CURSOS_UNIDADES_CREAR_PLANTILLA, false],
-      [Permissions::CURSOS_UNIDADES_EDITAR, false],
-      [Permissions::CURSOS_UNIDADES_ELIMINAR, false],
+      [Permissions::CURSOS_UNIDADES_VER, true],
+      [Permissions::CURSOS_UNIDADES_CREAR, true],
+      [Permissions::CURSOS_UNIDADES_CREAR_PLANTILLA, true],
+      [Permissions::CURSOS_UNIDADES_EDITAR, true],
+      [Permissions::CURSOS_UNIDADES_ELIMINAR, true],
 
       // Cursos > Programas
-      [Permissions::CURSOS_PROGRAMAS_VER_TODOS, false],
-      [Permissions::CURSOS_PROGRAMAS_AGREGAR, false],
-      [Permissions::CURSOS_PROGRAMAS_ELIMINAR, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_2, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_3, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_4, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_5, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_6, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_7, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_8, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_9, false],
+      [Permissions::CURSOS_PROGRAMAS_VER_TODOS, true],
+      [Permissions::CURSOS_PROGRAMAS_AGREGAR, true],
+      [Permissions::CURSOS_PROGRAMAS_ELIMINAR, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_2, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_3, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_4, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_5, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_6, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_7, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_8, true],
+      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_9, true],
 
-       // Componentes
-      [Permissions::COMPONENTES_VER, false],
-      [Permissions::COMPONENTES_EDITAR, false],
-
-      // Actividades
-      [Permissions::ACTIVIDADES_VER, false],
-      [Permissions::ACTIVIDADES_CREAR, false],
-      [Permissions::ACTIVIDADES_CREAR_PLANTILLA, false],
-      [Permissions::ACTIVIDADES_EDITAR, false],
-      [Permissions::ACTIVIDADES_ELIMINAR, false],
-      [Permissions::ACTIVIDADES_EVALUAR, false],
-      [Permissions::ACTIVIDADES_DAR_FEEDBACK, false],
-      [Permissions::ACTIVIDADES_DESCARGAR_ENTREGAS, false],
-      [Permissions::ACTIVIDADES_ENVIAR_RECORDATORIOS, false],
-      [Permissions::ACTIVIDADES_SUBIR_ENTREGAS, false],
-
-      // Actividades > Grupos
-      [Permissions::ACTIVIDADES_GRUPOS_VER, false],
-      [Permissions::ACTIVIDADES_GRUPOS_CREAR, false],
-      [Permissions::ACTIVIDADES_GRUPOS_EDITAR, false],
-      [Permissions::ACTIVIDADES_GRUPOS_ELIMINAR, false],
-    ],
-  ],
-  // ===========================================================================
-  // DOCENTE TITULAR (Restringido)
-  // ===========================================================================
-  // Gestiona sus cursos pero sin permiso sobre componentes, actividades ni programas
-  // Para docentes que solo negocia contenido a nivel general del curso
-  // Este rol se aplica cuando hay más de un docente en el mismo curso, para evitar conflictos de edición en componentes y actividades.
-  'Docente Titular Restringido' => [
-    'es_administrativo' => false,
-    'permisos' => [
-      // Cursos: ver y gestionar propios
-      [Permissions::CURSOS_VER, false],
-
-      // Cursos > Inscripciones
-      [Permissions::CURSOS_INSCRIPCIONES_VER, false],
-
-      // Cursos > Unidades
-      [Permissions::CURSOS_UNIDADES_VER, false],
-      [Permissions::CURSOS_UNIDADES_CREAR, false],
-      [Permissions::CURSOS_UNIDADES_CREAR_PLANTILLA, false],
-      [Permissions::CURSOS_UNIDADES_EDITAR, false],
-      [Permissions::CURSOS_UNIDADES_ELIMINAR, false],
-
-      // Cursos > Programas
-      [Permissions::CURSOS_PROGRAMAS_VER_TODOS, false],
-      [Permissions::CURSOS_PROGRAMAS_AGREGAR, false],
-      [Permissions::CURSOS_PROGRAMAS_ELIMINAR, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_2, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_3, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_4, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_5, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_6, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_7, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_8, false],
-      [Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_9, false],
+      // Componentes: visibilidad e inscripciones de sus secciones
+      [Permissions::COMPONENTES_VER, true],
+      [Permissions::COMPONENTES_INSCRIPCIONES_VER, true],
     ],
   ],
 
   // ===========================================================================
-  // DOCENTE (Gestor de Componente) - Titular
+  // DOCENTE (Gestor / Titular de Componente)
   // ===========================================================================
-  // Solo asignable a contexto COMPONENTE, no a CURSO
-  // Gestiona un componente específico: actividades, entregas y evaluaciones
-  // NO tiene permisos a nivel de curso (no puede editar/eliminar curso)
-  // NO tiene permisos de programas
+  // Solo asignable a contexto COMPONENTE.
+  // Gestiona integralmente un componente específico: inscripciones, asistencia,
+  // actividades, entregas, evaluaciones y grupos, y puede delegarlos a colegiados.
   'Docente Componente' => [
     'es_administrativo' => false,
     'permisos' => [
-      // Cursos: solo ver (no editar ni eliminar)
-      [Permissions::CURSOS_VER, false],
-
-      // Componente > Inscripciones: ver a nivel de componente
-      [Permissions::COMPONENTES_INSCRIPCIONES_VER, false],
-
       // Componente
-      [Permissions::COMPONENTES_VER, false],
-      [Permissions::COMPONENTES_EDITAR, false],
+      [Permissions::COMPONENTES_VER, true],
+      [Permissions::COMPONENTES_EDITAR, true],
 
-      // Actividades: gestión completa a nivel de componente
-      [Permissions::ACTIVIDADES_VER, false],
-      [Permissions::ACTIVIDADES_CREAR, false],
-      [Permissions::ACTIVIDADES_CREAR_PLANTILLA, false],
-      [Permissions::ACTIVIDADES_EDITAR, false],
-      [Permissions::ACTIVIDADES_ELIMINAR, false],
-      [Permissions::ACTIVIDADES_EVALUAR, false],
-      [Permissions::ACTIVIDADES_DAR_FEEDBACK, false],
-      [Permissions::ACTIVIDADES_DESCARGAR_ENTREGAS, false],
-      [Permissions::ACTIVIDADES_ENVIAR_RECORDATORIOS, false],
-      [Permissions::ACTIVIDADES_SUBIR_ENTREGAS, false],
+      // Componente > Inscripciones
+      [Permissions::COMPONENTES_INSCRIPCIONES_VER, true],
 
-      // Actividades > Grupos: gestión a nivel de componente
-      [Permissions::ACTIVIDADES_GRUPOS_VER, false],
-      [Permissions::ACTIVIDADES_GRUPOS_CREAR, false],
-      [Permissions::ACTIVIDADES_GRUPOS_EDITAR, false],
-      [Permissions::ACTIVIDADES_GRUPOS_ELIMINAR, false],
+      // Componente > Asistencia
+      [Permissions::COMPONENTES_ASISTENCIA_VER, true],
+      [Permissions::COMPONENTES_ASISTENCIA_REGISTRAR, true],
+      [Permissions::COMPONENTES_ASISTENCIA_EDITAR, true],
+      [Permissions::COMPONENTES_ASISTENCIA_ELIMINAR, false],
+
+      // Actividades: gestión completa en el componente
+      [Permissions::ACTIVIDADES_VER, true],
+      [Permissions::ACTIVIDADES_CREAR, true],
+      [Permissions::ACTIVIDADES_CREAR_PLANTILLA, true],
+      [Permissions::ACTIVIDADES_EDITAR, true],
+      [Permissions::ACTIVIDADES_ELIMINAR, true],
+      [Permissions::ACTIVIDADES_EVALUAR, true],
+      [Permissions::ACTIVIDADES_DAR_FEEDBACK, true],
+      [Permissions::ACTIVIDADES_DESCARGAR_ENTREGAS, true],
+      [Permissions::ACTIVIDADES_ENVIAR_RECORDATORIOS, true],
+      [Permissions::ACTIVIDADES_SUBIR_ENTREGAS, true],
+
+      // Actividades > Grupos
+      [Permissions::ACTIVIDADES_GRUPOS_VER, true],
+      [Permissions::ACTIVIDADES_GRUPOS_CREAR, true],
+      [Permissions::ACTIVIDADES_GRUPOS_EDITAR, true],
+      [Permissions::ACTIVIDADES_GRUPOS_ELIMINAR, true],
     ],
   ],
   // ===========================================================================
-  // DOCENTE COMPONENTE COLEGIADO ()
+  // DOCENTE COMPONENTE COLEGIADO
   // ===========================================================================
-  // Posee permisos bajo su propio componente, lo que gestiona:
-  // - Actividades: ver
-  // - Grupos de actividades: ver
-  // No tiene permisos a nivel de curso ni programas, los permisos son dado por el titular (docente componente)
+  // Piso mínimo sin capacidades operativas por defecto: solo visualización base
+  // del curso/componente. Sus permisos internos deben ser delegados explícitamente
+  // por el titular de su componente (o por el DT si posee capacidades delegables).
   'Docente Componente Colegiado' => [
     'es_administrativo' => false,
     'permisos' => [
-      // Componente > Inscripciones: ver a nivel de componente
-      [Permissions::COMPONENTES_INSCRIPCIONES_VER, false],
-      // Componente
+      [Permissions::CURSOS_VER, false],
       [Permissions::COMPONENTES_VER, false],
-      // Actividades: solo ver a nivel de componente
-      [Permissions::ACTIVIDADES_VER, false],
-      // Actividades > Grupos: solo ver a nivel de componente
-      [Permissions::ACTIVIDADES_GRUPOS_VER, false],
     ],
   ],
 

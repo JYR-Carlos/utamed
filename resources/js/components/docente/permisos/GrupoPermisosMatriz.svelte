@@ -1,17 +1,17 @@
 <script lang="ts">
   /**
-   * Un bloque de la matriz persona × permiso (uno de los 7 grupos
-   * delegables). Colapsado muestra un resumen; expandido, una tabla con la
-   * columna de persona fija y una columna por permiso — salvo los 9 módulos
-   * de "Programas", que se resumen en ModulosProgramaCell para no abrir
-   * nueve columnas de 34px.
+   * Un bloque de la matriz persona × permiso. Colapsado muestra un resumen;
+   * expandido, una tabla con controles tri-estado (✕ / — / ✓) y un botón
+   * compacto "Acciones ▾" con menú flotante (`position: fixed`).
    */
   import { ChevronDown, ChevronRight } from 'lucide-svelte';
-  import PermisoSwitch from './PermisoSwitch.svelte';
+  import PermisoTriState, {
+    type ValorPermiso,
+    type EstadoTransitorio,
+    type TipoBloqueo,
+  } from './PermisoTriState.svelte';
   import ModulosProgramaCell from './ModulosProgramaCell.svelte';
   import { formatSlugAction, esSlugModuloPrograma, numeroModuloPrograma } from '@/utils/permisos';
-
-  type Estado = 'reposo' | 'guardando' | 'confirmado' | 'error';
 
   interface Permiso {
     slug: string;
@@ -25,18 +25,36 @@
     tipo_componente?: string | null;
   }
 
+  export interface CeldaInfo {
+    estado: ValorPermiso;
+    activoPorRol: boolean;
+    bloqueadoPor: TipoBloqueo;
+    motivoBloqueo: string | null;
+  }
+
   interface Props {
     numero: number;
     grupo: { grupo: string; permisos: Permiso[] };
     miembros: Miembro[];
     expandido: boolean;
     onToggleExpandido: () => void;
-    isChecked: (idUsuario: number, slug: string) => boolean;
-    getEstado: (idUsuario: number, slug: string) => Estado;
-    onToggle: (idUsuario: number, slug: string, next: boolean) => void;
+    getCelda: (idUsuario: number, slug: string) => CeldaInfo;
+    getEstado: (idUsuario: number, slug: string) => EstadoTransitorio;
+    onChange: (idUsuario: number, slug: string, next: ValorPermiso) => void;
+    onBatch?: (idUsuario: number, slugs: string[], estado: ValorPermiso, nombreGrupo: string) => void;
   }
 
-  let { numero, grupo, miembros, expandido, onToggleExpandido, isChecked, getEstado, onToggle }: Props = $props();
+  let {
+    numero,
+    grupo,
+    miembros,
+    expandido,
+    onToggleExpandido,
+    getCelda,
+    getEstado,
+    onChange,
+    onBatch,
+  }: Props = $props();
 
   const columnas = $derived(grupo.permisos.filter((p) => !esSlugModuloPrograma(p.slug)));
   const modulosPrograma = $derived(
@@ -46,17 +64,66 @@
       .sort((a, b) => a.numero - b.numero),
   );
 
+  const slugsDeGrupo = $derived(grupo.permisos.map((p) => p.slug));
+
+  function contarPorEstado(idUsuario: number, valor: ValorPermiso): number {
+    return grupo.permisos.filter((p) => getCelda(idUsuario, p.slug).estado === valor).length;
+  }
+
   const resumenAcciones = $derived(columnas.map((p) => formatSlugAction(p.slug).toLowerCase()).join(' · '));
 
   const totalColumnasEfectivas = $derived(columnas.length + (modulosPrograma.length > 0 ? 1 : 0));
   const totalCeldas = $derived(totalColumnasEfectivas * miembros.length);
   const celdasActivas = $derived(
     miembros.reduce((acc, m) => {
-      const regulares = columnas.filter((p) => isChecked(m.id_usuario, p.slug)).length;
-      const algunModulo = modulosPrograma.some((mod) => isChecked(m.id_usuario, mod.slug)) ? 1 : 0;
+      const regulares = columnas.filter((p) => getCelda(m.id_usuario, p.slug).estado === 'asignado').length;
+      const algunModulo = modulosPrograma.some((mod) => getCelda(m.id_usuario, mod.slug).estado === 'asignado') ? 1 : 0;
       return acc + regulares + algunModulo;
     }, 0),
   );
+
+  const etiquetaResumenCeldas = $derived.by(() => {
+    if (celdasActivas === 0) return '';
+    if (totalCeldas > 0 && celdasActivas === totalCeldas) return 'Todos Asignados';
+    return celdasActivas === 1 ? '1 Asignado' : `${celdasActivas} Asignados`;
+  });
+
+  // Menú desplegable flotante de "Acciones" por persona
+  let menuAbiertoPara = $state<number | null>(null);
+  let menuPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
+  let menuPanelRef = $state<HTMLDivElement | null>(null);
+
+  function abrirMenuAcciones(idUsuario: number, event: MouseEvent) {
+    event.stopPropagation();
+    if (menuAbiertoPara === idUsuario) {
+      menuAbiertoPara = null;
+      return;
+    }
+    const btn = event.currentTarget as HTMLElement;
+    const rect = btn.getBoundingClientRect();
+    const menuWidth = 176;
+    const estimatedHeight = 116;
+    const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top =
+      spaceBelow >= estimatedHeight || spaceBelow >= rect.top
+        ? rect.bottom + 4
+        : Math.max(8, rect.top - estimatedHeight - 4);
+    menuPos = { top, left };
+    menuAbiertoPara = idUsuario;
+  }
+
+  function ejecutarAccionMenu(idUsuario: number, estado: ValorPermiso) {
+    menuAbiertoPara = null;
+    onBatch?.(idUsuario, slugsDeGrupo, estado, grupo.grupo);
+  }
+
+  function cerrarMenuSiClickFuera(event: MouseEvent) {
+    if (menuAbiertoPara === null) return;
+    const target = event.target as Node;
+    if (menuPanelRef?.contains(target)) return;
+    menuAbiertoPara = null;
+  }
 
   function iniciales(nombre: string): string {
     return nombre
@@ -72,6 +139,12 @@
     return m.tipo_componente ? `${rol} · ${m.tipo_componente}` : rol;
   }
 </script>
+
+<svelte:window
+  onclick={cerrarMenuSiClickFuera}
+  onkeydown={(e) => e.key === 'Escape' && (menuAbiertoPara = null)}
+  onscroll={() => menuAbiertoPara !== null && (menuAbiertoPara = null)}
+/>
 
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
   <button
@@ -90,9 +163,11 @@
     {#if !expandido}
       <span class="min-w-0 truncate text-xs text-ink-2">{resumenAcciones}</span>
     {/if}
-    <span class="ml-auto shrink-0 font-mono text-[11.5px] text-ink-2">
-      {celdasActivas} de {totalCeldas} celdas activas
-    </span>
+    {#if etiquetaResumenCeldas}
+      <span class="ml-auto shrink-0 rounded-full bg-uta-blue-light px-2.5 py-0.5 text-[11px] font-semibold text-navy">
+        {etiquetaResumenCeldas}
+      </span>
+    {/if}
   </button>
 
   {#if expandido}
@@ -100,11 +175,11 @@
       <table class="w-full table-fixed border-collapse">
         <thead>
           <tr class="bg-gray-50">
-            <th class="w-[260px] px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-2">
+            <th class="w-[270px] px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-2">
               Persona
             </th>
             {#each columnas as permiso (permiso.slug)}
-              <th class="px-1.5 py-2.5 text-center text-[11px] font-semibold leading-tight text-ink-2">
+              <th class="min-w-[92px] px-1.5 py-2.5 text-center text-[11px] font-semibold leading-tight text-ink-2">
                 {formatSlugAction(permiso.slug)}
               </th>
             {/each}
@@ -119,22 +194,40 @@
           {#each miembros as miembro, i (miembro.id_usuario)}
             <tr class="border-t border-gray-200 {i % 2 === 1 ? 'bg-stone-50' : ''}">
               <td class="px-4 py-2.5">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-uta-blue-light text-[12px] font-semibold text-navy">
-                    {iniciales(miembro.nombre)}
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex min-w-0 items-center gap-2.5">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-uta-blue-light text-[12px] font-semibold text-navy">
+                      {iniciales(miembro.nombre)}
+                    </div>
+                    <div class="flex min-w-0 flex-col">
+                      <span class="truncate text-[13px] font-semibold text-ink">{miembro.nombre}</span>
+                      <span class="truncate text-[11.5px] text-ink-2">{subtitulo(miembro)}</span>
+                    </div>
                   </div>
-                  <div class="flex min-w-0 flex-col">
-                    <span class="truncate text-[13px] font-semibold text-ink">{miembro.nombre}</span>
-                    <span class="truncate text-[11.5px] text-ink-2">{subtitulo(miembro)}</span>
-                  </div>
+                  {#if onBatch}
+                    <button
+                      type="button"
+                      class="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                      onclick={(e) => abrirMenuAcciones(miembro.id_usuario, e)}
+                      aria-haspopup="menu"
+                      aria-expanded={menuAbiertoPara === miembro.id_usuario}
+                    >
+                      Acciones
+                      <ChevronDown class="h-3 w-3 text-slate-500" />
+                    </button>
+                  {/if}
                 </div>
               </td>
               {#each columnas as permiso (permiso.slug)}
+                {@const celda = getCelda(miembro.id_usuario, permiso.slug)}
                 <td class="px-1.5 py-2 text-center">
-                  <PermisoSwitch
-                    checked={isChecked(miembro.id_usuario, permiso.slug)}
+                  <PermisoTriState
+                    valor={celda.estado}
+                    activoPorRol={celda.activoPorRol}
+                    bloqueo={celda.bloqueadoPor}
+                    motivoBloqueo={celda.motivoBloqueo}
                     estado={getEstado(miembro.id_usuario, permiso.slug)}
-                    onToggle={(next) => onToggle(miembro.id_usuario, permiso.slug, next)}
+                    onChange={(next) => onChange(miembro.id_usuario, permiso.slug, next)}
                     label={`${formatSlugAction(permiso.slug)} — ${miembro.nombre}`}
                   />
                 </td>
@@ -143,13 +236,19 @@
                 <td class="px-1.5 py-2 text-center">
                   <ModulosProgramaCell
                     nombrePersona={miembro.nombre}
-                    modulos={modulosPrograma.map((mod) => ({
-                      slug: mod.slug,
-                      numero: mod.numero,
-                      activo: isChecked(miembro.id_usuario, mod.slug),
-                      estado: getEstado(miembro.id_usuario, mod.slug),
-                    }))}
-                    onToggle={(slug, next) => onToggle(miembro.id_usuario, slug, next)}
+                    modulos={modulosPrograma.map((mod) => {
+                      const celda = getCelda(miembro.id_usuario, mod.slug);
+                      return {
+                        slug: mod.slug,
+                        numero: mod.numero,
+                        valor: celda.estado,
+                        activoPorRol: celda.activoPorRol,
+                        bloqueo: celda.bloqueadoPor,
+                        motivoBloqueo: celda.motivoBloqueo,
+                        estado: getEstado(miembro.id_usuario, mod.slug),
+                      };
+                    })}
+                    onChange={(slug, next) => onChange(miembro.id_usuario, slug, next)}
                   />
                 </td>
               {/if}
@@ -160,3 +259,45 @@
     </div>
   {/if}
 </div>
+
+{#if menuAbiertoPara !== null && onBatch}
+  {@const idUsuarioMenu = menuAbiertoPara}
+  {@const asignados = contarPorEstado(idUsuarioMenu, 'asignado')}
+  {@const neutros = contarPorEstado(idUsuarioMenu, 'neutro')}
+  {@const revocados = contarPorEstado(idUsuarioMenu, 'revocado')}
+  {@const total = grupo.permisos.length}
+  <div
+    bind:this={menuPanelRef}
+    role="menu"
+    class="fixed z-50 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+    style="top:{menuPos.top}px; left:{menuPos.left}px;"
+  >
+    <button
+      type="button"
+      role="menuitem"
+      disabled={asignados === total}
+      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-navy hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+      onclick={() => ejecutarAccionMenu(idUsuarioMenu, 'asignado')}
+    >
+      <span class="font-bold">✓</span> Otorgar todos
+    </button>
+    <button
+      type="button"
+      role="menuitem"
+      disabled={neutros === total}
+      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+      onclick={() => ejecutarAccionMenu(idUsuarioMenu, 'neutro')}
+    >
+      <span class="font-bold">—</span> Restablecer a neutro
+    </button>
+    <button
+      type="button"
+      role="menuitem"
+      disabled={revocados === total}
+      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+      onclick={() => ejecutarAccionMenu(idUsuarioMenu, 'revocado')}
+    >
+      <span class="font-bold">✕</span> Revocar todos
+    </button>
+  </div>
+{/if}
