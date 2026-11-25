@@ -97,9 +97,9 @@
             : 'text-ink-2 hover:bg-sand'}"
       >
         <span
-          class="w-[34px] shrink-0 font-mono text-[11.5px] {esActiva
+          class="w-[34px] shrink-0 {esActiva
             ? 'text-navy'
-            : 'text-gray-400'}">{entrada.numeral}.</span
+            : 'text-ink-2'}">{entrada.numeral}.</span
         >
         <span class="min-w-0 flex-1 leading-snug">{entrada.nombre}</span>
         {#if mostrarProgreso && entrada.completa}

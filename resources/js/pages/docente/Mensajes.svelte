@@ -274,7 +274,7 @@
       </div>
       {#if cursos.length > 0}
         <p class="m-0 text-inst-ink-2">
-          Elige el curso para abrir su mensajería: ahí envías un aviso a todo el curso o le escribes a un estudiante. A los grupos
+          Elige el curso para abrir su mensajería: ahí envías un mensaje a todo el curso o le escribes a un estudiante. A los grupos
           de una actividad se les escribe desde la actividad.
         </p>
         <ul class="{tarjeta} m-0 list-none overflow-hidden p-0">

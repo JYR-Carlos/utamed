@@ -63,7 +63,7 @@
         href={seg.href}
         target="_blank"
         rel="noopener noreferrer"
-        class="font-medium text-navy underline hover:text-navy-2"
+        class="text-[15px] text-navy underline hover:text-navy-2"
       >
         Ver archivo
       </a>
@@ -72,7 +72,7 @@
         href={seg.href}
         target="_blank"
         rel="noopener noreferrer"
-        class="text-navy underline hover:text-navy-2 break-all"
+        class="text-[15px] text-navy underline hover:text-navy-2 break-all"
       >
         {seg.texto}
       </a>
@@ -134,7 +134,7 @@
                 >
                   <span>{@render renderizarTexto(item.texto)}</span>
                   {#if item.cita}
-                    <span class="block mt-0.5 italic text-ink-2">
+                    <span class="mt-0.5 block text-ink-2">
                       {@render renderizarTexto(item.cita)}
                     </span>
                   {/if}
@@ -174,23 +174,23 @@
             <thead>
               <tr class="bg-stone-50">
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Componente</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >%</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Acta</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Aprobación oblig.</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Asistencia oblig.</th
                 >
               </tr>
