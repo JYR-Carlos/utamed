@@ -375,7 +375,7 @@ class BaseCursosSeeder extends Seeder
                 'genera_acta' => true,
                 'porcentaje_aprobacion' => 60,
                 'aprobacion_obligatoria' => false,
-                'porcentaje_asistencia_obligatoria' => Componente::ASISTENCIA_MINIMA_POR_DEFECTO,
+                'porcentaje_asistencia_obligatoria' => 0,
                 'id_tipo_componente' => $tipoComponente,
                 'id_curso' => $curso->id_curso,
             ]);

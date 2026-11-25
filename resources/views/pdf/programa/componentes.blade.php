@@ -17,7 +17,12 @@
                     <td>{{ !empty($comp['genera_acta']) ? 'Sí' : 'No' }}</td>
                     <td>{{ !empty($comp['aprobacion_obligatoria']) ? 'Sí' : 'No' }}</td>
                     <td>
-                        {{ isset($comp['asistencia_obligatoria']) && $comp['asistencia_obligatoria'] !== null ? $comp['asistencia_obligatoria'] . '%' : '—' }}
+                        {{-- 0 es que el componente no exige asistencia. --}}
+                        @if(!isset($comp['asistencia_obligatoria']))
+                            —
+                        @else
+                            {{ (float) $comp['asistencia_obligatoria'] > 0 ? $comp['asistencia_obligatoria'] . '%' : 'No' }}
+                        @endif
                     </td>
                 </tr>
             @endforeach

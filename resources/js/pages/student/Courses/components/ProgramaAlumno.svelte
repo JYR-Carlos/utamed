@@ -45,6 +45,12 @@
 
   let { curso, programa = null, docentes = [], secciones = [], categoria = '', hrefImprimir }: Props = $props();
 
+  /** « · asistencia mínima 70 %»; 0 es que el componente no la exige; sin dato, nada. */
+  function textoAsistencia(v: number | string | null | undefined): string {
+    if (v === null || v === undefined || v === '') return '';
+    return Number(v) === 0 ? ' · asistencia no obligatoria' : ` · asistencia mínima ${porcentaje(v)}`;
+  }
+
   const { formatName } = useFormatName();
 
   const asignatura = $derived(curso?.asignatura);
@@ -134,9 +140,7 @@
           <span class="text-sm leading-5">
             <strong class="font-bold">{c.componente} {porcentaje(c.porcentaje)}</strong>
             <span class="text-dm-ink-2"
-              >{c.aprobacion_obligatoria ? ' · aprobación obligatoria' : ''}{c.asistencia_obligatoria
-                ? ` · asistencia mínima ${porcentaje(c.asistencia_obligatoria)}`
-                : ''}</span
+              >{c.aprobacion_obligatoria ? ' · aprobación obligatoria' : ''}{textoAsistencia(c.asistencia_obligatoria)}</span
             >
           </span>
         {/each}

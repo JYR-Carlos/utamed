@@ -76,6 +76,11 @@ export function porcentaje(v: number | string | null | undefined): string {
     return v === null || v === undefined || v === '' ? '—' : `${Number(v).toLocaleString('es-CL')} %`;
 }
 
+/** Asistencia mínima de un componente: 0 es que no la exige. */
+export function asistenciaMinima(v: number | string | null | undefined): string {
+    return v !== null && v !== undefined && v !== '' && Number(v) === 0 ? 'No obligatoria' : porcentaje(v);
+}
+
 /** «marzo de 2026». */
 export function mesYAgno(fecha?: string | null): string {
     if (!fecha) return '';
