@@ -3,8 +3,10 @@
 namespace App\Policies;
 
 use App\Models\Curso\Curso;
+use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
 use App\Policies\Base\BaseCursoPolicy;
+use App\Services\SyllabusWizardPresenter;
 use App\Support\Permissions;
 use Illuminate\Support\Facades\Log;
 
@@ -54,6 +56,20 @@ class CursoPolicy extends BaseCursoPolicy
         }
 
         return $autorizado;
+    }
+
+    /**
+     * Agregar recursos a la Biblioteca del curso y subir sus archivos.
+     *
+     * Es lo mismo que escribir la sección VIII en el asistente del syllabus:
+     * `cursos/programas:agregar` en el curso y la sección VIII, que el titular
+     * escribe por ser suyo el documento y el resto del equipo por delegación.
+     * Ver el curso no alcanza: un alumno inscrito lo ve y no sube nada.
+     */
+    public function editarBibliografia(Usuario $user, Curso $curso): bool
+    {
+        return $user->can('create', [Programa::class, $curso])
+            && SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII');
     }
 
     /**

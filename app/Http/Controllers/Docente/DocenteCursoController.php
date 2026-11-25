@@ -552,11 +552,7 @@ class DocenteCursoController extends Controller
             ->values()
             ->all();
 
-        $user = Auth::user();
-        $puedeEditar = $programa && $user instanceof Usuario
-            ? ($user->can('create', [Programa::class, $curso])
-                && \App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII'))
-            : false;
+        $puedeEditar = $programa !== null && (Auth::user()?->can('editarBibliografia', $curso) ?? false);
 
         return Inertia::render('docente/Biblioteca', [
             'curso' => [
@@ -576,9 +572,16 @@ class DocenteCursoController extends Controller
     /**
      * Agrega una nueva bibliografía desde la pestaña «Biblioteca», escribiendo
      * de forma sincronizada en la tabla `bibliografia` y en `programa.data_syllabus` (sección VIII).
+     *
+     * La Biblioteca es material vivo (decisión del 25-11-2026): se le suman
+     * recursos aunque el programa esté aprobado, y el alumno los ve de
+     * inmediato. Por eso no pasa por `Programa::asegurarEditable()`, que sigue
+     * sellando el resto del syllabus aprobado (SEC-01).
      */
     public function storeBibliografia(Request $request, Curso $curso)
     {
+        $this->authorize('editarBibliografia', $curso);
+
         $programa = Programa::where('id_curso', $curso->id_curso)
             ->where('es_actual', true)
             ->first();
@@ -587,13 +590,6 @@ class DocenteCursoController extends Controller
             return redirect()->back()->withErrors([
                 'bibliografia' => 'El curso no tiene un programa vigente para asociar bibliografía.',
             ]);
-        }
-
-        $this->authorize('create', [Programa::class, $curso]);
-
-        $user = Auth::user();
-        if (!$user instanceof Usuario || !\App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII')) {
-            abort(403, 'No tienes permiso para editar la sección VIII.');
         }
 
         $validated = $request->validate([

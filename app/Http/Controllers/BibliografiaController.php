@@ -57,7 +57,9 @@ class BibliografiaController extends Controller
     public function uploadArchivo(BibliografiaFileRequest $request)
     {
         $curso = Curso::findOrFail($request->getCursoId());
-        $this->authorize('viewPrograma', $curso);
+        // Sube quien puede agregar a la Biblioteca, no quien sólo la ve: un
+        // alumno inscrito ve el programa y no debe dejar archivos en el disco.
+        $this->authorize('editarBibliografia', $curso);
 
         $unidad = null;
         if ($request->getUnidadId()) {
