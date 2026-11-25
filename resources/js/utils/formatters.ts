@@ -76,6 +76,14 @@ export function compareNombres(a: string | null | undefined, b: string | null | 
 }
 
 /**
+ * Nombre de la unidad sin su rótulo: «Unidad 1 : Producción web» → «Producción web».
+ * El nombre guardado suele traerlo y las pantallas ya escriben «Unidad N» aparte.
+ */
+export function nombreUnidad(nombre: string | null | undefined): string {
+    return (nombre ?? '').replace(/^unidad\s+\d+\s*:\s*/i, '').trim();
+}
+
+/**
  * Truncate text to specified length
  * @param text - Text to truncate
  * @param length - Maximum length

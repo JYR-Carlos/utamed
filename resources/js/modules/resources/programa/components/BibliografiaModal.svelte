@@ -1,6 +1,7 @@
 <script lang="ts">
   import axios from "axios";
   import type { BibliografiaSyllabus } from "@/types/syllabus.types";
+  import { nombreUnidad } from "@/utils/formatters";
 
   interface Props {
     isOpen?: boolean;
@@ -184,7 +185,7 @@
         <select id="bib-unidad" bind:value={formData.id_unidad} class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
           <option value={null}>-- General / Todo el curso --</option>
           {#each unidades as uni}
-            <option value={uni.numero}>Unidad {uni.numero}: {uni.titulo}</option>
+            <option value={uni.numero}>Unidad {uni.numero}: {nombreUnidad(uni.titulo)}</option>
           {/each}
         </select>
       </div>

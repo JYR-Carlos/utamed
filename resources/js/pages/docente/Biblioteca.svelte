@@ -13,6 +13,7 @@
   import { gruposDeRecursos, type GrupoRecursos, type Recurso, type TipoRecurso } from '@/lib/programaAlumno';
   import BibliografiaModal from '@/modules/resources/programa/components/BibliografiaModal.svelte';
   import type { BibliografiaSyllabus } from '@/types/syllabus.types';
+  import { nombreUnidad } from '@/utils/formatters';
 
   interface BibliografiaItem {
     uuid_bibliografia: string;
@@ -109,10 +110,9 @@
       if (item.num_unidad != null) {
         const num = item.num_unidad;
         if (!porUnidad.has(num)) {
-          const nombre = item.nombre_unidad?.trim() || `Unidad ${num}`;
           porUnidad.set(num, {
             id: `unidad-${num}`,
-            titulo: `Unidad ${num} · ${nombre}`,
+            titulo: [`Unidad ${num}`, nombreUnidad(item.nombre_unidad)].filter(Boolean).join(' · '),
             corto: `Unidad ${num}`,
             recursos: [],
           });
