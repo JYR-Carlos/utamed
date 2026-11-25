@@ -321,7 +321,7 @@
         <div class="section">
             <h2 class="section-title">
                 <span class="section-num">{{ $seccion['numeral_romano'] }}.</span>
-                {{ $seccion['nombre_seccion'] }}
+                <span class="section-num">{{ $seccion['nombre_seccion'] }}</span>    
             </h2>
 
             @switch($seccion['tipo_seccion'] ?? 'vacia')
