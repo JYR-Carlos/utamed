@@ -5,8 +5,9 @@
    * vence después del domingo (dentro de los 7 días que manda el servidor)
    * se nombra abajo.
    */
-  import { Link } from '@inertiajs/svelte';
+  import { inertia, Link } from '@inertiajs/svelte';
   import { ChevronRight } from 'lucide-svelte';
+  import LeyendaActividad from '@/components/student/dm/LeyendaActividad.svelte';
   import { claveDia, formatDiaCorto, parseFechaSoloDia } from '@/utils/formatters';
   import { plazoDe, type ActividadPorVencer } from '@/lib/plazoAlumno';
   import { enlace } from '@/lib/dm';
@@ -61,9 +62,18 @@
 
 {#snippet entrega(a: ActividadPorVencer)}
   {@const aviso = nota(a)}
-  <Link
+  <LeyendaActividad
+    codigo={a.curso}
+    estilo={colorDe(a.id_curso)}
+    nombre={a.nombre}
+    detalle={plazoDe(a, hoy).texto}
+    tipo={{ esSumativa: a.es_sumativa, esGrupal: a.es_grupal }}
+  >
+    {#snippet children(props)}
+  <a
+    {...props}
     href={hrefActividad(a)}
-    title="{a.curso} · {a.nombre}"
+    use:inertia
     style={colorDe(a.id_curso)}
     class="flex min-w-0 flex-col gap-1 rounded-lg bg-(--curso-s) p-2 text-dm-ink no-underline hover:outline-2 hover:outline-(--curso) max-lg:flex-1 max-lg:bg-transparent max-lg:p-0 max-lg:hover:outline-0"
   >
@@ -72,7 +82,9 @@
     </span>
     <span class="text-[13px] leading-[18px] font-semibold max-lg:text-[15px] max-lg:leading-5">{a.nombre}</span>
     {#if aviso}<span class="text-[13px] leading-[18px] font-semibold text-dm-warn">{aviso}</span>{/if}
-  </Link>
+  </a>
+    {/snippet}
+  </LeyendaActividad>
 {/snippet}
 
 <section aria-labelledby="t-semana" class="flex flex-col gap-3 lg:gap-4">
