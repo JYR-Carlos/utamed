@@ -63,6 +63,7 @@
   {@const aviso = nota(a)}
   <Link
     href={hrefActividad(a)}
+    title="{a.curso} · {a.nombre}"
     style={colorDe(a.id_curso)}
     class="flex min-w-0 flex-col gap-1 rounded-lg bg-(--curso-s) p-2 text-dm-ink no-underline hover:outline-2 hover:outline-(--curso) max-lg:flex-1 max-lg:bg-transparent max-lg:p-0 max-lg:hover:outline-0"
   >

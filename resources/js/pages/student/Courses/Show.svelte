@@ -294,6 +294,7 @@
         )}
         <CursoCalendario
           idCurso={id_curso}
+          codigo={curso?.cod_asignatura || curso?.cod_curso || ''}
           {actividades}
           semestre={calendario_semestre}
           bind:alcance={alcanceCalendario}

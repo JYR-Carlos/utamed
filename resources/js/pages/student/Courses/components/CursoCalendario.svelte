@@ -47,8 +47,8 @@
    * Cada actividad se numera dentro de su curso por orden de plazo: la marca
    * del día dice «Act. 02», que cabe en la celda, donde el nombre se cortaba
    * en «Activida…» (OBS-24). En la vista del semestre el borde de la marca
-   * lleva el color del curso. El nombre completo y el curso van en el detalle
-   * del día y al pasar el mouse.
+   * lleva el color del curso. El nombre completo y el código del curso van en
+   * el detalle del día y al pasar el mouse.
    *
    * - Escritorio: grilla del mes (o agenda) y, al lado, el detalle del día
    *   elegido y la leyenda. Las flechas mueven el foco entre días.
@@ -71,6 +71,8 @@
   interface Props {
     /** El curso de la ficha; en el calendario general no hay. */
     idCurso?: number;
+    /** Código de la asignatura de la ficha (DM301); en el semestre lo trae cada fecha. */
+    codigo?: string;
     actividades?: Actividad[];
     /** Prop diferida: llega al elegir «Todo el semestre». En el general, llega con la página. */
     semestre?: Actividad[] | null;
@@ -79,7 +81,7 @@
     general?: boolean;
   }
 
-  let { idCurso = 0, actividades = [], semestre = null, alcance = $bindable('curso'), general = false }: Props = $props();
+  let { idCurso = 0, codigo = '', actividades = [], semestre = null, alcance = $bindable('curso'), general = false }: Props = $props();
 
   const listaMenu = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
 
@@ -166,6 +168,10 @@
   // Color de cada curso del semestre, el mismo del menú.
   const colorDe = (a: Actividad) => `var(--color-dm-c${numeroColorCurso(a.id_curso ?? idCurso, listaMenu)})`;
   const cursoDe = (a: Actividad) => a.asignatura || a.curso || '';
+
+  /** Al pasar el mouse por una fecha: «DM301 · Taller de Multimedia II · Actividad 02 · Vencida». */
+  const ayudaDe = (a: Actividad) =>
+    [a.curso || codigo, esSemestre ? a.asignatura : '', a.nombre, etiquetaDe(a)].filter(Boolean).join(' · ');
 
   // «Act. 02»: posición dentro de su curso. Las actividades llegan ordenadas
   // por plazo (las sin plazo al final), así que el número no cambia entre la
@@ -254,6 +260,7 @@
   {@const Icono = e.icono}
   <Link
     href={`/estudiante/cursos/${a.id_curso ?? idCurso}/actividad/${a.id_actividad}`}
+    title={ayudaDe(a)}
     class="flex flex-col gap-1.5 border-b border-dm-linea px-4 py-3.5 text-dm-ink no-underline last:border-b-0 hover:bg-dm-sutil xl:px-5"
   >
     {#if esSemestre && cursoDe(a)}
@@ -433,7 +440,7 @@
                             <span
                               class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-[13px] leading-4 font-semibold {e.marca}"
                               style={esSemestre ? `border-left-color: ${colorDe(a)}` : undefined}
-                              title="{cursoDe(a) ? `${cursoDe(a)} · ` : ''}{a.nombre} · {etiquetaDe(a)}"
+                              title={ayudaDe(a)}
                             >
                               <Icono size={12} class="shrink-0" />
                               <span class="truncate">{numeroDe(a)}</span>
@@ -482,6 +489,7 @@
                     <li>
                       <Link
                         href={`/estudiante/cursos/${a.id_curso ?? idCurso}/actividad/${a.id_actividad}`}
+                        title={ayudaDe(a)}
                         class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-dm-ink no-underline hover:underline"
                       >
                         <span class="flex min-w-0 flex-col gap-0.5">
