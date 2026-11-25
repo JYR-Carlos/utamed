@@ -19,7 +19,10 @@ class LecturaAgendaService
 {
     /**
      * Registra que el usuario leyó los mensajes indicados. Ignora los que él
-     * mismo envió y los que ya tenía registrados.
+     * mismo envió y los que ya tenía registrados: se descartan antes del INSERT
+     * porque una fila que cae en el ON CONFLICT igual gasta un id de la tabla, y
+     * esto se llama en cada refresco de la agenda. El ON CONFLICT queda para dos
+     * registros simultáneos.
      *
      * @param  iterable<int>  $idsAgenda
      */
@@ -34,8 +37,10 @@ class LecturaAgendaService
             'INSERT INTO agenda.lectura_agenda (id_agenda, id_usuario_lector)
              SELECT a.id_agenda, ? FROM agenda.agenda a
              WHERE a.id_agenda = ANY(?::int[]) AND a.id_usuario_emisor <> ?
+               AND NOT EXISTS (SELECT 1 FROM agenda.lectura_agenda l
+                               WHERE l.id_agenda = a.id_agenda AND l.id_usuario_lector = ?)
              ON CONFLICT (id_agenda, id_usuario_lector) DO NOTHING',
-            [$idUsuario, '{' . $ids->implode(',') . '}', $idUsuario]
+            [$idUsuario, '{' . $ids->implode(',') . '}', $idUsuario, $idUsuario]
         );
     }
 

@@ -524,7 +524,7 @@
                     aria-controls="det-{a.id_actividad}"
                     onclick={() => alternar(a)}
                   >
-                    <Eye size={16} aria-hidden="true" />Ver
+                    <MessageSquare size={16} aria-hidden="true" />Agenda
                     {#if (a.mensajes_pendientes ?? 0) > 0}
                       <span class="rounded-full px-1.5 text-xs font-extrabold {abierta ? 'bg-inst-tarjeta text-inst-accion-t' : 'bg-inst-accion text-inst-sobre-accion'}" aria-label="{a.mensajes_pendientes} por responder">{a.mensajes_pendientes}</span>
                     {/if}

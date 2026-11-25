@@ -5,10 +5,12 @@
    * (ModalAlumno) y la rúbrica que se abre desde una evaluación las pone la
    * página.
    */
+  import { onMount } from 'svelte';
   import { router } from '@inertiajs/svelte';
   import { Info, Send } from 'lucide-svelte';
   import AgendaHiloAlumno from './AgendaHiloAlumno.svelte';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
+  import { sondear } from '@/lib/sondeo';
 
   interface Props {
     idCurso: number;
@@ -27,10 +29,15 @@
   let mensaje = $state('');
 
   // Mientras está abierta, mensajes nuevos y «Visto por» llegan solos.
-  $effect(() => {
-    const poll = router.poll(3000, { only: ['listado_interacciones'], showProgress: false });
-    return () => poll.stop();
-  });
+  onMount(() =>
+    sondear(
+      () =>
+        new Promise<void>((listo) =>
+          router.reload({ only: ['listado_interacciones'], showProgress: false, onFinish: () => listo() }),
+        ),
+      { alEmpezar: true },
+    ),
+  );
 
   function enviar(e?: SubmitEvent) {
     e?.preventDefault();

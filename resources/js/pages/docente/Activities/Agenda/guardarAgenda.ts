@@ -32,6 +32,18 @@ export function visitaInertia(only: string[]): Visita {
 
 export const urlFeedback = (idCurso: number, idGrupo: number) => `/docente/cursos/${idCurso}/grupos/${idGrupo}/feedback`;
 
+/**
+ * La conversación de un grupo, sin recalcular la pantalla que la muestra.
+ * Pedirla marca como vistos los mensajes que el docente aún no leía.
+ */
+export async function pedirHilo(urlGrupo: string): Promise<InteraccionItem[]> {
+  const r = await fetch(`${urlGrupo}/mensajes`, {
+    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  });
+  if (!r.ok) throw new Error(String(r.status));
+  return r.json();
+}
+
 /** El mensaje recién escrito, para mostrarlo antes de que vuelva del servidor. */
 export function mensajeOptimista(autor: { nombre1?: string; apellido1?: string } | null | undefined, mensaje: string): InteraccionItem {
   return {

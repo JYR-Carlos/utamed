@@ -134,7 +134,7 @@
                 >
                   <span>{@render renderizarTexto(item.texto)}</span>
                   {#if item.cita}
-                    <span class="block mt-0.5 text-[13px] italic text-ink-2 leading-snug">
+                    <span class="block mt-0.5 italic text-ink-2">
                       {@render renderizarTexto(item.cita)}
                     </span>
                   {/if}
@@ -161,7 +161,7 @@
                 { etiqueta: 'Aprobación oblig.', valor: comp.aprobacion_obligatoria ? 'Sí' : 'No' },
                 { etiqueta: 'Asistencia oblig.', valor: comp.asistencia_obligatoria != null ? `${comp.asistencia_obligatoria}%` : '—' },
               ] as fila (fila.etiqueta)}
-                <div class="flex items-center justify-between border-t border-slate-200 py-2.5 text-[14px]">
+                <div class="flex items-center justify-between border-t border-slate-200 py-2.5 text-[15px]">
                   <span class="font-medium text-slate-600">{fila.etiqueta}</span>
                   <span class="font-semibold tabular-nums text-slate-900">{fila.valor}</span>
                 </div>
@@ -170,7 +170,7 @@
           {/each}
         </div>
         <div class="overflow-x-auto rounded-lg border border-gray-100 max-sm:hidden">
-          <table class="w-full border-collapse text-[14px]">
+          <table class="w-full border-collapse text-[15px]">
             <thead>
               <tr class="bg-stone-50">
                 <th
@@ -213,9 +213,9 @@
           </table>
         </div>
         {#if seccion.ponderacion_optativa?.porcentaje}
-          <p class="m-0 text-[13px] text-ink-2">
+          <p class="m-0">
             Ponderación de la prueba optativa:
-            <strong class="font-semibold text-ink"
+            <strong
               >{seccion.ponderacion_optativa.porcentaje}%</strong
             >
           </p>

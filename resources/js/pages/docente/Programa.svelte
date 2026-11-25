@@ -115,15 +115,15 @@
    * que no viene en el JSONB del programa.
    */
   const NOMBRES_SECCION: Record<string, string> = {
-    I: 'Identificación',
-    II: 'Presentación',
-    III: 'Estándares',
-    IV: 'Competencias',
-    V: 'Evaluación Diagnóstica',
-    VI: 'Unidades',
-    VII: 'Planificación',
-    VIII: 'Recursos',
-    IX: 'Aspectos Administrativos',
+    I: 'Identificación de la asignatura',
+    II: 'Presentación, descripción y propósito formativo',
+    III: 'Estándares de la profesión',
+    IV: 'Áreas, competencias específicas y competencias genéricas',
+    V: 'Evaluación diagnóstica para determinar los aprendizajes previos',
+    VI: 'Unidades y contenidos de aprendizaje',
+    VII: 'Planificación de la enseñanza',
+    VIII: 'Recursos para el aprendizaje',
+    IX: 'Aspectos administrativos y evaluación',
   };
 
   interface Props {
@@ -189,19 +189,18 @@
   const semestreTexto = $derived(nombreSemestre(curso?.semestre_real, curso?.agno_real));
 
   /**
-   * «Imprimir» saca el programa diagramado (cabecera institucional, títulos
-   * oficiales, número de página). El título del documento pasa a ser el
-   * nombre del archivo que el navegador propone al guardar como PDF.
+   * «Imprimir» abre el PDF institucional unificado generado en servidor según
+   * el contexto del usuario (`admin`, `docente`, `ayudante` o `estudiante`).
    */
-  function imprimir() {
-    const anterior = document.title;
-    document.title = ['Programa', codigo, titulo, curso?.agno_real && curso?.semestre_real ? `${curso.agno_real}-${curso.semestre_real}` : null]
-      .filter(Boolean)
-      .join(' ')
-      .replace(/\s+/g, '_');
-    window.print();
-    document.title = anterior;
-  }
+  const pdfUrl = $derived(
+    layoutType === 'admin'
+      ? `/admin/cursos/${curso.id_curso}/programa/pdf`
+      : layoutType === 'ayudante'
+        ? `/ayudante/cursos/${curso.id_curso}/programa/pdf`
+        : layoutType === 'estudiante'
+          ? `/estudiante/cursos/${curso.id_curso}/programa/pdf`
+          : `/docente/cursos/${curso.id_curso}/programa/pdf`,
+  );
 
   // ── Estado del documento ──────────────────────────────────────────────────
 
@@ -598,10 +597,15 @@
               </button>
             {/if}
             {#if programa}
-              <button type="button" class="{btnPrimario} {chico}" onclick={imprimir}>
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="{btnPrimario} {chico} no-underline"
+              >
                 <Printer size={15} aria-hidden="true" />
                 Imprimir
-              </button>
+              </a>
             {/if}
           </div>
         {:else}
@@ -640,14 +644,17 @@
             </div>
 
             <div class="flex max-w-full flex-wrap items-center gap-2.5 sm:ml-auto sm:flex-none">
-              <button
-                type="button"
-                onclick={imprimir}
-                class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand print:hidden"
-              >
-                <Printer size={15} class="text-ink-2" aria-hidden="true" />
-                Imprimir
-              </button>
+              {#if programa}
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink no-underline transition-colors hover:bg-sand print:hidden"
+                >
+                  <Printer size={15} class="text-ink-2" aria-hidden="true" />
+                  Imprimir
+                </a>
+              {/if}
               {#if programa && historial.length > 0}
                 <button
                   type="button"

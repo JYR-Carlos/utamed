@@ -52,7 +52,7 @@ test('cada actividad del centro trae el avance de evaluación', function () {
                 $avance = app(AvanceEvaluacionService::class)->porActividad($actividades->pluck('id_actividad'));
                 foreach ($actividades as $a) {
                     $esperado = $avance[$a['id_actividad']] ?? null;
-                    foreach (['por_calificar', 'calificados', 'por_revisar', 'con_feedback'] as $clave) {
+                    foreach (['por_calificar', 'calificados', 'por_revisar', 'revisados'] as $clave) {
                         expect($a[$clave])->toBe($esperado[$clave] ?? 0);
                     }
                 }

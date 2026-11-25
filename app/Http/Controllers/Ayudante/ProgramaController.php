@@ -14,6 +14,7 @@ use App\Models\Curso\Unidad;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Auditoria\ProgramaHistorial;
+use App\Services\ProgramaPdf;
 use App\Services\ProgramaService;
 use App\Services\SyllabusWizardPresenter;
 use App\Traits\ParsesSyllabus;
@@ -46,6 +47,20 @@ class ProgramaController extends Controller
     public function show(Curso $curso): Response|RedirectResponse
     {
         return $this->renderProgramaView($curso, 'view');
+    }
+
+    /** El programa vigente como PDF, en el navegador — `/ayudante/cursos/{curso}/programa/pdf`. */
+    public function pdf(Curso $curso, ProgramaPdf $pdf): \Illuminate\Http\Response|RedirectResponse
+    {
+        if ($rechazo = $this->rechazoDeLectura($curso)) {
+            return $rechazo;
+        }
+
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->firstOrFail();
+
+        return $pdf->generar($curso, $programa)->stream($pdf->nombreArchivo($curso));
     }
 
     /**
@@ -360,13 +375,10 @@ class ProgramaController extends Controller
     }
 
     /**
-     * Renderizar la vista del programa
-     * 
-     * @param Curso $curso
-     * @param string $mode 'view' o 'edit'
-     * @return Response|RedirectResponse
+     * Lectura del programa: ayudante activo del curso con
+     * `CURSOS_PROGRAMAS_VER_TODOS`. Devuelve la redirección si no puede, o null.
      */
-    private function renderProgramaView(Curso $curso, string $mode = 'view'): Response|RedirectResponse
+    private function rechazoDeLectura(Curso $curso): ?RedirectResponse
     {
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
@@ -401,6 +413,25 @@ class ProgramaController extends Controller
         if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para acceder al programa de este curso');
+        }
+
+        return null;
+    }
+
+    /**
+     * Renderizar la vista del programa
+     *
+     * @param Curso $curso
+     * @param string $mode 'view' o 'edit'
+     * @return Response|RedirectResponse
+     */
+    private function renderProgramaView(Curso $curso, string $mode = 'view'): Response|RedirectResponse
+    {
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
+        if ($rechazo = $this->rechazoDeLectura($curso)) {
+            return $rechazo;
         }
 
         // Obtener programa actual

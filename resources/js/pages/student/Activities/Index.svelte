@@ -40,7 +40,7 @@
   import ActividadAgendaResumen from './components/ActividadAgendaResumen.svelte';
   import ModalAlumno from '@/components/student/dm/ModalAlumno.svelte';
   import { Link, router, page } from '@inertiajs/svelte';
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import { btnSecundario, btnSuave, etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
@@ -183,14 +183,26 @@
     return [...delServidor, ...pendientes];
   });
 
-  // «Visto» (T07): leer la agenda es abrirla, no cargar la actividad. Se avisa al
-  // servidor cada vez que el modal pasa a abierto; el docente lo ve en su hilo.
   $effect(() => {
-    if (!showAgendaModal || !id_actividad_asignada_grupo) return;
-    agendaVista = true;
-    csrfFetch(`/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda/leida`, {
-      method: 'POST',
-    }).catch(() => {
+    if (showAgendaModal) agendaVista = true;
+  });
+
+  // «Visto» (T07): leer la agenda es tenerla abierta y a la vista, no cargar la
+  // actividad. Se avisa al servidor una vez por cada mensaje nuevo; el docente lo
+  // ve en su hilo. El id va en un $derived y el grupo sin seguimiento porque cada
+  // refresco de la agenda reemplaza las props de la página: un efecto que las lee
+  // directo se repite en cada refresco aunque no hayan cambiado (FIX-20).
+  let visibilidad = $state<DocumentVisibilityState>('visible');
+  const ultimoNuevo = $derived(
+    showAgendaModal && visibilidad === 'visible'
+      ? ((listado_interacciones ?? []).findLast((i) => i.nuevo)?.id_interaccion ?? null)
+      : null,
+  );
+  $effect(() => {
+    if (ultimoNuevo === null) return;
+    const idGrupo = untrack(() => id_actividad_asignada_grupo);
+    if (!idGrupo) return;
+    csrfFetch(`/estudiante/grupos-asignados/${idGrupo}/agenda/leida`, { method: 'POST' }).catch(() => {
       // Sin red no pasa nada grave: se reintenta la próxima vez que abra la agenda.
     });
   });
@@ -521,6 +533,8 @@
 <svelte:head>
   <title>{nombre_actividad} | UTAmed</title>
 </svelte:head>
+
+<svelte:document bind:visibilityState={visibilidad} />
 
 <!-- Un acceso a otra pestaña, al pie de la que se está leyendo. -->
 {#snippet paso(rotulo: string, texto: string, boton: string, destino: Seccion)}

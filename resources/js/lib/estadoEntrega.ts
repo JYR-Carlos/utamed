@@ -8,7 +8,8 @@
  *   ok   → Calificado (sumativa)    · Revisado (formativa)
  *
  * Mismo criterio que AvanceEvaluacionService: una sumativa queda calificada
- * con nota; una formativa, revisada con feedback del docente. Una actividad
+ * con nota; una formativa, revisada cuando el docente la evalúa (escribir en la
+ * agenda no cambia el estado). Una actividad
  * presencial no recibe archivos, así que lo que no está evaluado queda
  * pendiente y no «sin entregar».
  */
@@ -36,11 +37,11 @@ export const BARRA_ENTREGA: Record<EstadoEntrega, string> = {
 
 /** Estado de un estudiante o grupo dentro de la actividad. */
 export function estadoEntrega(
-    g: { nota: number | null; entrega: unknown | null; con_feedback?: boolean },
+    g: { nota: number | null; entrega: unknown | null; evaluado?: boolean },
     esSumativa: boolean,
     traeArchivo: boolean,
 ): EstadoEntrega {
-    if (esSumativa ? g.nota !== null : !!g.con_feedback) return 'ok';
+    if (esSumativa ? g.nota !== null : !!g.evaluado) return 'ok';
     if (g.entrega || !traeArchivo) return 'pend';
     return 'no';
 }
@@ -49,7 +50,7 @@ export function estadoEntrega(
 export function conteoEntregas(a: Actividad): Record<EstadoEntrega, number> {
     const total = a.total_grupos ?? 0;
     const esSumativa = a.tipo_actividad === 'SUMATIVA';
-    const ok = esSumativa ? (a.calificados ?? 0) : (a.con_feedback ?? 0);
+    const ok = esSumativa ? (a.calificados ?? 0) : (a.revisados ?? 0);
     const pend =
         a.tipo_entrega === 'presencial'
             ? Math.max(0, total - ok)

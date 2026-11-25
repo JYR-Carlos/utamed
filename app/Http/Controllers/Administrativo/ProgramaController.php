@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Administrativo;
 use App\Http\Controllers\Controller;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
+use App\Services\ProgramaPdf;
 use App\Services\ProgramaService;
 use App\Services\SyllabusViewerPresenter;
 use App\Services\SyllabusWizardPresenter;
@@ -202,6 +203,22 @@ class ProgramaController extends Controller
             'layoutType'      => 'docente',
             'backUrl'         => '/docente/cursos',
         ]);
+    }
+
+    /**
+     * El programa vigente como PDF, en el navegador —
+     * `/docente/cursos/{curso}/programa/pdf`. Lo ve quien puede ver el programa.
+     */
+    public function pdf(Curso $curso, ProgramaPdf $pdf): \Illuminate\Http\Response
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->firstOrFail();
+        $this->authorize('view', $programa);
+
+        return $pdf->generar($curso, $programa)->stream($pdf->nombreArchivo($curso));
     }
 
     /**

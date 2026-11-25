@@ -175,7 +175,10 @@
         <p class="m-0 font-dm-cond text-[32px] leading-[32px] font-black uppercase lg:text-[46px] lg:leading-[46px]">
           Entorno virtual de enseñanza y aprendizaje <UtaMed />
         </p>
-        
+        <p class="m-0 text-[15px] leading-[22px] text-dm-noche-texto-2 lg:text-base lg:leading-6">
+          Aquí se encuentran los cursos de la carrera: el programa de cada asignatura, las actividades y sus
+          entregas, la retroalimentación del equipo docente, las notas y la asistencia.
+        </p>
       </div>
 
       <LogosInstitucionales class="relative mt-3 px-4 lg:mt-0 lg:px-0" />

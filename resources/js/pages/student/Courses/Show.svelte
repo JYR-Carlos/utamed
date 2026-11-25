@@ -267,9 +267,14 @@
           <h2 class="text-[22px] leading-7 font-bold">Programa</h2>
           {#if programa}
             <!-- En móvil el botón va al pie del programa. -->
-            <Link href={`/estudiante/cursos/${id_curso}/programa`} class="{btnSecundario} min-h-10 max-lg:hidden">
-              <Printer size={16} aria-hidden="true" />Versión para imprimir
-            </Link>
+            <a
+              href={`/estudiante/cursos/${id_curso}/programa/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="{btnSecundario} min-h-10 no-underline max-lg:hidden"
+            >
+              <Printer size={16} aria-hidden="true" />Imprimir o guardar como PDF
+            </a>
           {/if}
         </div>
         <ProgramaAlumno
@@ -278,7 +283,7 @@
           {docentes}
           {secciones}
           categoria={datos?.categoria ?? ''}
-          hrefImprimir={`/estudiante/cursos/${id_curso}/programa`}
+          hrefImprimir={`/estudiante/cursos/${id_curso}/programa/pdf`}
         />
       {:else if seccion === 'calendario'}
         {@render titulo(

@@ -16,7 +16,7 @@
   import { estadoEntrega } from '@/lib/estadoEntrega';
   import type { ActividadAbierta, GrupoData } from '../components/ActividadDetalle.svelte';
   import AgendaDocente, { type EnvioAgenda } from './AgendaDocente.svelte';
-  import { conOptimistas, guardarEvaluacion, mensajeOptimista, primerError, urlFeedback, visitaInertia } from './guardarAgenda';
+  import { conOptimistas, guardarEvaluacion, mensajeOptimista, pedirHilo, primerError, urlFeedback, visitaInertia } from './guardarAgenda';
 
   interface Props {
     idCurso: number;
@@ -52,6 +52,14 @@
     const r = await fetch(`${url}/agenda`, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
     if (!r.ok) throw new Error(String(r.status));
     datos = await r.json();
+  }
+
+  async function refrescar() {
+    const previos = datos;
+    if (!previos) return;
+    const interacciones = await pedirHilo(url);
+    // Si un guardado recargó los datos, esta respuesta es más vieja.
+    if (datos === previos) datos.interacciones = interacciones;
   }
 
   onMount(() => {
@@ -111,7 +119,6 @@
     integrantes={g.integrantes}
     notaActual={g.nota}
     rubrica={datos.rubrica}
-    idGrupo={g.grupo}
     urlEntrega={(id, ver) => `${url}/entregas/${id}/descargar${ver ? '?ver=1' : ''}`}
     listado_interacciones={conOptimistas(datos.interacciones, optimistas)}
     errorMensaje={error}
@@ -119,6 +126,7 @@
     {pieCerrar}
     {guardando}
     onEnviar={enviar}
+    onRefrescar={refrescar}
     {onCerrar}
   />
 {:else}

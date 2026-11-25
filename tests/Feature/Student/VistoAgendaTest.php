@@ -105,6 +105,18 @@ test('abrir la agenda marca como leídos los mensajes ajenos y no los propios, y
             ->where('id_agenda', $f['propio']->id_agenda)->exists())->toBeFalse();
 });
 
+test('volver a marcar una agenda ya leída no gasta ids de lectura_agenda', function () {
+    $f = fixtureVistoAgenda($this);
+    $ruta = "/estudiante/grupos-asignados/{$f['grupo']}/agenda/leida";
+    $ultimoId = fn () => DB::scalar('SELECT last_value FROM agenda.lectura_agenda_id_lectura_agenda_seq');
+
+    $this->actingAs($f['usuario'])->post($ruta)->assertNoContent();
+    $antes = $ultimoId();
+    $this->actingAs($f['usuario'])->post($ruta)->assertNoContent();
+
+    expect($ultimoId())->toBe($antes);
+});
+
 test('un estudiante que no es del grupo no puede marcar su agenda como leída', function () {
     $f = fixtureVistoAgenda($this);
     $ajeno = Usuario::whereHas('estudiante', fn ($q) => $q->whereNotIn(

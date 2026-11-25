@@ -3,16 +3,16 @@
    * Gestión de grupos — /docente/cursos/{curso}/gestion/grupos (revisión
    * «Mi UTAmed»).
    *
-   * Paso 1: para qué son los grupos. Paso 2: la lista de estudiantes para
+   * Paso 1: la actividad de los grupos. Paso 2: la lista de estudiantes para
    * seleccionar y crear un grupo, y los grupos para renombrarlos, quitarles o
    * agregarles integrantes, o eliminarlos.
    *
-   * La base guarda los grupos por actividad (agenda.actividad_asignada_grupo),
-   * no por curso: «Por curso» se muestra sin poder elegirse, y para repetir los
-   * grupos en otra actividad está «Reutilizar grupos».
+   * Un grupo se crea para una actividad (agenda.actividad_asignada_grupo). Para
+   * repetirlo en otras están «Copiar a otras actividades», desde ésta, y
+   * «Reutilizar grupos», que los trae; valen aunque el destino ya tenga entregas.
    */
   import { Link, page, router } from '@inertiajs/svelte';
-  import { Check, ChevronLeft, Copy, Pencil, Plus, Search, Trash2, UserPlus, X } from 'lucide-svelte';
+  import { Check, ChevronLeft, Copy, CopyPlus, Pencil, Plus, Search, Trash2, UserPlus, X } from 'lucide-svelte';
   import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import ModalInst from '@/components/docente/ModalInst.svelte';
   import ReutilizarGruposModal from './Activities/components/ReutilizarGruposModal.svelte';
@@ -42,6 +42,7 @@
     fecha_limite: string | null;
     max_integrantes: number | null;
     cantidad_grupos: number;
+    editable: boolean;
   };
 
   interface Props {
@@ -176,6 +177,37 @@
     });
   }
 
+  // ── Copiar los grupos de esta actividad a otras ───────────────────────────
+  const destinos = $derived(actividades.filter((a) => a.id_actividad !== actividad && a.editable));
+  let copiarA = $state(false);
+  let gruposACopiar = $state<Set<number>>(new Set());
+  let destinosElegidos = $state<Set<number>>(new Set());
+  let errorCopiarA = $state<string | null>(null);
+
+  function abrirCopiarA() {
+    gruposACopiar = new Set(grupos.filter((g) => g.integrantes.length > 0).map((g) => g.grupo));
+    destinosElegidos = new Set();
+    errorCopiarA = null;
+    copiarA = true;
+  }
+
+  function conmutar(conjunto: Set<number>, id: number): Set<number> {
+    const s = new Set(conjunto);
+    if (!s.delete(id)) s.add(id);
+    return s;
+  }
+
+  function copiarAOtras() {
+    copiando = true;
+    errorCopiarA = null;
+    router.post(`${base}/grupos-copiar-a`, { grupos: [...gruposACopiar], destinos: [...destinosElegidos] }, {
+      ...opciones,
+      onSuccess: () => (copiarA = false),
+      onError: (e) => (errorCopiarA = Object.values(e)[0] ?? 'No se pudieron copiar los grupos.'),
+      onFinish: () => (copiando = false),
+    });
+  }
+
   const flash = $derived((($page.props as any).flash ?? {}) as { success?: string; error?: string });
   const BTN_SEG = 'min-h-11 border-0 border-r border-inst-linea px-3.5 text-[13px] font-bold last:border-r-0 lg:min-h-9';
 </script>
@@ -209,37 +241,22 @@
       <section class={tarjeta} aria-labelledby="t-paso1">
         <div class={tarjetaCabecera}>
           <span class="{chip} {tono.solido}">1</span>
-          <h3 id="t-paso1" class="{titulo} m-0 text-[17px] leading-[22px]">¿Para qué son estos grupos?</h3>
+          <h3 id="t-paso1" class="{titulo} m-0 text-[17px] leading-[22px]">¿Para qué actividad son estos grupos?</h3>
         </div>
-        <div class="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-3 p-4.5">
-          <label class="flex cursor-pointer gap-3 rounded-lg border-2 border-inst-accion bg-inst-accion-s px-4 py-3.5">
-            <input type="radio" name="alcance" checked class="mt-1 size-[18px] accent-[var(--color-inst-accion)]" />
-            <span class="flex min-w-0 flex-1 flex-col gap-2">
-              <span class="flex flex-col gap-0.5">
-                <span class="font-bold">Por actividad</span>
-                <span class="text-[13px] text-inst-ink-2">Los grupos valen sólo para la actividad que elijas.</span>
-              </span>
-              <select
-                class={campo}
-                aria-label="Actividad"
-                value={actividad}
-                onchange={(e) => elegirActividad(Number((e.currentTarget as HTMLSelectElement).value))}
-              >
-                {#each actividades as a (a.id_actividad)}
-                  <option value={a.id_actividad}>{a.nombre} · {a.cantidad_grupos} {a.cantidad_grupos === 1 ? 'grupo' : 'grupos'}</option>
-                {/each}
-              </select>
-            </span>
-          </label>
-          <label class="flex cursor-not-allowed gap-3 rounded-lg border border-inst-linea bg-inst-sutil px-4 py-3.5 opacity-80">
-            <input type="radio" name="alcance" disabled class="mt-1 size-[18px]" />
-            <span class="flex flex-col gap-0.5">
-              <span class="font-bold">Por curso</span>
-              <span class="text-[13px] text-inst-ink-2">
-                Todavía no disponible: los grupos se guardan por actividad. Para repetirlos en otra, elígela y usa «Reutilizar grupos».
-              </span>
-            </span>
-          </label>
+        <div class="flex flex-col gap-2 p-4.5">
+          <select
+            class="{campo} max-w-[560px]"
+            aria-labelledby="t-paso1"
+            value={actividad}
+            onchange={(e) => elegirActividad(Number((e.currentTarget as HTMLSelectElement).value))}
+          >
+            {#each actividades as a (a.id_actividad)}
+              <option value={a.id_actividad}>{a.nombre} · {a.cantidad_grupos} {a.cantidad_grupos === 1 ? 'grupo' : 'grupos'}</option>
+            {/each}
+          </select>
+          <p class="m-0 text-[13px] text-inst-ink-2">
+            Cada grupo se crea para una actividad. Después puedes copiarlo a otras, aunque ya tengan entregas.
+          </p>
         </div>
       </section>
 
@@ -250,11 +267,18 @@
           <span class="text-[13px] text-inst-ink-2">
             {elegida?.nombre} · {grupos.length} {grupos.length === 1 ? 'grupo' : 'grupos'} · {sinGrupo.length} {sinGrupo.length === 1 ? 'estudiante' : 'estudiantes'} sin grupo
           </span>
-          {#if origenes.length > 0}
-            <button type="button" class="{btnSecundario} {chico} ml-auto" onclick={() => ((reutilizar = true), (origen = null), (errorReutilizar = null))}>
-              <Copy size={16} aria-hidden="true" />Reutilizar grupos
-            </button>
-          {/if}
+          <span class="ml-auto flex flex-wrap gap-2">
+            {#if origenes.length > 0}
+              <button type="button" class="{btnSecundario} {chico}" onclick={() => ((reutilizar = true), (origen = null), (errorReutilizar = null))}>
+                <Copy size={16} aria-hidden="true" />Reutilizar grupos
+              </button>
+            {/if}
+            {#if grupos.length > 0 && destinos.length > 0}
+              <button type="button" class="{btnSecundario} {chico}" onclick={abrirCopiarA}>
+                <CopyPlus size={16} aria-hidden="true" />Copiar a otras actividades
+              </button>
+            {/if}
+          </span>
         </div>
 
         <div class="flex flex-col lg:flex-row">
@@ -395,6 +419,63 @@
       <button type="button" class="{btnSecundario} ml-auto" disabled={ocupado} onclick={() => (eliminando = null)}>Cancelar</button>
       <button type="button" class="{btnPrimario} border-inst-error bg-inst-error hover:border-inst-error hover:bg-inst-error" disabled={ocupado} onclick={eliminar}>
         <Trash2 size={16} aria-hidden="true" />Eliminar grupo
+      </button>
+    {/snippet}
+  </ModalInst>
+{/if}
+
+{#if copiarA && elegida}
+  <ModalInst
+    titulo="Copiar a otras actividades"
+    subtitulo="Grupos de «{elegida.nombre}»"
+    onCerrar={() => !copiando && (copiarA = false)}
+  >
+    <p class="m-0 text-inst-ink-2">
+      Se copian el nombre y los integrantes de cada grupo. Si la actividad ya tiene grupos o entregas, no cambian: quien ya
+      tiene grupo ahí se queda en el suyo.
+    </p>
+    <fieldset class="m-0 flex flex-col border-0 p-0">
+      <legend class="mb-1 p-0 font-bold">Grupos</legend>
+      {#each grupos as g (g.grupo)}
+        <label class="flex items-center gap-2.5 border-b border-inst-linea py-2.5 {g.integrantes.length === 0 ? 'opacity-70' : 'cursor-pointer'}">
+          <input
+            type="checkbox"
+            class="size-[18px] shrink-0 accent-[var(--color-inst-accion)]"
+            disabled={g.integrantes.length === 0}
+            checked={gruposACopiar.has(g.grupo)}
+            onchange={() => (gruposACopiar = conmutar(gruposACopiar, g.grupo))}
+          />
+          <span class="min-w-0 flex-1">
+            <span class="font-bold">{g.etiqueta}</span>
+            <span class="block text-[13px] text-inst-ink-2">
+              {g.integrantes.map((i) => i.nombre_completo).join(', ') || 'Sin integrantes.'}
+            </span>
+          </span>
+        </label>
+      {/each}
+    </fieldset>
+    <fieldset class="m-0 flex flex-col border-0 p-0">
+      <legend class="mb-1 p-0 font-bold">Actividades</legend>
+      {#each destinos as a (a.id_actividad)}
+        <label class="flex cursor-pointer items-center gap-2.5 border-b border-inst-linea py-2.5">
+          <input
+            type="checkbox"
+            class="size-[18px] shrink-0 accent-[var(--color-inst-accion)]"
+            checked={destinosElegidos.has(a.id_actividad)}
+            onchange={() => (destinosElegidos = conmutar(destinosElegidos, a.id_actividad))}
+          />
+          <span class="min-w-0 flex-1">{a.nombre}</span>
+          <span class="{chip} {tono.off}">{a.cantidad_grupos} {a.cantidad_grupos === 1 ? 'grupo' : 'grupos'}</span>
+        </label>
+      {/each}
+    </fieldset>
+    {#if errorCopiarA}
+      <div class="{aviso} {avisoTono.error}" role="alert"><p class="m-0 text-[13px] font-bold">{errorCopiarA}</p></div>
+    {/if}
+    {#snippet pie()}
+      <button type="button" class="{btnSecundario} ml-auto" disabled={copiando} onclick={() => (copiarA = false)}>Cancelar</button>
+      <button type="button" class={btnPrimario} disabled={gruposACopiar.size === 0 || destinosElegidos.size === 0 || copiando} onclick={copiarAOtras}>
+        <CopyPlus size={16} aria-hidden="true" />{copiando ? 'Copiando…' : 'Copiar grupos'}
       </button>
     {/snippet}
   </ModalInst>

@@ -9,6 +9,9 @@
  * campos— en vez de volcar un `<pre>`.
  *
  * No inventa datos: lo que no encaja en una convención se emite como párrafo.
+ *
+ * El PDF del programa usa la versión en PHP de este parser
+ * (`App\Syllabus\SyllabusBloques`): si una cambia, la otra también.
  */
 
 export type BloqueSyllabus =
@@ -26,6 +29,13 @@ const CAMPO = /^([^:]{1,40}):[ \t]+(.+)$/;
 const SUBTITULO = /^([^:]{1,40}):[ \t]*$/;
 /** `Unidad 3: Prototipo` abre un bloque, no es un campo. */
 const UNIDAD = /^Unidad\s+\d+\s*:/i;
+/**
+ * Puntos que el docente escribió a mano: `- texto` es una viñeta y `1. texto`
+ * un párrafo. Sin esto, los que llevan un rótulo corto antes de los dos puntos
+ * pasaban a columnas y los de rótulo largo no, y quedaban desalineados.
+ */
+const GUION = /^[-–]\s+/;
+const NUMERADO = /^\d+[.)]\s/;
 
 /**
  * Convierte el texto de una sección en bloques renderizables.
@@ -63,8 +73,8 @@ export function bloquesDeSeccion(
       continue;
     }
 
-    if (contenido.startsWith('•')) {
-      const item = contenido.replace(/^•\s*/, '').trim();
+    if (contenido.startsWith('•') || GUION.test(contenido)) {
+      const item = contenido.replace(/^[•\-–]\s*/, '').trim();
       if (!item) continue;
       // Dos espacios o más de sangría marcan un ítem dependiente del anterior.
       const anidado = /^\s{2,}/.test(linea);
@@ -88,6 +98,11 @@ export function bloquesDeSeccion(
 
     if (UNIDAD.test(contenido)) {
       bloques.push({ tipo: 'subtitulo', texto: contenido });
+      continue;
+    }
+
+    if (NUMERADO.test(contenido)) {
+      bloques.push({ tipo: 'parrafo', texto: contenido });
       continue;
     }
 

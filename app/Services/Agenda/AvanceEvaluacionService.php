@@ -2,7 +2,6 @@
 
 namespace App\Services\Agenda;
 
-use App\Enums\DB\TipoMensaje;
 use App\Models\Agenda\Agenda;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,22 +19,20 @@ use Illuminate\Support\Facades\DB;
  *                         reemplaza su archivo cuenta una vez.
  *  - calificados:         grupos con nota (sumativas).
  *  - por_calificar:       grupos que entregaron y aún no tienen nota.
- *  - con_feedback:        grupos a los que el docente les envió feedback
- *                         (formativas: así se da por revisada, decisión del
- *                         equipo del 2026-10-07).
- *  - por_revisar:         grupos que entregaron y aún no reciben feedback.
+ *  - revisados:           grupos con una evaluación del docente (formativas:
+ *                         Bueno, Regular o Malo; revisión «Mi UTAmed»).
+ *  - por_revisar:         grupos que entregaron y aún no se evalúan.
  *  - promedio:            promedio de las notas puestas, o null.
  *
- * Un mensaje grupal del titular («todos los grupos», MensajesController::send)
- * también se guarda como «Feedback», una fila idéntica por grupo. Eso es un
- * aviso, no la revisión de una entrega: las filas con el mismo emisor, fecha y
- * texto repetidas en más de un grupo de la actividad no cuentan.
+ * Escribir en la agenda («Feedback», a un grupo o a todos) es conversación y no
+ * cambia el estado: una formativa pasa a «Revisado» sólo cuando se evalúa, igual
+ * que la ve el estudiante (ResumenActividadesEstudiante).
  */
 class AvanceEvaluacionService
 {
     /**
      * @param  iterable<int>  $idsActividad
-     * @return Collection<int, array{total_grupos:int, grupos_con_entrega:int, calificados:int, por_calificar:int, con_feedback:int, por_revisar:int, promedio:?float}>
+     * @return Collection<int, array{total_grupos:int, grupos_con_entrega:int, calificados:int, por_calificar:int, revisados:int, por_revisar:int, promedio:?float}>
      *         indexada por id_actividad
      */
     public function porActividad(iterable $idsActividad): Collection
@@ -50,7 +47,6 @@ class AvanceEvaluacionService
             ->get(['id_actividad', 'id_actividad_asignada_grupo', 'nota']);
 
         $idsGrupo = $grupos->pluck('id_actividad_asignada_grupo');
-        $actividadDeGrupo = $grupos->pluck('id_actividad', 'id_actividad_asignada_grupo');
 
         $conEntrega = $idsGrupo->isEmpty() ? collect() : DB::table('agenda.agenda as a')
             ->whereIn('a.id_actividad_asignada_grupo', $idsGrupo)
@@ -59,9 +55,9 @@ class AvanceEvaluacionService
             ->pluck('a.id_actividad_asignada_grupo')
             ->flip();
 
-        $conFeedback = $this->gruposConFeedback($idsGrupo, $actividadDeGrupo);
+        $evaluados = $this->gruposEvaluados($idsGrupo);
 
-        return $grupos->groupBy('id_actividad')->map(function (Collection $deActividad) use ($conEntrega, $conFeedback) {
+        return $grupos->groupBy('id_actividad')->map(function (Collection $deActividad) use ($conEntrega, $evaluados) {
             $notas = $deActividad->pluck('nota')->filter(fn ($n) => $n !== null);
             $entregaron = $deActividad->filter(fn ($g) => $conEntrega->has($g->id_actividad_asignada_grupo));
 
@@ -70,44 +66,32 @@ class AvanceEvaluacionService
                 'grupos_con_entrega' => $entregaron->count(),
                 'calificados'        => $notas->count(),
                 'por_calificar'      => $entregaron->whereNull('nota')->count(),
-                'con_feedback'       => $deActividad->filter(fn ($g) => $conFeedback->has($g->id_actividad_asignada_grupo))->count(),
-                'por_revisar'        => $entregaron->reject(fn ($g) => $conFeedback->has($g->id_actividad_asignada_grupo))->count(),
+                'revisados'          => $deActividad->filter(fn ($g) => $evaluados->has($g->id_actividad_asignada_grupo))->count(),
+                'por_revisar'        => $entregaron->reject(fn ($g) => $evaluados->has($g->id_actividad_asignada_grupo))->count(),
                 'promedio'           => $notas->isEmpty() ? null : round((float) $notas->avg(), 1),
             ];
         });
     }
 
     /**
-     * Grupos con feedback dirigido a ellos (no un mensaje masivo), como mapa
-     * id_grupo => índice para usar con has(). Público porque la hoja de
-     * evaluación marca con el mismo criterio cada entrega formativa como
-     * «Revisada» (decisión del 2026-10-19: se completa sólo con feedback).
+     * Grupos con al menos una evaluación del docente, como mapa id_grupo =>
+     * índice para usar con has(). Público porque la hoja de la actividad, la
+     * ficha del estudiante y la pestaña Estudiantes marcan con el mismo criterio
+     * cada entrega formativa como «Revisado».
      *
      * @param  Collection<int, int>  $idsGrupo
-     * @param  Collection<int, int>  $actividadDeGrupo  id_grupo => id_actividad
      */
-    public function gruposConFeedback(Collection $idsGrupo, Collection $actividadDeGrupo): Collection
+    public function gruposEvaluados(Collection $idsGrupo): Collection
     {
         if ($idsGrupo->isEmpty()) {
             return collect();
         }
 
-        $filas = DB::table('agenda.agenda')
-            ->whereIn('id_actividad_asignada_grupo', $idsGrupo)
-            ->where('tipo_mensaje', TipoMensaje::FEEDBACK->value)
-            ->get(['id_actividad_asignada_grupo', 'id_usuario_emisor', 'fecha_envio', 'mensaje']);
-
-        return $filas
-            ->groupBy(fn ($f) => implode('|', [
-                $actividadDeGrupo[$f->id_actividad_asignada_grupo] ?? '',
-                $f->id_usuario_emisor,
-                $f->fecha_envio,
-                md5((string) $f->mensaje),
-            ]))
-            ->filter(fn (Collection $mismas) => $mismas->pluck('id_actividad_asignada_grupo')->unique()->count() === 1)
-            ->flatten(1)
-            ->pluck('id_actividad_asignada_grupo')
-            ->unique()
+        return DB::table('agenda.evaluacion as ev')
+            ->join('agenda.agenda as a', 'a.id_agenda', '=', 'ev.id_agenda')
+            ->whereIn('a.id_actividad_asignada_grupo', $idsGrupo)
+            ->distinct()
+            ->pluck('a.id_actividad_asignada_grupo')
             ->flip();
     }
 }

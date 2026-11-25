@@ -139,6 +139,8 @@ Route::prefix('admin')->middleware(['auth', 'is_admin'])->name('admin.')->group(
         ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [AdminProgramaController::class, 'show'])
         ->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/pdf', [App\Http\Controllers\ProgramaPdfController::class, 'admin'])
+        ->name('cursos.programa.pdf');
     Route::get('cursos/{curso}/programa/revisar', [AdminProgramaController::class, 'show'])
         ->name('cursos.programa.revisar');
     // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
@@ -530,6 +532,7 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
     Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [DocenteActivityController::class, 'gruposPorActividad'])->name('cursos.actividades.grupos.list');
     Route::get('cursos/{curso}/actividades/{actividad}/grupos-origen/{origen}', [DocenteActivityController::class, 'gruposDeActividadOrigen'])->name('cursos.actividades.grupos.origen');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [DocenteActivityController::class, 'copiarGruposDeActividad'])->name('cursos.actividades.grupos.copy');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos-copiar-a', [DocenteActivityController::class, 'copiarGruposAOtras'])->name('cursos.actividades.grupos.copiar-a');
 
     // Gestión de entregas/archivos
     Route::get('cursos/{curso}/actividades/{actividad}/entregas', [DocenteActivityController::class, 'entregasPorActividad'])->name('cursos.actividades.entregas.list');
@@ -573,6 +576,8 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
         ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [ProgramaController::class, 'show'])
         ->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/pdf', [App\Http\Controllers\ProgramaPdfController::class, 'docente'])
+        ->name('cursos.programa.pdf');
     // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
     // `?tipo=BASICO|COMPLETO` elige el tipo al crear o al promover un básico.
     Route::get('cursos/{curso}/programa/editar', [ProgramaController::class, 'edit'])
@@ -610,6 +615,7 @@ Route::prefix('estudiante')
 
         // Programa (Syllabus) View - MUST be before generic {curso} route
         Route::get('cursos/{curso}/programa', [App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
+        Route::get('cursos/{curso}/programa/pdf', [App\Http\Controllers\ProgramaPdfController::class, 'estudiante'])->name('cursos.programa.pdf');
         Route::get('cursos/{curso}', [CourseController::class, 'show'])->name('cursos.show');
         // Bitácora del curso (T41): agendas de todas las actividades del alumno.
         Route::get('cursos/{curso}/bitacora', [BitacoraController::class, 'show'])
@@ -666,6 +672,7 @@ Route::prefix('ayudante')->middleware(['auth', 'is_ayudante'])->name('ayudante.'
 
     // Programa (Syllabus) View - MUST be before generic {curso} route
     Route::get('cursos/{curso}/programa', [App\Http\Controllers\Ayudante\ProgramaController::class, 'show'])->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/pdf', [App\Http\Controllers\ProgramaPdfController::class, 'ayudante'])->name('cursos.programa.pdf');
     Route::get('cursos/{curso}/programa/create', [App\Http\Controllers\Ayudante\ProgramaController::class, 'create'])->name('cursos.programa.create');
     Route::get('cursos/{curso}/programa/editar', [App\Http\Controllers\Ayudante\ProgramaController::class, 'edit'])->name('cursos.programa.edit');
     Route::get('cursos/{curso}/programa/json', [AdminProgramaController::class, 'getJson'])->name('cursos.programa.json');

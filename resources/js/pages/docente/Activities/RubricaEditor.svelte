@@ -1183,7 +1183,7 @@
       </div>
     {:else}
       <!-- Preview -->
-      <div class="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto">
+      <div class="w-full px-4 sm:px-8 py-6">
         <RubricaMatriz rubrica={rubricaPreview} {esSumativa} />
       </div>
     {/if}

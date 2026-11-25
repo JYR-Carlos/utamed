@@ -18,7 +18,6 @@
    * versión para imprimir es otra página (Courses/Syllabus.svelte).
    */
   import { BookOpen, Printer } from 'lucide-svelte';
-  import { Link } from '@inertiajs/svelte';
   import CuerpoSeccion from '@/components/student/programa/CuerpoSeccion.svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import { useFormatName } from '@/hooks';
@@ -223,9 +222,14 @@
             {#if programa.creado_por}<span>Elaborado por {programa.creado_por}</span>{/if}
           </span>
           {#if hrefImprimir}
-            <Link href={hrefImprimir} class="{btnSecundario} min-h-12 text-[15px] lg:hidden">
-              <Printer size={18} aria-hidden="true" />Versión para imprimir
-            </Link>
+            <a
+              href={hrefImprimir}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="{btnSecundario} min-h-12 text-[15px] no-underline lg:hidden"
+            >
+              <Printer size={18} aria-hidden="true" />Imprimir o guardar como PDF
+            </a>
           {/if}
         </footer>
       </div>

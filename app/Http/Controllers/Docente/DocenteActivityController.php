@@ -11,6 +11,7 @@ use App\Exceptions\Archive\CompressionException;
 use App\Exceptions\Archive\FileValidationException;
 use App\Exceptions\Archive\StorageException;
 use App\Exceptions\Archive\VirusDetectedException;
+use App\Http\Controllers\Concerns\AutorizaEvaluacion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Archive\ActivityFileRequest;
 use App\Models\Agenda\Actividad;
@@ -26,6 +27,7 @@ use App\Models\Curso\Unidad;
 use App\Models\Operaciones\Archivo;
 use App\Models\Usuario\Usuario;
 use App\Services\Agenda\AvanceEvaluacionService;
+use App\Services\Agenda\CopiaGruposService;
 use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
@@ -40,6 +42,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -59,6 +62,7 @@ use Inertia\Response;
  */
 class DocenteActivityController extends Controller
 {
+    use AutorizaEvaluacion;
     use ContaPendientesMensajes;
 
     // =========================================================================
@@ -97,7 +101,7 @@ class DocenteActivityController extends Controller
         /** @var Usuario $user */
         $user = Auth::user();
 
-        if ($user->isSuperAdmin() || $user->hasAnyRoleGlobally(Usuario::ROLES_ADMINISTRATIVOS)) {
+        if ($this->puedeEditarEvaluacion($user, $curso, $actividad)) {
             return;
         }
 
@@ -105,22 +109,6 @@ class DocenteActivityController extends Controller
 
         if (!$docente) {
             abort(403, 'Solo un docente puede modificar la evaluación de una actividad.');
-        }
-
-        // El titular manda sobre todas las actividades del curso.
-        if ($curso->id_docente_titular === $docente->id_docente) {
-            return;
-        }
-
-        $actividad->loadMissing('componente');
-
-        $esDocenteDelComponente = $actividad->componente
-            && $actividad->componente->docenteComponentes()
-                ->where('id_docente', $docente->id_docente)
-                ->exists();
-
-        if ($esDocenteDelComponente) {
-            return;
         }
 
         Log::channel('seguridad')->warning(
@@ -328,7 +316,7 @@ class DocenteActivityController extends Controller
             'grupos_con_entrega' => $avance['grupos_con_entrega'] ?? 0,
             'calificados'        => $avance['calificados'] ?? 0,
             'por_calificar'      => $avance['por_calificar'] ?? 0,
-            'con_feedback'       => $avance['con_feedback'] ?? 0,
+            'revisados'          => $avance['revisados'] ?? 0,
             'por_revisar'        => $avance['por_revisar'] ?? 0,
             'promedio_nota'      => $avance['promedio'] ?? null,
         ];
@@ -875,11 +863,11 @@ class DocenteActivityController extends Controller
                             'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
                             'tiene_grupos' => $a->actividad_asignada_grupos_count > 0,
                             // Sumativas: por_calificar / calificados; formativas:
-                            // por_revisar / con_feedback (feedback = revisada).
+                            // por_revisar / revisados (evaluada = revisada).
                             'por_calificar' => $avance[$a->id_actividad]['por_calificar'] ?? 0,
                             'calificados' => $avance[$a->id_actividad]['calificados'] ?? 0,
                             'por_revisar' => $avance[$a->id_actividad]['por_revisar'] ?? 0,
-                            'con_feedback' => $avance[$a->id_actividad]['con_feedback'] ?? 0,
+                            'revisados' => $avance[$a->id_actividad]['revisados'] ?? 0,
                         ])
                         ->values();
 
@@ -1030,18 +1018,16 @@ class DocenteActivityController extends Controller
             ->with(['integranteGrupos.estudiante.usuario'])
             ->get();
 
-        // Feedback dirigido por grupo: en las formativas es lo que marca la
-        // entrega como «Revisada» (mismo criterio que el tablero).
-        $idsGrupo = $gruposActividad->pluck('id_actividad_asignada_grupo');
-        $conFeedback = (new AvanceEvaluacionService)->gruposConFeedback(
-            $idsGrupo,
-            $idsGrupo->mapWithKeys(fn ($id) => [$id => $actividad->id_actividad]),
+        // Grupos ya evaluados: en las formativas es lo que marca la entrega como
+        // «Revisado» (mismo criterio que la lista). Escribir en la agenda no.
+        $evaluados = (new AvanceEvaluacionService)->gruposEvaluados(
+            $gruposActividad->pluck('id_actividad_asignada_grupo'),
         );
 
         $fotoIntranet = app(FotoIntranetService::class);
 
         $grupos = $gruposActividad
-            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback, $fotoIntranet) {
+            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $evaluados, $fotoIntranet) {
                 $estadoCalculado = $g->calcularEstadoGrupo($actividad);
 
                 $integrantes = $g->integranteGrupos
@@ -1065,7 +1051,7 @@ class DocenteActivityController extends Controller
                     'estado_actividad_asignada' => $estadoCalculado,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
-                    'con_feedback' => $conFeedback->has($g->id_actividad_asignada_grupo),
+                    'evaluado' => $evaluados->has($g->id_actividad_asignada_grupo),
                     'entrega' => (function () use ($g, $entregasPorGrupo, $limiteOriginal) {
                         $filas = $entregasPorGrupo->get($g->id_actividad_asignada_grupo);
                         $ultima = $filas?->last();
@@ -1787,14 +1773,10 @@ class DocenteActivityController extends Controller
      * Copia a la actividad actual los grupos que el docente eligió de una
      * actividad origen del mismo curso (paso 2 del modal "Reutilizar grupos").
      *
-     * Antes se copiaban TODOS los grupos de la actividad origen de forma
-     * automática, y un grupo entero se descartaba en silencio si un solo
-     * integrante ya no estaba inscrito (B): con cursos de varios semestres,
-     * eso podía dejar el botón sin efecto aparente. Ahora el docente elige los
-     * grupos (`grupos`) y cada uno se copia con los integrantes que sigan
-     * inscritos; si ninguno sigue inscrito, ese grupo puntual se omite.
+     * El docente elige los grupos (`grupos`); qué se copia y qué no lo decide
+     * {@see CopiaGruposService}.
      */
-    public function copiarGruposDeActividad(Request $request, Curso $curso, Actividad $actividad)
+    public function copiarGruposDeActividad(Request $request, Curso $curso, Actividad $actividad, CopiaGruposService $copia)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -1825,63 +1807,65 @@ class DocenteActivityController extends Controller
         }
 
         try {
-            DB::beginTransaction();
-
-            $idsInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
-                ->pluck('id_estudiante');
-
-            // Sólo los grupos elegidos por el docente, y sólo si realmente
-            // pertenecen a la actividad origen (evita colar ids de otra parte).
-            $gruposOrigen = ActividadAsignadaGrupo::where('id_actividad', $actividadOrigen->id_actividad)
-                ->whereIn('id_actividad_asignada_grupo', $validated['grupos'])
-                ->with('miembros')
-                ->get();
-
-            $gruposCreados = 0;
-            $gruposOmitidos = 0;
-
-            foreach ($gruposOrigen as $grupoOrigen) {
-                // Sólo se traen los integrantes que siguen inscritos en el curso;
-                // el grupo puede llegar "achicado" respecto al original.
-                $estudiantesVigentes = $grupoOrigen->miembros
-                    ->pluck('id_estudiante')
-                    ->intersect($idsInscritos)
-                    ->values();
-
-                if ($estudiantesVigentes->isEmpty()) {
-                    $gruposOmitidos++;
-
-                    continue;
-                }
-
-                $nuevoGrupo = ActividadAsignadaGrupo::create([
-                    'id_actividad' => $actividad->id_actividad,
-                    'estado_actividad_asignada' => 'PLANIFICADA',
-                ]);
-
-                foreach ($estudiantesVigentes as $id_estudiante) {
-                    IntegranteGrupo::create([
-                        'id_actividad_asignada_grupo' => $nuevoGrupo->id_actividad_asignada_grupo,
-                        'id_estudiante' => $id_estudiante,
-                    ]);
-                }
-
-                $gruposCreados++;
-            }
-
-            DB::commit();
-
-            $mensaje = $gruposOmitidos > 0
-                ? "Se copiaron {$gruposCreados} grupo(s). {$gruposOmitidos} grupo(s) se omitieron porque ningún integrante sigue inscrito en el curso."
-                : "Se copiaron {$gruposCreados} grupo(s) correctamente.";
-
-            return redirect()->back()->with('success', $mensaje);
+            $resultado = $copia->copiar($actividadOrigen, $actividad, $validated['grupos'], $curso->id_curso);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error copying groups: ' . $e->getMessage());
 
             return redirect()->back()->withErrors(['error' => 'No se pudieron copiar los grupos.']);
         }
+
+        $mensaje = CopiaGruposService::resumen($resultado);
+
+        return $resultado['copiados'] > 0
+            ? redirect()->back()->with('success', $mensaje)
+            : redirect()->back()->withErrors(['error' => $mensaje]);
+    }
+
+    /**
+     * Copia grupos de esta actividad a otras del mismo curso, de una vez
+     * (Gestión de grupos, «Copiar a otras actividades»). Vale aunque el destino
+     * ya tenga entregas: sus grupos no se tocan.
+     */
+    public function copiarGruposAOtras(Request $request, Curso $curso, Actividad $actividad, CopiaGruposService $copia)
+    {
+        $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+
+        $validated = $request->validate([
+            'grupos' => 'required|array|min:1',
+            'grupos.*' => 'required|integer',
+            'destinos' => 'required|array|min:1',
+            'destinos.*' => ['required', 'integer', 'distinct', Rule::notIn([$actividad->id_actividad])],
+        ]);
+
+        $destinos = Actividad::whereIn('id_actividad', $validated['destinos'])->with('componente')->orderBy('fecha_limite')->get();
+        abort_if($destinos->count() !== count($validated['destinos']), 404, 'Actividad no encontrada en este curso.');
+
+        // Todos los destinos se revisan antes de escribir en alguno.
+        foreach ($destinos as $destino) {
+            $this->assertActividadDeCurso($curso, $destino);
+            $this->assertPuedeEditarEvaluacion($curso, $destino);
+            abort_unless($destino->es_grupal, 422, "«{$destino->nombre}» no es una actividad grupal.");
+        }
+
+        try {
+            $resultados = DB::transaction(fn () => $destinos->map(fn (Actividad $destino) => [
+                'nombre' => $destino->nombre,
+                ...$copia->copiar($actividad, $destino, $validated['grupos'], $curso->id_curso),
+            ]));
+        } catch (\Exception $e) {
+            Log::error('Error copying groups: ' . $e->getMessage());
+
+            return redirect()->back()->withErrors(['error' => 'No se pudieron copiar los grupos.']);
+        }
+
+        $mensaje = $resultados
+            ->map(fn (array $r) => "{$r['nombre']}: " . lcfirst(CopiaGruposService::resumen($r)))
+            ->implode(' ');
+
+        return $resultados->sum('copiados') > 0
+            ? redirect()->back()->with('success', $mensaje)
+            : redirect()->back()->withErrors(['error' => $mensaje]);
     }
 
     // =========================================================================
@@ -2342,9 +2326,9 @@ class DocenteActivityController extends Controller
     }
 
     /**
-     * Devuelve SÓLO los mensajes/feedback de un grupo específico de una actividad
-     * (filtra por tipo "Mensaje al profesor" y "Feedback"), sin incluir entregas de archivos.
-     * Usado en el panel de mensajes de la vista Activities/Index (nivel 2).
+     * Hilo completo de un grupo como JSON, sin recalcular la pantalla. Lo pide la
+     * agenda del docente cada pocos segundos mientras está abierta; leerlo marca
+     * como vistos los mensajes nuevos.
      */
     public function mensajesGrupo(Curso $curso, Actividad $actividad, int $grupo)
     {

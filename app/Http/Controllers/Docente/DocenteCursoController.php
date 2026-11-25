@@ -38,6 +38,7 @@ use \Illuminate\Support\Facades\Auth;
  */
 class DocenteCursoController extends Controller
 {
+    use \App\Http\Controllers\Concerns\AutorizaEvaluacion;
     use \App\Traits\ParsesSyllabus;
 
     /**
@@ -719,7 +720,7 @@ class DocenteCursoController extends Controller
             ->distinct()
             ->pluck('id_actividad_asignada_grupo')
             ->flip();
-        $conFeedback = (new AvanceEvaluacionService)->gruposConFeedback($idsGrupo, $filas->pluck('id_actividad', 'grupo'));
+        $evaluados = (new AvanceEvaluacionService)->gruposEvaluados($idsGrupo);
 
         // La calificación de una formativa (Bueno, Regular o Malo) es la de su
         // evaluación más reciente.
@@ -731,10 +732,10 @@ class DocenteCursoController extends Controller
             ->unique('grupo')
             ->pluck('evaluacion_obtenida', 'grupo');
 
-        return response()->json($filas->map(function ($f) use ($conEntrega, $conFeedback, $calificacion) {
+        return response()->json($filas->map(function ($f) use ($conEntrega, $evaluados, $calificacion) {
             $esSumativa = $f->tipo_actividad === \App\Enums\DB\TipoActividad::SUMATIVA->value;
             $nota = $f->nota_individual ?? $f->nota;
-            $listo = $esSumativa ? $nota !== null : $conFeedback->has($f->grupo);
+            $listo = $esSumativa ? $nota !== null : $evaluados->has($f->grupo);
             $estado = $listo ? 'ok' : ($conEntrega->has($f->grupo) || $f->tipo_entrega === 'presencial' ? 'pend' : 'no');
 
             return [
@@ -753,9 +754,9 @@ class DocenteCursoController extends Controller
      * Gestión de grupos — /docente/cursos/{curso}/gestion/grupos (revisión
      * «Mi UTAmed»). Primero se elige la actividad grupal; luego se arman y
      * modifican sus grupos con los endpoints de siempre de
-     * DocenteActivityController (crear, agregar, quitar, renombrar, eliminar
-     * y reutilizar los de otra actividad). Los grupos viven por actividad:
-     * la base no tiene grupos de curso.
+     * DocenteActivityController (crear, agregar, quitar, renombrar, eliminar,
+     * reutilizar los de otra actividad y copiarlos a otras). Un grupo pertenece
+     * a una actividad: la base no tiene grupos de curso.
      */
     public function gestionGrupos(Request $request, Curso $curso)
     {
@@ -764,8 +765,9 @@ class DocenteCursoController extends Controller
         $actividades = \App\Models\Agenda\Actividad::whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
             ->where('es_grupal', true)
             ->withCount('actividadAsignadaGrupos')
+            ->with('componente')
             ->orderBy('fecha_limite')
-            ->get(['id_actividad', 'nombre', 'fecha_limite', 'max_integrantes']);
+            ->get(['id_actividad', 'id_componente', 'nombre', 'fecha_limite', 'max_integrantes']);
 
         $elegida = $actividades->firstWhere('id_actividad', $request->integer('actividad')) ?? $actividades->first();
 
@@ -819,6 +821,7 @@ class DocenteCursoController extends Controller
                 'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
                 'max_integrantes' => $a->max_integrantes,
                 'cantidad_grupos' => $a->actividad_asignada_grupos_count,
+                'editable' => $this->puedeEditarEvaluacion($request->user(), $curso, $a),
             ])->values(),
             'actividad' => $elegida?->id_actividad,
             'grupos' => $grupos,
@@ -829,8 +832,8 @@ class DocenteCursoController extends Controller
     /**
      * Columna «Pendiente» de la pestaña Estudiantes: por componente y
      * estudiante, cuántas actividades visibles esperan evaluación del docente
-     * (entregó y la sumativa no tiene nota o la formativa no tiene
-     * retroalimentación; mismo criterio que AvanceEvaluacionService) y en
+     * (entregó y la sumativa no tiene nota o la formativa no está
+     * evaluada; mismo criterio que AvanceEvaluacionService) y en
      * cuántas ya cerradas no entregó.
      *
      * @param  \Illuminate\Support\Collection<int,int>  $idsComponente
@@ -860,10 +863,7 @@ class DocenteCursoController extends Controller
             ->distinct()
             ->pluck('a.id_actividad_asignada_grupo')
             ->flip();
-        $conFeedback = app(AvanceEvaluacionService::class)->gruposConFeedback(
-            $idsGrupo,
-            $filas->pluck('id_actividad', 'id_actividad_asignada_grupo'),
-        );
+        $evaluados = app(AvanceEvaluacionService::class)->gruposEvaluados($idsGrupo);
         $hoy = now()->toDateString();
 
         $resultado = [];
@@ -873,7 +873,7 @@ class DocenteCursoController extends Controller
             if ($conEntrega->has($f->id_actividad_asignada_grupo)) {
                 $evaluada = $f->tipo_actividad === 'SUMATIVA'
                     ? $f->nota !== null
-                    : $conFeedback->has($f->id_actividad_asignada_grupo);
+                    : $evaluados->has($f->id_actividad_asignada_grupo);
                 if (! $evaluada) {
                     $celda['por_revisar']++;
                 }

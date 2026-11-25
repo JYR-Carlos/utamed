@@ -29,9 +29,9 @@ export interface Actividad {
     grupos_con_entrega?: number;
     /** Grupos que entregaron y aún no tienen nota (sumativas). */
     por_calificar?: number;
-    /** Grupos con feedback dirigido a ellos (formativas: así se dan por revisadas). */
-    con_feedback?: number;
-    /** Grupos que entregaron y aún no reciben feedback (formativas). */
+    /** Grupos evaluados por el docente (formativas: así se dan por revisadas). */
+    revisados?: number;
+    /** Grupos que entregaron y aún no se evalúan (formativas). */
     por_revisar?: number;
     /** Promedio de las notas puestas, o null si todavía no hay ninguna. */
     promedio_nota?: number | null;

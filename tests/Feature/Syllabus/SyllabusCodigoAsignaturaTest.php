@@ -82,6 +82,25 @@ test('la sección I muestra el código de la asignatura aunque guarde el del cur
         ->toContain('Horas dedicación: 6 horas semanales');
 });
 
+test('las horas presenciales van arriba y su desglose abajo', function () {
+    expect(textoSeccionI(['secciones' => seccionIConCodigo('DM069')]))
+        ->toContain("Horas presenciales: 4 horas semanales
+Cátedra: 0
+Taller: 4
+Laboratorio: 0")
+        ->toContain('Horas dedicación: sin registrar en la asignatura');
+});
+
+test('las horas de dedicación salen de la sección I, como total del semestre, si la asignatura no las trae', function () {
+    $seccion = seccionIConCodigo('DM095');
+    $seccion['I']['contenido']['horas']['autonomas'] = 104;
+
+    expect(textoSeccionI([
+        'metadata' => ['asignatura' => ['horas' => ['autonomas' => 0]]],
+        'secciones' => $seccion,
+    ]))->toContain('Horas dedicación: 104 horas semestrales de trabajo autónomo');
+});
+
 test('sin metadata de la asignatura se conserva el código de la sección', function () {
     expect(textoSeccionI(['secciones' => seccionIConCodigo('DM069')]))->toContain('Código: DM069');
 });
