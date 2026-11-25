@@ -32,6 +32,7 @@
   import { ConfirmDialog } from '@/components/custom/common';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaAlumno from './Agenda/RubricaAlumno.svelte';
+  import RubricaModal from './Agenda/RubricaModal.svelte';
   import Entrega from './Agenda/Entrega.svelte';
   import Enunciado from './Agenda/Enunciado.svelte';
   import ActividadEncabezado, { type PestanaActividad } from './components/ActividadEncabezado.svelte';
@@ -150,6 +151,7 @@
   let showAgendaModal = $state(false);
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
+  let showRubricaModal = $state(false);
   let mensajesOptimistas = $state<InteraccionItem[]>([]);
   // Abrió la agenda en esta visita: lo «Nuevo» ya lo vio.
   let agendaVista = $state(false);
@@ -695,6 +697,7 @@
         seleccion={seccion}
         panel="panel-actividad"
         onCambiar={alElegirPestana}
+        onVerRubrica={conRubrica ? () => (showRubricaModal = true) : undefined}
       />
 
       <div
@@ -845,6 +848,17 @@
       }}
     />
   </ModalAlumno>
+{/if}
+
+{#if conRubrica}
+  <RubricaModal
+    bind:open={showRubricaModal}
+    idCurso={id_curso}
+    idActividad={cod_actividad}
+    nombre={nombre_actividad}
+    curso={nombre_curso}
+    estilo={colorCurso}
+  />
 {/if}
 
 {#if archivo_enunciado}

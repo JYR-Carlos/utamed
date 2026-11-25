@@ -9,7 +9,7 @@
    * Donde la tabla no cabe (teléfono, ventana angosta) cada criterio es una
    * fila de casillas con los puntos de cada nivel; la casilla tocada muestra
    * su descripción abajo. «Pantalla completa» abre la tabla en una ventana
-   * ancha.
+   * ancha; cuando ya está en una (`enVentana`), ese botón sobra.
    */
   import { Check, Info, Maximize2 } from 'lucide-svelte';
   import type { Rubrica } from '@/types/rubrica';
@@ -36,6 +36,7 @@
     curso?: string;
     /** Variables --curso* (estiloCurso): la ventana va en un portal fuera de la página. */
     estiloCurso?: string;
+    enVentana?: boolean;
   }
 
   let {
@@ -49,7 +50,11 @@
     actividad = '',
     curso = '',
     estiloCurso = '',
+    enVentana = false,
   }: Props = $props();
+
+  // La ventana y la pestaña pueden estar a la vez en la página: cada una con sus ids.
+  const id = $derived(enVentana ? 'ventana-' : '');
 
   const m = $derived(matrizDe(rubrica, resultado));
   const evaluada = $derived(m.marcados > 0);
@@ -224,15 +229,15 @@
   </div>
 {/snippet}
 
-<section aria-labelledby="t-rubrica" class="@container flex flex-col gap-4">
+<section aria-labelledby="{id}t-rubrica" class="@container flex flex-col gap-4">
   <div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
     <div class="flex min-w-0 flex-col gap-1">
-      <h2 id="t-rubrica" class="text-xl leading-7 font-bold lg:text-[22px]">
+      <h2 id="{id}t-rubrica" class="text-xl leading-7 font-bold lg:text-[22px]">
         {evaluada ? 'Cómo te evaluaron, criterio por criterio' : 'Cómo se evalúa esta actividad'}
       </h2>
       {#if evaluada && subtitulo}<span class="text-sm leading-5 text-dm-ink-2">{subtitulo}</span>{/if}
     </div>
-    {#if m.criterios.length > 0}
+    {#if m.criterios.length > 0 && !enVentana}
       <span class={vista.tabla}>
         <button type="button" class={btnSuave} aria-haspopup="dialog" onclick={() => (ampliada = true)}>
           <Maximize2 size={18} aria-hidden="true" />Pantalla completa
@@ -266,13 +271,13 @@
 
     <!-- Pantalla ancha: la tabla. -->
     <div class={vista.tabla}>
-      {@render tabla(false)}
+      {@render tabla(enVentana)}
     </div>
 
     <!-- Pantalla angosta: una fila de casillas por criterio. -->
-    <section aria-labelledby="t-rubrica-filas" class="flex flex-col gap-3 rounded-xl border border-dm-linea bg-dm-tarjeta px-3.5 py-4 {vista.filas}">
+    <section aria-labelledby="{id}t-rubrica-filas" class="flex flex-col gap-3 rounded-xl border border-dm-linea bg-dm-tarjeta px-3.5 py-4 {vista.filas}">
       <div class="flex flex-col gap-0.5">
-        <h3 id="t-rubrica-filas" class="text-[17px] leading-[22px] font-bold">La rúbrica en una vista</h3>
+        <h3 id="{id}t-rubrica-filas" class="text-[17px] leading-[22px] font-bold">La rúbrica en una vista</h3>
         <p class="text-sm leading-5 text-dm-ink-2">
           Cada fila es un criterio y cada casilla un nivel, con sus puntos.{evaluada ? ' En amarillo, el que te asignó tu docente.' : ''} Toca
           una casilla para leer qué pide.
@@ -289,11 +294,11 @@
       <ul class="m-0 flex list-none flex-col gap-3.5 p-0">
         {#each m.criterios as c, i (c.id)}
           <li class="flex flex-col gap-1.5">
-            <span id="rub-fila-{i}" class="flex items-baseline justify-between gap-2">
+            <span id="{id}rub-fila-{i}" class="flex items-baseline justify-between gap-2">
               <span class="text-sm leading-[19px] font-bold">{c.nombre}</span>
               <span class="shrink-0 text-[13px] leading-[18px] font-extrabold text-dm-accion-texto">{c.peso ?? `máx. ${pts(c.maximo)}`}</span>
             </span>
-            <span role="group" aria-labelledby="rub-fila-{i}" class="flex gap-1.5">
+            <span role="group" aria-labelledby="{id}rub-fila-{i}" class="flex gap-1.5">
               {#each c.celdas as d, j (j)}
                 {#if d}
                   {@const leyendo = actual.c === i && actual.j === j}

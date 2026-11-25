@@ -625,6 +625,9 @@ Route::prefix('estudiante')
         // Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
         Route::get('cursos/{curso}/actividad/{actividad}', [ActivityController::class, 'show'])
             ->name('cursos.actividades.show');
+        // La rúbrica en una ventana, desde la lista y el nombre de la actividad.
+        Route::get('cursos/{curso}/actividades/{actividad}/rubrica', [ActivityController::class, 'rubrica'])
+            ->name('cursos.actividades.rubrica');
         Route::get('cursos/{curso}/actividades/{actividad}/enunciado/descargar', [ActivityController::class, 'descargarEnunciado'])
             ->name('cursos.actividades.enunciado.descargar');
         Route::get('cursos/{curso}/actividades/{actividad}/entregas/{agenda}/descargar', [ActivityController::class, 'descargarEntrega'])

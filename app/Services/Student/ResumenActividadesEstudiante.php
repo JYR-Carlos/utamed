@@ -7,6 +7,7 @@ use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
+use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Estudiante;
 use Carbon\Carbon;
@@ -230,8 +231,14 @@ class ResumenActividadesEstudiante
                 ->unique()
                 ->flip();
 
+        // La rúbrica es cosa de las sumativas (la misma regla de la página de la actividad).
+        $conRubrica = Rubrica::whereIn('id_actividad', $actividades->pluck('id_actividad'))
+            ->distinct()
+            ->pluck('id_actividad')
+            ->flip();
+
         return $actividades
-            ->map(function (Actividad $actividad) use ($grupos, $ultimoEnvio, $evaluados) {
+            ->map(function (Actividad $actividad) use ($grupos, $ultimoEnvio, $evaluados, $conRubrica) {
                 $grupo = $grupos->get($actividad->id_actividad);
                 $fechaEnvio = $grupo ? $ultimoEnvio->get($grupo->id_actividad_asignada_grupo) : null;
 
@@ -239,6 +246,9 @@ class ResumenActividadesEstudiante
                     'id_actividad'    => $actividad->id_actividad,
                     'nombre'          => $actividad->nombre,
                     'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                    // Enciende el ícono que abre la rúbrica desde la lista.
+                    'con_rubrica'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA
+                        && $conRubrica->has($actividad->id_actividad),
                     'id_componente'   => $actividad->id_componente,
                     // «Cómo se evalúa» cuenta las actividades de cada componente.
                     'componente_tipo' => $actividad->componente?->tipoComponente?->tipo,

@@ -43,17 +43,24 @@
    * aquí viven los filtros y la lista. En escritorio es una tabla (actividad,
    * fecha límite, estado); en móvil cada actividad es una tarjeta con la fecha
    * y el estado en la última línea.
+   *
+   * Toda la fila lleva a la actividad (el enlace del nombre se estira sobre
+   * ella); si tiene rúbrica, el ícono al lado del nombre la abre en una ventana.
    */
   import { Link } from '@inertiajs/svelte';
-  import { Check, ChevronRight, CircleAlert, CircleCheck, ClipboardList, Clock, Search, Upload } from 'lucide-svelte';
+  import { Check, ChevronRight, CircleAlert, CircleCheck, ClipboardList, Clock, Search, TableProperties, Upload } from 'lucide-svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
   import TipoActividad from '@/components/student/dm/TipoActividad.svelte';
+  import RubricaModal from './Agenda/RubricaModal.svelte';
   import { estadoDe, fechaLimiteTexto } from '@/lib/actividadAlumno';
   import { btnSecundario, etiqueta, pildora, tono } from '@/lib/dm';
   import { claveDia } from '@/utils/formatters';
 
   interface Props {
     id_curso: number;
+    nombreCurso?: string;
+    /** Variables --curso* (estiloCurso), para la ventana de la rúbrica. */
+    estiloCurso?: string;
     filtro: FiltroActividad;
     filtered: ActividadAlumno[];
     /** El curso tiene actividades de más de un componente: cada fila dice de cuál. */
@@ -61,9 +68,17 @@
     onSelectFiltro: (filtro: FiltroActividad) => void;
   }
 
-  let { id_curso, filtro, filtered, conComponente = false, onSelectFiltro }: Props = $props();
+  let { id_curso, nombreCurso = '', estiloCurso = '', filtro, filtered, conComponente = false, onSelectFiltro }: Props = $props();
 
   const hoy = claveDia();
+
+  // La actividad cuya rúbrica se está leyendo.
+  let conRubricaAbierta = $state<ActividadAlumno | null>(null);
+  let verRubrica = $state(false);
+  function abrirRubrica(a: ActividadAlumno) {
+    conRubricaAbierta = a;
+    verRubrica = true;
+  }
 
   const SIN_RESULTADOS: Record<FiltroActividad, string> = {
     todas: '',
@@ -75,7 +90,7 @@
   const ICONOS = { ok: CircleCheck, info: Upload, reloj: Clock, alerta: CircleAlert } as const;
 
   // Columnas de la tabla de escritorio; la cabecera y las filas las comparten.
-  const COLUMNAS = 'md:grid md:grid-cols-[minmax(0,1fr)_150px_200px_36px] md:items-center md:gap-4';
+  const COLUMNAS = 'md:grid md:grid-cols-[minmax(0,1fr)_124px_188px_18px] md:items-center md:gap-4';
 </script>
 
 <div class="flex flex-col gap-4">
@@ -130,9 +145,8 @@
           {@const Icono = estado.icono ? ICONOS[estado.icono] : null}
           {@const venceHoy = estado.tono === 'warn' && act.fecha_limite?.slice(0, 10) === hoy}
           <li class="md:border-b md:border-dm-linea md:last:border-b-0">
-            <Link
-              href={`/estudiante/cursos/${id_curso}/actividad/${act.id_actividad}`}
-              class="{COLUMNAS} flex flex-col gap-2 rounded-xl border border-dm-linea bg-dm-tarjeta p-4 text-dm-ink no-underline hover:bg-dm-sutil md:min-h-18 md:rounded-none md:border-0 md:bg-transparent md:px-5 md:py-3"
+            <div
+              class="{COLUMNAS} relative flex flex-col gap-2 rounded-xl border border-dm-linea bg-dm-tarjeta p-4 hover:bg-dm-sutil md:min-h-18 md:rounded-none md:border-0 md:bg-transparent md:px-5 md:py-3"
             >
               <span class="flex min-w-0 flex-col gap-1">
                 <span class="flex flex-wrap items-center gap-x-3 gap-y-0.5">
@@ -141,7 +155,26 @@
                   {/if}
                   <TipoActividad esSumativa={act.es_sumativa} esGrupal={act.es_grupal} />
                 </span>
-                <span class="text-[17px] leading-[22px] font-semibold md:text-base">{act.nombre}</span>
+                <span class="flex items-center gap-2">
+                  <Link
+                    href={`/estudiante/cursos/${id_curso}/actividad/${act.id_actividad}`}
+                    class="text-[17px] leading-[22px] font-semibold text-dm-ink no-underline after:absolute after:inset-0 after:content-[''] hover:text-dm-ink md:text-base"
+                  >
+                    {act.nombre}
+                  </Link>
+                  {#if act.con_rubrica}
+                    <button
+                      type="button"
+                      aria-haspopup="dialog"
+                      aria-label="Ver la rúbrica de {act.nombre}"
+                      title="Ver la rúbrica"
+                      onclick={() => abrirRubrica(act)}
+                      class="relative z-10 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-dm-accion-suave text-dm-accion-texto hover:bg-dm-accion hover:text-dm-sobre-accion md:size-7"
+                    >
+                      <TableProperties size={16} aria-hidden="true" />
+                    </button>
+                  {/if}
+                </span>
               </span>
               <!-- En móvil fecha y estado comparten la última línea; en la tabla, cada uno su columna. -->
               <span class="flex flex-wrap items-center justify-between gap-2 md:contents">
@@ -158,10 +191,21 @@
                 </span>
               </span>
               <ChevronRight size={18} aria-hidden="true" class="hidden text-dm-ink-3 md:block" />
-            </Link>
+            </div>
           </li>
         {/each}
       </ul>
     </div>
   {/if}
 </div>
+
+{#if conRubricaAbierta}
+  <RubricaModal
+    bind:open={verRubrica}
+    idCurso={id_curso}
+    idActividad={conRubricaAbierta.id_actividad}
+    nombre={conRubricaAbierta.nombre}
+    curso={nombreCurso}
+    estilo={estiloCurso}
+  />
+{/if}

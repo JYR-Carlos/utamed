@@ -24,7 +24,7 @@
    */
   import { Link } from '@inertiajs/svelte';
   import { tick } from 'svelte';
-  import { Award, ChevronLeft, Sprout, User, Users } from 'lucide-svelte';
+  import { Award, ChevronLeft, Sprout, TableProperties, User, Users } from 'lucide-svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import { etiqueta, tituloCond } from '@/lib/dm';
 
@@ -44,9 +44,11 @@
     /** id del panel que controlan las pestañas. */
     panel: string;
     onCambiar: (id: string) => void;
+    /** Abre la rúbrica en una ventana; sin ella no hay ícono al lado del nombre. */
+    onVerRubrica?: () => void;
   }
 
-  let { idCurso, codigo, nombreCurso, nombre, esSumativa, esGrupal, modalidad, destacado = null, pestanas, seleccion, panel, onCambiar }: Props = $props();
+  let { idCurso, codigo, nombreCurso, nombre, esSumativa, esGrupal, modalidad, destacado = null, pestanas, seleccion, panel, onCambiar, onVerRubrica }: Props = $props();
 
   // Flechas, Inicio y Fin recorren las pestañas y las activan (patrón ARIA de
   // pestañas con activación automática); el foco va con la elegida.
@@ -90,9 +92,22 @@
     <span class="{etiqueta} text-dm-amarillo">
       {codigo}<span class="max-lg:hidden">{codigo ? ' · ' : ''}{nombreCurso}</span>
     </span>
-    <h1 id="t-actividad" class="{tituloCond} text-[34px] leading-[34px] text-dm-noche-texto lg:text-5xl lg:leading-12">
-      {nombre}
-    </h1>
+    <!-- En línea: el ícono sigue a la última palabra del nombre. -->
+    <div class="text-[34px] leading-[38px] lg:text-5xl lg:leading-12">
+      <h1 id="t-actividad" class="{tituloCond} inline text-dm-noche-texto">{nombre}</h1>
+      {#if onVerRubrica}{' '}
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-label="Ver la rúbrica"
+          title="Ver la rúbrica"
+          onclick={onVerRubrica}
+          class="ml-1 inline-flex size-11 cursor-pointer items-center justify-center rounded-[10px] border border-dm-noche-chip align-middle text-dm-noche-texto hover:bg-dm-noche-activo lg:-mt-2"
+        >
+          <TableProperties size={20} aria-hidden="true" />
+        </button>
+      {/if}
+    </div>
     <span class="flex flex-wrap items-center gap-x-3 gap-y-2 lg:mt-1">
       {#if destacado}
         {@const Icono = destacado.icono}

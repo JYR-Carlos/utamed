@@ -225,6 +225,8 @@
             {@render titulo('Actividades', resumenActividades, 't-actividades')}
             <ActividadesView
               {id_curso}
+              {nombreCurso}
+              estiloCurso={colorCurso}
               {filtro}
               {conComponente}
               filtered={actividadesFiltradas}
