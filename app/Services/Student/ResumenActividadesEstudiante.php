@@ -101,6 +101,7 @@ class ResumenActividadesEstudiante
                     'curso'        => $curso->cod_asignatura ?: $curso->cod_curso,
                     'nombre'       => $actividad->nombre,
                     'es_sumativa'  => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                    'es_grupal'    => (bool) $actividad->es_grupal,
                     'fecha_limite' => $actividad->fecha_limite->format('Y-m-d'),
                     'plazo_hasta'  => $holgura > 0 ? $plazo->format('Y-m-d') : null,
                     'es_vencida'   => $esVencida,

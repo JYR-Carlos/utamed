@@ -47,6 +47,7 @@
   import { Link } from '@inertiajs/svelte';
   import { Check, ChevronRight, CircleAlert, CircleCheck, ClipboardList, Clock, Search, Upload } from 'lucide-svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
+  import TipoActividad from '@/components/student/dm/TipoActividad.svelte';
   import { estadoDe, fechaLimiteTexto } from '@/lib/actividadAlumno';
   import { btnSecundario, etiqueta, pildora, tono } from '@/lib/dm';
   import { claveDia } from '@/utils/formatters';
@@ -75,12 +76,6 @@
 
   // Columnas de la tabla de escritorio; la cabecera y las filas las comparten.
   const COLUMNAS = 'md:grid md:grid-cols-[minmax(0,1fr)_150px_200px_36px] md:items-center md:gap-4';
-
-  function detalle(a: ActividadAlumno): string {
-    return [conComponente ? a.componente_tipo : null, a.es_sumativa ? 'Sumativa' : 'Formativa', a.es_grupal ? 'Grupal' : 'Individual']
-      .filter(Boolean)
-      .join(' · ');
-  }
 </script>
 
 <div class="flex flex-col gap-4">
@@ -140,7 +135,12 @@
               class="{COLUMNAS} flex flex-col gap-2 rounded-xl border border-dm-linea bg-dm-tarjeta p-4 text-dm-ink no-underline hover:bg-dm-sutil md:min-h-18 md:rounded-none md:border-0 md:bg-transparent md:px-5 md:py-3"
             >
               <span class="flex min-w-0 flex-col gap-1">
-                <span class="text-[13px] leading-[18px] text-dm-ink-3">{detalle(act)}</span>
+                <span class="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  {#if conComponente && act.componente_tipo}
+                    <span class="text-[13px] leading-[18px] text-dm-ink-3">{act.componente_tipo}</span>
+                  {/if}
+                  <TipoActividad esSumativa={act.es_sumativa} esGrupal={act.es_grupal} />
+                </span>
                 <span class="text-[17px] leading-[22px] font-semibold md:text-base">{act.nombre}</span>
               </span>
               <!-- En móvil fecha y estado comparten la última línea; en la tabla, cada uno su columna. -->

@@ -11,6 +11,7 @@ export interface ActividadPorVencer {
     curso: string;
     nombre: string;
     es_sumativa: boolean;
+    es_grupal: boolean;
     fecha_limite: string;
     /** Último día con la holgura sumada; null si no hay holgura. */
     plazo_hasta: string | null;

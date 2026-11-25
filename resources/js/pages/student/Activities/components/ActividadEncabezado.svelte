@@ -17,14 +17,14 @@
 <script lang="ts">
   /**
    * Cabecera noche de la página de una actividad: curso, nombre, plazo o
-   * nota, una línea con el tipo y la modalidad («Actividad sumativa ·
-   * individual · Taller») y, abajo, las pestañas de la página. La pestaña
-   * elegida toma el color de la tarjeta y se funde con el panel de abajo. El
+   * nota, el tipo y la modalidad con su ícono («Actividad sumativa», que va
+   * resaltada porque lleva nota, «Individual · Taller») y, abajo, las pestañas
+   * de la página. La pestaña elegida toma el color de la tarjeta y se funde con el panel de abajo. El
    * borde superior lleva el color del curso (variables de estiloCurso).
    */
   import { Link } from '@inertiajs/svelte';
   import { tick } from 'svelte';
-  import { ChevronLeft } from 'lucide-svelte';
+  import { Award, ChevronLeft, Sprout, User, Users } from 'lucide-svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import { etiqueta, tituloCond } from '@/lib/dm';
 
@@ -33,8 +33,10 @@
     codigo: string;
     nombreCurso: string;
     nombre: string;
-    /** Tipo y modalidad en texto corrido: en pastillas se leían como ítems del enunciado (OBS-37). */
-    tipo: string;
+    esSumativa: boolean;
+    esGrupal: boolean;
+    /** «Grupal · 3 integrantes · Taller», en texto corrido: en pastillas se leía como ítems del enunciado (OBS-37). */
+    modalidad: string;
     /** Lo más urgente, en amarillo: el plazo si falta entregar, la nota si ya está. */
     destacado?: { texto: string; icono: IconoLucide } | null;
     pestanas: PestanaActividad[];
@@ -44,7 +46,7 @@
     onCambiar: (id: string) => void;
   }
 
-  let { idCurso, codigo, nombreCurso, nombre, tipo, destacado = null, pestanas, seleccion, panel, onCambiar }: Props = $props();
+  let { idCurso, codigo, nombreCurso, nombre, esSumativa, esGrupal, modalidad, destacado = null, pestanas, seleccion, panel, onCambiar }: Props = $props();
 
   // Flechas, Inicio y Fin recorren las pestañas y las activan (patrón ARIA de
   // pestañas con activación automática); el foco va con la elegida.
@@ -69,6 +71,8 @@
     document.getElementById(`tab-${id}`)?.focus();
   }
 
+  const Modalidad = $derived(esGrupal ? Users : User);
+
   const columnas = $derived(
     ({ 2: 'max-lg:grid-cols-2', 3: 'max-lg:grid-cols-3', 4: 'max-lg:grid-cols-4' } as Record<number, string>)[pestanas.length] ?? '',
   );
@@ -89,21 +93,28 @@
     <h1 id="t-actividad" class="{tituloCond} text-[34px] leading-[34px] text-dm-noche-texto lg:text-5xl lg:leading-12">
       {nombre}
     </h1>
-    {#if destacado || tipo}
-      <span class="flex flex-wrap items-center gap-x-3 gap-y-2 lg:mt-1">
-        {#if destacado}
-          {@const Icono = destacado.icono}
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full bg-dm-amarillo px-2.5 py-0.5 text-[13px] leading-[18px] font-extrabold text-dm-sobre-amarillo"
-          >
-            <Icono size={14} aria-hidden="true" />{destacado.texto}
-          </span>
-        {/if}
-        {#if tipo}
-          <span class="text-[15px] leading-[22px] font-semibold text-dm-noche-texto lg:text-base">{tipo}</span>
-        {/if}
+    <span class="flex flex-wrap items-center gap-x-3 gap-y-2 lg:mt-1">
+      {#if destacado}
+        {@const Icono = destacado.icono}
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full bg-dm-amarillo px-2.5 py-0.5 text-[13px] leading-[18px] font-extrabold text-dm-sobre-amarillo"
+        >
+          <Icono size={14} aria-hidden="true" />{destacado.texto}
+        </span>
+      {/if}
+      {#if esSumativa}
+        <span class="inline-flex items-center gap-1.5 rounded-md bg-dm-noche-texto px-2.5 py-1 text-[15px] leading-5 font-extrabold text-dm-noche lg:text-base">
+          <Award size={18} aria-hidden="true" class="shrink-0" />Actividad sumativa
+        </span>
+      {:else}
+        <span class="inline-flex items-center gap-1.5 text-[15px] leading-[22px] font-semibold text-dm-noche-texto lg:text-base">
+          <Sprout size={18} aria-hidden="true" class="shrink-0" />Actividad formativa
+        </span>
+      {/if}
+      <span class="inline-flex items-center gap-1.5 text-[15px] leading-[22px] font-semibold text-dm-noche-texto lg:text-base">
+        <Modalidad size={18} aria-hidden="true" class="shrink-0" />{modalidad}
       </span>
-    {/if}
+    </span>
   </div>
 
   <div

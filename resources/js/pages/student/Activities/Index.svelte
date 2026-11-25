@@ -269,16 +269,9 @@
         : `Grupal · ${resto_integrantes.length + 1} integrantes`
       : 'Individual',
   );
-  // «Actividad sumativa · individual · Taller»: el tipo define si hay nota y tiene que leerse sin esfuerzo.
-  const tipoActividad = $derived(
-    [
-      `Actividad ${es_sumativa ? 'sumativa' : 'formativa'}`,
-      modalidad.toLowerCase(),
-      componente_tipo,
-      entrega_obligatoria ? null : 'sin entrega',
-    ]
-      .filter(Boolean)
-      .join(' · '),
+  // «Individual · Taller»: lo que acompaña al tipo en la cabecera.
+  const modalidadCompleta = $derived(
+    [modalidad, componente_tipo, entrega_obligatoria ? null : 'sin entrega'].filter(Boolean).join(' · '),
   );
 
   // El grupo completo, con el alumno primero.
@@ -694,7 +687,9 @@
         codigo={cod_asignatura ?? ''}
         nombreCurso={nombre_curso}
         nombre={nombre_actividad}
-        tipo={tipoActividad}
+        esSumativa={es_sumativa}
+        esGrupal={es_grupal}
+        modalidad={modalidadCompleta}
         {destacado}
         {pestanas}
         seleccion={seccion}

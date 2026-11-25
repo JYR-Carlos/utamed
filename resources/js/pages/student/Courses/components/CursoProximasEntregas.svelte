@@ -7,6 +7,7 @@
    */
   import { Link } from '@inertiajs/svelte';
   import { CalendarDays, Clock } from 'lucide-svelte';
+  import TipoActividad from '@/components/student/dm/TipoActividad.svelte';
   import { fechaLimiteTexto, type ActividadAlumno } from '@/lib/actividadAlumno';
   import { pildora, tarjeta, tono } from '@/lib/dm';
   import { claveDia } from '@/utils/formatters';
@@ -36,6 +37,7 @@
             class="flex flex-col gap-1.5 px-5 py-3.5 text-dm-ink no-underline hover:bg-dm-sutil"
           >
             <span class="text-[15px] leading-5 font-semibold">{entrega.nombre}</span>
+            <TipoActividad esSumativa={entrega.es_sumativa} esGrupal={entrega.es_grupal} />
             {#if dia < hoy}
               <span class="{pildora} {tono.warn} self-start"><Clock size={14} aria-hidden="true" />Atrasada · aún se recibe</span>
             {:else if dia === hoy}

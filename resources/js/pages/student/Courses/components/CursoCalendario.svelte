@@ -59,6 +59,7 @@
   import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock } from 'lucide-svelte';
   import { tick } from 'svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
+  import TipoActividad from '@/components/student/dm/TipoActividad.svelte';
   import { fechaLimiteTexto } from '@/lib/actividadAlumno';
   import { numeroColorCurso } from '@/lib/colorCurso';
   import { btnSecundario, etiqueta, pildora, tarjeta } from '@/lib/dm';
@@ -269,11 +270,8 @@
       </span>
     {/if}
     <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
-    <span class="text-[13px] leading-[18px] text-dm-ink-2">
-      {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
-        fechaLimiteTexto(a.fecha_limite),
-      )}
-    </span>
+    <span class="text-[13px] leading-[18px] text-dm-ink-2">{numeroDe(a)} · {minuscula(fechaLimiteTexto(a.fecha_limite))}</span>
+    <TipoActividad esSumativa={a.es_sumativa} esGrupal={a.es_grupal} />
     <span class="{pildora} {e.marca} self-start"><Icono size={14} aria-hidden="true" />{etiquetaDe(a)}</span>
   </Link>
 {/snippet}
@@ -500,10 +498,9 @@
                             </span>
                           {/if}
                           <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
-                          <span class="text-[13px] leading-[18px] text-dm-ink-2 max-md:hidden">
-                            {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
-                              fechaLimiteTexto(a.fecha_limite),
-                            )}
+                          <span class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] leading-[18px] text-dm-ink-2">
+                            <span class="max-md:hidden">{numeroDe(a)} · {minuscula(fechaLimiteTexto(a.fecha_limite))}</span>
+                            <TipoActividad esSumativa={a.es_sumativa} esGrupal={a.es_grupal} />
                           </span>
                         </span>
                         <span class="{pildora} {e.marca}">{etiquetaDe(a)}</span>

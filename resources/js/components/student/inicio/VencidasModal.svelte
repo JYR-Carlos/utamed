@@ -7,6 +7,7 @@
   import { Link } from '@inertiajs/svelte';
   import { ChevronRight, CircleAlert } from 'lucide-svelte';
   import ModalAlumno from '@/components/student/dm/ModalAlumno.svelte';
+  import TipoActividad from '@/components/student/dm/TipoActividad.svelte';
   import { pildora, tono } from '@/lib/dm';
   import { plazoDe, textoVencidas, type ActividadPorVencer } from '@/lib/plazoAlumno';
 
@@ -47,6 +48,7 @@
                 <span aria-hidden="true" class="size-2 shrink-0 rounded-full bg-(--curso)"></span>{rotuloCurso(a)}
               </span>
               <span class="text-base leading-[22px] font-semibold">{a.nombre}</span>
+              <TipoActividad esSumativa={a.es_sumativa} esGrupal={a.es_grupal} />
               <span class="inline-flex items-center gap-1.5 text-[13px] leading-[18px] font-semibold text-dm-error">
                 <CircleAlert size={14} aria-hidden="true" class="shrink-0" />{plazoDe(a, hoy).texto}
               </span>
