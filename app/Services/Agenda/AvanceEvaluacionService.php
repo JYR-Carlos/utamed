@@ -94,4 +94,27 @@ class AvanceEvaluacionService
             ->pluck('a.id_actividad_asignada_grupo')
             ->flip();
     }
+
+    /**
+     * Calificación (Bueno, Regular o Malo) de cada grupo en una formativa: la de
+     * su evaluación más reciente. Mapa id_grupo => calificación. La muestran la
+     * hoja de la actividad y la ficha del estudiante.
+     *
+     * @param  Collection<int, int>  $idsGrupo
+     */
+    public function calificaciones(Collection $idsGrupo): Collection
+    {
+        if ($idsGrupo->isEmpty()) {
+            return collect();
+        }
+
+        return DB::table('agenda.evaluacion as ev')
+            ->join('agenda.agenda as a', 'a.id_agenda', '=', 'ev.id_agenda')
+            ->whereIn('a.id_actividad_asignada_grupo', $idsGrupo)
+            ->orderByDesc('ev.fecha_evaluacion')
+            ->orderByDesc('ev.id_evaluacion')
+            ->get(['a.id_actividad_asignada_grupo as grupo', 'ev.evaluacion_obtenida'])
+            ->unique('grupo')
+            ->pluck('evaluacion_obtenida', 'grupo');
+    }
 }

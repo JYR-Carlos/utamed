@@ -2,6 +2,7 @@
   export type IntegranteData = {
     id_asignado_actividad: number;
     id_estudiante: number;
+    nombre_pila: string;
     nombre_completo: string;
     nota_individual: number | null;
     diferencia_decimas: number | null;
@@ -18,6 +19,8 @@
     nro_dias_adicionales_para_bloqueo_personal: number;
     no_leidos: number;
     evaluado: boolean;
+    /** Formativas: Bueno, Regular o Malo. */
+    calificacion: string | null;
     entrega: { id_agenda: number; fecha: string; fuera_de_plazo: boolean; cantidad: number } | null;
     integrantes: IntegranteData[];
   };
@@ -105,6 +108,7 @@
   import {
     estadoEntrega,
     textosEntrega,
+    TONO_CALIFICACION,
     TONO_ENTREGA,
     type EstadoEntrega,
   } from '@/lib/estadoEntrega';
@@ -718,6 +722,10 @@
                         >{fmtDec(dec)}</span
                       >{/if}
                   </span>
+                {:else if f.grupo.calificacion}
+                  <span class="{chip} {tono[TONO_CALIFICACION[f.grupo.calificacion] ?? 'off']}"
+                    >{f.grupo.calificacion}</span
+                  >
                 {:else}
                   <span class="text-inst-ink-3">—</span>
                 {/if}

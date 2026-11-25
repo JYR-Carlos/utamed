@@ -28,6 +28,9 @@ export function textosEntrega(esSumativa: boolean): Record<EstadoEntrega, string
 
 export const TONO_ENTREGA: Record<EstadoEntrega, Tono> = { ok: 'ok', pend: 'warn', no: 'off' };
 
+/** Color de la calificación de una formativa. */
+export const TONO_CALIFICACION: Record<string, Tono> = { Bueno: 'ok', Regular: 'warn', Malo: 'error' };
+
 /** Color de cada tramo de la barra de avance. */
 export const BARRA_ENTREGA: Record<EstadoEntrega, string> = {
     ok: 'bg-inst-ok',

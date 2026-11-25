@@ -16,7 +16,7 @@
   import ModalInst from '@/components/docente/ModalInst.svelte';
   import AgendaGrupoModal from '../Activities/Agenda/AgendaGrupoModal.svelte';
   import { aviso, avisoTono, btnSecundario, chico, chip, etiqueta, tarjeta, tono } from '@/lib/inst';
-  import { textosEntrega, TONO_ENTREGA, type EstadoEntrega } from '@/lib/estadoEntrega';
+  import { textosEntrega, TONO_CALIFICACION, TONO_ENTREGA, type EstadoEntrega } from '@/lib/estadoEntrega';
   import { formatNota } from '@/utils/formatters';
   import { formatRut } from '@/lib/validators';
 
@@ -54,7 +54,7 @@
   let { abierto, estudiante, idCurso, cursoEtiqueta, onCerrar }: Props = $props();
 
   type Pestana = 'general' | 'contacto' | 'evaluacion';
-  let pestana = $state<Pestana>('evaluacion');
+  let pestana = $state<Pestana>('general');
 
   type FilaEvaluacion = {
     id_actividad: number;
@@ -85,12 +85,12 @@
     }
   }
 
-  // Al abrir la ficha de otro estudiante se vuelve a «Evaluación» y se pide lo suyo.
+  // Al abrir la ficha de otro estudiante se vuelve a «General» y se pide lo suyo.
   let cargadaPara = $state<number | null>(null);
   $effect(() => {
     if (abierto && cargadaPara !== estudiante.id_inscripcion_componente) {
       cargadaPara = estudiante.id_inscripcion_componente;
-      pestana = 'evaluacion';
+      pestana = 'general';
       filas = null;
       cargar();
     }
@@ -115,7 +115,6 @@
     ['Teléfono', e.contacto?.celular ?? null],
   ] as const);
 
-  const TONO_CALIFICACION: Record<string, string> = { Bueno: tono.ok, Regular: tono.warn, Malo: tono.error };
 
   const PESTANAS: Array<[Pestana, string]> = [
     ['general', 'General'],
@@ -213,7 +212,7 @@
                   {#if f.es_sumativa && f.nota !== null}
                     <span class="font-inst-titulo text-lg leading-[22px] font-bold">{formatNota(f.nota)}</span>
                   {:else if !f.es_sumativa && f.calificacion}
-                    <span class="{chip} {TONO_CALIFICACION[f.calificacion] ?? tono.off}">{f.calificacion}</span>
+                    <span class="{chip} {tono[TONO_CALIFICACION[f.calificacion] ?? 'off']}">{f.calificacion}</span>
                   {:else}
                     <span class="{chip} {tono[TONO_ENTREGA[f.estado]]}">{textosEntrega(f.es_sumativa)[f.estado]}</span>
                   {/if}

@@ -720,17 +720,9 @@ class DocenteCursoController extends Controller
             ->distinct()
             ->pluck('id_actividad_asignada_grupo')
             ->flip();
-        $evaluados = (new AvanceEvaluacionService)->gruposEvaluados($idsGrupo);
-
-        // La calificación de una formativa (Bueno, Regular o Malo) es la de su
-        // evaluación más reciente.
-        $calificacion = $idsGrupo->isEmpty() ? collect() : DB::table('agenda.evaluacion as ev')
-            ->join('agenda.agenda as ag', 'ag.id_agenda', '=', 'ev.id_agenda')
-            ->whereIn('ag.id_actividad_asignada_grupo', $idsGrupo)
-            ->orderByDesc('ev.fecha_evaluacion')
-            ->get(['ag.id_actividad_asignada_grupo as grupo', 'ev.evaluacion_obtenida'])
-            ->unique('grupo')
-            ->pluck('evaluacion_obtenida', 'grupo');
+        $avance = new AvanceEvaluacionService;
+        $evaluados = $avance->gruposEvaluados($idsGrupo);
+        $calificacion = $avance->calificaciones($idsGrupo);
 
         return response()->json($filas->map(function ($f) use ($conEntrega, $evaluados, $calificacion) {
             $esSumativa = $f->tipo_actividad === \App\Enums\DB\TipoActividad::SUMATIVA->value;
