@@ -606,7 +606,6 @@
                 <Printer size={15} aria-hidden="true" />
                 Imprimir
               </a>
-              </a>
             {/if}
           </div>
         {:else}
