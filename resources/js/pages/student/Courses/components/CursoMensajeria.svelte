@@ -111,6 +111,14 @@
   const abierta = $derived(conversaciones.find((c) => c.id_usuario === panel?.conversacion?.id_usuario) ?? null);
   const mensajes = $derived(panel?.conversacion?.mensajes ?? []);
 
+  // La que se acaba de elegir se marca al tocarla, sin esperar a que cargue.
+  let pedida = $state<number | null>(null);
+  const elegida = $derived(pedida ?? abierta?.id_usuario ?? null);
+
+  const ROL: Record<string, string> = { Titular: 'Docente titular', Docente: 'Docente', Ayudante: 'Ayudante' };
+  // Quién lee lo que se escribe, por su papel.
+  const lector = $derived(abierta?.rol === 'Ayudante' ? 'tu ayudante' : 'el docente');
+
   // Sólo pide asunto cuando la conversación aún no tiene ninguno.
   const necesitaTema = $derived(mensajes.length === 0);
   // Los de la abierta se cuentan antes de abrirla: son los «Nuevo» de esta visita.
@@ -145,7 +153,10 @@
       only: ['mensajeria'],
       // Sin interlocutor_id el servidor abre la conversación con algo sin leer.
       data: { interlocutor_id: undefined, ...data },
-      onFinish: () => (recargando = false),
+      onFinish: () => {
+        recargando = false;
+        pedida = null;
+      },
     });
   }
 
@@ -156,9 +167,11 @@
     recargar({ componente_id: id });
   }
 
+  /** Lo que se estaba escribiendo se conserva: cambiar de destinatario no lo borra. */
   function elegirConversacion(id: number) {
-    if (!componente_activo || abierta?.id_usuario === id) return;
-    limpiarRedaccion();
+    if (!componente_activo || elegida === id) return;
+    pedida = id;
+    errorEnvio = null;
     recargar({ componente_id: componente_activo, interlocutor_id: id });
   }
 
@@ -175,7 +188,7 @@
       `/estudiante/cursos/${idCurso}/mensajeria/componentes/${componente_activo}/mensaje`,
       {
         mensaje: cuerpo.trim(),
-        tema: tema.trim() || null,
+        tema: necesitaTema ? tema.trim() : null,
         id_usuario_receptor: abierta.id_usuario,
       },
       {
@@ -273,57 +286,65 @@
             texto={`${panel.componente} todavía no tiene docentes asignados, así que no hay a quién escribir.`}
           />
         {:else}
-          <div class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6">
-            <!-- En móvil la lista va primero; en escritorio queda a la derecha. -->
-            <nav aria-labelledby="t-equipo" class="{tarjeta} overflow-hidden lg:col-start-2 lg:row-start-1">
-              <h3 id="t-equipo" class="border-b border-dm-linea px-4 py-3.5 text-base leading-[22px] font-bold lg:px-5">
-                Equipo · {panel.componente}
-              </h3>
-              <ul>
+          <div class="flex flex-col gap-5 lg:gap-6">
+            <!-- El destinatario se elige arriba, a la vista, y la conversación queda a todo el ancho. -->
+            <nav aria-labelledby="t-equipo" class="{tarjeta} flex flex-col gap-3 p-4 lg:p-5">
+              <div class="flex flex-col gap-0.5">
+                <h3 id="t-equipo" class="text-base leading-[22px] font-bold lg:text-lg">¿A quién le escribes?</h3>
+                <p class="text-sm leading-5 text-dm-ink-2">
+                  Equipo docente de {panel.componente}. Cada conversación es privada: la ven sólo tú y esa persona.
+                </p>
+              </div>
+              <ul class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                 {#each conversaciones as c (c.id_usuario)}
-                  {@const activa = c.id_usuario === abierta.id_usuario}
-                  <li class="border-b border-dm-linea">
+                  {@const activa = c.id_usuario === elegida}
+                  <li>
                     <button
                       type="button"
-                      aria-current={activa ? 'true' : undefined}
+                      aria-pressed={activa}
                       onclick={() => elegirConversacion(c.id_usuario)}
-                      class="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left lg:px-5 {activa
-                        ? 'bg-dm-activo-suave'
-                        : 'hover:bg-dm-sutil'}"
+                      class="flex h-full min-h-16 w-full cursor-pointer items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition-colors {activa
+                        ? 'border-dm-amarillo bg-dm-activo-suave'
+                        : 'border-dm-linea bg-dm-tarjeta hover:border-dm-accion hover:bg-dm-sutil'}"
                     >
                       <span
                         aria-hidden="true"
-                        class="flex size-9 shrink-0 items-center justify-center rounded-full bg-(--curso-s) text-[13px] font-bold text-(--curso-t)"
+                        class="flex size-11 shrink-0 items-center justify-center rounded-full bg-(--curso-s) text-sm font-bold text-(--curso-t)"
                         >{initials(titleCase(c.nombre))}</span
                       >
-                      <span class="flex min-w-0 flex-1 flex-col">
-                        <span class="flex items-center gap-2">
-                          <span class="truncate text-[15px] font-semibold">{titleCase(c.nombre)}</span>
+                      <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span class="text-[15px] leading-5 font-bold break-words">{titleCase(c.nombre)}</span>
+                        <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span class="text-[13px] leading-[18px] font-semibold text-dm-ink-2">{ROL[c.rol ?? ''] ?? 'Ya no está en el equipo'}</span>
                           {#if !activa && c.no_leidos > 0}
-                            <span class="{PILDORA} ml-auto shrink-0 bg-dm-accion text-dm-sobre-accion">{c.no_leidos}<span class="sr-only">{' '}sin leer</span></span>
+                            <span class="{PILDORA} bg-dm-accion text-dm-sobre-accion">{c.no_leidos} sin leer</span>
                           {/if}
                         </span>
-                        <span class="text-[13px] leading-[18px] text-dm-ink-2">{c.rol ?? 'Ya no está en el equipo'}</span>
-                        <span class="truncate text-[13px] leading-[18px] {c.ultimo_mensaje ? 'text-dm-ink-2' : 'text-dm-ink-3 italic'}">
+                        <span class="truncate text-[13px] leading-[18px] {c.ultimo_mensaje ? 'text-dm-ink-2' : 'text-dm-ink-3'}">
                           {#if c.ultimo_mensaje}{c.ultimo_es_mio ? 'Tú: ' : ''}{c.ultimo_mensaje}{:else}Sin mensajes{/if}
                         </span>
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        class="flex size-6 shrink-0 items-center justify-center rounded-full border-2 {activa
+                          ? 'border-dm-amarillo bg-dm-amarillo text-dm-sobre-amarillo'
+                          : 'border-dm-control'}"
+                      >
+                        {#if activa}<Check size={15} strokeWidth={3} />{/if}
                       </span>
                     </button>
                   </li>
                 {/each}
               </ul>
-              <p class="px-4 pt-3 pb-3.5 text-[13px] leading-[18px] text-dm-ink-2 lg:px-5 lg:pb-4">
-                Cada conversación es privada: la ven sólo tú y esa persona.
-              </p>
             </nav>
 
-            <section aria-labelledby="t-conversacion" class="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
+            <section aria-labelledby="t-conversacion" class="flex min-w-0 flex-col gap-4">
               <div class="flex flex-col gap-1">
                 <h3 id="t-conversacion" class="flex flex-wrap items-center gap-2 text-lg leading-6 font-bold">
                   {titleCase(abierta.nombre)}
-                  {#if abierta.rol}<span class="{PILDORA} bg-dm-sutil font-semibold text-dm-ink-2">{abierta.rol}</span>{/if}
+                  {#if abierta.rol}<span class="{PILDORA} bg-dm-sutil font-semibold text-dm-ink-2">{ROL[abierta.rol]}</span>{/if}
                 </h3>
-                <p class="text-sm leading-5 text-dm-ink-2">Conversación privada: sólo la ven tú y {titleCase(abierta.nombre)}.</p>
+                <p class="text-sm leading-5 text-dm-ink-2">Conversación privada: sólo la ven tú y {lector}.</p>
               </div>
 
               {#if mensajes.length > 0}
@@ -358,13 +379,13 @@
                     <MessageSquare size={22} aria-hidden="true" />
                   </span>
                   <h4 class="text-base leading-[22px] font-bold">Aún no hay mensajes con {titleCase(abierta.nombre)}</h4>
-                  <p class="max-w-105 text-sm leading-5 text-dm-ink-2">Escribe tu consulta abajo. Sólo la leerá esta persona.</p>
+                  <p class="max-w-105 text-sm leading-5 text-dm-ink-2">Escribe tu consulta abajo. Sólo la leerá {lector}.</p>
                 </div>
               {/if}
 
               {#if abierta.en_equipo}
                 <form class="{tarjeta} flex flex-col gap-3.5 p-4 lg:p-5" onsubmit={enviar}>
-                  <h4 class="text-base leading-[22px] font-bold">Nuevo mensaje</h4>
+                  <h4 class="text-base leading-[22px] font-bold">Nuevo mensaje para {titleCase(abierta.nombre)}</h4>
                   {#if necesitaTema}
                     <div class="flex flex-col gap-1.5">
                       <label for="mensaje-tema" class="text-sm font-semibold">Asunto</label>
@@ -386,7 +407,7 @@
                     <p role="alert" class="rounded-[10px] border-l-4 border-dm-error bg-dm-error-s px-3.5 py-2.5 text-sm leading-5">{errorEnvio}</p>
                   {/if}
                   <div class="flex flex-wrap items-center justify-between gap-3">
-                    <span class="text-[13px] leading-[18px] text-dm-ink-2">Sólo lo lee {titleCase(abierta.nombre)}.</span>
+                    <span class="text-[13px] leading-[18px] text-dm-ink-2">Sólo lo lee {lector}.</span>
                     <button type="submit" disabled={enviando || !cuerpo.trim()} class="{btnPrimario} max-sm:w-full">
                       {#if enviando}<LoaderCircle size={18} aria-hidden="true" class="animate-spin" />{:else}<Send size={18} aria-hidden="true" />{/if}
                       Enviar mensaje
