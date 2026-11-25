@@ -4,8 +4,8 @@
    *
    * En escritorio: la ruta de navegación sobre fondo de tarjeta. En móvil: barra
    * noche con el botón del menú y la marca; ahí la ruta no cabe y cada página
-   * trae su «‹ volver» en la cabecera. A la derecha, siempre: reportar un
-   * problema, el tema y la foto del alumno, que lleva a Mi perfil.
+   * trae su «‹ volver» en la cabecera. A la derecha, siempre: «Sugerencias»,
+   * el tema y la foto del alumno, que lleva a Mi perfil.
    */
   import { Link, page } from '@inertiajs/svelte';
   import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
