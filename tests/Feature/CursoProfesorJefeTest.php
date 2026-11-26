@@ -86,23 +86,6 @@ class CursoProfesorJefeTest extends TestCase
             'id_docente' => $this->docente1->id_docente,
             'es_titular' => true,
         ]);
-
-        // Sincronizar roles configurados en la BD de testing y asignar Docente Titular al curso
-        app(\App\Services\Authorization\RolesPermissionsConfigSyncService::class)
-            ->syncAll(['SuperAdmin', 'Docente Titular', 'Docente Componente', 'Docente Componente Colegiado']);
-
-        $rolTitular = \App\Models\Usuario\Rol::where('nombre', 'Docente Titular')->firstOrFail();
-        \App\Models\Usuario\UsuarioRolAsignacion::firstOrCreate(
-            ['id_usuario' => $this->profesor1->id_usuario, 'id_rol' => $rolTitular->id_rol, 'id_contexto' => $this->curso->id_contexto],
-            [
-                'asignado_por' => $this->profesor1->id_usuario,
-                'fecha_inicio_planificada' => now()->subMinute(),
-                'fecha_fin_planificada' => now()->addYears(100),
-                'esta_activo' => true,
-                'fue_eliminado' => false,
-                'creado_por' => $this->profesor1->id_usuario,
-            ]
-        );
     }
 
     /**
@@ -255,9 +238,9 @@ class CursoProfesorJefeTest extends TestCase
      */
     public function test_admin_always_has_access_to_manage_team(): void
     {
-        // Create admin user with real SuperAdmin permission ('*' in global context)
+        // Create admin user
         $admin = Usuario::factory()->create(['email' => 'admin@test.com']);
-        $adminRole = \App\Models\Usuario\Rol::where('nombre', 'SuperAdmin')->firstOrFail();
+        $adminRole = \App\Models\Usuario\Rol::firstOrCreate(['nombre' => 'Administrador'], ['creado_por' => $admin->id_usuario]);
         \App\Models\Usuario\UsuarioRolAsignacion::firstOrCreate(
             ['id_usuario' => $admin->id_usuario, 'id_rol' => $adminRole->id_rol, 'id_contexto' => 1],
             [

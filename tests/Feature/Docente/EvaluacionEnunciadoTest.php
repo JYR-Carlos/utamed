@@ -29,7 +29,7 @@ function fixtureEvaluacionEnunciado(): ?array
         JOIN usuario.rol r ON r.id_rol = ura.id_rol
         JOIN agenda.actividad a ON a.id_componente IN (SELECT id_componente FROM curso.componente WHERE id_curso = c.id_curso)
         WHERE ura.esta_activo AND NOT ura.fue_eliminado
-          AND r.nombre = 'Docente Titular'
+          AND r.nombre IN ('Docente Titular', 'Docente Titular Restringido')
         ORDER BY a.id_actividad
         LIMIT 1
     ");

@@ -2,35 +2,51 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\Authorization\PermissionValidator;
-use App\Support\Permissions;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
-
+use Illuminate\Support\Facades\Auth;
 /**
- * Middleware para validar que el usuario autenticado tiene acceso al portal docente
- * basado en permisos efectivos de docencia y ficha Docente asociada.
+ * Middleware para validar que el usuario autenticado es docente.
+ * 
+ * Verifica que el usuario posea perfil Docente.
+ * Redirige a usuarios sin permiso al dashboard con mensaje de error.
  */
 class IsDocente
 {
+    /**
+     * Verifica que el usuario autenticado sea docente.
+     *
+     * Valida que el usuario tenga CUALQUIERA de estos roles:
+     * - Docente Titular
+     * - Docente Titular Restringido
+     * - Docente Componente
+     * Si tiene el rol pero no una instancia Docente asociada (ficha
+     * incompleta), lo manda al panel dedicado en vez de un dashboard vacío o
+     * un simple mensaje de error — es un caso de administración, no de
+     * permisos.
+     *
+     * @param  Request  $request  Solicitud HTTP
+     * @param  Closure  $next     Siguiente middleware/controlador
+     * @return Response  Respuesta o redirección si no autorizado
+     */
     public function handle(Request $request, Closure $next): Response
     {
         /** @var \App\Models\Usuario\Usuario|null $user */
         $user = Auth::user();
 
+        // Si no hay usuario autenticado, redirigir a login
         if (!$user) {
             return redirect('/login');
         }
 
-        $validator = app(PermissionValidator::class);
-        $tienePermisoDocente = $validator->isSuperAdmin($user)
-            || !empty($validator->getContextsFromPermission($user, Permissions::CURSOS_VER))
-            || !empty($validator->getContextsFromPermission($user, Permissions::COMPONENTES_VER))
-            || !empty($validator->getContextsFromPermission($user, Permissions::ACTIVIDADES_VER));
+        $tieneRolDocente = $user->hasAnyRole([
+            'Docente Titular',
+            'Docente Titular Restringido',
+            'Docente Componente',
+        ]);
 
-        if (!$tienePermisoDocente) {
+        if (!$tieneRolDocente) {
             return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a docentes.');
         }
 

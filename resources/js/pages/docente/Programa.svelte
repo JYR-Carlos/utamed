@@ -78,7 +78,8 @@
     estaEnRevision,
     type EventoHistorial,
   } from '@/modules/resources/programa/utils/syllabusEstado';
-  import { hasPermission, hasAnyPermission, type PermissionItem } from '@/services/permissionValidator';
+  import { hasPermission } from '@/services/permissionValidator';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface SeccionSyllabus {
     numeral_romano?: string;
@@ -139,7 +140,7 @@
     canEdit?: boolean;
     canCreate?: boolean;
     canDelete?: boolean;
-    userPermissions?: PermissionItem[];
+    userPermissions?: Permission[];
     userId?: number;
     layoutType?: 'docente' | 'ayudante' | 'estudiante' | 'admin';
     backUrl?: string;
@@ -280,18 +281,8 @@
 
   const canEditPrograma = $derived(
     canEdit ||
-      hasPermission(userPermissions, 'cursos/programas/modificar:*') ||
-      hasAnyPermission(userPermissions, [
-        'cursos/programas/modificar:modulo_1',
-        'cursos/programas/modificar:modulo_2',
-        'cursos/programas/modificar:modulo_3',
-        'cursos/programas/modificar:modulo_4',
-        'cursos/programas/modificar:modulo_5',
-        'cursos/programas/modificar:modulo_6',
-        'cursos/programas/modificar:modulo_7',
-        'cursos/programas/modificar:modulo_8',
-        'cursos/programas/modificar:modulo_9',
-      ]),
+      hasPermission(userPermissions, 'cursos/programas:modificar:modulo_1') ||
+      hasPermission(userPermissions, 'cursos/programas:*'),
   );
 
   /**

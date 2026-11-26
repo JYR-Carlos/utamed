@@ -74,7 +74,7 @@ class UserCoursesService
             ->get();
 
         $conPrograma = $this->cursosConPrograma($cursos);
-        $permisosPorCurso = $this->permisosPorCursos($docente->usuario, $cursos);
+        $permisos = $this->permisosPorContexto($docente->usuario);
 
         return $cursos
             ->map(fn($curso) => [
@@ -88,7 +88,7 @@ class UserCoursesService
                 'semestre_real'  => $curso->semestre_real,
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'tiene_programa' => $conPrograma->contains($curso->id_curso),
-                'permisos'       => $permisosPorCurso[$curso->id_curso] ?? [],
+                'permisos'       => $this->formatearPermisos($permisos->get($curso->id_contexto)),
             ])
             ->values()
             ->all();
@@ -109,7 +109,7 @@ class UserCoursesService
      *   agno_real: int,
      *   semestre_real: int,
      *   tiene_programa: bool,
-     *   permisos: string[]
+     *   permisos: array
      *  }
      * >
      */
@@ -127,7 +127,7 @@ class UserCoursesService
             ->get();
 
         $conPrograma = $this->cursosConPrograma($cursos);
-        $permisosPorCurso = $this->permisosPorCursos($estudiante->usuario, $cursos);
+        $permisos = $this->permisosPorContexto($estudiante->usuario);
 
         return $cursos
             ->map(fn($curso) => [
@@ -140,16 +140,17 @@ class UserCoursesService
                 'agno_real'      => $curso->agno_real,
                 'semestre_real'  => $curso->semestre_real,
                 'tiene_programa' => $conPrograma->contains($curso->id_curso),
-                'permisos'       => $permisosPorCurso[$curso->id_curso] ?? [],
+                'permisos'       => $this->formatearPermisos($permisos->get($curso->id_contexto)),
             ])
             ->values()
             ->all();
     }
 
     /**
-     * Cursos donde el usuario actúa como ayudante, con sus permisos efectivos por curso.
+     * Cursos donde el usuario actúa como ayudante, con sus permisos por contexto.
      *
-     * @param  Collection|null  $allPermsGrouped  Parámetro legado mantenido por compatibilidad de firma.
+     * @param  Collection|null  $allPermsGrouped  Resultado de $user->getAllPermissionsGroupedByContext();
+     *                                            si es null se resuelve aquí.
      * @return array<
      *  int,
      *  array{
@@ -162,7 +163,7 @@ class UserCoursesService
      *   agno_real: int,
      *   semestre_real: int,
      *   tiene_programa: bool,
-     *   permisos: string[]
+     *   permisos: array
      *  }
      * >
      */
@@ -182,7 +183,7 @@ class UserCoursesService
             ->unique('id_curso');
 
         $conPrograma = $this->cursosConPrograma($cursos);
-        $permisosPorCurso = $this->permisosPorCursos($user, $cursos);
+        $permisos = $allPermsGrouped ?? $this->permisosPorContexto($user);
 
         return $cursos
             ->map(fn($curso) => [
@@ -195,7 +196,7 @@ class UserCoursesService
                 'agno_real'      => $curso->agno_real,
                 'semestre_real'  => $curso->semestre_real,
                 'tiene_programa' => $conPrograma->contains($curso->id_curso),
-                'permisos'       => $permisosPorCurso[$curso->id_curso] ?? [],
+                'permisos'       => $this->formatearPermisos($permisos->get($curso->id_contexto)),
             ])
             ->values()
             ->all();
@@ -221,18 +222,27 @@ class UserCoursesService
     }
 
     /**
-     * Resuelve los slugs efectivos por curso en una sola consulta batch sobre `vw_permisos_usuario`.
-     *
-     * @param  Collection<int, Curso>  $cursos
-     * @return array<int, string[]>
+     * Permisos efectivos del usuario agrupados por contexto, en una sola consulta.
      */
-    private function permisosPorCursos(?Usuario $user, Collection $cursos): array
+    private function permisosPorContexto(?Usuario $user): Collection
     {
-        if (!$user || $cursos->isEmpty()) {
-            return [];
-        }
+        return $user?->getAllPermissionsGroupedByContext() ?? collect();
+    }
 
-        return app(\App\Services\Authorization\PermissionValidator::class)
-            ->resolveEffectiveSlugsForResources($user, $cursos->keyBy('id_curso'));
+    /**
+     * Da a los permisos de un contexto la forma que espera el frontend.
+     *
+     * @param  Collection|array|null  $permisos
+     * @return array<int, array{id_permiso: int, slug: string, esta_permitido: bool}>
+     */
+    private function formatearPermisos($permisos): array
+    {
+        $expanded = app(\App\Services\Authorization\PermissionValidator::class)
+            ->expandToConcreteSlugs($permisos ?? []);
+
+        return array_map(fn($slug) => [
+            'slug'           => $slug,
+            'esta_permitido' => true,
+        ], $expanded);
     }
 }

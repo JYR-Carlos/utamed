@@ -35,7 +35,7 @@ function fixtureCopiaActividades(): ?array
         JOIN usuario.usuario_rol_asignacion ura ON ura.id_usuario = d.id_usuario
         JOIN usuario.rol r ON r.id_rol = ura.id_rol
         WHERE ura.esta_activo AND NOT ura.fue_eliminado
-          AND r.nombre = 'Docente Titular'
+          AND r.nombre IN ('Docente Titular', 'Docente Titular Restringido')
           AND c.es_plantilla = false
           AND EXISTS (
             SELECT 1 FROM agenda.actividad a

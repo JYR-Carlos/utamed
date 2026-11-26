@@ -8,7 +8,6 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionComponente;
 use App\Services\FotoIntranetService;
-use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -42,16 +41,14 @@ class AsistenciaController extends Controller
      */
     public function centro()
     {
-        /** @var \App\Models\Usuario\Usuario $user */
-        $user = Auth::user();
-        $docente = $user->docente;
-        if (!$docente && !$user->isSuperAdmin()) {
+        $docente = Auth::user()->docente;
+        if (!$docente) {
             return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
         }
 
-        $idDocente = $docente?->id_docente;
+        $idDocente = $docente->id_docente;
 
-        $cursos = Curso::when($idDocente !== null && !$user->isSuperAdmin(), function ($q) use ($idDocente) {
+        $cursos = Curso::where(function ($q) use ($idDocente) {
                 $q->where('id_docente_titular', $idDocente)
                     ->orWhereHas('componentes.docenteComponentes', fn ($dq) => $dq->where('id_docente', $idDocente));
             })
@@ -59,17 +56,18 @@ class AsistenciaController extends Controller
             ->with(['asignacionPlan.asignatura', 'componentes' => function ($q) use ($idDocente) {
                 $q->with('tipoComponente')
                     ->withCount('inscripcionComponentes')
-                    ->when($idDocente !== null, fn ($cq) => $cq->with(['docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]));
+                    ->with(['docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]);
             }])
             ->orderByDesc('agno_real')
             ->orderByDesc('semestre_real')
             ->get();
 
-        $data = $cursos->map(function ($curso) use ($idDocente, $user) {
-            $esTitularCurso = $idDocente !== null && $curso->id_docente_titular === $idDocente;
+        $data = $cursos->map(function ($curso) use ($idDocente) {
+            $esTitularCurso = $curso->id_docente_titular === $idDocente;
 
             $componentes = $curso->componentes
-                ->filter(fn ($c) => $user->can(Permissions::COMPONENTES_ASISTENCIA_VER, $c))
+                // Titular del curso ve todos; el resto sólo los que imparte.
+                ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
                 ->map(function ($c) {
                     $imparte = $c->docenteComponentes->isNotEmpty();
                     return [
@@ -113,7 +111,7 @@ class AsistenciaController extends Controller
      */
     public function index(Curso $curso, Componente $componente)
     {
-        $this->autorizarComponente($curso, $componente, Permissions::COMPONENTES_ASISTENCIA_VER);
+        $this->autorizarComponente($curso, $componente);
 
         $estudiantes = $this->estudiantesDelComponente($componente);
         $inscripcionIds = array_column($estudiantes, 'id_inscripcion_componente');
@@ -168,7 +166,7 @@ class AsistenciaController extends Controller
      */
     public function store(Request $request, Curso $curso, Componente $componente)
     {
-        $this->autorizarComponente($curso, $componente, Permissions::COMPONENTES_ASISTENCIA_REGISTRAR);
+        $this->autorizarComponente($curso, $componente);
 
         $datos = $this->validarSesion($request);
         $inscripcionesValidas = $this->idsInscripcionValidos($componente);
@@ -209,7 +207,7 @@ class AsistenciaController extends Controller
      */
     public function update(Request $request, Curso $curso, Componente $componente, ?Clase $clase = null)
     {
-        $this->autorizarComponente($curso, $componente, Permissions::COMPONENTES_ASISTENCIA_EDITAR);
+        $this->autorizarComponente($curso, $componente);
 
         $clase = $this->resolverClase($request, $componente, $clase);
         $this->assertClaseDeComponente($componente, $clase);
@@ -276,7 +274,7 @@ class AsistenciaController extends Controller
      */
     public function destroy(Request $request, Curso $curso, Componente $componente, ?Clase $clase = null)
     {
-        $this->autorizarComponente($curso, $componente, Permissions::COMPONENTES_ASISTENCIA_ELIMINAR);
+        $this->autorizarComponente($curso, $componente);
 
         $clase = $this->resolverClase($request, $componente, $clase);
         $this->assertClaseDeComponente($componente, $clase);
@@ -333,17 +331,14 @@ class AsistenciaController extends Controller
     }
 
     /**
-     * Verifica que el usuario autenticado posea el permiso efectivo requerido
-     * sobre el componente y que el componente pertenezca al curso.
+     * Verifica que el docente autenticado pueda gestionar la asistencia del
+     * componente: titular del curso o docente asignado al componente. Además
+     * valida que el componente pertenezca al curso.
      */
-    private function autorizarComponente(
-        Curso $curso,
-        Componente $componente,
-        Permissions $permisoRequerido = Permissions::COMPONENTES_ASISTENCIA_VER
-    ): void {
-        /** @var \App\Models\Usuario\Usuario $user */
-        $user = Auth::user();
-        if (!$user->docente && !$user->isSuperAdmin()) {
+    private function autorizarComponente(Curso $curso, Componente $componente): void
+    {
+        $docente = Auth::user()->docente;
+        if (!$docente) {
             abort(403, 'No tienes un perfil docente asociado.');
         }
 
@@ -351,7 +346,12 @@ class AsistenciaController extends Controller
             abort(404, 'El componente no pertenece a este curso.');
         }
 
-        if (!$user->can($permisoRequerido, $componente)) {
+        $esTitular = $curso->id_docente_titular === $docente->id_docente;
+        $esAsignado = $componente->docenteComponentes()
+            ->where('id_docente', $docente->id_docente)
+            ->exists();
+
+        if (!$esTitular && !$esAsignado) {
             abort(403, 'No tienes acceso a la asistencia de este componente.');
         }
     }

@@ -3,23 +3,16 @@
 - **Rutas Auditadas**:
   - `GET /docente/cursos/{curso}/delegacion-permisos` (`docente.cursos.delegacion-permisos.index`)
   - `POST /docente/cursos/{curso}/delegacion-permisos/toggle` (`docente.cursos.delegacion-permisos.toggle`)
-  - `POST /docente/cursos/{curso}/delegacion-permisos/batch` (`docente.cursos.delegacion-permisos.batch`)
   - `GET /docente/cursos/{curso}/permisos-syllabus` (`docente.cursos.permisos-syllabus.index`)
   - `POST /docente/cursos/{curso}/permisos-syllabus` (`docente.cursos.permisos-syllabus.sync`)
 - **Vistas Frontend**:
   - [`resources/js/pages/docente/DelegacionPermisosCurso.svelte`](file:///c:/Users/dyri0n/Code/utamed/resources/js/pages/docente/DelegacionPermisosCurso.svelte)
-  - [`resources/js/components/docente/permisos/GrupoPermisosMatriz.svelte`](file:///c:/Users/dyri0n/Code/utamed/resources/js/components/docente/permisos/GrupoPermisosMatriz.svelte)
-  - [`resources/js/components/docente/permisos/PermisoSwitch.svelte`](file:///c:/Users/dyri0n/Code/utamed/resources/js/components/docente/permisos/PermisoSwitch.svelte)
-  - [`resources/js/components/docente/permisos/ModulosProgramaCell.svelte`](file:///c:/Users/dyri0n/Code/utamed/resources/js/components/docente/permisos/ModulosProgramaCell.svelte)
   - [`resources/js/pages/docente/components/PermisosSyllabusMatriz.svelte`](file:///c:/Users/dyri0n/Code/utamed/resources/js/pages/docente/components/PermisosSyllabusMatriz.svelte)
 - **Controladores Backend**:
   - [`app/Http/Controllers/Docente/DelegacionPermisosController.php`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/DelegacionPermisosController.php)
   - [`app/Http/Controllers/Docente/CursoPermisosController.php`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/CursoPermisosController.php)
-- **Servicio de Autorización y Grafo**:
+- **Servicio de Autorización**:
   - [`app/Services/Docente/PermisosCursoService.php`](file:///c:/Users/dyri0n/Code/utamed/app/Services/Docente/PermisosCursoService.php)
-  - [`app/Support/CoursePermissionGraph.php`](file:///c:/Users/dyri0n/Code/utamed/app/Support/CoursePermissionGraph.php)
-- **Guía de Reglas y Ejemplos RelBAC**:
-  - [`docs/guias/guia-asignacion-y-revocacion-permisos-relbac.md`](../../../guias/guia-asignacion-y-revocacion-permisos-relbac.md)
 - **Policy Asociada**:
   - [`app/Policies/CursoPolicy.php`](file:///c:/Users/dyri0n/Code/utamed/app/Policies/CursoPolicy.php)
 - **Middlewares**: `['auth', 'verified', 'is_docente']`
@@ -61,11 +54,10 @@ flowchart TD
 
 | Verbo | URI | Nombre de Ruta | Middlewares | Controlador |
 |---|---|---|---|---|
-| `GET`       | `/docente/cursos/{curso}/delegacion-permisos`        | `docente.cursos.delegacion-permisos.index`  | `['auth', 'verified', 'is_docente']` | [`DelegacionPermisosController@index`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/DelegacionPermisosController.php#L123)  |
-| `POST`      | `/docente/cursos/{curso}/delegacion-permisos/toggle` | `docente.cursos.delegacion-permisos.toggle` | `['auth', 'verified', 'is_docente']` | [`DelegacionPermisosController@toggle`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/DelegacionPermisosController.php#L175) |
-| `POST`      | `/docente/cursos/{curso}/delegacion-permisos/batch`  | `docente.cursos.delegacion-permisos.batch`  | `['auth', 'verified', 'is_docente']` | [`DelegacionPermisosController@batch`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/DelegacionPermisosController.php#L261)  |
-| `GET`       | `/docente/cursos/{curso}/permisos-syllabus`          | `docente.cursos.permisos-syllabus.index`    | `['auth', 'verified', 'is_docente']` | [`CursoPermisosController@syllabusIndex`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/CursoPermisosController.php#L73)    |
-| `POST`      | `/docente/cursos/{curso}/permisos-syllabus`          | `docente.cursos.permisos-syllabus.sync`     | `['auth', 'verified', 'is_docente']` | [`CursoPermisosController@syllabusSync`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/CursoPermisosController.php#L110)     |
+| `GET` | `/docente/cursos/{curso}/delegacion-permisos` | `docente.cursos.delegacion-permisos.index` | `['auth', 'verified', 'is_docente']` | [`DelegacionPermisosController@index`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/DelegacionPermisosController.php#L116) |
+| `POST` | `/docente/cursos/{curso}/delegacion-permisos/toggle` | `docente.cursos.delegacion-permisos.toggle` | `['auth', 'verified', 'is_docente']` | [`DelegacionPermisosController@toggle`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/DelegacionPermisosController.php#L160) |
+| `GET` | `/docente/cursos/{curso}/permisos-syllabus` | `docente.cursos.permisos-syllabus.index` | `['auth', 'verified', 'is_docente']` | [`CursoPermisosController@syllabusIndex`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/CursoPermisosController.php#L73) |
+| `POST` | `/docente/cursos/{curso}/permisos-syllabus` | `docente.cursos.permisos-syllabus.sync` | `['auth', 'verified', 'is_docente']` | [`CursoPermisosController@syllabusSync`](file:///c:/Users/dyri0n/Code/utamed/app/Http/Controllers/Docente/CursoPermisosController.php#L110) |
 
 ---
 

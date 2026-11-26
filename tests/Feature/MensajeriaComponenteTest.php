@@ -38,7 +38,7 @@ function fixturesMensajeria(): ?array
         JOIN usuario.usuario_rol_asignacion ura ON ura.id_usuario = d.id_usuario
         JOIN usuario.rol r ON r.id_rol = ura.id_rol
         WHERE ura.esta_activo AND NOT ura.fue_eliminado
-          AND r.nombre IN ('Docente Titular', 'Docente Componente')
+          AND r.nombre IN ('Docente Titular', 'Docente Titular Restringido', 'Docente Componente')
           AND EXISTS (SELECT 1 FROM curso.inscripcion_componente ic
                       WHERE ic.id_componente = dc.id_componente)
         ORDER BY dc.id_componente
@@ -67,7 +67,7 @@ function fixturesMensajeria(): ?array
         JOIN usuario.usuario_rol_asignacion ura ON ura.id_usuario = d.id_usuario
         JOIN usuario.rol r ON r.id_rol = ura.id_rol
         WHERE ura.esta_activo AND NOT ura.fue_eliminado
-          AND r.nombre IN ('Docente Titular', 'Docente Componente')
+          AND r.nombre IN ('Docente Titular', 'Docente Titular Restringido', 'Docente Componente')
           AND d.id_usuario <> ?
           AND d.id_docente NOT IN (
                 SELECT id_docente FROM curso.docente_componente WHERE id_componente = ?
@@ -390,7 +390,7 @@ it('un docente ajeno al componente no puede escribir', function () {
         JOIN usuario.usuario_rol_asignacion ura ON ura.id_usuario = d.id_usuario
         JOIN usuario.rol r ON r.id_rol = ura.id_rol
         WHERE ura.esta_activo AND NOT ura.fue_eliminado
-          AND r.nombre IN ('Docente Titular', 'Docente Componente')
+          AND r.nombre IN ('Docente Titular', 'Docente Titular Restringido', 'Docente Componente')
           AND d.id_usuario NOT IN (?, ?)
         ORDER BY d.id_docente DESC
         LIMIT 1

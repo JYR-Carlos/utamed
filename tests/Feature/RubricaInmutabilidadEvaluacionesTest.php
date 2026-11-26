@@ -25,7 +25,7 @@ function fixtureActividadEvaluacion(): ?array
         JOIN agenda.actividad a ON a.id_componente IN (SELECT id_componente FROM curso.componente WHERE id_curso = c.id_curso)
         JOIN agenda.actividad_asignada_grupo g ON g.id_actividad = a.id_actividad
         WHERE ura.esta_activo AND NOT ura.fue_eliminado
-          AND r.nombre IN ('Docente Titular', 'Docente Componente')
+          AND r.nombre IN ('Docente Titular', 'Docente Titular Restringido', 'Docente Componente')
         ORDER BY a.id_actividad
         LIMIT 1
     ");
