@@ -3,8 +3,9 @@
 /*
  * RED-IMP-05b: lo que las pantallas de contraseña necesitan del servidor.
  *
- * - Recuperar: si el enlace no sale, la pantalla sabe por qué (correo sin
- *   cuenta o pedido muy seguido, con los segundos que faltan).
+ * - Recuperar: se pide con el RUT. Si el enlace no sale, la pantalla sabe por
+ *   qué (RUT sin cuenta, cuenta sin correo institucional o pedido muy
+ *   seguido, con los segundos que faltan); si sale, a qué correo fue.
  * - Cambio obligatorio: al guardar, el usuario vuelve a la misma pantalla con
  *   el aviso de que la contraseña se cambió, y la navegación queda libre.
  */
@@ -27,16 +28,57 @@ test('la pantalla de recuperar recibe la vigencia y la pausa del enlace', functi
             ->where('aviso', null));
 });
 
-test('un correo sin cuenta vuelve con el aviso no_registrado', function () {
+test('un RUT sin cuenta vuelve con el aviso no_registrado', function () {
     Notification::fake();
 
+    do {
+        $rut = random_int(30000000, 39999999).'-5';
+    } while (Usuario::porRut($rut));
+
     $this->from('/forgot-password')
-        ->post('/forgot-password', ['email' => 'nadie.red05b@alumnos.uta.cl'])
+        ->post('/forgot-password', ['rut' => $rut])
         ->assertRedirect('/forgot-password')
-        ->assertSessionHasErrors('email')
+        ->assertSessionHasErrors('rut')
         ->assertSessionHas('recuperarAviso', ['codigo' => 'no_registrado']);
 
     Notification::assertNothingSent();
+});
+
+test('una cuenta sin correo institucional vuelve con el aviso sin_correo', function () {
+    Notification::fake();
+
+    $user = Usuario::factory()->create(['email' => null]);
+
+    $this->from('/forgot-password')
+        ->post('/forgot-password', ['rut' => $user->rut])
+        ->assertRedirect('/forgot-password')
+        ->assertSessionHasErrors('rut')
+        ->assertSessionHas('recuperarAviso', ['codigo' => 'sin_correo']);
+
+    Notification::assertNothingSent();
+});
+
+test('un RUT incompleto no llega a buscar la cuenta', function () {
+    Notification::fake();
+
+    $this->from('/forgot-password')
+        ->post('/forgot-password', ['rut' => '12345'])
+        ->assertRedirect('/forgot-password')
+        ->assertSessionHasErrors('rut')
+        ->assertSessionMissing('recuperarAviso');
+
+    Notification::assertNothingSent();
+});
+
+test('al salir el enlace, la pantalla recibe el correo institucional en parte oculto', function () {
+    Notification::fake();
+
+    $user = Usuario::factory()->create(['email' => 'maria.red05b@alumnos.uta.cl']);
+
+    $this->post('/forgot-password', ['rut' => $user->rut])->assertSessionHasNoErrors();
+
+    $this->get('/forgot-password')
+        ->assertInertia(fn (Assert $page) => $page->where('enviadoA', 'ma•••@alumnos.uta.cl'));
 });
 
 test('pedir un segundo enlace enseguida vuelve con la pausa y los segundos que faltan', function () {
@@ -44,12 +86,12 @@ test('pedir un segundo enlace enseguida vuelve con la pausa y los segundos que f
 
     $user = Usuario::factory()->create(['email' => 'alumno.red05b@alumnos.uta.cl']);
 
-    $this->post('/forgot-password', ['email' => $user->email])->assertSessionHasNoErrors();
+    $this->post('/forgot-password', ['rut' => $user->rut])->assertSessionHasNoErrors();
 
     $this->from('/forgot-password')
-        ->post('/forgot-password', ['email' => $user->email])
+        ->post('/forgot-password', ['rut' => $user->rut])
         ->assertRedirect('/forgot-password')
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasErrors('rut');
 
     $aviso = session('recuperarAviso');
     expect($aviso['codigo'])->toBe('pausa')

@@ -16,6 +16,7 @@
   import UtaMed from '@/components/ingreso/UtaMed.svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import { campo, enlace, etiqueta } from '@/lib/dm';
+  import { rutDeIngreso, rutDeIngresoCompleto } from '@/lib/validators';
   import { home, login } from '@/routes';
   import { request } from '@/routes/password';
   import { Link, useForm } from '@inertiajs/svelte';
@@ -115,17 +116,10 @@
   const botonEntrar =
     'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 text-[15px] font-bold';
 
-  /** Deja sólo números y K, y pone el guion antes del dígito verificador. */
-  function formatearRut(valor: string): string {
-    const limpio = valor.replace(/[^0-9kK]/g, '').slice(0, 9);
-    if (limpio.length < 2) return limpio;
-    return `${limpio.slice(0, -1)}-${limpio.slice(-1).toUpperCase()}`;
-  }
-
   function entrar(evento: SubmitEvent) {
     evento.preventDefault();
     // El formato se revisa al enviar, no mientras se escribe.
-    if (!/^\d{7,8}-[0-9K]$/.test($form.email)) {
+    if (!rutDeIngresoCompleto($form.email)) {
       rutError =
         'El RUT está incompleto. Escribe los números y el dígito verificador, por ejemplo 12345678-5.';
       document.getElementById('rut')?.focus();
@@ -221,7 +215,7 @@
                 name="email"
                 type="text"
                 required
-                maxlength="10"
+                maxlength="12"
                 autocomplete="username"
                 aria-invalid={rutError ? true : undefined}
                 aria-describedby="rut-ayuda"
@@ -230,7 +224,7 @@
                 oninput={(e) => {
                   // Se reescribe también el campo: si el valor formateado no cambia
                   // (p. ej. se tecleó un punto), Svelte no lo volvería a pintar.
-                  $form.email = e.currentTarget.value = formatearRut(e.currentTarget.value);
+                  $form.email = e.currentTarget.value = rutDeIngreso(e.currentTarget.value);
                 }}
                 class="{campo} min-h-12! text-base!"
               />

@@ -1,28 +1,32 @@
 <script lang="ts">
   /**
-   * Recuperar la contraseña: se pide el enlace al correo institucional
-   * (guía dm, dirección A · Noche; paso 1 de 3).
+   * Recuperar la contraseña (guía dm, dirección A · Noche; paso 1 de 3).
    *
-   * Estados: inicial, correo incompleto (se revisa al enviar), enviando,
-   * correo sin cuenta, pedido muy seguido (pausa con cuenta regresiva) y
-   * enlace enviado. Los dos rechazos del servidor llegan en `aviso`
-   * (FailedPasswordResetLinkRequestResponse); el envío, en `status`.
+   * Se escribe el RUT, como en el login, y el enlace sale al correo
+   * institucional guardado en la cuenta: no se escribe ningún correo
+   * (Auth\PasswordResetLinkController).
+   *
+   * Estados: inicial, RUT incompleto (se revisa al enviar), enviando, RUT sin
+   * cuenta, cuenta sin correo institucional, pedido muy seguido (pausa con
+   * cuenta regresiva) y enlace enviado. Los rechazos del servidor llegan en
+   * `aviso`; el envío, en `enviadoA`, con el correo en parte oculto.
    */
-  import PasswordResetLinkController from '@/actions/Laravel/Fortify/Http/Controllers/PasswordResetLinkController';
+  import PasswordResetLinkController from '@/actions/App/Http/Controllers/Auth/PasswordResetLinkController';
   import IngresoNoche from '@/components/ingreso/IngresoNoche.svelte';
   import PasosRecuperacion from '@/components/ingreso/PasosRecuperacion.svelte';
   import type { Escena } from '@/components/ingreso/ReticulaViva.svelte';
   import { btnIngreso, btnIngresoEnPausa, campo, enlace } from '@/lib/dm';
+  import { rutDeIngreso, rutDeIngresoCompleto } from '@/lib/validators';
   import { login } from '@/routes';
   import { Link, useForm } from '@inertiajs/svelte';
   import { ArrowLeft, CircleX, Clock, Inbox, KeyRound, LoaderCircle, RotateCcw, Send } from 'lucide-svelte';
   import { onDestroy, onMount, tick } from 'svelte';
 
   interface Props {
-    /** Fortify: llega cuando el enlace salió. */
-    status?: string;
+    /** Correo institucional al que salió el enlace, en parte oculto («ma•••@alumnos.uta.cl»). */
+    enviadoA?: string | null;
     /** Por qué no salió el enlace. */
-    aviso?: { codigo: 'no_registrado' } | { codigo: 'pausa'; segundos: number } | null;
+    aviso?: { codigo: 'no_registrado' } | { codigo: 'sin_correo' } | { codigo: 'pausa'; segundos: number } | null;
     /** Segundos que el broker exige entre un enlace y otro. */
     esperaReenvio: number;
     /** Minutos que vale el enlace. */
@@ -31,12 +35,12 @@
 
   let { aviso, esperaReenvio, vigenciaMinutos }: Props = $props();
 
-  const form = useForm({ email: '' });
+  const form = useForm({ rut: '' });
 
-  let correoIncompleto = $state(false);
+  let rutIncompleto = $state(false);
   /** Correo al que salió el último enlace; null mientras no sale ninguno. */
-  let enviadoA = $state<string | null>(null);
-  const enviado = $derived(enviadoA !== null);
+  let correoDelEnvio = $state<string | null>(null);
+  const enviado = $derived(correoDelEnvio !== null);
 
   // Una sola cuenta regresiva: la pausa que exige el servidor o la espera
   // para reenviar después de un envío.
@@ -61,53 +65,52 @@
   const cuenta = $derived(`${Math.floor(restante / 60)}:${String(restante % 60).padStart(2, '0')}`);
   const enPausa = $derived(aviso?.codigo === 'pausa' && restante > 0);
   const noRegistrado = $derived(aviso?.codigo === 'no_registrado');
+  const sinCorreo = $derived(aviso?.codigo === 'sin_correo');
   // Un error del campo sin `aviso` es la validación del servidor (formato).
-  const errorFormato = $derived(correoIncompleto || (!!$form.errors.email && !aviso));
+  const errorFormato = $derived(rutIncompleto || (!!$form.errors.rut && !aviso));
   const inactivo = $derived(enPausa || $form.processing);
 
   const escena: Escena = $derived($form.processing ? 'trabajando' : enviado ? 'listo' : 'reposo');
 
-  function enfocarCorreo() {
-    document.getElementById('correo')?.focus();
+  function enfocarRut() {
+    document.getElementById('rut')?.focus();
   }
 
   function enviar(evento?: SubmitEvent) {
     evento?.preventDefault();
-    const correo = $form.email.trim();
     // El formato se revisa al enviar, no mientras se escribe.
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) {
-      correoIncompleto = true;
-      enviadoA = null;
-      enfocarCorreo();
+    if (!rutDeIngresoCompleto($form.rut)) {
+      rutIncompleto = true;
+      correoDelEnvio = null;
+      enfocarRut();
       return;
     }
-    correoIncompleto = false;
-    $form.email = correo;
+    rutIncompleto = false;
     $form.post(PasswordResetLinkController.store.url(), {
       preserveScroll: true,
-      onSuccess: () => {
-        enviadoA = correo;
+      onSuccess: (pagina) => {
+        correoDelEnvio = (pagina.props.enviadoA as string | null) ?? 'tu correo institucional';
         esperar(esperaReenvio);
       },
       onError: async () => {
-        enviadoA = null;
+        correoDelEnvio = null;
         await tick();
-        enfocarCorreo();
+        enfocarRut();
       },
     });
   }
 
-  async function usarOtroCorreo() {
+  async function usarOtroRut() {
     clearInterval(reloj);
     restante = 0;
-    enviadoA = null;
+    correoDelEnvio = null;
     $form.reset();
     $form.clearErrors();
     await tick();
-    enfocarCorreo();
+    enfocarRut();
   }
 
-  onMount(enfocarCorreo);
+  onMount(enfocarRut);
 </script>
 
 <svelte:head>
@@ -139,29 +142,37 @@
       <div class="flex flex-col gap-1.5 lg:gap-2">
         <h1 class="m-0 text-[28px] leading-[34px] font-medium">¿Olvidaste tu contraseña?</h1>
         <p class="m-0 text-[15px] leading-[22px] text-dm-ink-2">
-          Escribe tu correo institucional y te enviaremos un enlace para elegir una contraseña nueva.
+          Escribe tu RUT y te enviaremos un enlace a tu correo institucional para elegir una contraseña nueva.
         </p>
       </div>
 
-      {#if noRegistrado || enPausa}
+      {#if noRegistrado || sinCorreo || enPausa}
         <div
           role="alert"
           class="flex animate-dm-aparece items-start gap-3 rounded-[10px] border px-3.5 py-3.5 motion-reduce:animate-none lg:px-4
-            {noRegistrado ? 'border-dm-error bg-dm-error-s' : 'border-dm-warn bg-dm-warn-s'}"
+            {enPausa ? 'border-dm-warn bg-dm-warn-s' : 'border-dm-error bg-dm-error-s'}"
         >
-          {#if noRegistrado}
-            <CircleX size={20} aria-hidden="true" class="mt-px shrink-0 text-dm-error" />
-          {:else}
+          {#if enPausa}
             <Clock size={20} aria-hidden="true" class="mt-px shrink-0 text-dm-warn" />
+          {:else}
+            <CircleX size={20} aria-hidden="true" class="mt-px shrink-0 text-dm-error" />
           {/if}
           <div class="flex min-w-0 flex-col gap-0.5">
             {#if noRegistrado}
               <span class="text-[15px] leading-[22px] font-semibold text-dm-ink"
-                >No encontramos una cuenta con ese correo</span
+                >No encontramos una cuenta con ese RUT</span
               >
               <span class="text-sm leading-5 text-dm-ink-2">
-                Revisa que sea tu correo institucional y no uno personal. Si está bien escrito, escribe a
-                cite@gestion.uta.cl e indica tu RUT.
+                Revisa que esté bien escrito. Si lo está, escribe a cite@gestion.uta.cl e indica tu RUT y tu nombre
+                completo.
+              </span>
+            {:else if sinCorreo}
+              <span class="text-[15px] leading-[22px] font-semibold text-dm-ink"
+                >Tu cuenta no tiene un correo institucional registrado</span
+              >
+              <span class="text-sm leading-5 text-dm-ink-2">
+                Sin él no podemos enviarte el enlace. Escribe a cite@gestion.uta.cl e indica tu RUT y tu nombre
+                completo.
               </span>
             {:else}
               <span class="text-[15px] leading-[22px] font-semibold text-dm-ink"
@@ -177,28 +188,35 @@
 
       <form aria-label="Recuperar contraseña" novalidate onsubmit={enviar} class="flex flex-col gap-5">
         <div class="flex flex-col gap-1.5">
-          <label for="correo" class="text-sm leading-5 font-medium">Correo institucional</label>
+          <label for="rut" class="text-sm leading-5 font-medium">RUT</label>
           <input
-            id="correo"
-            name="email"
-            type="email"
+            id="rut"
+            name="rut"
+            type="text"
             required
-            autocomplete="email"
-            placeholder="nombre.apellido@…"
+            maxlength="12"
+            autocomplete="username"
             disabled={inactivo}
-            aria-invalid={errorFormato || noRegistrado ? true : undefined}
-            aria-describedby="correo-ayuda"
-            bind:value={$form.email}
+            aria-invalid={errorFormato || noRegistrado || sinCorreo ? true : undefined}
+            aria-describedby="rut-ayuda"
+            value={$form.rut}
+            oninput={(e) => {
+              // Se reescribe también el campo: si el valor formateado no cambia
+              // (p. ej. se tecleó un punto), Svelte no lo volvería a pintar.
+              $form.rut = e.currentTarget.value = rutDeIngreso(e.currentTarget.value);
+            }}
             class="{campo} min-h-12! text-base! aria-invalid:shadow-[0_0_0_1px_var(--color-dm-error)]"
           />
           {#if errorFormato}
-            <span id="correo-ayuda" class="flex items-start gap-1.5 text-sm leading-5 text-dm-error">
+            <span id="rut-ayuda" class="flex items-start gap-1.5 text-sm leading-5 text-dm-error">
               <CircleX size={16} aria-hidden="true" class="mt-0.5 shrink-0" />
-              Al correo le falta una parte. Escríbelo completo, con la @ y el dominio de la universidad.
+              {rutIncompleto || !$form.errors.rut
+                ? 'El RUT está incompleto. Escribe los números y el dígito verificador, por ejemplo 12345678-5.'
+                : $form.errors.rut}
             </span>
           {:else}
-            <span id="correo-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">
-              Es el mismo correo al que te llegó tu contraseña.
+            <span id="rut-ayuda" class="text-[13px] leading-[18px] text-dm-ink-2">
+              El mismo con el que entras. Ej.: 12345678-5, sin puntos; el guion se agrega solo.
             </span>
           {/if}
         </div>
@@ -232,8 +250,8 @@
       <div role="status" class="flex animate-dm-aparece flex-col gap-1.5 motion-reduce:animate-none lg:gap-2">
         <h1 class="m-0 text-[28px] leading-[34px] font-medium">Revisa tu correo</h1>
         <p class="m-0 text-[15px] leading-[22px] text-dm-ink-2">
-          Te enviamos un enlace a <strong class="font-semibold [overflow-wrap:anywhere] text-dm-ink"
-            >{enviadoA}</strong
+          Te enviamos un enlace a tu correo institucional, <strong
+            class="font-semibold [overflow-wrap:anywhere] text-dm-ink">{correoDelEnvio}</strong
           >.
         </p>
       </div>
@@ -281,10 +299,10 @@
           {/if}
           <button
             type="button"
-            onclick={usarOtroCorreo}
+            onclick={usarOtroRut}
             class="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-dm-enlace hover:text-dm-enlace-hover hover:underline"
           >
-            Usar otro correo
+            Usar otro RUT
           </button>
         </div>
       </div>

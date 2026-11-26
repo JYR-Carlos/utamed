@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Administrativo\ProgramaController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\BibliografiaController;
 use App\Http\Controllers\Docente\AsistenciaController;
 use App\Http\Controllers\Docente\CalendarioController;
@@ -51,6 +52,13 @@ Route::get('/', function () {
         ? redirect()->route('dashboard')
         : redirect()->route('login');
 })->name('home');
+
+// Recuperar la contraseña con el RUT: el enlace va al correo institucional
+// guardado. Reemplaza al POST /forgot-password de Fortify, que pedía el
+// correo; tiene el mismo camino y nombre, y gana porque se carga después.
+Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+    ->middleware('guest:'.config('fortify.guard'))
+    ->name('password.email');
 
 Route::post('reportes', [IssuesReportController::class, 'store']);
 

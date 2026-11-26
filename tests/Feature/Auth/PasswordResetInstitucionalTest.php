@@ -3,6 +3,7 @@
 /*
  * T17: el enlace de restablecimiento de contraseña sale siempre hacia el
  * correo institucional del usuario (`usuario.email`), nunca a otra casilla.
+ * Se pide con el RUT, como en el login: la persona no escribe ningún correo.
  */
 
 use App\Models\Usuario\Usuario;
@@ -12,13 +13,14 @@ use Illuminate\Support\Facades\Notification;
 
 uses(DatabaseTransactions::class);
 
-test('el enlace de restablecimiento va al correo institucional', function () {
+test('con el RUT, el enlace va al correo institucional de la cuenta', function () {
     Notification::fake();
 
     $user = Usuario::factory()->create(['email' => 'alumno.prueba.t17@alumnos.uta.cl']);
 
-    $this->post('/forgot-password', ['email' => 'alumno.prueba.t17@alumnos.uta.cl'])
-        ->assertSessionHasNoErrors();
+    $this->post('/forgot-password', ['rut' => $user->rut])
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('recuperarEnviado', 'al•••@alumnos.uta.cl');
 
     Notification::assertSentTo(
         $user,
@@ -28,12 +30,43 @@ test('el enlace de restablecimiento va al correo institucional', function () {
     );
 });
 
+test('el RUT se encuentra escrito con puntos, sin guion o con la k en minúscula', function () {
+    Notification::fake();
+
+    // Un RUT que no esté en la base de pruebas, con K para probar la minúscula.
+    do {
+        $cuerpo = random_int(30000000, 39999999);
+    } while (Usuario::porRut("{$cuerpo}K"));
+
+    $user = Usuario::factory()->create(['rut' => "{$cuerpo}-K", 'email' => 'alumno.prueba.t17e@alumnos.uta.cl']);
+
+    $this->post('/forgot-password', ['rut' => number_format($cuerpo, 0, '', '.').'k'])->assertSessionHasNoErrors();
+
+    Notification::assertSentTo($user, RestablecerContrasena::class);
+});
+
+test('un correo que venga en el pedido no se usa: el enlace va igual al institucional', function () {
+    Notification::fake();
+
+    $user = Usuario::factory()->create(['email' => 'alumno.prueba.t17b@alumnos.uta.cl']);
+
+    $this->post('/forgot-password', ['rut' => $user->rut, 'email' => 'personal.t17b@gmail.com'])
+        ->assertSessionHasNoErrors();
+
+    Notification::assertSentTo(
+        $user,
+        RestablecerContrasena::class,
+        fn ($notification, array $channels, $notifiable) => $notifiable->routeNotificationFor('mail', $notification) === 'alumno.prueba.t17b@alumnos.uta.cl',
+    );
+    Notification::assertSentTimes(RestablecerContrasena::class, 1);
+});
+
 test('el correo sale en español, con el nombre, el enlace y la vigencia', function () {
     Notification::fake();
 
     $user = Usuario::factory()->create(['email' => 'alumno.prueba.t17d@alumnos.uta.cl', 'nombre1' => 'MARÍA']);
 
-    $this->post('/forgot-password', ['email' => $user->email]);
+    $this->post('/forgot-password', ['rut' => $user->rut]);
 
     Notification::assertSentTo($user, RestablecerContrasena::class, function ($notification) use ($user) {
         $correo = $notification->toMail($user);
@@ -50,22 +83,12 @@ test('el correo sale en español, con el nombre, el enlace y la vigencia', funct
     });
 });
 
-test('un correo que no es el institucional de ninguna cuenta no recibe enlace', function () {
-    Notification::fake();
-
-    Usuario::factory()->create(['email' => 'alumno.prueba.t17b@alumnos.uta.cl']);
-
-    $this->post('/forgot-password', ['email' => 'personal.t17b@gmail.com']);
-
-    Notification::assertNothingSent();
-});
-
 test('el enlace permite fijar una nueva contraseña', function () {
     Notification::fake();
 
     $user = Usuario::factory()->create(['email' => 'alumno.prueba.t17c@alumnos.uta.cl']);
 
-    $this->post('/forgot-password', ['email' => $user->email]);
+    $this->post('/forgot-password', ['rut' => $user->rut]);
 
     Notification::assertSentTo($user, RestablecerContrasena::class, function ($notification) use ($user) {
         $this->post('/reset-password', [

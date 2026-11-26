@@ -202,6 +202,24 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * La cuenta de un RUT, venga escrito como venga (con puntos, sin guion, con
+     * la k en minúscula). Compara sólo dígitos y K para encontrar también los
+     * RUT guardados antes con otro formato. La usan el login y el pedido del
+     * enlace para restablecer la contraseña, que deben encontrar a la misma
+     * persona.
+     */
+    public static function porRut(int|string|null $rut): ?self
+    {
+        $digitos = Rut::soloDigitos($rut);
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        return static::whereRaw("UPPER(REPLACE(REPLACE(rut, '.', ''), '-', '')) = ?", [$digitos])->first();
+    }
+
+    /**
      * ESTÁNDAR DE NOMBRES EN BASE DE DATOS:
      * 
      * Todos los nombres y apellidos se guardan SIEMPRE en MAYÚSCULAS en la base de datos

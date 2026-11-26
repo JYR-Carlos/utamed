@@ -33,14 +33,6 @@ class FortifyServiceProvider extends ServiceProvider
             \Laravel\Fortify\Contracts\LogoutResponse::class,
             \App\Http\Responses\LogoutResponse::class
         );
-
-        // Dice a la pantalla de recuperar por qué no salió el enlace (correo
-        // sin cuenta o pedido muy seguido), en español. Se resuelve con el
-        // estado del broker como parámetro, así que no puede ser singleton.
-        $this->app->bind(
-            \Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse::class,
-            \App\Http\Responses\FailedPasswordResetLinkRequestResponse::class
-        );
     }
 
     /**
@@ -78,10 +70,7 @@ class FortifyServiceProvider extends ServiceProvider
             ]);
 
             try {
-                $user = \App\Models\Usuario\Usuario::whereRaw(
-                    "UPPER(REPLACE(REPLACE(rut, '.', ''), '-', '')) = ?",
-                    [$normalizedInput]
-                )->first();
+                $user = \App\Models\Usuario\Usuario::porRut($rutInput);
 
                 if (!$user) {
                     Log::channel('single')->warning('[LOGIN] Usuario no encontrado', ['rut_normalized' => $normalizedInput]);
@@ -168,8 +157,9 @@ class FortifyServiceProvider extends ServiceProvider
         ]));
 
         Fortify::requestPasswordResetLinkView(fn(Request $request) => Inertia::render('auth/ForgotPassword', [
-            'status' => $request->session()->get('status'),
-            // Por qué no salió el enlace: ver FailedPasswordResetLinkRequestResponse.
+            // El correo al que salió el enlace (con una parte oculta) o por qué
+            // no salió: ver Auth\PasswordResetLinkController.
+            'enviadoA' => $request->session()->get('recuperarEnviado'),
             'aviso' => $request->session()->get('recuperarAviso'),
             'esperaReenvio' => (int) $broker()['throttle'],
             'vigenciaMinutos' => (int) $broker()['expire'],

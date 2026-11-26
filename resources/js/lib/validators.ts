@@ -81,6 +81,25 @@ export function formatRut(rut: string): string {
 }
 
 /**
+ * El RUT como se escribe al entrar (login y recuperar contraseña): sólo
+ * números y K, sin puntos, con el guion antes del dígito verificador.
+ * Pensado para reescribir la casilla mientras se tipea.
+ *
+ * @example
+ * rutDeIngreso("12.345.678k"); // "12345678-K"
+ */
+export function rutDeIngreso(valor: string): string {
+    const limpio = valor.replace(/[^0-9kK]/g, '').slice(0, 9);
+    if (limpio.length < 2) return limpio;
+    return `${limpio.slice(0, -1)}-${limpio.slice(-1).toUpperCase()}`;
+}
+
+/** ¿El RUT escrito con {@link rutDeIngreso} está completo? (7 u 8 dígitos y el verificador). */
+export function rutDeIngresoCompleto(valor: string): boolean {
+    return /^\d{7,8}-[0-9K]$/.test(valor);
+}
+
+/**
  * Cleans a RUT string by removing formatting characters
  * 
  * @param rut - RUT string with or without formatting
