@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
+use App\Notifications\RestablecerContrasena;
 use App\Enums\PermissionTypeEnum;
 use App\Traits\AssignsPermissions;
 
@@ -119,6 +120,16 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     public function routeNotificationForMail($notification = null): ?string
     {
         return $this->email;
+    }
+
+    /**
+     * El enlace para restablecer la contraseña sale con el correo propio, en
+     * español y con el diseño de las pantallas de contraseña, en vez del de
+     * Laravel.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new RestablecerContrasena($token));
     }
 
     /**
