@@ -3,7 +3,8 @@
 /**
  * Subir un archivo a la Biblioteca del curso: sólo quien puede agregarle
  * recursos (el titular, o quien tenga delegada la sección VIII). El alumno
- * inscrito ve la Biblioteca y abre sus archivos, pero no sube nada.
+ * inscrito ve la Biblioteca y abre sus archivos, pero no sube nada; un alumno
+ * de otro curso no los abre.
  */
 
 use App\Models\Curso\Bibliografia;
@@ -87,10 +88,10 @@ test('un alumno inscrito no sube archivos a la Biblioteca', function () {
         ->and(Storage::disk($this->disco)->allFiles())->toBeEmpty();
 });
 
-test('el titular sube el archivo y el alumno inscrito lo abre y lo descarga', function () {
-    $f = cursoConProgramaTitularYAlumno() ?? $this->markTestSkipped('No hay un curso con programa y alumnos inscritos.');
-
-    $uuid = $this->actingAs($f['titular'])
+/** El titular sube «lectura.pdf» y lo deja en la Biblioteca del programa; devuelve su uuid. */
+function lecturaEnLaBiblioteca($test, array $f): string
+{
+    $uuid = $test->actingAs($f['titular'])
         ->postJson('/api/bibliografias/archivo', [
             'archivo'     => pdfDeBiblioteca('lectura.pdf'),
             'id_curso'    => $f['curso']->id_curso,
@@ -109,6 +110,14 @@ test('el titular sube el archivo y el alumno inscrito lo abre y lo descarga', fu
         'agregado_por'        => $f['titular']->id_usuario,
     ]);
 
+    return $uuid;
+}
+
+test('el titular sube el archivo y el alumno inscrito lo abre y lo descarga', function () {
+    $f = cursoConProgramaTitularYAlumno() ?? $this->markTestSkipped('No hay un curso con programa y alumnos inscritos.');
+
+    $uuid = lecturaEnLaBiblioteca($this, $f);
+
     $this->actingAs($f['alumno'])
         ->get("/api/bibliografias/{$uuid}/archivo")
         ->assertOk()
@@ -118,4 +127,25 @@ test('el titular sube el archivo y el alumno inscrito lo abre y lo descarga', fu
         ->get("/api/bibliografias/{$uuid}/descarga")
         ->assertOk()
         ->assertDownload('lectura.pdf');
+});
+
+test('un alumno que no está inscrito en el curso no abre ni descarga sus archivos', function () {
+    $f = cursoConProgramaTitularYAlumno() ?? $this->markTestSkipped('No hay un curso con programa y alumnos inscritos.');
+
+    $idAjeno = DB::table('usuario.estudiante as e')
+        ->whereNotExists(fn ($q) => $q->from('curso.inscripcion_curso as ic')
+            ->whereColumn('ic.id_estudiante', 'e.id_estudiante')
+            ->where('ic.id_curso', $f['curso']->id_curso)
+            ->where('ic.estado_inscripcion', 'INSCRITO'))
+        ->whereNotExists(fn ($q) => $q->from('usuario.docente as d')->whereColumn('d.id_usuario', 'e.id_usuario'))
+        ->value('e.id_usuario')
+        ?? $this->markTestSkipped('No hay un alumno fuera de ese curso.');
+
+    $ajeno = Usuario::findOrFail($idAjeno);
+    $ajeno->forceFill(['fecha_cambio_passhash' => now()])->save();
+
+    $uuid = lecturaEnLaBiblioteca($this, $f);
+
+    $this->actingAs($ajeno)->get("/api/bibliografias/{$uuid}/archivo")->assertForbidden();
+    $this->actingAs($ajeno)->get("/api/bibliografias/{$uuid}/descarga")->assertForbidden();
 });
