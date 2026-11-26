@@ -73,6 +73,36 @@ class CursoPolicy extends BaseCursoPolicy
     }
 
     /**
+     * Abrir y descargar los archivos subidos a la Biblioteca del curso.
+     *
+     * Los abre el alumno inscrito en el curso, con la misma regla que le abre
+     * la ficha del curso (Student\CourseController::show), y quien ve el
+     * programa: el equipo docente y la administración. Subirlos o cambiarlos
+     * sigue siendo editarBibliografia.
+     *
+     * A quien es sólo alumno lo decide su inscripción, sin pasar por
+     * viewPrograma: su rol «Estudiante» puede estar en el contexto global con
+     * `cursos:ver`, y eso le abriría los archivos de todos los cursos.
+     */
+    public function verArchivosBiblioteca(Usuario $user, Curso $curso): bool
+    {
+        $inscrito = (bool) $user->estudiante?->inscripcionCursos()
+            ->where('id_curso', $curso->id_curso)
+            ->where('estado_inscripcion', 'INSCRITO')
+            ->exists();
+
+        if ($inscrito) {
+            return true;
+        }
+
+        if ($user->estudiante !== null && $user->docente === null) {
+            return false;
+        }
+
+        return $this->viewPrograma($user, $curso);
+    }
+
+    /**
      * Determina si el usuario puede acceder a la vista y recursos de lectura del curso.
      *
      * Valida permisos efectivos sobre el curso (`CURSOS_VER`, `CURSOS_PROGRAMAS_VER_TODOS`,

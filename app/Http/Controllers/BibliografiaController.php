@@ -149,7 +149,7 @@ class BibliografiaController extends Controller
         }
 
         if ($bibliografia->programa?->curso) {
-            $this->authorize('viewPrograma', $bibliografia->programa->curso);
+            $this->authorize('verArchivosBiblioteca', $bibliografia->programa->curso);
         }
 
         $archivo = $bibliografia->archivo;
@@ -183,7 +183,7 @@ class BibliografiaController extends Controller
         }
 
         if ($bibliografia->programa?->curso) {
-            $this->authorize('viewPrograma', $bibliografia->programa->curso);
+            $this->authorize('verArchivosBiblioteca', $bibliografia->programa->curso);
         }
 
         $archivo = $bibliografia->archivo;
