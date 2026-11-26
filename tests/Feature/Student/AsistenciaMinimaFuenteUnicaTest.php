@@ -55,6 +55,42 @@ test('sin valor en el componente, el mínimo es 70 %', function () {
     expect(Componente::ASISTENCIA_MINIMA_POR_DEFECTO)->toBe(70.0);
 });
 
+test('con 0 el componente no exige asistencia: llega 0, no un valor por defecto', function () {
+    $row = componenteConAlumno();
+    if (!$row) {
+        $this->markTestSkipped('No hay alumnos inscritos en componentes.');
+    }
+
+    Componente::whereKey($row->id_componente)->update(['porcentaje_asistencia_obligatoria' => 0]);
+    $curso = Curso::findOrFail($row->id_curso);
+
+    // El programa del alumno dice lo mismo que el componente, aunque la tabla del syllabus diga 75.
+    $secciones = [['numeral_romano' => 'IX', 'componentes' => [['componente' => $row->tipo, 'asistencia_obligatoria' => 75]]]];
+    $programa = StudentSyllabusPresenter::conAsistenciaDelCurso($curso, $secciones);
+
+    expect($programa[0]['componentes'][0]['asistencia_obligatoria'])->toBe(0.0);
+
+    // Y el resumen de notas (necesita curso.clase, que una BD atrasada no tiene).
+    if (DB::selectOne("SELECT to_regclass('curso.clase') AS t")->t === null) {
+        return;
+    }
+    $fila = collect(app(RendimientoCursoEstudiante::class)->calcular($curso, Estudiante::findOrFail($row->id_estudiante))['componentes'])
+        ->firstWhere('id_componente', $row->id_componente);
+
+    expect($fila['asistencia_minima'])->toBe(0.0);
+});
+
+test('el PDF del programa dice «No» si el componente no exige asistencia', function () {
+    $fila = fn ($asistencia) => preg_replace('/\s+/', ' ', strip_tags(view('pdf.programa.componentes', ['seccion' => ['componentes' => [
+        ['componente' => 'Cátedra', 'porcentaje' => 40, 'genera_acta' => true, 'aprobacion_obligatoria' => true, 'asistencia_obligatoria' => $asistencia],
+    ]]])->render()));
+
+    expect($fila(0.0))->toContain('Sí Sí No')
+        ->not->toContain(' 0%')
+        ->and($fila(70.0))->toContain('Sí Sí 70%')
+        ->and($fila(null))->toContain('Sí Sí —');
+});
+
 test('el programa del alumno muestra la asistencia del componente, no la que quedó escrita en el syllabus', function () {
     $row = componenteConAlumno();
     if (!$row) {

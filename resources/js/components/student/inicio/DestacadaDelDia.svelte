@@ -11,6 +11,7 @@
   import { fade } from 'svelte/transition';
   import { MediaQuery } from 'svelte/reactivity';
   import { CalendarClock, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import TipoActividad from '@/components/student/dm/TipoActividad.svelte';
   import { btnPrimario, enlace, etiqueta, pildora, tono } from '@/lib/dm';
   import { plazoDe, type ActividadPorVencer } from '@/lib/plazoAlumno';
 
@@ -93,7 +94,7 @@
           >
             {@render curso(a)}
             <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
-            <span class="text-[13px] leading-[18px] text-dm-ink-2">{a.es_sumativa ? 'Sumativa' : 'Formativa'}</span>
+            <TipoActividad esSumativa={a.es_sumativa} esGrupal={a.es_grupal} />
           </Link>
         </li>
       {/each}
@@ -104,10 +105,9 @@
         {@render curso(actual)}
         <span class="text-lg leading-6 font-semibold">{actual.nombre}</span>
         <span class="{pildora} {plazo.urgente ? tono.warn : tono.neutro} self-start">
-          <CalendarClock size={14} aria-hidden="true" />{actual.es_sumativa ? 'Sumativa' : 'Formativa'} · {plazo.texto
-            .charAt(0)
-            .toLowerCase()}{plazo.texto.slice(1)}
+          <CalendarClock size={14} aria-hidden="true" />{plazo.texto}
         </span>
+        <TipoActividad esSumativa={actual.es_sumativa} esGrupal={actual.es_grupal} />
         <Link href={hrefDe(actual)} class="{btnPrimario} mt-1 w-full">
           Ir a la actividad <ChevronRight size={16} aria-hidden="true" />
         </Link>

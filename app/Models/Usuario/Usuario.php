@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
+use App\Notifications\RestablecerContrasena;
 use App\Enums\PermissionTypeEnum;
 use App\Traits\AssignsPermissions;
 
@@ -122,6 +123,16 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * El enlace para restablecer la contraseña sale con el correo propio, en
+     * español y con el diseño de las pantallas de contraseña, en vez del de
+     * Laravel.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new RestablecerContrasena($token));
+    }
+
+    /**
      * Guarda una contraseña nueva elegida por el propio usuario y deja
      * constancia de cuándo lo hizo.
      *
@@ -188,6 +199,24 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
         return Attribute::make(
             set: fn(int|string|null $valor) => Rut::normalizar($valor),
         );
+    }
+
+    /**
+     * La cuenta de un RUT, venga escrito como venga (con puntos, sin guion, con
+     * la k en minúscula). Compara sólo dígitos y K para encontrar también los
+     * RUT guardados antes con otro formato. La usan el login y el pedido del
+     * enlace para restablecer la contraseña, que deben encontrar a la misma
+     * persona.
+     */
+    public static function porRut(int|string|null $rut): ?self
+    {
+        $digitos = Rut::soloDigitos($rut);
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        return static::whereRaw("UPPER(REPLACE(REPLACE(rut, '.', ''), '-', '')) = ?", [$digitos])->first();
     }
 
     /**

@@ -103,6 +103,30 @@
     --color-dm-c8-s: #fee0e9;
     --color-dm-c8-t: #b0003a;
     --color-dm-c8-m: #ff6f96;
+
+    /* Entradas de las pantallas de contraseña: animate-dm-aparece,
+       animate-dm-pop. Quien las usa agrega motion-reduce:animate-none. */
+    --animate-dm-aparece: dm-aparece 0.45s ease-out both;
+    --animate-dm-pop: dm-pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+
+    @keyframes dm-aparece {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+    }
+
+    @keyframes dm-pop {
+        0% {
+            transform: scale(0);
+        }
+        70% {
+            transform: scale(1.15);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
 }
 
 @layer base {
@@ -197,6 +221,19 @@
        su retícula sigue blanca. */
     .vista-ingreso {
         --color-dm-reticula: rgb(255 255 255 / 0.09);
+    }
+
+    /* Tinta un poco menos negra, a pedido del usuario. Por ahora sólo en las
+       pantallas de contraseña (recuperar, restablecer, cambio obligatorio);
+       el login, la portada y el alumno siguen con la de la guía. */
+    .tinta-suave {
+        --color-dm-ink: #2f3363;
+    }
+
+    @media screen {
+        .dark .tinta-suave {
+            --color-dm-ink: #e4ddcf;
+        }
     }
 
     /* Foco por teclado con el color de enlace (azul en claro, lavanda en

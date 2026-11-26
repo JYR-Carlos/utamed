@@ -1,18 +1,15 @@
 <script lang="ts">
   import Toast from '@/components/admin/Toast.svelte';
   import { router } from '@inertiajs/svelte'
-  import { Bug, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
+  import { Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
   import { cn } from '@/lib/utils';
 
   interface Props {
     /** Clases para el botón disparador; pisan los colores por defecto (p. ej. la barra noche del alumno). */
     class?: string;
-    /** Rótulo del botón: el docente lo ve como «Sugerencias»; los demás, «Reportar error». */
-    etiqueta?: string;
   }
 
-  let { class: claseBoton = '', etiqueta = 'Reportar error' }: Props = $props();
-  const esSugerencia = $derived(etiqueta === 'Sugerencias');
+  let { class: claseBoton = '' }: Props = $props();
 
   let isOpen = $state(false);
   let isUploading = $state(false);
@@ -106,18 +103,13 @@
       onSuccess: () => {
         resetForm();
         isOpen = false;
-        toast = {
-          type: 'success',
-          message: esSugerencia
-            ? 'Recibimos tu sugerencia. Gracias por ayudarnos a mejorar.'
-            : 'Recibimos tu reporte. Gracias por avisarnos.',
-        };
+        toast = { type: 'success', message: 'Recibimos tu sugerencia. Gracias por ayudarnos a mejorar.' };
       },
       onError: (errors) => {
         const firstErrorMessage = Object.values(errors)[0] as string;
         toast = {
           type: 'error',
-          message: firstErrorMessage || 'Error al validar el reporte.',
+          message: firstErrorMessage || 'No se pudo enviar la sugerencia.',
         };
       },
       onFinish: () => {
@@ -138,17 +130,13 @@
     'group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-slate-200',
     claseBoton,
   )}
-  title={etiqueta}
-  aria-label={etiqueta}
+  title="Sugerencias"
+  aria-label="Sugerencias"
 >
-  {#if esSugerencia}
-    <MessageCircleWarning size={16} class="shrink-0" />
-  {:else}
-    <Bug size={16} class="shrink-0" />
-  {/if}
+  <MessageCircleWarning size={16} class="shrink-0" />
 
   <!-- En móvil sólo el ícono: con el rótulo la ruta de navegación casi desaparece. -->
-  <span class="hidden whitespace-nowrap sm:inline">{etiqueta}</span>
+  <span class="hidden whitespace-nowrap sm:inline">Sugerencias</span>
 </button>
 
 
@@ -160,23 +148,23 @@
   />
 {/if}
 
-<!-- Modal de reporte -->
+<!-- Ventana «Enviar una sugerencia» -->
 {#if isOpen}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="bug-modal-title"
+      aria-labelledby="t-sugerencia"
       class="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white text-slate-900 shadow-2xl"
     >
       <header class="flex items-start justify-between border-b border-slate-100 px-6 py-4">
         <div class="flex items-center gap-3">
           <div class="flex size-9 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-            <Bug size={18} />
+            <MessageCircleWarning size={18} />
           </div>
           <div>
-            <h2 id="bug-modal-title" class="text-base font-semibold text-slate-900">{esSugerencia ? 'Enviar una sugerencia' : 'Reportar un problema'}</h2>
-            <p class="text-xs text-slate-500">{esSugerencia ? 'Cuéntanos qué mejorarías o qué falló en la plataforma' : 'Notifica un error o fallo en la plataforma'}</p>
+            <h2 id="t-sugerencia" class="text-base font-semibold text-slate-900">Enviar una sugerencia</h2>
+            <p class="text-xs text-slate-500">Cuéntanos qué mejorarías o qué falló en la plataforma</p>
           </div>
         </div>
 
@@ -195,34 +183,34 @@
         <div class="space-y-4 overflow-y-auto px-6 py-4 text-left">
           <p class="text-sm leading-relaxed text-slate-700">
             Gracias por ayudarnos a mejorar <span class="font-semibold">UTAmed</span>. El equipo de desarrollo
-            lee cada {esSugerencia ? 'mensaje' : 'reporte'} y lo usa para corregir la plataforma.
+            lee cada sugerencia y la usa para mejorar la plataforma.
           </p>
           <div>
-            <label for="bug-title" class="mb-1 block text-xs font-semibold text-slate-700">
+            <label for="sugerencia-titulo" class="mb-1 block text-xs font-semibold text-slate-700">
               Título <span class="text-red-500">*</span>
             </label>
             <input
-              id="bug-title"
+              id="sugerencia-titulo"
               type="text"
               bind:value={formData.title}
               maxlength="120"
               required
-              placeholder="Ej. Error al guardar asistencia"
+              placeholder="Ej. Ver todas mis fechas en una sola lista"
               class="{campoBase} text-sm"
             />
           </div>
 
           <div>
-            <label for="bug-description" class="mb-1 block text-xs font-semibold text-slate-700">
+            <label for="sugerencia-descripcion" class="mb-1 block text-xs font-semibold text-slate-700">
               Descripción <span class="text-red-500">*</span>
             </label>
             <textarea
-              id="bug-description"
+              id="sugerencia-descripcion"
               bind:value={formData.description}
               required
               rows="3"
               maxlength="2000"
-              placeholder="¿En qué página estabas, qué hiciste y qué pasó?"
+              placeholder="¿En qué página estabas y qué mejorarías? Si algo falló, ¿qué hiciste y qué pasó?"
               class="{campoBase} resize-y text-sm"
             ></textarea>
           </div>
@@ -268,7 +256,7 @@
           </div>
 
           <p class="text-xs leading-relaxed text-slate-500">
-            Envía sólo problemas reales: un reporte falso o con contenido inapropiado puede recibir una advertencia.
+            Envía sólo sugerencias reales: un mensaje falso o con contenido inapropiado puede recibir una advertencia.
           </p>
         </div>
 
@@ -291,7 +279,7 @@
               <Loader2 size={14} class="animate-spin" />
               <span>Enviando…</span>
             {:else}
-              <span>{esSugerencia ? 'Enviar sugerencia' : 'Enviar reporte'}</span>
+              <span>Enviar sugerencia</span>
             {/if}
           </button>
         </footer>

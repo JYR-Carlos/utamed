@@ -2,14 +2,14 @@
   /**
    * «Mi perfil» del alumno (guía dm). Los datos institucionales (nombre, RUT,
    * correo, carrera…) vienen de la Intranet y son de sólo lectura; lo único
-   * que se edita aquí es el contacto personal (T10). La foto también viene de
-   * la Intranet y se cambia allá.
+   * que se edita aquí es el contacto personal (T10). La foto es la de la
+   * credencial: también viene de la Intranet y aquí no se cambia.
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import Reticula from '@/components/student/dm/Reticula.svelte';
   import FotoPerfil from '@/components/student/dm/FotoPerfil.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { Check, ChevronRight, CircleAlert, CircleCheck, Copy, ExternalLink, Info, KeyRound, Lock, UserRound } from 'lucide-svelte';
+  import { Check, ChevronRight, CircleAlert, CircleCheck, Copy, Info, KeyRound, Lock } from 'lucide-svelte';
   import { Link, useForm } from '@inertiajs/svelte';
   import { btnPrimario, campo, etiqueta, tarjeta, tituloCond } from '@/lib/dm';
   import { titleCase } from '@/lib/utils';
@@ -164,26 +164,16 @@
       </div>
     </section>
 
-    <div class="flex flex-col gap-4 px-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6 lg:px-0">
+    <div class="flex flex-col gap-4 px-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-6 lg:px-0">
       <section aria-labelledby="t-cuenta" class="{tarjeta} overflow-hidden lg:col-start-2 lg:row-start-1">
         <h2 id="t-cuenta" class="border-b border-dm-linea px-4 py-3.5 text-base leading-[22px] font-bold lg:px-5 lg:py-4">Cuenta</h2>
-        <Link href="/settings/password" class="{filaCuenta} border-b border-dm-linea">
+        <Link href="/settings/password" class={filaCuenta}>
           <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-accion-suave text-dm-accion-texto">
             <KeyRound size={18} aria-hidden="true" />
           </span>
           <span class="min-w-0 flex-1 text-[15px] leading-5 font-semibold text-dm-enlace">Cambiar contraseña</span>
           <ChevronRight size={18} aria-hidden="true" class="shrink-0 text-dm-ink-3" />
         </Link>
-        <!-- La foto es la de credencial: se cambia en la Intranet. -->
-        <a href="https://portal.uta.cl/" target="_blank" rel="noopener noreferrer" class={filaCuenta}>
-          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-accion-suave text-dm-accion-texto">
-            <UserRound size={18} aria-hidden="true" />
-          </span>
-          <span class="min-w-0 flex-1 text-[15px] leading-5 font-semibold text-dm-enlace">
-            Cambiar foto de perfil<span class="sr-only">{' '}(en la Intranet; se abre en otra pestaña)</span>
-          </span>
-          <ExternalLink size={18} aria-hidden="true" class="shrink-0 text-dm-ink-3" />
-        </a>
       </section>
 
       <section aria-labelledby="t-contacto" class="{tarjeta} flex min-w-0 flex-col lg:col-start-1 lg:row-span-2 lg:row-start-1">

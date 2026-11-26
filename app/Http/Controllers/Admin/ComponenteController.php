@@ -10,15 +10,12 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\TipoComponente;
-use App\Models\Usuario\UsuarioRolAsignacion;
-use App\Models\Usuario\Rol;
 use App\Models\Usuario\Docente;
 use App\Services\CursoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 /**
  * Controlador para la gestión de componentes de un curso.
@@ -158,7 +155,7 @@ class ComponenteController extends Controller
                     'aprobacion_obligatoria'            => false,
                     'porcentaje_asistencia_obligatoria' => Componente::ASISTENCIA_MINIMA_POR_DEFECTO,
                     // id_contexto es asignado automáticamente por trigger tr_componente_pre_insert
-                ]);
+                ])->refresh();
 
                 // Asignar docente a través de la tabla pivot docente_componente
                 // El primero asignado es siempre es_titular = true
@@ -170,7 +167,13 @@ class ComponenteController extends Controller
                     ]);
 
                     if ($curso->id_contexto) {
-                        $this->assignDocenteRolCurso($validated['id_docente'], $curso->id_contexto, true, $curso->id_docente_titular);
+                        $this->assignDocenteRolCurso(
+                            $validated['id_docente'],
+                            $curso->id_contexto,
+                            true,
+                            $curso->id_docente_titular,
+                            $componente->id_contexto,
+                        );
                     }
                 }
 
@@ -221,21 +224,38 @@ class ComponenteController extends Controller
 
             // Actualizar asignación de docente si viene en el request
             if (array_key_exists('id_docente', $validated)) {
+                $docentesPrevios = $componente->docenteComponentes()->pluck('id_docente')->all();
                 $componente->docenteComponentes()->delete();
 
-                if (!empty($validated['id_docente'])) {
+                $nuevoDocenteId = !empty($validated['id_docente']) ? (int) $validated['id_docente'] : null;
+
+                if ($componente->id_contexto) {
+                    foreach ($docentesPrevios as $idPrevio) {
+                        if ($nuevoDocenteId === null || (int) $idPrevio !== $nuevoDocenteId) {
+                            app(CursoService::class)->revocarRolesComponenteUsuario(
+                                (int) $idPrevio,
+                                (int) $componente->id_contexto,
+                                $cursoContextoId ? (int) $cursoContextoId : null,
+                                $componente->id_curso,
+                            );
+                        }
+                    }
+                }
+
+                if ($nuevoDocenteId !== null) {
                     DocenteComponente::create([
                         'id_componente' => $componente->id_componente,
-                        'id_docente'    => $validated['id_docente'],
+                        'id_docente'    => $nuevoDocenteId,
                         'es_titular'    => true,
                     ]);
 
                     if ($cursoContextoId) {
                         $this->assignDocenteRolCurso(
-                            $validated['id_docente'],
+                            $nuevoDocenteId,
                             $cursoContextoId,
                             true,
                             $componente->curso?->id_docente_titular,
+                            $componente->id_contexto,
                         );
                     }
                 }
@@ -284,13 +304,13 @@ class ComponenteController extends Controller
         }
 
         try {
-            // Capturar los docentes ANTES de borrar: si este era su único componente
-            // en el curso, hay que revocarles el rol de curso (igual que removeDocente()).
+            // Capturar los docentes y contextos ANTES de borrar el componente
             $idsDocentes = $componente->docenteComponentes()->pluck('id_docente');
             $componente->load('curso');
-            $idContexto = $componente->curso?->id_contexto;
+            $idContextoCurso = $componente->curso?->id_contexto;
+            $idContextoComponente = $componente->id_contexto;
 
-            DB::transaction(function () use ($componente, $curso, $idsDocentes, $idContexto) {
+            DB::transaction(function () use ($componente, $curso, $idsDocentes, $idContextoCurso, $idContextoComponente) {
                 // Sin historia, lo que queda colgando son asignaciones: los docentes del
                 // componente y las inscripciones que el trigger creó al inscribir al curso.
                 $componente->docenteComponentes()->delete();
@@ -298,15 +318,14 @@ class ComponenteController extends Controller
                 $componente->delete();
                 $curso->recalcularColegiado();
 
-                if ($idContexto) {
+                if ($idContextoComponente) {
                     foreach ($idsDocentes as $idDocente) {
-                        $tieneOtrosComponentes = DocenteComponente::where('id_docente', $idDocente)
-                            ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
-                            ->exists();
-
-                        if (!$tieneOtrosComponentes) {
-                            $this->revokeDocenteRolCurso($idDocente, $idContexto);
-                        }
+                        app(CursoService::class)->revocarRolesComponenteUsuario(
+                            (int) $idDocente,
+                            (int) $idContextoComponente,
+                            $idContextoCurso ? (int) $idContextoCurso : null,
+                            $curso->id_curso,
+                        );
                     }
                 }
             });
@@ -356,6 +375,7 @@ class ComponenteController extends Controller
                 $componente->curso->id_contexto,
                 $esTitular,
                 $componente->curso->id_docente_titular,
+                $componente->id_contexto,
             );
         }
 
@@ -404,10 +424,16 @@ class ComponenteController extends Controller
             if ($next) {
                 $next->update(['es_titular' => true]);
 
-                // Promover rol del nuevo titular
+                // Promover rol del nuevo titular en el contexto del componente
                 $componente->load('curso');
                 if ($componente->curso?->id_contexto) {
-                    $this->assignDocenteRolCurso($next->id_docente, $componente->curso->id_contexto, true);
+                    $this->assignDocenteRolCurso(
+                        $next->id_docente,
+                        $componente->curso->id_contexto,
+                        true,
+                        $componente->curso->id_docente_titular,
+                        $componente->id_contexto,
+                    );
                 }
             }
         }
@@ -415,16 +441,15 @@ class ComponenteController extends Controller
         $docenteComponente->delete();
         $curso->recalcularColegiado();
 
-        // Revocar rol del docente eliminado si ya no tiene ningún componente en el curso
+        // Revocar rol de este componente al docente eliminado (y limpiar legado en curso si corresponde)
         $componente->load('curso');
-        if ($componente->curso?->id_contexto) {
-            $tieneOtrosComponentes = DocenteComponente::where('id_docente', $idDocenteRemovido)
-                ->whereHas('componente', fn ($q) => $q->where('id_curso', $componente->id_curso))
-                ->exists();
-
-            if (!$tieneOtrosComponentes) {
-                $this->revokeDocenteRolCurso($idDocenteRemovido, $componente->curso->id_contexto);
-            }
+        if ($componente->id_contexto) {
+            app(CursoService::class)->revocarRolesComponenteUsuario(
+                (int) $idDocenteRemovido,
+                (int) $componente->id_contexto,
+                $componente->curso?->id_contexto ? (int) $componente->curso->id_contexto : null,
+                $componente->id_curso,
+            );
         }
 
         return response()->json(['message' => 'Docente eliminado del componente.']);
@@ -470,22 +495,29 @@ class ComponenteController extends Controller
         // Asignar al nuevo titular
         $dc->update(['es_titular' => true]);
 
-        // Sincronizar roles en el contexto del curso
+        // Sincronizar roles en el contexto del componente (y curso para DT)
         $componente->load(['curso', 'docenteComponentes']);
-        $idContextoCurso = $componente->curso?->id_contexto;
-        $idCurso         = $componente->id_curso;
-        $idDtCurso       = $componente->curso?->id_docente_titular;
+        $idContextoCurso      = $componente->curso?->id_contexto;
+        $idContextoComponente = $componente->id_contexto;
+        $idDtCurso            = $componente->curso?->id_docente_titular;
 
         if ($idContextoCurso) {
             // Promover al nuevo titular del componente
-            $this->assignDocenteRolCurso($dc->id_docente, $idContextoCurso, true, $idDtCurso);
+            $this->assignDocenteRolCurso($dc->id_docente, $idContextoCurso, true, $idDtCurso, $idContextoComponente);
 
-            // Degradar a los demás docentes del componente que ya no son titulares
-            foreach ($componente->docenteComponentes as $otherDc) {
-                if ($otherDc->id_docente_componente === $dc->id_docente_componente) {
-                    continue;
+            // Degradar a los demás docentes de este componente que ya no son titulares aquí
+            if ($idContextoComponente) {
+                foreach ($componente->docenteComponentes as $otherDc) {
+                    if ($otherDc->id_docente_componente === $dc->id_docente_componente) {
+                        continue;
+                    }
+                    app(CursoService::class)->degradarRolEnComponente(
+                        $otherDc->id_docente,
+                        $idContextoCurso,
+                        (int) $idContextoComponente,
+                        $idDtCurso,
+                    );
                 }
-                $this->downgradeDocenteRolToComponente($otherDc->id_docente, $idContextoCurso, $idCurso, $idDtCurso);
             }
         }
 
@@ -577,121 +609,14 @@ class ComponenteController extends Controller
         int $idContextoCurso,
         bool $esTitularComponente,
         ?int $idDocenteTitularCurso = null,
+        ?int $idContextoComponente = null,
     ): void {
         app(CursoService::class)->asignarRolDocenteComponente(
             $idDocente,
             $idContextoCurso,
             $esTitularComponente,
             $idDocenteTitularCurso,
+            $idContextoComponente,
         );
-    }
-
-    /**
-     * Degrada el rol de un docente al nivel correcto tras perder la titularidad del componente.
-     *
-     * Determina el nuevo rol buscando si el docente aún es titular de algún componente en el curso:
-     *   - Sí, es titular de otro componente → 'Docente Componente'
-     *   - No es titular en ninguno           → 'Docente Componente Colegiado'
-     * En cualquier caso se preserva 'Docente Titular' si corresponde al DT del curso.
-     *
-     * @param  int       $idDocente           ID del docente
-     * @param  int       $idContextoCurso     ID del contexto del curso
-     * @param  int       $idCurso             ID del curso
-     * @param  int|null  $idDocenteTitularCurso  id_docente del DT del curso
-     * @return void
-     */
-    private function downgradeDocenteRolToComponente(
-        int $idDocente,
-        int $idContextoCurso,
-        int $idCurso,
-        ?int $idDocenteTitularCurso = null,
-    ): void {
-        // El DT del curso nunca se degrada desde aquí
-        if ($idDocenteTitularCurso !== null && $idDocente === $idDocenteTitularCurso) {
-            return;
-        }
-
-        // Determinar si sigue siendo titular en algún otro componente del mismo curso
-        $isTitularElsewhere = DocenteComponente::where('id_docente', $idDocente)
-            ->where('es_titular', true)
-            ->whereHas('componente', fn ($q) => $q->where('id_curso', $idCurso))
-            ->exists();
-
-        // Si es titular en otro componente, conserva 'Docente Componente'; si no, 'Docente Componente Colegiado'
-        $nuevoEsTitular = $isTitularElsewhere;
-
-        try {
-            $docente = Docente::find($idDocente);
-            if (!$docente || !$docente->id_usuario) {
-                return;
-            }
-
-            // Revocar todos los roles de docente en el contexto antes de reasignar
-            $actorId   = Auth::id() ?? $docente->id_usuario;
-            $rolesNames = ['Docente Titular', 'Docente Componente', 'Docente Componente Colegiado'];
-            $rolesIds   = Rol::whereIn('nombre', $rolesNames)->pluck('id_rol');
-
-            UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-                ->where('id_contexto', $idContextoCurso)
-                ->whereIn('id_rol', $rolesIds)
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false)
-                ->update([
-                    'esta_activo'    => false,
-                    'fue_eliminado'  => true,
-                    'fecha_fin_real' => Carbon::now(),
-                    'eliminado_por'  => $actorId,
-                ]);
-
-            $this->assignDocenteRolCurso($idDocente, $idContextoCurso, $nuevoEsTitular, $idDocenteTitularCurso);
-        } catch (\Exception $e) {
-            Log::error('Error degradando rol Docente: ' . $e->getMessage(), [
-                'id_docente' => $idDocente,
-            ]);
-        }
-    }
-
-    /**
-     * Revoca todos los roles de docente de un usuario en el contexto del curso.
-     * Se llama cuando el docente ya no tiene ningún componente asignado en el curso.
-     *
-     * @param  int  $idDocente        ID del docente
-     * @param  int  $idContextoCurso  ID del contexto del curso
-     * @return void
-     */
-    private function revokeDocenteRolCurso(int $idDocente, int $idContextoCurso): void
-    {
-        try {
-            $docente = Docente::find($idDocente);
-            if (!$docente || !$docente->id_usuario) {
-                return;
-            }
-
-            $actorId = Auth::id() ?? $docente->id_usuario;
-
-            $rolesDocente = Rol::whereIn('nombre', ['Docente', 'Docente Titular', 'Docente Componente', 'Docente Componente Colegiado'])
-                ->pluck('id_rol');
-
-            UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-                ->where('id_contexto', $idContextoCurso)
-                ->whereIn('id_rol', $rolesDocente)
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false)
-                ->update([
-                    'esta_activo'    => false,
-                    'fue_eliminado'  => true,
-                    'fecha_fin_real' => Carbon::now(),
-                    'eliminado_por'  => $actorId,
-                ]);
-
-            Log::info('Roles de docente revocados en curso', [
-                'id_usuario'        => $docente->id_usuario,
-                'id_contexto_curso' => $idContextoCurso,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error revocando rol Docente en curso: ' . $e->getMessage(), [
-                'id_docente' => $idDocente,
-            ]);
-        }
     }
 }

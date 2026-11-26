@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Administrativo\ProgramaController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\BibliografiaController;
 use App\Http\Controllers\Docente\AsistenciaController;
 use App\Http\Controllers\Docente\CalendarioController;
@@ -51,6 +52,13 @@ Route::get('/', function () {
         ? redirect()->route('dashboard')
         : redirect()->route('login');
 })->name('home');
+
+// Recuperar la contraseña con el RUT: el enlace va al correo institucional
+// guardado. Reemplaza al POST /forgot-password de Fortify, que pedía el
+// correo; tiene el mismo camino y nombre, y gana porque se carga después.
+Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+    ->middleware('guest:'.config('fortify.guard'))
+    ->name('password.email');
 
 Route::post('reportes', [IssuesReportController::class, 'store']);
 
@@ -465,6 +473,8 @@ Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->
         ->name('cursos.delegacion-permisos.index');
     Route::post('cursos/{curso}/delegacion-permisos/toggle', [DelegacionPermisosController::class, 'toggle'])
         ->name('cursos.delegacion-permisos.toggle');
+    Route::post('cursos/{curso}/delegacion-permisos/batch', [DelegacionPermisosController::class, 'batch'])
+        ->name('cursos.delegacion-permisos.batch');
 
     // ── Cambio de titular del componente por el DT del curso (sin acceso admin)
     Route::put('cursos/{curso}/componentes/{componente}/titular', [ComponenteController::class, 'setTitularByDt'])
@@ -623,6 +633,9 @@ Route::prefix('estudiante')
         // Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
         Route::get('cursos/{curso}/actividad/{actividad}', [ActivityController::class, 'show'])
             ->name('cursos.actividades.show');
+        // La rúbrica en una ventana, desde la lista y el nombre de la actividad.
+        Route::get('cursos/{curso}/actividades/{actividad}/rubrica', [ActivityController::class, 'rubrica'])
+            ->name('cursos.actividades.rubrica');
         Route::get('cursos/{curso}/actividades/{actividad}/enunciado/descargar', [ActivityController::class, 'descargarEnunciado'])
             ->name('cursos.actividades.enunciado.descargar');
         Route::get('cursos/{curso}/actividades/{actividad}/entregas/{agenda}/descargar', [ActivityController::class, 'descargarEntrega'])

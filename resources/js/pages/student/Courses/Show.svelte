@@ -225,6 +225,8 @@
             {@render titulo('Actividades', resumenActividades, 't-actividades')}
             <ActividadesView
               {id_curso}
+              {nombreCurso}
+              estiloCurso={colorCurso}
               {filtro}
               {conComponente}
               filtered={actividadesFiltradas}
@@ -294,6 +296,7 @@
         )}
         <CursoCalendario
           idCurso={id_curso}
+          codigo={curso?.cod_asignatura || curso?.cod_curso || ''}
           {actividades}
           semestre={calendario_semestre}
           bind:alcance={alcanceCalendario}

@@ -47,20 +47,23 @@
    * Cada actividad se numera dentro de su curso por orden de plazo: la marca
    * del día dice «Act. 02», que cabe en la celda, donde el nombre se cortaba
    * en «Activida…» (OBS-24). En la vista del semestre el borde de la marca
-   * lleva el color del curso. El nombre completo y el curso van en el detalle
-   * del día y al pasar el mouse.
+   * lleva el color del curso. El nombre completo y el código del curso van en
+   * el detalle del día y en la leyenda que aparece al pasar el mouse
+   * (LeyendaActividad), también sobre las filas del detalle y de la agenda.
    *
    * - Escritorio: grilla del mes (o agenda) y, al lado, el detalle del día
    *   elegido y la leyenda. Las flechas mueven el foco entre días.
    * - Móvil: la grilla compacta con puntos, el detalle del día y, debajo, la
    *   agenda del mes.
    */
-  import { Link, page, router } from '@inertiajs/svelte';
+  import { inertia, page, router } from '@inertiajs/svelte';
   import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock } from 'lucide-svelte';
   import { tick } from 'svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
+  import LeyendaActividad from '@/components/student/dm/LeyendaActividad.svelte';
+  import TipoActividad from '@/components/student/dm/TipoActividad.svelte';
   import { fechaLimiteTexto } from '@/lib/actividadAlumno';
-  import { numeroColorCurso } from '@/lib/colorCurso';
+  import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import { btnSecundario, etiqueta, pildora, tarjeta } from '@/lib/dm';
   import { DIAS_SEMANA, MESES, buildMonthMatrix, formatLargo, sumarDias, todayKey } from '@/modules/resources/calendario';
   import type { SidebarCourse } from '@/types';
@@ -71,6 +74,8 @@
   interface Props {
     /** El curso de la ficha; en el calendario general no hay. */
     idCurso?: number;
+    /** Código de la asignatura de la ficha (DM301); en el semestre lo trae cada fecha. */
+    codigo?: string;
     actividades?: Actividad[];
     /** Prop diferida: llega al elegir «Todo el semestre». En el general, llega con la página. */
     semestre?: Actividad[] | null;
@@ -79,7 +84,7 @@
     general?: boolean;
   }
 
-  let { idCurso = 0, actividades = [], semestre = null, alcance = $bindable('curso'), general = false }: Props = $props();
+  let { idCurso = 0, codigo = '', actividades = [], semestre = null, alcance = $bindable('curso'), general = false }: Props = $props();
 
   const listaMenu = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) ?? []);
 
@@ -167,6 +172,20 @@
   const colorDe = (a: Actividad) => `var(--color-dm-c${numeroColorCurso(a.id_curso ?? idCurso, listaMenu)})`;
   const cursoDe = (a: Actividad) => a.asignatura || a.curso || '';
 
+  /** La leyenda al pasar el mouse: código y asignatura, nombre, número y plazo, estado y tipo. */
+  function leyendaDe(a: Actividad) {
+    const e = ESTILOS[estadoDe(a)];
+    return {
+      codigo: a.curso || codigo,
+      asignatura: esSemestre ? (a.asignatura ?? '') : '',
+      estilo: estiloCurso(numeroColorCurso(a.id_curso ?? idCurso, listaMenu)),
+      nombre: a.nombre,
+      detalle: [numeroDe(a), minuscula(fechaLimiteTexto(a.fecha_limite))].filter(Boolean).join(' · '),
+      estado: { etiqueta: etiquetaDe(a), clase: e.marca, icono: e.icono },
+      tipo: { esSumativa: a.es_sumativa, esGrupal: a.es_grupal },
+    };
+  }
+
   // «Act. 02»: posición dentro de su curso. Las actividades llegan ordenadas
   // por plazo (las sin plazo al final), así que el número no cambia entre la
   // vista del curso y la del semestre.
@@ -252,8 +271,12 @@
 {#snippet fila(a: Actividad)}
   {@const e = ESTILOS[estadoDe(a)]}
   {@const Icono = e.icono}
-  <Link
+  <LeyendaActividad {...leyendaDe(a)}>
+    {#snippet children(props)}
+  <a
+    {...props}
     href={`/estudiante/cursos/${a.id_curso ?? idCurso}/actividad/${a.id_actividad}`}
+    use:inertia
     class="flex flex-col gap-1.5 border-b border-dm-linea px-4 py-3.5 text-dm-ink no-underline last:border-b-0 hover:bg-dm-sutil xl:px-5"
   >
     {#if esSemestre && cursoDe(a)}
@@ -262,13 +285,12 @@
       </span>
     {/if}
     <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
-    <span class="text-[13px] leading-[18px] text-dm-ink-2">
-      {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
-        fechaLimiteTexto(a.fecha_limite),
-      )}
-    </span>
+    <span class="text-[13px] leading-[18px] text-dm-ink-2">{numeroDe(a)} · {minuscula(fechaLimiteTexto(a.fecha_limite))}</span>
+    <TipoActividad esSumativa={a.es_sumativa} esGrupal={a.es_grupal} />
     <span class="{pildora} {e.marca} self-start"><Icono size={14} aria-hidden="true" />{etiquetaDe(a)}</span>
-  </Link>
+  </a>
+    {/snippet}
+  </LeyendaActividad>
 {/snippet}
 
 <div class="flex flex-col gap-4">
@@ -430,14 +452,18 @@
                           {#each lista.slice(0, 2) as a (a.id_actividad)}
                             {@const e = ESTILOS[estadoDe(a)]}
                             {@const Icono = e.icono}
-                            <span
-                              class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-[13px] leading-4 font-semibold {e.marca}"
-                              style={esSemestre ? `border-left-color: ${colorDe(a)}` : undefined}
-                              title="{cursoDe(a) ? `${cursoDe(a)} · ` : ''}{a.nombre} · {etiquetaDe(a)}"
-                            >
-                              <Icono size={12} class="shrink-0" />
-                              <span class="truncate">{numeroDe(a)}</span>
-                            </span>
+                            <LeyendaActividad {...leyendaDe(a)} enfocable={false}>
+                              {#snippet children(props)}
+                                <span
+                                  {...props}
+                                  class="flex min-w-0 items-center gap-1 rounded-md border-l-3 px-1.5 py-0.5 text-[13px] leading-4 font-semibold {e.marca}"
+                                  style={esSemestre ? `border-left-color: ${colorDe(a)}` : undefined}
+                                >
+                                  <Icono size={12} class="shrink-0" />
+                                  <span class="truncate">{numeroDe(a)}</span>
+                                </span>
+                              {/snippet}
+                            </LeyendaActividad>
                           {/each}
                           {#if lista.length > 2}
                             <span class="px-1 text-[13px] font-bold text-dm-enlace">+{lista.length - 2} más</span>
@@ -480,8 +506,12 @@
                   {#each porDia[iso] as a (a.id_actividad)}
                     {@const e = ESTILOS[estadoDe(a)]}
                     <li>
-                      <Link
+                      <LeyendaActividad {...leyendaDe(a)}>
+                        {#snippet children(props)}
+                      <a
+                        {...props}
                         href={`/estudiante/cursos/${a.id_curso ?? idCurso}/actividad/${a.id_actividad}`}
+                        use:inertia
                         class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-dm-ink no-underline hover:underline"
                       >
                         <span class="flex min-w-0 flex-col gap-0.5">
@@ -492,14 +522,15 @@
                             </span>
                           {/if}
                           <span class="text-[15px] leading-5 font-semibold">{a.nombre}</span>
-                          <span class="text-[13px] leading-[18px] text-dm-ink-2 max-md:hidden">
-                            {numeroDe(a)} · {a.es_sumativa ? 'Sumativa' : 'Formativa'} · {a.es_grupal ? 'Grupal' : 'Individual'} · {minuscula(
-                              fechaLimiteTexto(a.fecha_limite),
-                            )}
+                          <span class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] leading-[18px] text-dm-ink-2">
+                            <span class="max-md:hidden">{numeroDe(a)} · {minuscula(fechaLimiteTexto(a.fecha_limite))}</span>
+                            <TipoActividad esSumativa={a.es_sumativa} esGrupal={a.es_grupal} />
                           </span>
                         </span>
                         <span class="{pildora} {e.marca}">{etiquetaDe(a)}</span>
-                      </Link>
+                      </a>
+                        {/snippet}
+                      </LeyendaActividad>
                     </li>
                   {/each}
                 </ul>

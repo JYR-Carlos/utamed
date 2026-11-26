@@ -2,32 +2,19 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Authorization\PermissionValidator;
+use App\Support\Permissions;
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Curso\DocenteComponente;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Middleware para validar que el usuario autenticado es Docente Componente.
- * 
- * Verifica que el usuario sea docente y tenga al menos un componente asignado.
- * Redirige a usuarios sin permiso al dashboard con mensaje de error.
+ * Middleware para validar capacidades operativas de componente (Docente Componente)
+ * mediante permisos efectivos y ficha Docente asociada.
  */
 class IsDocenteComponente
 {
-    /**
-     * Verifica que el usuario autenticado sea docente componente.
-     * 
-     * Valida que:
-     * 1. El usuario esté autenticado
-     * 2. El usuario tenga rol "Docente Componente"
-     * 3. El usuario tenga una instancia Docente asociada
-     * 
-     * Redirige a dashboard si falla la validación.
-     * 
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
         /** @var \App\Models\Usuario\Usuario|null $user */
@@ -37,9 +24,13 @@ class IsDocenteComponente
             return redirect('/login');
         }
 
-        // Validar que tenga rol "Docente Componente" y perfil Docente
-        if (!$user->hasRole('Docente Componente') || !$user->docente) {
-            return redirect('/dashboard')->with('error', 'No tienes permisos de Docente Componente. Este acceso es restringido a docentes con rol Docente Componente.');
+        $validator = app(PermissionValidator::class);
+        $tienePermisoComponente = $validator->isSuperAdmin($user)
+            || !empty($validator->getContextsFromPermission($user, Permissions::COMPONENTES_EDITAR))
+            || !empty($validator->getContextsFromPermission($user, Permissions::ACTIVIDADES_EVALUAR));
+
+        if (!$user->docente || !$tienePermisoComponente) {
+            return redirect('/dashboard')->with('error', 'No tienes permisos operativos de componente (Docente Componente).');
         }
 
         return $next($request);

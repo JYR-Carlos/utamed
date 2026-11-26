@@ -18,6 +18,7 @@ class Componente extends BaseComponente
      * componente en `porcentaje_asistencia_obligatoria`, que es la única
      * fuente: la usan el resumen de notas del alumno, la pestaña de
      * asistencia del docente y lo que precarga el asistente del syllabus.
+     * 0 es un valor válido: el componente no exige asistencia.
      */
     public const ASISTENCIA_MINIMA_POR_DEFECTO = 70.0;
 

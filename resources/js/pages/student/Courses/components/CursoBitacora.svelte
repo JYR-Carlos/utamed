@@ -211,7 +211,7 @@
                     class="absolute top-4 -left-6 size-3.5 rounded-full border-3 border-dm-pagina lg:-left-8 {t.punto}"
                   ></span>
                   <Link
-                    href={`/estudiante/cursos/${idCurso}/actividad/${e.actividad.id}${esPlazo ? '' : '?abrir=agenda'}`}
+                    href={`/estudiante/cursos/${idCurso}/actividad/${e.actividad.id}${esPlazo ? '' : `?abrir=agenda&mensaje=${e.id_agenda}`}`}
                     class="{tarjeta} flex flex-col gap-1.5 px-4 py-3.5 text-dm-ink no-underline hover:border-dm-control hover:text-dm-ink lg:px-4.5"
                   >
                     <span class="flex flex-wrap items-center gap-2">

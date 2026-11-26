@@ -148,8 +148,5 @@
         <span>Universidad acreditada por la CNA-Chile</span>
       </div>
     </div>
-    <div aria-hidden="true" class="grid h-2 grid-cols-3">
-      <span class="bg-[#DEB01F]"></span><span class="bg-[#22213F]"></span><span class="bg-[#678FCA]"></span>
-    </div>
   </footer>
 </div>

@@ -158,10 +158,20 @@ class PermissionValidator
                 // 3. Obtener contextos de URA
                 $grantedContextsURA = $this->getGrantedContextsFromRoles($user, $permission);
 
-                // 4. Combinar: (UPE + URA) - DENY
-                $allGranted = array_unique(array_merge($grantedContextsUPE, $grantedContextsURA));
+                // 4. Combinar candidatos únicos
+                $allGranted = array_values(array_unique(array_merge($grantedContextsUPE, $grantedContextsURA)));
 
-                return array_values(array_diff($allGranted, $deniedContexts));
+                if (empty($deniedContexts) || empty($allGranted)) {
+                    return $allGranted;
+                }
+
+                // Al existir al menos un DENY para patrones de este permiso, revalidar
+                // cada contexto candidato para respetar DENY heredados de ancestros y
+                // especificidad de wildcards dentro del mismo contexto.
+                return array_values(array_filter(
+                    $allGranted,
+                    fn (int $ctxId) => $this->validate($user, $permission, null, $ctxId)
+                ));
             }
         );
     }
@@ -194,8 +204,11 @@ class PermissionValidator
             ->select('id_usuario', 'id_contexto', 'id_permiso', 'slug', 'esta_permitido', 'tipo_asignacion', 'puede_delegar')
             ->where('id_usuario', $user->id_usuario);
 
+        $contextRank = null;
         if ($contextId !== null) {
-            $query->where('id_contexto', $contextId);
+            $contextIds = $this->resolveTargetContextsFromExplicit($contextId);
+            $query->whereIn('id_contexto', $contextIds);
+            $contextRank = array_flip($contextIds);
         }
 
         if ($permissionType !== null) {
@@ -221,11 +234,20 @@ class PermissionValidator
                 'tipo_asignacion' => $perm->tipo_asignacion,
                 'puede_delegar' => $perm->puede_delegar ?? false,
             ];
-        });
+        })->filter();
 
-        return $permissions->filter(
-            fn($perm) => $perm !== null
-        )->values();
+        if ($contextRank !== null) {
+            // Priorizar DENY (esta_permitido = false) antes de GRANT/ROL para evitar que
+            // un permiso concedido en hijo descarte una revocación heredada en unique().
+            $permissions = $permissions->sortBy(function ($perm) use ($contextRank) {
+                $denyRank = $perm['esta_permitido'] ? 1 : 0;
+                $rank = $contextRank[$perm['id_contexto']] ?? 999;
+                $typeRank = $perm['tipo_asignacion'] === 'especial' ? 0 : 1;
+                return $denyRank * 10000 + $rank * 10 + $typeRank;
+            })->unique(fn($perm) => $perm['slug']->value);
+        }
+
+        return $permissions->values();
     }
 
     /**
@@ -303,10 +325,7 @@ class PermissionValidator
             return [];
         }
 
-        $allConcreteCases = array_filter(
-            Permissions::cases(),
-            static fn(Permissions $p) => !WildcardMatcher::isGlobalWildcard($p) && !WildcardMatcher::isResourceWildcard($p)
-        );
+        $allConcreteCases = self::concretePermissionCases();
 
         $expanded = [];
         foreach ($allConcreteCases as $concreteCase) {
@@ -331,6 +350,390 @@ class PermissionValidator
         }
 
         return array_values(array_unique($expanded));
+    }
+
+    /**
+     * Resuelve todos los slugs concretos efectivamente permitidos para un usuario
+     * en un contexto dado, respetando herencia, wildcards, restricciones de contexto,
+     * `no-inherit` y precedencia jerárquica de `DENY`, con paridad 1-a-1 frente a {@see validate()}.
+     *
+    /**
+     * Resuelve los slugs efectivos (concretos, ya expandidos de wildcards y
+     * respetando herencia jerárquica y revocaciones) para un usuario sobre un
+     * recurso con contexto (`Curso`, `Componente`, `Actividad`, etc.) o sobre
+     * el contexto Global si `$resource` es `null`.
+     *
+     * @return string[]
+     */
+    public function resolveEffectiveSlugsFor(Usuario $user, ?HasContext $resource = null): array
+    {
+        if ($resource === null) {
+            return $this->resolveEffectiveSlugsForContext($user, $this->globalContext->getContextId());
+        }
+
+        $contextIds = $this->contextResolver->getModelContextId($resource);
+        if (empty($contextIds)) {
+            return [];
+        }
+
+        if (count($contextIds) === 1) {
+            return $this->resolveEffectiveSlugsForContext($user, (int) $contextIds[0]);
+        }
+
+        $byContext = $this->resolveEffectiveSlugsByContexts($user, $contextIds);
+
+        return $this->mergeEffectiveSlugs(array_values($byContext));
+    }
+
+    /**
+     * Versión batch de {@see resolveEffectiveSlugsFor()} para resolver múltiples
+     * recursos `HasContext` en una sola consulta sobre `vw_permisos_usuario`.
+     *
+     * Preserva las llaves del iterable (ej: `$cursos->keyBy('id_curso')` o
+     * `$componentes->keyBy('id_componente')`) para que el caller nunca manipule
+     * `id_contexto` directamente.
+     *
+     * @param iterable<int|string, HasContext> $resources
+     * @return array<int|string, string[]>
+     */
+    public function resolveEffectiveSlugsForResources(Usuario $user, iterable $resources): array
+    {
+        $contextIdsByKey = [];
+        $allContextIds = [];
+
+        foreach ($resources as $key => $resource) {
+            if (!$resource instanceof HasContext) {
+                continue;
+            }
+            $ids = $this->contextResolver->getModelContextId($resource);
+            $contextIdsByKey[$key] = $ids;
+            foreach ($ids as $cid) {
+                $allContextIds[] = (int) $cid;
+            }
+        }
+
+        if (empty($contextIdsByKey)) {
+            return [];
+        }
+
+        $slugsByContextId = !empty($allContextIds)
+            ? $this->resolveEffectiveSlugsByContexts($user, $allContextIds)
+            : [];
+
+        $result = [];
+        foreach ($contextIdsByKey as $key => $ids) {
+            if (empty($ids)) {
+                $result[$key] = [];
+            } elseif (count($ids) === 1) {
+                $result[$key] = $slugsByContextId[(int) $ids[0]] ?? [];
+            } else {
+                $lists = array_map(
+                    static fn (int $cid): array => $slugsByContextId[$cid] ?? [],
+                    array_map('intval', $ids)
+                );
+                $result[$key] = $this->mergeEffectiveSlugs($lists);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Une múltiples listas de slugs efectivos sin duplicados (preservando `['*']`).
+     *
+     * @param array<int, string[]> $slugLists
+     * @return string[]
+     */
+    protected function mergeEffectiveSlugs(array $slugLists): array
+    {
+        $merged = [];
+        foreach ($slugLists as $list) {
+            foreach ($list as $slug) {
+                if ($slug === WildcardMatcher::GLOBAL_WILDCARD) {
+                    return [WildcardMatcher::GLOBAL_WILDCARD];
+                }
+                $merged[$slug] = true;
+            }
+        }
+
+        return array_keys($merged);
+    }
+
+    /**
+     * Helper interno por `id_contexto` crudo. Los callers externos deben usar
+     * {@see resolveEffectiveSlugsFor()}.
+     *
+     * @return string[]
+     */
+    protected function resolveEffectiveSlugsForContext(Usuario $user, int $contextId): array
+    {
+        return $this->resolveEffectiveSlugsByContexts($user, [$contextId])[$contextId] ?? [];
+    }
+
+    /**
+     * Versión batch interna de {@see resolveEffectiveSlugsForContext()} para resolver
+     * múltiples contextos en una sola consulta sobre `vw_permisos_usuario`.
+     * Los callers externos deben usar {@see resolveEffectiveSlugsForResources()}.
+     *
+     * @param int[] $contextIds
+     * @return array<int, string[]>
+     */
+    protected function resolveEffectiveSlugsByContexts(Usuario $user, array $contextIds): array
+    {
+        $uniqueContextIds = array_values(array_unique(array_map('intval', $contextIds)));
+        if (empty($uniqueContextIds)) {
+            return [];
+        }
+
+        if ($this->isSuperAdmin($user)) {
+            return array_fill_keys($uniqueContextIds, [WildcardMatcher::GLOBAL_WILDCARD]);
+        }
+
+        [$globalContextId, $ancestorsByContext, $upeByContext, $uraByContext] =
+            $this->loadChainRowsForContexts($user, $uniqueContextIds);
+
+        $concretePermissions = self::concretePermissionCases();
+        $result = [];
+
+        foreach ($uniqueContextIds as $cid) {
+            $effective = [];
+            $chain = $ancestorsByContext[$cid];
+
+            foreach ($concretePermissions as $perm) {
+                if ($this->evaluateEffectivePermOnChain($perm, $cid, $globalContextId, $chain, $upeByContext, $uraByContext)) {
+                    $effective[] = $perm->value;
+                }
+            }
+
+            $result[$cid] = $effective;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Determina si un usuario puede delegar un permiso específico en un contexto dado
+     * (debe poseerlo activo sin revocaciones y con `puede_delegar = true`).
+     */
+    public function canDelegatePermission(Usuario $user, Permissions $permission, int $contextId): bool
+    {
+        $byContext = $this->resolveDelegableSlugsByContexts($user, [$contextId], [$permission]);
+
+        return in_array($permission->value, $byContext[$contextId] ?? [], true);
+    }
+
+    /**
+     * Versión batch para determinar qué permisos candidatos puede delegar el usuario
+     * en cada uno de los contextos indicados (en una sola consulta sobre `vw_permisos_usuario`).
+     *
+     * @param int[]         $contextIds
+     * @param Permissions[] $candidatePermissions
+     * @return array<int, string[]>
+     */
+    public function resolveDelegableSlugsByContexts(
+        Usuario $user,
+        array $contextIds,
+        array $candidatePermissions
+    ): array {
+        $uniqueContextIds = array_values(array_unique(array_map('intval', $contextIds)));
+        if (empty($uniqueContextIds) || empty($candidatePermissions)) {
+            return array_fill_keys($uniqueContextIds, []);
+        }
+
+        $concreteCandidates = array_values(array_filter(
+            $candidatePermissions,
+            static fn (Permissions $p) => !WildcardMatcher::isGlobalWildcard($p) && !WildcardMatcher::isResourceWildcard($p)
+        ));
+
+        if ($this->isSuperAdmin($user)) {
+            $result = [];
+            foreach ($uniqueContextIds as $cid) {
+                $chain = $this->contextResolver->getAncestorContextsWithType($cid);
+                $targetType = ($chain[0]['categoria'] ?? null) instanceof ContextType ? $chain[0]['categoria'] : null;
+                $result[$cid] = array_values(array_map(
+                    static fn (Permissions $p) => $p->value,
+                    array_filter($concreteCandidates, function (Permissions $perm) use ($targetType): bool {
+                        if ($targetType === null) {
+                            return true;
+                        }
+                        return \in_array($targetType, $this->getPermissionContextTypes($perm), true);
+                    })
+                ));
+            }
+
+            return $result;
+        }
+
+        [$globalContextId, $ancestorsByContext, $upeByContext, $uraByContext] =
+            $this->loadChainRowsForContexts($user, $uniqueContextIds);
+
+        $result = [];
+        foreach ($uniqueContextIds as $cid) {
+            $chain = $ancestorsByContext[$cid];
+            $targetType = ($chain[0]['categoria'] ?? null) instanceof ContextType ? $chain[0]['categoria'] : null;
+            $delegable = [];
+
+            foreach ($concreteCandidates as $perm) {
+                if ($this->evaluateDelegablePermOnChain($perm, $cid, $targetType, $globalContextId, $chain, $upeByContext, $uraByContext)) {
+                    $delegable[] = $perm->value;
+                }
+            }
+
+            $result[$cid] = $delegable;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Carga en una sola consulta las filas UPE y URA aplicables a los contextos indicados y su cadena ancestral.
+     *
+     * @param int[] $uniqueContextIds
+     * @return array{int, array<int, array>, array<int, array>, array<int, array>}
+     */
+    private function loadChainRowsForContexts(Usuario $user, array $uniqueContextIds): array
+    {
+        $globalContextId = $this->globalContext->getContextId();
+        $ancestorsByContext = [];
+        $allRelevantContextIds = [$globalContextId];
+
+        foreach ($uniqueContextIds as $cid) {
+            $chain = $this->contextResolver->getAncestorContextsWithType($cid);
+            $ancestorsByContext[$cid] = $chain;
+            foreach ($chain as $ctx) {
+                $allRelevantContextIds[] = (int) $ctx['id_contexto'];
+            }
+            $allRelevantContextIds[] = $cid;
+        }
+
+        $rows = DB::connection('pgsql')
+            ->table('usuario.vw_permisos_usuario')
+            ->select('id_contexto', 'slug', 'esta_permitido', 'tipo_asignacion', 'puede_delegar')
+            ->where('id_usuario', $user->id_usuario)
+            ->whereIn('id_contexto', array_values(array_unique($allRelevantContextIds)))
+            ->get();
+
+        $upeByContext = [];
+        $uraByContext = [];
+        foreach ($rows as $row) {
+            $ctxId = (int) $row->id_contexto;
+            if ($row->tipo_asignacion === self::TIPO_ESPECIAL) {
+                $upeByContext[$ctxId][] = $row;
+            } elseif ($row->tipo_asignacion === self::TIPO_ROL) {
+                $uraByContext[$ctxId][] = $row;
+            }
+        }
+
+        return [$globalContextId, $ancestorsByContext, $upeByContext, $uraByContext];
+    }
+
+    /**
+     * Evalúa si un permiso es efectivo Y delegable (`puede_delegar = true`, sin revocaciones en la cadena).
+     */
+    private function evaluateDelegablePermOnChain(
+        Permissions $perm,
+        int $explicitContextId,
+        ?ContextType $targetType,
+        int $globalContextId,
+        array $chain,
+        array $upeByContext,
+        array $uraByContext
+    ): bool {
+        $validTypes = $this->getPermissionContextTypes($perm);
+        if ($targetType !== null && !empty($validTypes) && !\in_array($targetType, $validTypes, true)) {
+            return false;
+        }
+
+        $targetContexts = $this->filterAncestorsForPermission($chain, $explicitContextId, $globalContextId, $perm);
+        if (empty($targetContexts)) {
+            return false;
+        }
+
+        $hasDelegableGrant = false;
+        $hasActiveGrant = false;
+
+        foreach ($targetContexts as $ctxId) {
+            $bestUpe = $this->bestUpeMatch($perm, $upeByContext[$ctxId] ?? []);
+            if ($bestUpe !== null) {
+                if (!(bool) $bestUpe->esta_permitido) {
+                    return false;
+                }
+                $hasActiveGrant = true;
+                if ((bool) ($bestUpe->puede_delegar ?? false)) {
+                    $hasDelegableGrant = true;
+                }
+            }
+
+            foreach ($uraByContext[$ctxId] ?? [] as $uraRow) {
+                $uraEnum = Permissions::tryFrom($uraRow->slug);
+                if ($uraEnum && WildcardMatcher::matches($perm, $uraEnum)) {
+                    $hasActiveGrant = true;
+                    if ((bool) ($uraRow->puede_delegar ?? false)) {
+                        $hasDelegableGrant = true;
+                    }
+                }
+            }
+        }
+
+        return $hasActiveGrant && $hasDelegableGrant;
+    }
+
+    /**
+     * Evalúa si un permiso concreto queda efectivo en una cadena precomputada de ancestros.
+     */
+    private function evaluateEffectivePermOnChain(
+        Permissions $perm,
+        int $explicitContextId,
+        int $globalContextId,
+        array $chain,
+        array $upeByContext,
+        array $uraByContext
+    ): bool {
+        $targetContexts = $this->filterAncestorsForPermission($chain, $explicitContextId, $globalContextId, $perm);
+        $grantedBySpecial = false;
+
+        foreach ($targetContexts as $ctxId) {
+            $upeRows = $upeByContext[$ctxId] ?? [];
+            if (empty($upeRows)) {
+                continue;
+            }
+
+            $verdict = $this->evaluateUpeRows($perm, $upeRows);
+            if ($verdict === false) {
+                return false;
+            }
+            if ($verdict === true) {
+                $grantedBySpecial = true;
+            }
+        }
+
+        if ($grantedBySpecial) {
+            return true;
+        }
+
+        foreach ($targetContexts as $ctxId) {
+            foreach ($uraByContext[$ctxId] ?? [] as $uraRow) {
+                $uraEnum = Permissions::tryFrom($uraRow->slug);
+                if ($uraEnum && WildcardMatcher::matches($perm, $uraEnum)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Retorna todos los casos concretos de {@see Permissions} excluyendo wildcards.
+     *
+     * @return Permissions[]
+     */
+    private static function concretePermissionCases(): array
+    {
+        return array_values(array_filter(
+            Permissions::cases(),
+            static fn(Permissions $p) => !WildcardMatcher::isGlobalWildcard($p) && !WildcardMatcher::isResourceWildcard($p)
+        ));
     }
 
     /**
@@ -494,24 +897,13 @@ class PermissionValidator
     protected function expandWithAncestors(array $contextIds, int $globalContextId, ?Permissions $permission = null): array
     {
         $all = [];
-        $validTypes = $permission !== null ? $this->getPermissionContextTypes($permission) : [];
-        $shouldFilterTypes = !empty($validTypes);
 
         foreach ($contextIds as $id) {
             // Obtener cadena completa con tipos de contexto desde la función SQL (tipificados como ContextType enum)
             $ancestorsWithTypes = $this->contextResolver->getAncestorContextsWithType($id);
 
-            // Filtrar por tipos válidos si el permiso especifica restricciones
-            if ($shouldFilterTypes) {
-                $ancestorsWithTypes = array_filter(
-                    $ancestorsWithTypes,
-                    fn($ctx) => \in_array($ctx['categoria'], $validTypes, true)
-                );
-            }
-
-            // Extraer solo los IDs ordenados
-            foreach ($ancestorsWithTypes as $ctx) {
-                $all[] = $ctx['id_contexto'];
+            foreach ($this->filterAncestorsForPermission($ancestorsWithTypes, (int) $id, $globalContextId, $permission) as $ctxId) {
+                $all[] = $ctxId;
             }
         }
 
@@ -521,33 +913,69 @@ class PermissionValidator
     }
 
     /**
+     * Filtra la cadena de ancestros aplicando `no-inherit` y `PermissionContextConstraints`.
+     *
+     * @param array<int, array{id_contexto: int|string, categoria: mixed}> $ancestorsWithTypes
+     * @return int[]
+     */
+    protected function filterAncestorsForPermission(
+        array $ancestorsWithTypes,
+        int $explicitContextId,
+        int $globalContextId,
+        ?Permissions $permission = null
+    ): array {
+        if ($permission !== null && $this->isNoInheritPermission($permission)) {
+            return array_values(array_unique([$explicitContextId, $globalContextId]));
+        }
+
+        $validTypes = $permission !== null ? $this->getPermissionContextTypes($permission) : [];
+        if (!empty($validTypes)) {
+            $ancestorsWithTypes = array_filter(
+                $ancestorsWithTypes,
+                fn($ctx) => \in_array($ctx['categoria'], $validTypes, true)
+            );
+        }
+
+        return array_values(array_unique(array_map(
+            static fn($ctx) => (int) $ctx['id_contexto'],
+            $ancestorsWithTypes
+        )));
+    }
+
+    /**
      * Validar permiso contra múltiples contextos.
-     * 
-     * Retorna true si el usuario tiene permiso en AL MENOS UNO de los contextos.
-     * 
+     *
+     * Regla de precedencia jerárquica:
+     * 1. Si cualquier contexto en la cadena (propio o ancestro) tiene un DENY neto en UPE,
+     *    revoca cualquier GRANT o ROL en un nivel inferior (padre > hijo para DENY).
+     * 2. Sin DENY en la cadena, evalúa de hijo a padre si existe algún GRANT en UPE o ROL en URA.
+     *
      * @param Usuario $user
      * @param Permissions $permission
-     * @param array $contextIds
+     * @param array $contextIds Contextos ordenados de más específico a más general
      * @return bool
      */
     protected function validateInAnyContext(Usuario $user, Permissions $permission, array $contextIds): bool
     {
+        $specialResults = [];
+
+        // Paso 1: barrido completo de DENY en toda la cadena antes de aceptar un GRANT/ROL hijo
         foreach ($contextIds as $contextId) {
-            // Verificar UPE para este contexto
             $specialResult = $this->checkSpecialPermission($user, $permission, $contextId);
 
             if ($specialResult === false) {
-                // DENY explícito en este contexto → revoca cualquier GRANT heredado del padre
-                // Semántica: el contexto más específico gana (hijo > padre)
                 return false;
             }
 
-            if ($specialResult === true) {
-                // GRANT explícito en UPE → autorizar inmediatamente
+            $specialResults[$contextId] = $specialResult;
+        }
+
+        // Paso 2: sin DENY en la cadena, autorizar si existe GRANT en UPE o permiso vía URA
+        foreach ($contextIds as $contextId) {
+            if (($specialResults[$contextId] ?? null) === true) {
                 return true;
             }
 
-            // No hay UPE, verificar URA
             if ($this->checkRolePermission($user, $permission, $contextId)) {
                 return true;
             }
@@ -599,13 +1027,33 @@ class PermissionValidator
             return null;
         }
 
-        // Elegir el match más específico (menor prioridad). En caso de empate gana
-        // el DENY: dos patrones igual de específicos con veredictos opuestos deben
-        // resolverse del lado seguro.
+        return $this->evaluateUpeRows($permission, $results);
+    }
+
+    /**
+     * Evalúa una colección de filas UPE contra un permiso dado aplicando especificidad
+     * de wildcards (`exacto > subrecurso:* > recurso:* > *`, empate gana DENY).
+     *
+     * @param Permissions $permission
+     * @param iterable<object> $rows
+     * @return bool|null true=GRANT, false=DENY, null=sin coincidencias aplicables
+     */
+    protected function evaluateUpeRows(Permissions $permission, iterable $rows): ?bool
+    {
+        $bestResult = $this->bestUpeMatch($permission, $rows);
+
+        return $bestResult !== null ? (bool) $bestResult->esta_permitido : null;
+    }
+
+    /**
+     * Retorna la fila UPE más específica aplicable al permiso (empate favorece DENY).
+     */
+    private function bestUpeMatch(Permissions $permission, iterable $rows): ?object
+    {
         $bestPriority = PHP_INT_MAX;
         $bestResult = null;
 
-        foreach ($results as $result) {
+        foreach ($rows as $result) {
             $castedPermission = Permissions::tryFrom($result->slug);
 
             if (!$castedPermission) {
@@ -628,12 +1076,7 @@ class PermissionValidator
             }
         }
 
-
-        if ($bestResult === null) {
-            return null;
-        }
-
-        return (bool) $bestResult->esta_permitido;
+        return $bestResult;
     }
 
     /**
@@ -727,13 +1170,13 @@ class PermissionValidator
      */
     protected function getGrantedContextsFromRoles(Usuario $user, Permissions $permission): array
     {
-        $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
+        $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
         return DB::connection('pgsql')
             ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('tipo_asignacion', self::TIPO_ROL)
-            ->whereIn('slug', [$permission->value, $resourceWildcard, $this->globalWildcard])
+            ->whereIn('slug', $patterns)
             ->pluck('id_contexto')
             ->toArray();
     }

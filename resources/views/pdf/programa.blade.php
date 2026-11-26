@@ -66,7 +66,6 @@
         }
 
         .doc-subtitle {
-            font-size: 9pt;
             color: #000;
             margin: 0;
         }
@@ -126,14 +125,17 @@
             font-weight: bold;
             color: #0f172a;
             border-bottom: 1.5px solid #0f172a;
-            padding-bottom: 3px;
+            padding: 0 0 3px 42px;
             margin: 0 0 8px 0;
             page-break-after: avoid;
+            position: relative;
         }
 
+        /* A la misma altura que el título, y los nueve títulos en la misma columna. */
         .section-num {
-            display: inline-block;
-            min-width: 24px;
+            position: absolute;
+            left: 0;
+            top: 0;
         }
 
         .kv-table {
@@ -145,14 +147,24 @@
         .kv-table td {
             padding: 4px 6px;
             border-bottom: 1px solid #e2e8f0;
-            font-size: 9pt;
             vertical-align: top;
+            text-align: justify;
         }
 
         .kv-key {
             width: 28%;
             font-weight: bold;
             color: #334155;
+        }
+
+        .kv-table td.kv-key {
+            text-align: left;
+        }
+
+        /* Desglose de las horas presenciales. */
+        .kv-table td.kv-sub {
+            padding-left: 20px;
+            font-weight: normal;
         }
 
         p {
@@ -187,6 +199,7 @@
             margin-bottom: 8px;
             padding: 7px 9px;
             background-color: #ffffff;
+            page-break-inside: avoid;
         }
 
         .unit-header {
@@ -212,9 +225,6 @@
 
         .cita {
             display: block;
-            font-style: italic;
-            font-size: 8.5pt;
-            color: #475569;
             margin-top: 2px;
         }
 
@@ -230,9 +240,7 @@
         .eval-table th {
             background-color: #f1f5f9;
             color: #334155;
-            font-size: 8pt;
             font-weight: bold;
-            text-transform: uppercase;
             text-align: left;
             padding: 6px 7px;
             border: 1px solid #cbd5e1;
@@ -240,13 +248,8 @@
 
         .eval-table td {
             padding: 5px 7px;
-            font-size: 8.5pt;
             border: 1px solid #cbd5e1;
             vertical-align: top;
-        }
-
-        .text-right {
-            text-align: right;
         }
 
         .empty-doc {
@@ -329,7 +332,7 @@
                     <table class="kv-table">
                         @foreach($seccion['campos'] ?? [] as $campo)
                             <tr>
-                                <td class="kv-key">{{ $campo['etiqueta'] }}</td>
+                                <td @class(['kv-key', 'kv-sub' => in_array($campo['etiqueta'], ['Cátedra', 'Taller', 'Laboratorio'], true)])>{{ $campo['etiqueta'] }}</td>
                                 <td>{{ $campo['valor'] }}</td>
                             </tr>
                         @endforeach
@@ -397,7 +400,7 @@
 
                 @case('planificacion_completo')
                     @if(!empty($seccion['resultados']))
-                        <div class="subtitulo">Resultados de Aprendizaje</div>
+                        <div class="subtitulo">Resultados de aprendizaje</div>
                         <ul>
                             @foreach($seccion['resultados'] as $res)
                                 <li>{{ $res }}</li>
@@ -406,11 +409,11 @@
                     @endif
                     @if(!empty($seccion['metodologia']))
                         <div class="subtitulo">Metodología</div>
-                        <p>{!! nl2br(e($seccion['metodologia'])) !!}</p>
+                        @include('pdf.programa.bloques', ['bloques' => $seccion['metodologia']])
                     @endif
                     @if(!empty($seccion['evaluacion']))
                         <div class="subtitulo">Evaluación</div>
-                        <p>{!! nl2br(e($seccion['evaluacion'])) !!}</p>
+                        @include('pdf.programa.bloques', ['bloques' => $seccion['evaluacion']])
                     @endif
                     @break
 
@@ -422,13 +425,13 @@
                                 <li>
                                     {{ $bib['referencia'] }}{{ !empty($bib['editorial']) ? '. ' . $bib['editorial'] : '' }}.
                                     @if(!empty($bib['es_bibliografia_uta']))
-                                        <span style="font:bold">Biblioteca UTA</span>
+                                        <strong>Biblioteca UTA</strong>
                                     @endif
                                     @if(!empty($bib['url']))
-                                        <br>Enlace: <a href="{{ $bib['url'] }}">{{ $bib['url'] }}</a>
+                                        <br>Enlace:&nbsp;<a href="{{ $bib['url'] }}">{{ $bib['url'] }}</a>
                                     @endif
                                     @if(!empty($bib['archivo_url']))
-                                        <br>Archivo adjunto: <a href="{{ $bib['archivo_url'] }}">{{ $bib['archivo_url'] }}</a>
+                                        <br>Archivo&nbsp;adjunto:&nbsp;<a href="{{ $bib['archivo_url'] }}">{{ $bib['archivo_url'] }}</a>
                                     @endif
                                     @if(!empty($bib['cita']))
                                         <span class="cita">«{{ $bib['cita'] }}»</span>
@@ -450,90 +453,18 @@
                     @break
 
                 @case('evaluacion')
-                    @if(!empty($seccion['descripcion']))
-                        <p>{!! nl2br(e($seccion['descripcion'])) !!}</p>
-                    @endif
-                    @if(!empty($seccion['componentes']))
-                        <table class="eval-table">
-                            <thead>
-                                <tr>
-                                    <th>Componente</th>
-                                    <th class="text-right">%</th>
-                                    <th>Genera Acta</th>
-                                    <th>Aprobación oblig.</th>
-                                    <th class="text-right">Asistencia oblig.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($seccion['componentes'] as $comp)
-                                    <tr>
-                                        <td><strong>{{ $comp['componente'] ?? '' }}</strong></td>
-                                        <td class="text-right">{{ $comp['porcentaje'] ?? 0 }}%</td>
-                                        <td>{{ !empty($comp['genera_acta']) ? 'Sí' : 'No' }}</td>
-                                        <td>{{ !empty($comp['aprobacion_obligatoria']) ? 'Sí' : 'No' }}</td>
-                                        <td class="text-right">
-                                            {{ isset($comp['asistencia_obligatoria']) && $comp['asistencia_obligatoria'] !== null ? $comp['asistencia_obligatoria'] . '%' : '—' }}
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    @endif
+                    @include('pdf.programa.bloques', ['bloques' => $seccion['descripcion'] ?? []])
+                    @include('pdf.programa.componentes')
                     @if(!empty($seccion['ponderacion_optativa']['porcentaje']))
-                        <p style="font-size: 8.5pt; color: #334155;">
+                        <p>
                             <strong>Ponderación de la prueba optativa:</strong> {{ $seccion['ponderacion_optativa']['porcentaje'] }}%
                         </p>
                     @endif
                     @break
 
                 @case('bloques')
-                    @foreach($seccion['bloques'] ?? [] as $bloque)
-                        @if($bloque['tipo'] === 'subtitulo')
-                            <div class="subtitulo">{{ $bloque['texto'] }}</div>
-                        @elseif($bloque['tipo'] === 'campo')
-                            <p><strong>{{ $bloque['etiqueta'] }}:</strong> {!! $renderizarTextoConEnlaces($bloque['valor']) !!}</p>
-                        @elseif($bloque['tipo'] === 'lista')
-                            <ul>
-                                @foreach($bloque['items'] as $item)
-                                    <li class="{{ !empty($item['anidado']) ? 'anidado' : '' }}">
-                                        {!! $renderizarTextoConEnlaces($item['texto']) !!}
-                                        @if(!empty($item['cita']))
-                                            <span class="cita">{!! $renderizarTextoConEnlaces($item['cita']) !!}</span>
-                                        @endif
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p>{!! $renderizarTextoConEnlaces($bloque['texto']) !!}</p>
-                        @endif
-                    @endforeach
-
-                    @if(!empty($seccion['componentes']))
-                        <table class="eval-table">
-                            <thead>
-                                <tr>
-                                    <th>Componente</th>
-                                    <th class="text-right">%</th>
-                                    <th>Genera Acta</th>
-                                    <th>Aprobación oblig.</th>
-                                    <th class="text-right">Asistencia oblig.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($seccion['componentes'] as $comp)
-                                    <tr>
-                                        <td><strong>{{ $comp['componente'] ?? '' }}</strong></td>
-                                        <td class="text-right">{{ $comp['porcentaje'] ?? 0 }}%</td>
-                                        <td>{{ !empty($comp['genera_acta']) ? 'Sí' : 'No' }}</td>
-                                        <td>{{ !empty($comp['aprobacion_obligatoria']) ? 'Sí' : 'No' }}</td>
-                                        <td class="text-right">
-                                            {{ isset($comp['asistencia_obligatoria']) && $comp['asistencia_obligatoria'] !== null ? $comp['asistencia_obligatoria'] . '%' : '—' }}
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    @endif
+                    @include('pdf.programa.bloques', ['bloques' => $seccion['bloques'] ?? []])
+                    @include('pdf.programa.componentes')
                     @break
             @endswitch
         </div>

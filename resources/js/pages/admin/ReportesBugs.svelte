@@ -6,7 +6,7 @@
   import Toast from '@/components/admin/Toast.svelte';
   import type { BreadcrumbItem } from '@/types';
   import {
-    Bug,
+    MessageCircleWarning,
     Download,
     Eye,
     FileText,
@@ -50,7 +50,7 @@
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/admin/dashboard' },
-    { title: 'Reportes e Incidencias', href: '/admin/reportes' },
+    { title: 'Sugerencias', href: '/admin/reportes' },
   ];
 
   let searchQuery = $state('');
@@ -107,7 +107,7 @@
     router.delete(`/admin/reportes/${encodeURIComponent(reportToDelete.id)}`, {
       preserveScroll: true,
       onSuccess: () => {
-        toast = { type: 'success', message: 'Reporte y archivos asociados eliminados correctamente.' };
+        toast = { type: 'success', message: 'Sugerencia y archivos asociados eliminados correctamente.' };
         if (selectedReport?.id === reportToDelete?.id) {
           selectedReport = null;
         }
@@ -115,7 +115,7 @@
       },
       onError: (err) => {
         const msg = Object.values(err)[0] as string;
-        toast = { type: 'error', message: msg || 'Error al eliminar el reporte.' };
+        toast = { type: 'error', message: msg || 'Error al eliminar la sugerencia.' };
       },
       onFinish: () => {
         isDeleting = false;
@@ -127,8 +127,8 @@
 <AdminLayout {breadcrumbs}>
   <div class="space-y-6">
     <PageHeader
-      title="Reportes e Incidencias"
-      subtitle="Revisa y gestiona los reportes de bugs encontrados por los usuarios de la plataforma"
+      title="Sugerencias"
+      subtitle="Revisa y gestiona las sugerencias que envían los usuarios de la plataforma"
     />
 
     {#if toast}
@@ -174,13 +174,13 @@
       {#if filteredReports.length === 0}
         <div class="flex flex-col items-center justify-center p-12 text-center">
           <div class="flex size-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-            <Bug size={24} />
+            <MessageCircleWarning size={24} />
           </div>
-          <h3 class="mt-4 text-sm font-semibold text-slate-800">No se encontraron reportes</h3>
+          <h3 class="mt-4 text-sm font-semibold text-slate-800">No se encontraron sugerencias</h3>
           <p class="mt-1 text-xs text-slate-500">
             {searchQuery
-              ? 'No hay incidencias que coincidan con los términos de búsqueda.'
-              : 'Aún no se han enviado reportes de incidencias.'}
+              ? 'No hay sugerencias que coincidan con los términos de búsqueda.'
+              : 'Aún no se han enviado sugerencias.'}
           </p>
         </div>
       {:else}
@@ -190,7 +190,7 @@
               <tr class="border-b border-slate-100 bg-slate-50/75 text-slate-600">
                 <th class="px-5 py-3 font-semibold">Fecha</th>
                 <th class="px-5 py-3 font-semibold">Usuario</th>
-                <th class="px-5 py-3 font-semibold">Incidencia</th>
+                <th class="px-5 py-3 font-semibold">Sugerencia</th>
                 <th class="px-5 py-3 font-semibold text-center">Adjuntos</th>
                 <th class="px-5 py-3 text-center font-semibold">Acciones</th>
               </tr>
@@ -219,7 +219,7 @@
                     </div>
                   </td>
 
-                  <!-- Incidencia -->
+                  <!-- Sugerencia -->
                   <td class="max-w-md px-5 py-4">
                     <div title={report.metadata.description} class="cursor-help font-semibold text-slate-900">
                       {report.metadata?.title || 'Sin título'}
@@ -279,8 +279,8 @@
                         type="button"
                         onclick={() => confirmDelete(report)}
                         class="cursor-pointer inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                        title="Eliminar reporte"
-                        aria-label="Eliminar reporte"
+                        title="Eliminar sugerencia"
+                        aria-label="Eliminar sugerencia"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -308,11 +308,11 @@
       <header class="flex items-start justify-between border-b border-slate-100 px-6 py-4">
         <div class="flex items-center gap-3">
           <div class="flex size-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-            <Bug size={18} />
+            <MessageCircleWarning size={18} />
           </div>
           <div>
             <h2 id="report-detail-title" class="text-base font-bold text-slate-900">
-              {selectedReport.metadata?.title || 'Reporte de Incidencia'}
+              {selectedReport.metadata?.title || 'Sugerencia'}
             </h2>
             <div class="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-black">
               <span>Enviado por</span>
@@ -412,7 +412,7 @@
           class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold text-red-600 transition hover:bg-red-50 hover:text-red-700"
         >
           <Trash2 size={14} />
-          <span>Eliminar reporte</span>
+          <span>Eliminar sugerencia</span>
         </button>
 
         <div class="flex items-center gap-2">
@@ -444,7 +444,7 @@
 {#if reportToDelete}
   <ConfirmationModal
     isOpen={true}
-    title="Eliminar reporte de incidencia"
+    title="Eliminar sugerencia"
     recordName={reportToDelete.metadata?.title || reportToDelete.id}
     recordMeta={[
       `Usuario: ${reportToDelete.usuario?.nombre_completo || reportToDelete.metadata?.rut_usuario || 'Anónimo'}`,
@@ -452,7 +452,7 @@
     ]}
     message="Esta acción es irreversible y eliminará el PDF compilado, los metadatos y cualquier captura de evidencia asociada."
     tone="danger"
-    confirmLabel="Eliminar reporte"
+    confirmLabel="Eliminar sugerencia"
     isLoading={isDeleting}
     onConfirm={handleDelete}
     onCancel={() => (reportToDelete = null)}

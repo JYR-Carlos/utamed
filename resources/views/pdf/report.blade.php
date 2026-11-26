@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Reporte de Incidencia - {{ $data['id'] ?? 'UTAMED' }}</title>
+    <title>Sugerencia - {{ $data['id'] ?? 'UTAMED' }}</title>
     <style>
         @page {
             margin: 25mm 20mm 20mm 20mm;
@@ -175,8 +175,8 @@
                 <img src="{{ public_path('img/utamed.webp') }}" alt="UTAMED">
             </td>
             <td class="header-title">
-                <h1>Reporte de Incidencia</h1>
-                <p>Plataforma UTAMED &bull; Sistema de Gestión de Errores</p>
+                <h1>Sugerencia</h1>
+                <p>Plataforma UTAMED</p>
             </td>
             <td class="header-meta">
                 <div><strong>Fecha de emisión:</strong> {{ isset($data['created_at']) ? \Carbon\Carbon::parse($data['created_at'])->format('d/m/Y H:i') : date('d/m/Y H:i') }}</div>
@@ -192,16 +192,16 @@
             <td class="meta-value" colspan="3"><strong>{{ $data['title'] ?? 'Sin título' }}</strong></td>
         </tr>
         <tr>
-            <td class="meta-label">Usuario Reportante</td>
+            <td class="meta-label">Enviada por</td>
             <td class="meta-value" style="width: 38%;">{{ $data['rut_usuario'] ?? 'No especificado' }}</td>
-            <td class="meta-label" style="width: 18%;">Fecha Reporte</td>
+            <td class="meta-label" style="width: 18%;">Fecha</td>
             <td class="meta-value">{{ isset($data['created_at']) ? \Carbon\Carbon::parse($data['created_at'])->format('d/m/Y H:i') : 'No especificada' }}</td>
         </tr>
     </table>
 
-    <!-- Detalle de la Incidencia -->
+    <!-- Detalle de la sugerencia -->
     <div class="section">
-        <div class="section-header">Descripción del Problema</div>
+        <div class="section-header">Descripción</div>
         <div class="section-body">{{ $data['description'] ?? 'Sin descripción detallada.' }}</div>
     </div>
 
@@ -230,7 +230,7 @@
     @endif
 
     <div class="footer">
-        Documento generado automáticamente por el sistema de incidencias de UTAMED &bull; Uso interno y confidencial
+        Documento generado automáticamente por el sistema de sugerencias de UTAMED &bull; Uso interno y confidencial
     </div>
 </body>
 </html>

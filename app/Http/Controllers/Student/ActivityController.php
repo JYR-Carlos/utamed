@@ -10,9 +10,11 @@ use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
+use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Usuario;
 use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Student\ResumenActividadesEstudiante;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -286,12 +288,66 @@ class ActivityController extends Controller
     }
 
     /**
-     * Descarga el archivo de enunciado de una actividad.
-     *
-     * Verifica que el estudiante esté inscrito en el curso y que la actividad
-     * pertenezca al mismo antes de servir el archivo.
+     * La rúbrica de una actividad, para la ventana que se abre al lado de su
+     * nombre. Evaluada, la que usó el docente con lo que marcó; si no, la
+     * vigente: el mismo criterio de show().
      */
-    public function descargarEnunciado(Curso $curso, Actividad $actividad)
+    public function rubrica(Curso $curso, Actividad $actividad): JsonResponse
+    {
+        $estudiante = $this->estudianteInscrito($curso, $actividad);
+
+        if (!$actividad->visible) {
+            abort(403, 'Esta actividad no está disponible.');
+        }
+
+        // La rúbrica es cosa de las sumativas.
+        if ($actividad->tipo_actividad !== TipoActividad::SUMATIVA) {
+            abort(404, 'Esta actividad no tiene rúbrica.');
+        }
+
+        $integrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
+            ->whereHas('actividadAsignadaGrupo', fn ($q) => $q->where('id_actividad', $actividad->id_actividad))
+            ->with('actividadAsignadaGrupo')
+            ->first();
+        $grupo = $integrante?->actividadAsignadaGrupo;
+
+        $agenda = $grupo
+            ? Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
+                ->whereHas('evaluacion')
+                ->with(['usuario', 'evaluacion.rubrica'])
+                ->orderByDesc('fecha_envio')
+                ->first()
+            : null;
+        $evaluacion = $agenda?->evaluacion;
+
+        $rubrica = $evaluacion?->rubrica
+            ?? Rubrica::where('id_actividad', $actividad->id_actividad)->orderByDesc('id_rubrica')->first();
+
+        if (!$rubrica) {
+            abort(404, 'Esta actividad no tiene rúbrica.');
+        }
+
+        $nota = $integrante?->nota_individual ?? $grupo?->nota;
+
+        return response()->json([
+            'rubrica'           => $rubrica->rubrica,
+            'resultado'         => $evaluacion?->resultado,
+            'puntaje_obtenido'  => $evaluacion?->puntaje_obtenido,
+            'nota'              => $evaluacion && $nota !== null ? (float) $nota : null,
+            'exigencia'         => (int) ($actividad->exigencia ?? 60),
+            'evaluador'         => $agenda?->usuario
+                ? trim("{$agenda->usuario->nombre1} {$agenda->usuario->apellido1}")
+                : null,
+            'fecha'             => $agenda ? (string) $agenda->fecha_envio : null,
+            'retroalimentacion' => $agenda?->mensaje,
+        ]);
+    }
+
+    /**
+     * El estudiante que pide, inscrito en el curso; la actividad tiene que ser
+     * de ese curso.
+     */
+    private function estudianteInscrito(Curso $curso, Actividad $actividad): Estudiante
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -300,12 +356,10 @@ class ActivityController extends Controller
             abort(403, 'Solo los estudiantes pueden acceder a este recurso.');
         }
 
-        $estudiante = $user->estudiante;
-
-        $inscrito = $estudiante->inscripcionCursos()
+        $inscrito = $user->estudiante->inscripcionCursos()
             ->where('id_curso', $curso->id_curso)
             ->where('estado_inscripcion', 'INSCRITO')
-            ->first();
+            ->exists();
 
         if (!$inscrito) {
             abort(403, 'No estás inscrito en este curso.');
@@ -316,6 +370,19 @@ class ActivityController extends Controller
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
         }
+
+        return $user->estudiante;
+    }
+
+    /**
+     * Descarga el archivo de enunciado de una actividad.
+     *
+     * Verifica que el estudiante esté inscrito en el curso y que la actividad
+     * pertenezca al mismo antes de servir el archivo.
+     */
+    public function descargarEnunciado(Curso $curso, Actividad $actividad)
+    {
+        $this->estudianteInscrito($curso, $actividad);
 
         $actividad->load('archivo');
 

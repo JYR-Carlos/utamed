@@ -11,6 +11,7 @@
   import type { BloqueSyllabus } from '@/modules/resources/programa/utils/syllabusTexto';
   import { bloquesDeSeccion, textoDeSeccion } from '@/modules/resources/programa/utils/syllabusTexto';
   import {
+    asistenciaMinima,
     agruparPorUnidad,
     gruposDeRecursos,
     itemsDeEnumeracion,
@@ -154,7 +155,7 @@
           <span
             ><span class="text-dm-ink-2 md:sr-only">Aprobación por separado:{' '}</span>{c.aprobacion_obligatoria ? 'Sí' : 'No'}</span
           >
-          <span><span class="text-dm-ink-2 md:sr-only">Asistencia mínima:{' '}</span>{porcentaje(c.asistencia_obligatoria)}</span>
+          <span><span class="text-dm-ink-2 md:sr-only">Asistencia mínima:{' '}</span>{asistenciaMinima(c.asistencia_obligatoria)}</span>
         </div>
       {/each}
     </div>

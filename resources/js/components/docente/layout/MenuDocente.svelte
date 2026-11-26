@@ -9,7 +9,7 @@
    * abierto despliega debajo sus seis secciones (las mismas pestañas de su
    * cabecera).
    * Lo usan la columna de escritorio y el panel desplegable del teléfono;
-   * en el teléfono suma el cambio de rol y «Reportar error», que en
+   * en el teléfono suma el cambio de rol y «Sugerencias», que en
    * escritorio están en la barra superior.
    */
   import { Link, page } from '@inertiajs/svelte';
@@ -173,7 +173,7 @@
 
   <div class="mt-auto flex flex-col gap-2 border-t border-inst-linea pt-2">
     {#if movil}
-      <IssueReport etiqueta="Sugerencias" class="min-h-11 w-full justify-start gap-3 rounded-md border-0 bg-transparent px-3 text-sm font-medium text-inst-ink hover:bg-inst-sutil max-sm:size-auto max-sm:px-3 [&>span]:inline" />
+      <IssueReport class="min-h-11 w-full justify-start gap-3 rounded-md border-0 bg-transparent px-3 text-sm font-medium text-inst-ink hover:bg-inst-sutil max-sm:size-auto max-sm:px-3 [&>span]:inline" />
     {/if}
     <div class="flex items-center gap-1">
       <Link

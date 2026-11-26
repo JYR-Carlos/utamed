@@ -32,6 +32,7 @@
   import { ConfirmDialog } from '@/components/custom/common';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaAlumno from './Agenda/RubricaAlumno.svelte';
+  import RubricaModal from './Agenda/RubricaModal.svelte';
   import Entrega from './Agenda/Entrega.svelte';
   import Enunciado from './Agenda/Enunciado.svelte';
   import ActividadEncabezado, { type PestanaActividad } from './components/ActividadEncabezado.svelte';
@@ -150,6 +151,7 @@
   let showAgendaModal = $state(false);
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
+  let showRubricaModal = $state(false);
   let mensajesOptimistas = $state<InteraccionItem[]>([]);
   // Abrió la agenda en esta visita: lo «Nuevo» ya lo vio.
   let agendaVista = $state(false);
@@ -208,9 +210,13 @@
   });
 
   // Desde el dashboard («Notas y retroalimentaciones recientes») se llega con
-  // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación.
+  // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación; desde
+  // el Historial del curso, con &mensaje= para abrirla en ese mensaje.
+  let mensajePedido = $state<number | null>(null);
   onMount(() => {
-    const abrir = new URLSearchParams(window.location.search).get('abrir');
+    const parametros = new URLSearchParams(window.location.search);
+    const abrir = parametros.get('abrir');
+    mensajePedido = Number(parametros.get('mensaje')) || null;
     if (abrir === 'agenda' || window.location.hash === '#agenda') {
       showAgendaModal = true;
     }
@@ -269,16 +275,9 @@
         : `Grupal · ${resto_integrantes.length + 1} integrantes`
       : 'Individual',
   );
-  // «Actividad sumativa · individual · Taller»: el tipo define si hay nota y tiene que leerse sin esfuerzo.
-  const tipoActividad = $derived(
-    [
-      `Actividad ${es_sumativa ? 'sumativa' : 'formativa'}`,
-      modalidad.toLowerCase(),
-      componente_tipo,
-      entrega_obligatoria ? null : 'sin entrega',
-    ]
-      .filter(Boolean)
-      .join(' · '),
+  // «Individual · Taller»: lo que acompaña al tipo en la cabecera.
+  const modalidadCompleta = $derived(
+    [modalidad, componente_tipo, entrega_obligatoria ? null : 'sin entrega'].filter(Boolean).join(' · '),
   );
 
   // El grupo completo, con el alumno primero.
@@ -400,6 +399,7 @@
     const url = new URL($page.url, window.location.origin);
     url.searchParams.set('seccion', nueva);
     url.searchParams.delete('abrir');
+    url.searchParams.delete('mensaje');
     // Visita sólo de cliente: cambia la URL sin pedir nada al servidor.
     router.push({ url: `${url.pathname}${url.search}`, preserveState: true, preserveScroll: true });
   }
@@ -431,8 +431,15 @@
     escribirAlAbrir = true;
     showAgendaModal = true;
   }
+  // Cerrada, se olvida cómo se abrió: la próxima vez va al último mensaje.
+  function alCerrarAgenda() {
+    escribirAlAbrir = false;
+    mensajePedido = null;
+  }
+  let agendaAbierta = false;
   $effect(() => {
-    if (!showAgendaModal) escribirAlAbrir = false;
+    if (agendaAbierta && !showAgendaModal) alCerrarAgenda();
+    agendaAbierta = showAgendaModal;
   });
   const abrirEntrega = () => (showEntregaModal = true);
   const abrirEnunciado = () => (showEnunciadoModal = true);
@@ -694,12 +701,15 @@
         codigo={cod_asignatura ?? ''}
         nombreCurso={nombre_curso}
         nombre={nombre_actividad}
-        tipo={tipoActividad}
+        esSumativa={es_sumativa}
+        esGrupal={es_grupal}
+        modalidad={modalidadCompleta}
         {destacado}
         {pestanas}
         seleccion={seccion}
         panel="panel-actividad"
         onCambiar={alElegirPestana}
+        onVerRubrica={conRubrica ? () => (showRubricaModal = true) : undefined}
       />
 
       <div
@@ -816,6 +826,7 @@
     listado_interacciones={interaccionesCombinadas}
     esGrupal={es_grupal}
     entregaPendiente={estaPorEntregar}
+    irAMensaje={mensajePedido}
     onEnviar={(mensaje) => handleGuardarEntrada({ tipo: 'Consulta', mensaje })}
     onVerRubrica={verRubricaDesdeAgenda}
   />
@@ -850,6 +861,17 @@
       }}
     />
   </ModalAlumno>
+{/if}
+
+{#if conRubrica}
+  <RubricaModal
+    bind:open={showRubricaModal}
+    idCurso={id_curso}
+    idActividad={cod_actividad}
+    nombre={nombre_actividad}
+    curso={nombre_curso}
+    estilo={colorCurso}
+  />
 {/if}
 
 {#if archivo_enunciado}

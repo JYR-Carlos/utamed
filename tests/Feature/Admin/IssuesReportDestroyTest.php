@@ -66,7 +66,7 @@ test('destruye correctamente pdf, metadatos y evidencias de un reporte existente
     expect(Storage::disk('local')->exists($pdfPath))->toBeFalse();
     expect(Storage::disk('local')->exists($metaPath))->toBeFalse();
     expect(Storage::disk('local')->exists($evidencePath))->toBeFalse();
-    expect(session('success'))->toBe('Reporte eliminado con éxito');
+    expect(session('success'))->toBe('Sugerencia eliminada con éxito');
 });
 
 test('destruye reporte cuando el id incluye el sufijo _report.pdf', function () {
@@ -130,7 +130,7 @@ test('ruta DELETE admin/reportes/{id} funciona con usuario admin autenticado', f
         ->delete(route('admin.reports.destroy', ['id' => $reportId]));
 
     $response->assertRedirect(route('admin.reports.index'));
-    $response->assertSessionHas('success', 'Reporte eliminado con éxito');
+    $response->assertSessionHas('success', 'Sugerencia eliminada con éxito');
 
     expect(Storage::disk('local')->exists($pdfPath))->toBeFalse();
     expect(Storage::disk('local')->exists($metaPath))->toBeFalse();

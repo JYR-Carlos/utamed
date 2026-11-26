@@ -79,7 +79,7 @@
   </Link>
 
   <div class="ml-auto flex items-center gap-2.5">
-    <IssueReport etiqueta="Sugerencias" class="{botonBarra} max-lg:hidden" />
+    <IssueReport class="{botonBarra} max-lg:hidden" />
 
     {#if ambientes.length > 1}
       <DropdownMenu>

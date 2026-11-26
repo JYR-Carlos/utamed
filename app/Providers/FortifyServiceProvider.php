@@ -70,10 +70,7 @@ class FortifyServiceProvider extends ServiceProvider
             ]);
 
             try {
-                $user = \App\Models\Usuario\Usuario::whereRaw(
-                    "UPPER(REPLACE(REPLACE(rut, '.', ''), '-', '')) = ?",
-                    [$normalizedInput]
-                )->first();
+                $user = \App\Models\Usuario\Usuario::porRut($rutInput);
 
                 if (!$user) {
                     Log::channel('single')->warning('[LOGIN] Usuario no encontrado', ['rut_normalized' => $normalizedInput]);
@@ -149,13 +146,23 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
+        // Vigencia y pausa del enlace salen de la configuración del broker,
+        // para que los textos de las pantallas no repitan los números.
+        $broker = fn () => config('auth.passwords.' . config('fortify.passwords'));
+
         Fortify::resetPasswordView(fn(Request $request) => Inertia::render('auth/ResetPassword', [
             'email' => $request->email,
             'token' => $request->route('token'),
+            'vigenciaMinutos' => (int) $broker()['expire'],
         ]));
 
         Fortify::requestPasswordResetLinkView(fn(Request $request) => Inertia::render('auth/ForgotPassword', [
-            'status' => $request->session()->get('status'),
+            // El correo al que salió el enlace (con una parte oculta) o por qué
+            // no salió: ver Auth\PasswordResetLinkController.
+            'enviadoA' => $request->session()->get('recuperarEnviado'),
+            'aviso' => $request->session()->get('recuperarAviso'),
+            'esperaReenvio' => (int) $broker()['throttle'],
+            'vigenciaMinutos' => (int) $broker()['expire'],
         ]));
 
         Fortify::verifyEmailView(fn(Request $request) => Inertia::render('auth/VerifyEmail', [

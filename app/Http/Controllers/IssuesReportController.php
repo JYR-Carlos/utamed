@@ -178,7 +178,7 @@ class IssuesReportController extends Controller
         $pdfRelativePath = "{$baseFolder}{$timestampReporte}_{$user->rut}_report.pdf";
         Storage::disk('local')->put($pdfRelativePath, $pdf->output());
 
-        return redirect()->back()->with('success', 'Reporte creado con éxito');
+        return redirect()->back()->with('success', 'Sugerencia enviada con éxito');
     }
 
     public function downloadPdf(string $id, ?string $filename = null)
@@ -220,7 +220,7 @@ class IssuesReportController extends Controller
         $cleanId = basename($id);
 
         if (empty($cleanId) || $cleanId === '.' || $cleanId === '..') {
-            abort(404, 'Reporte no encontrado');
+            abort(404, 'Sugerencia no encontrada');
         }
 
         $baseId = preg_replace('/(_report\.pdf|_metadata\.json)$/', '', $cleanId);
@@ -264,11 +264,11 @@ class IssuesReportController extends Controller
         $filesToDelete = array_values(array_unique($filesToDelete));
 
         if (empty($filesToDelete)) {
-            abort(404, 'Reporte no encontrado');
+            abort(404, 'Sugerencia no encontrada');
         }
 
         Storage::disk('local')->delete($filesToDelete);
 
-        return redirect()->back()->with('success', 'Reporte eliminado con éxito');
+        return redirect()->back()->with('success', 'Sugerencia eliminada con éxito');
     }
 }

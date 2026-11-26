@@ -15,7 +15,9 @@ use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Services\Authorization\GlobalContextService;
+use App\Services\Authorization\PermissionValidator;
 use App\Services\FotoIntranetService;
+use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -86,10 +88,10 @@ class DocenteCursoController extends Controller
                 $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
                 $userPermissions = $esTitular
                     ? [] // El titular no necesita permisos explícitos — tiene acceso completo
-                    : ($allPermsGrouped->get($curso->id_contexto) ?? collect([]))
+                    : collect($user->getAllPermissions($curso->id_contexto))
                         ->map(fn($perm) => [
                             'id_permiso'    => $perm['id_permiso'],
-                            'slug'          => $perm['slug'],
+                            'slug'          => $perm['slug'] instanceof \BackedEnum ? $perm['slug']->value : (string) $perm['slug'],
                             'esta_permitido' => (bool) $perm['esta_permitido'],
                         ])
                         ->values()
@@ -257,7 +259,7 @@ class DocenteCursoController extends Controller
         $misComponentesData = $misComponentes->map(fn ($c) => [
             'id_componente'   => $c->id_componente,
             'tipo_componente' => $c->tipoComponente->tipo ?? 'N/A',
-            'es_titular'      => $c->docenteComponentes->first()?->es_titular ?? false,
+            'es_titular'      => (bool) ($c->docenteComponentes->firstWhere('id_docente', $idDocente)?->es_titular ?? false),
             'total_docentes'  => $c->docenteComponentes->count(),
             'total_estudiantes' => $misEstudiantes->where('id_componente', $c->id_componente)->count(),
             'total_sesiones'  => (int) ($sesionesPorComponente[$c->id_componente] ?? 0),
@@ -302,18 +304,29 @@ class DocenteCursoController extends Controller
 
         }
 
-        // Permisos granulares del docente en el contexto de este curso
-        $userPermissions = $esTitularCurso
-            ? [] // El titular tiene acceso completo — no necesita permisos explícitos
-            : collect($user->getAllPermissions($curso->id_contexto))
-                ->map(fn($perm) => [
-                    'id_permiso'    => $perm['id_permiso'],
-                    'slug'          => $perm['slug'],
-                    'esta_permitido' => (bool) $perm['esta_permitido'],
-                ])
-                ->values()
-                ->all();
+        // Permisos efectivos del docente en el contexto del curso y por cada componente asignado
+        $permissionValidator = app(\App\Services\Authorization\PermissionValidator::class);
+        $userPermissions = $permissionValidator->resolveEffectiveSlugsFor($user, $curso);
+        $userPermissionsByComponent = $permissionValidator->resolveEffectiveSlugsForResources(
+            $user,
+            $misComponentes->keyBy('id_componente')
+        );
 
+        $delegableCheckContextos = array_values(array_filter(array_merge(
+            [$curso->id_contexto],
+            $misComponentes->pluck('id_contexto')->all()
+        )));
+        $puedeDelegarPermisos = $user->can('manageTeam', $curso)
+            || !empty(array_filter(app(PermissionValidator::class)->resolveDelegableSlugsByContexts(
+                $user,
+                $delegableCheckContextos,
+                [
+                    Permissions::ACTIVIDADES_VER,
+                    Permissions::ACTIVIDADES_EVALUAR,
+                    Permissions::COMPONENTES_EDITAR,
+                    Permissions::COMPONENTES_ASISTENCIA_VER,
+                ]
+            )));
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
                 'id_curso' => $curso->id_curso,
@@ -329,11 +342,13 @@ class DocenteCursoController extends Controller
                 'es_plantilla' => $curso->es_plantilla,
                 'tiene_programa' => $tienePrograma,
                 'es_titular_curso' => $esTitularCurso,
+                'puede_delegar' => $puedeDelegarPermisos,
                 'id_docente_titular' => $curso->id_docente_titular,
                 // Permite marcar «tú» en el mapa de componentes sin volver a
                 // consultar quién es el docente autenticado.
                 'id_docente_actual' => $idDocente,
                 'userPermissions' => $userPermissions,
+                'userPermissionsByComponent' => $userPermissionsByComponent,
                 'asignatura' => [
                     'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
@@ -537,11 +552,7 @@ class DocenteCursoController extends Controller
             ->values()
             ->all();
 
-        $user = Auth::user();
-        $puedeEditar = $programa && $user instanceof Usuario
-            ? ($user->can('create', [Programa::class, $curso])
-                && \App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII'))
-            : false;
+        $puedeEditar = $programa !== null && (Auth::user()?->can('editarBibliografia', $curso) ?? false);
 
         return Inertia::render('docente/Biblioteca', [
             'curso' => [
@@ -561,9 +572,16 @@ class DocenteCursoController extends Controller
     /**
      * Agrega una nueva bibliografía desde la pestaña «Biblioteca», escribiendo
      * de forma sincronizada en la tabla `bibliografia` y en `programa.data_syllabus` (sección VIII).
+     *
+     * La Biblioteca es material vivo (decisión del 25-11-2026): se le suman
+     * recursos aunque el programa esté aprobado, y el alumno los ve de
+     * inmediato. Por eso no pasa por `Programa::asegurarEditable()`, que sigue
+     * sellando el resto del syllabus aprobado (SEC-01).
      */
     public function storeBibliografia(Request $request, Curso $curso)
     {
+        $this->authorize('editarBibliografia', $curso);
+
         $programa = Programa::where('id_curso', $curso->id_curso)
             ->where('es_actual', true)
             ->first();
@@ -572,13 +590,6 @@ class DocenteCursoController extends Controller
             return redirect()->back()->withErrors([
                 'bibliografia' => 'El curso no tiene un programa vigente para asociar bibliografía.',
             ]);
-        }
-
-        $this->authorize('create', [Programa::class, $curso]);
-
-        $user = Auth::user();
-        if (!$user instanceof Usuario || !\App\Services\SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, 'VIII')) {
-            abort(403, 'No tienes permiso para editar la sección VIII.');
         }
 
         $validated = $request->validate([

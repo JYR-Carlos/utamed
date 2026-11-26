@@ -6,6 +6,8 @@ export interface ActividadAlumno {
     id_actividad: number;
     nombre: string;
     es_sumativa: boolean;
+    /** Tiene una rúbrica que leer (sólo las sumativas). */
+    con_rubrica?: boolean;
     con_entrega: boolean;
     es_grupal: boolean;
     max_integrantes: number;

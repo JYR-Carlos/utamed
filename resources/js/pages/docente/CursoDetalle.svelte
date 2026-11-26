@@ -15,7 +15,7 @@
   import { ArrowLeft, Search, UserCheck } from 'lucide-svelte';
   import CursoDocenteLayout from '@/layouts/CursoDocenteLayout.svelte';
   import { btnSecundario, campo, chip, cuerpo, tarjeta, tarjetaCabecera, titulo, tono } from '@/lib/inst';
-  import type { Permission } from '@/types/permissions/permissions';
+  import type { PermissionItem } from '@/services/permissionValidator';
   import type { SidebarCourse } from '@/types';
   import EstudianteDetalleModal from './components/EstudianteDetalleModal.svelte';
   import AsistenciaPanel from './components/AsistenciaPanel.svelte';
@@ -51,7 +51,9 @@
     id_curso: number;
     nombre: string;
     es_titular_curso: boolean;
-    userPermissions?: Permission[];
+    puede_delegar?: boolean;
+    userPermissions?: PermissionItem[];
+    userPermissionsByComponent?: Record<number, string[]>;
   }
 
   interface Props {
@@ -88,10 +90,17 @@
 
   $effect.pre(() => {
     if (componenteActivo === null && mis_componentes.length > 0) {
-      // Se abre en el primer componente con inscritos: abrir en uno vacío
-      // (p. ej. Cátedra sin alumnos) escondía a los estudiantes.
-      const conEstudiantes = mis_componentes.find((c) => c.total_estudiantes > 0);
-      componenteActivo = (conEstudiantes ?? mis_componentes[0]).id_componente;
+      const query = $page.url.split('?')[1] ?? '';
+      const compParam = Number(new URLSearchParams(query).get('componente'));
+      const desdeUrl = compParam ? mis_componentes.find((c) => c.id_componente === compParam) : null;
+      if (desdeUrl) {
+        componenteActivo = desdeUrl.id_componente;
+      } else {
+        // Se abre en el primer componente con inscritos: abrir en uno vacío
+        // (p. ej. Cátedra sin alumnos) escondía a los estudiantes.
+        const conEstudiantes = mis_componentes.find((c) => c.total_estudiantes > 0);
+        componenteActivo = (conEstudiantes ?? mis_componentes[0]).id_componente;
+      }
     }
   });
 

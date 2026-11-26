@@ -8,10 +8,11 @@
     actividades_evaluadas: number;
     ponderacion_evaluada: number | null;
     asistencia: { presentes: number; total: number; porcentaje: number | null };
-    /** La del componente: la misma que el alumno lee en el programa. */
+    /** La del componente, la misma del programa; 0 es que no exige asistencia. */
     asistencia_minima: number;
     syllabus: { porcentaje: number | null; aprobacion_obligatoria: boolean };
-    exigencia: number | null;
+    /** % del puntaje que da el 4,0 en el componente; 0 es sin mínimo. */
+    aprobacion_minima: number;
   }
 
   export interface Rendimiento {
@@ -111,7 +112,8 @@
           {#each rendimiento.componentes as c (c.id_componente)}
             {@const asis = c.asistencia.porcentaje}
             {@const minimo = c.asistencia_minima}
-            {@const bajo = asis != null && asis < minimo}
+            {@const exige = minimo > 0}
+            {@const bajo = exige && asis != null && asis < minimo}
             <article class="{tarjeta} flex min-w-0 flex-col overflow-hidden">
               <div class="flex items-center justify-between gap-3 border-b border-dm-linea px-5 py-4 lg:px-6">
                 <h4 class="font-dm-cond text-2xl leading-7 font-extrabold uppercase">{c.tipo}</h4>
@@ -137,23 +139,24 @@
                   </dd>
                 </div>
                 <div class="flex flex-col gap-0.5">
-                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Aprobación</dt>
+                  <dt class="text-[13px] leading-[18px] text-dm-ink-2">Aprobación mínima</dt>
                   <dd class="m-0 text-[15px] leading-[22px] font-semibold">
-                    {c.syllabus.aprobacion_obligatoria ? 'Obligatoria por separado' : 'No obligatoria por separado'}{c.exigencia !=
-                    null
-                      ? ` · exigencia ${c.exigencia} %`
-                      : ''}
+                    {c.aprobacion_minima > 0 ? `${c.aprobacion_minima} %` : 'Sin mínimo'} · {c.syllabus.aprobacion_obligatoria
+                      ? 'obligatoria por separado'
+                      : 'no obligatoria por separado'}
                   </dd>
                 </div>
               </dl>
 
-              <!-- Asistencia contra el mínimo: barra con el mínimo marcado y su rótulo. -->
+              <!-- Asistencia contra el mínimo, marcado en la barra; si el componente no la exige, se dice. -->
               <div class="mt-auto flex flex-col gap-2.5 border-t border-dm-linea bg-dm-sutil px-5 pt-4 pb-5 lg:px-6">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <span class="text-sm font-bold">
                     Asistencia <span class="tabular-nums">{asis != null ? `${asis} %` : '· sin registro'}</span>
                   </span>
-                  {#if asis != null}
+                  {#if !exige}
+                    <span class="{pildora} {tono.neutro}">No obligatoria</span>
+                  {:else if asis != null}
                     <span class="{pildora} {bajo ? tono.warn : tono.ok}">
                       {#if bajo}<CircleAlert size={14} aria-hidden="true" />Bajo el mínimo ({minimo} %){:else}<CircleCheck
                           size={14}
@@ -164,18 +167,24 @@
                 </div>
                 <div
                   role="img"
-                  aria-label={asis != null ? `Asistencia ${asis} %, mínimo ${minimo} %` : `Sin registro de asistencia, mínimo ${minimo} %`}
+                  aria-label="{asis != null ? `Asistencia ${asis} %` : 'Sin registro de asistencia'}, {exige
+                    ? `mínimo ${minimo} %`
+                    : 'no obligatoria'}"
                   class="relative h-2.5 rounded-full border border-dm-linea bg-dm-tarjeta"
                 >
                   <span
                     class="absolute inset-y-0 left-0 rounded-full {bajo ? 'bg-dm-warn' : 'bg-(--curso)'}"
                     style="width: {Math.min(asis ?? 0, 100)}%"
                   ></span>
-                  <span class="absolute -top-1.5 -bottom-1.5 w-0.5 bg-dm-ink" style="left: {minimo}%"></span>
+                  {#if exige}
+                    <span class="absolute -top-1.5 -bottom-1.5 w-0.5 bg-dm-ink" style="left: {minimo}%"></span>
+                  {/if}
                 </div>
                 <div aria-hidden="true" class="relative h-4.5 text-[13px] leading-[18px] text-dm-ink-3 tabular-nums">
                   <span class="absolute left-0">0 %</span>
-                  <span class="absolute -translate-x-1/2 font-bold text-dm-ink-2" style="left: {minimo}%">mínimo</span>
+                  {#if exige}
+                    <span class="absolute -translate-x-1/2 font-bold text-dm-ink-2" style="left: {minimo}%">mínimo</span>
+                  {/if}
                   <span class="absolute right-0">100 %</span>
                 </div>
                 <span class="text-[13px] leading-[18px] text-dm-ink-2">

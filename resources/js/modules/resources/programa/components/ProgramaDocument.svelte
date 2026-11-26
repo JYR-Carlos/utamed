@@ -42,6 +42,12 @@
   // El alumno lee el programa con sus propios componentes (pages/student/Courses).
   let { secciones, pendientes = [], actions }: Props = $props();
 
+  /** 0 es que el componente no exige asistencia. */
+  function asistenciaObligatoria(v: number | string | null | undefined): string {
+    if (v === null || v === undefined) return '—';
+    return Number(v) === 0 ? 'No' : `${v}%`;
+  }
+
   const contenidoDe = (s: Seccion) => textoDeSeccion(s.contenidos ?? s.contenidos_programa);
 
   /** Sólo se dibujan las secciones con contenido; las vacías van a «pendientes». */
@@ -63,7 +69,7 @@
         href={seg.href}
         target="_blank"
         rel="noopener noreferrer"
-        class="font-medium text-navy underline hover:text-navy-2"
+        class="text-[15px] text-navy underline hover:text-navy-2"
       >
         Ver archivo
       </a>
@@ -72,7 +78,7 @@
         href={seg.href}
         target="_blank"
         rel="noopener noreferrer"
-        class="text-navy underline hover:text-navy-2 break-all"
+        class="text-[15px] text-navy underline hover:text-navy-2 break-all"
       >
         {seg.texto}
       </a>
@@ -134,7 +140,7 @@
                 >
                   <span>{@render renderizarTexto(item.texto)}</span>
                   {#if item.cita}
-                    <span class="block mt-0.5 italic text-ink-2">
+                    <span class="mt-0.5 block text-ink-2">
                       {@render renderizarTexto(item.cita)}
                     </span>
                   {/if}
@@ -159,7 +165,7 @@
                 { etiqueta: 'Ponderación', valor: `${comp.porcentaje}%` },
                 { etiqueta: 'Genera acta', valor: comp.genera_acta ? 'Sí' : 'No' },
                 { etiqueta: 'Aprobación oblig.', valor: comp.aprobacion_obligatoria ? 'Sí' : 'No' },
-                { etiqueta: 'Asistencia oblig.', valor: comp.asistencia_obligatoria != null ? `${comp.asistencia_obligatoria}%` : '—' },
+                { etiqueta: 'Asistencia oblig.', valor: asistenciaObligatoria(comp.asistencia_obligatoria) },
               ] as fila (fila.etiqueta)}
                 <div class="flex items-center justify-between border-t border-slate-200 py-2.5 text-[15px]">
                   <span class="font-medium text-slate-600">{fila.etiqueta}</span>
@@ -174,23 +180,23 @@
             <thead>
               <tr class="bg-stone-50">
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Componente</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >%</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Acta</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Aprobación oblig.</th
                 >
                 <th
-                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-ink-2 uppercase"
+                  class="px-3.5 py-2.5 text-left font-semibold"
                   >Asistencia oblig.</th
                 >
               </tr>
@@ -205,7 +211,7 @@
                     >{comp.aprobacion_obligatoria ? 'Sí' : 'No'}</td
                   >
                   <td class="px-3.5 py-2.5 tabular-nums text-ink-2">
-                    {comp.asistencia_obligatoria != null ? `${comp.asistencia_obligatoria}%` : '—'}
+                    {asistenciaObligatoria(comp.asistencia_obligatoria)}
                   </td>
                 </tr>
               {/each}
